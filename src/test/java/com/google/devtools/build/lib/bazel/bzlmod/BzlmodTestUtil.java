@@ -45,8 +45,6 @@ public final class BzlmodTestUtil {
     }
   }
 
-
-
   public static Module.Builder buildModule(String name, String version) throws Exception {
     return Module.builder()
         .setName(name)
@@ -85,15 +83,11 @@ public final class BzlmodTestUtil {
       return this;
     }
 
-
-
     @CanIgnoreReturnValue
     public InterimModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
       originalDeps.put(depRepoName, key);
       return this;
     }
-
-
 
     @CanIgnoreReturnValue
     public InterimModuleBuilder addNodepDep(ModuleKey key) {
@@ -116,7 +110,7 @@ public final class BzlmodTestUtil {
 
     @CanIgnoreReturnValue
     public InterimModuleBuilder setRegistry(FakeRegistry value) {
-      this.builder.setRegistry(value);
+      this.builder.setRegistryUrl(value.getUrl());
       return this;
     }
 

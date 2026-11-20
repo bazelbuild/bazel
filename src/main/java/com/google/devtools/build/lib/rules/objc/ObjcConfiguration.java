@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -35,17 +34,7 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 @RequiresOptions(options = {ObjcCommandLineOptions.class})
 public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi {
-  @VisibleForTesting
-  static final ImmutableList<String> DBG_COPTS =
-      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
-
-  @VisibleForTesting
-  static final ImmutableList<String> OPT_COPTS =
-      ImmutableList.of(
-          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
-
   private final CompilationMode compilationMode;
-  private final boolean deviceDebugEntitlements;
   private final boolean disallowSdkFrameworksAttributes;
   private final boolean alwayslinkByDefault;
   private final boolean stripExecutableSafely;
@@ -58,7 +47,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
     this.compilationMode =
         Preconditions.checkNotNull(options.getCompilationMode(), "compilationMode");
-    this.deviceDebugEntitlements = objcOptions.getDeviceDebugEntitlements();
     this.disallowSdkFrameworksAttributes =
         objcOptions.getIncompatibleDisallowSdkFrameworksAttributes();
     this.alwayslinkByDefault = objcOptions.getIncompatibleObjcAlwayslinkByDefault();
@@ -72,13 +60,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
     return !disableObjcFragment;
   }
 
-  /**
-   * Returns the current compilation mode.
-   */
-  public CompilationMode getCompilationMode() {
-    return compilationMode;
-  }
-
   @Override
   public ImmutableList<String> getCoptsForCompilationMode() {
     return switch (compilationMode) {
@@ -86,17 +67,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
       case FASTBUILD -> ImmutableList.of("-O0", "-DDEBUG=1");
       default -> throw new AssertionError();
     };
-  }
-
-  /**
-   * Returns whether device debug entitlements should be included when signing an application.
-   *
-   * <p>Note that debug entitlements will be included only if the --device_debug_entitlements flag
-   * is set <b>and</b> the compilation mode is not {@code opt}.
-   */
-  @Override
-  public boolean useDeviceDebugEntitlements() {
-    return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
   }
 
   /** Returns whether sdk_frameworks and weak_sdk_frameworks attributes are disallowed. */

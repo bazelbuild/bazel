@@ -86,6 +86,9 @@ class TeeImpl : Tee {
                      bazel::windows::AutoHandle* output2,
                      std::unique_ptr<Tee>* result);
 
+  // Waits until the thread has streamed all data written to the input.
+  ~TeeImpl() override;
+
  private:
   static DWORD WINAPI ThreadFunc(LPVOID lpParam);
 
@@ -101,6 +104,7 @@ class TeeImpl : Tee {
   bazel::windows::AutoHandle input_;
   bazel::windows::AutoHandle output1_;
   bazel::windows::AutoHandle output2_;
+  bazel::windows::AutoHandle thread_;
 };
 
 // Buffered input stream (based on a Windows HANDLE) with peek-ahead support.
@@ -562,20 +566,24 @@ bool ExportTmpPath(const Path& cwd, Path* result) {
   return CreateDirectories(*result);
 }
 
-// Set HOME as required by the Bazel Test Encyclopedia.
-bool ExportHome(const Path& test_tmpdir) {
+// Absolutize HOME, which Bazel sets to the (possibly relative) value of
+// TEST_TMPDIR by default, as required by the Bazel Test Encyclopedia.
+bool ExportHome(const Path& cwd) {
   Path home;
   if (!GetPathEnv(L"HOME", &home)) {
     return false;
   }
-  if (blaze_util::IsAbsolute(home.Get())) {
-    // Respect the user-defined HOME in case they set passed it with
-    // --test_env=HOME or --test_env=HOME=C:\\foo
+  if (home.Get().empty()) {
+    // Respect an empty or unset HOME in case the user passed --test_env=HOME=
+    // or --test_env==HOME.
     return true;
-  } else {
-    // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
-    return SetPathEnv(L"HOME", test_tmpdir);
   }
+  if (home.Absolutize(cwd) && !SetPathEnv(L"HOME", home)) {
+    LogErrorWithArg2(__LINE__, "Failed to set absolutized envvar", L"HOME",
+                     home.Get());
+    return false;
+  }
+  return true;
 }
 
 bool ExportRunfiles(const Path& cwd, const Path& test_srcdir,
@@ -1497,13 +1505,30 @@ bool TeeImpl::Create(bazel::windows::AutoHandle* input,
                      bazel::windows::AutoHandle* output2,
                      std::unique_ptr<Tee>* result) {
   std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
-  bazel::windows::AutoHandle thread(
-      CreateThread(nullptr, 0, ThreadFunc, tee.get(), 0, nullptr));
-  if (!thread.IsValid()) {
+  tee->thread_ = CreateThread(nullptr, 0, ThreadFunc, tee.get(), 0, nullptr);
+  if (!tee->thread_.IsValid()) {
     return false;
   }
   result->reset(tee.release());
   return true;
+}
+
+TeeImpl::~TeeImpl() {
+  if (!thread_.IsValid()) {
+    return;
+  }
+  // A writer may outlive the job of the test process (see
+  // WaitableProcess::WaitFor), so stop reading from it eventually.
+  static constexpr DWORD kTimeoutMsec = 5000;
+  if (WaitForSingleObject(thread_, kTimeoutMsec) == WAIT_TIMEOUT) {
+    // CancelSynchronousIo has no effect between two I/O calls and not all I/O
+    // can be canceled, so retry for a limited time.
+    ULONGLONG deadline = GetTickCount64() + kTimeoutMsec;
+    do {
+      CancelSynchronousIo(thread_);
+    } while (WaitForSingleObject(thread_, 10) == WAIT_TIMEOUT &&
+             GetTickCount64() < deadline);
+  }
 }
 
 DWORD WINAPI TeeImpl::ThreadFunc(LPVOID lpParam) {
@@ -1954,7 +1979,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
                  &runfiles_env_prefix) ||
       !PrintTestLogStartMarker() || !ExportUserName() ||
       !ChdirToRunfiles(exec_root, srcdir) ||
-      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
+      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(exec_root) ||
       !ExportRunfiles(exec_root, srcdir, runfiles_env_prefix) ||
       !ExportShardStatusFile(exec_root) || !ExportGtestVariables(tmpdir) ||
       !ExportMiscEnvvars(exec_root) ||

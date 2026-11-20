@@ -40,14 +40,13 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
-import io.netty.channel.epoll.Epoll;
-import io.netty.channel.unix.Socket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * The {@link GrpcCommandServer} implementation.
@@ -73,11 +72,29 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
    * <p>It does not react to the interrupt flag in order to allow Bazel to complete the current
    * command while printing output as well as sending the final exit code to the client. However, it
    * maintains the interrupt flag if it is already set.
+   *
+   * <p>When the client connection closes prematurely, the command thread is interrupted exactly
+   * once, allowing it to terminate even if it produces no further output. Interrupting the thread
+   * calling {@link #onNext} instead may lose the signal when {@code cli-update-thread} writes first
+   * because that thread ignores interrupts. Also, interrupting on every write may repeatedly re-arm
+   * the interrupt and prevent a retry of an interruptible step from ever converging, see
+   * https://github.com/bazelbuild/bazel/issues/30435.
    */
   @VisibleForTesting
   static class BlockingStreamObserver<T extends Message> implements GrpcCommandServer.Responder {
     private final ServerCallStreamObserver<T> observer;
     private final Parser<T> parser;
+
+    /**
+     * Taken from the first {@link #onNext} call, which {@link CommandServer} performs before any
+     * output can reach this observer.
+     */
+    @GuardedBy("this")
+    @Nullable
+    private Thread commandThread;
+
+    @GuardedBy("this")
+    private boolean commandInterruptible = true;
 
     BlockingStreamObserver(StreamObserver<T> observer, T responseType) {
       this((ServerCallStreamObserver<T>) observer, responseType);
@@ -87,7 +104,7 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     BlockingStreamObserver(ServerCallStreamObserver<T> observer, T responseType) {
       this.observer = observer;
       this.observer.setOnReadyHandler(this::notifyWaiters);
-      this.observer.setOnCancelHandler(this::notifyWaiters);
+      this.observer.setOnCancelHandler(this::notifyWaitersAndInterruptCommand);
       this.parser = (Parser<T>) responseType.getParserForType();
     }
 
@@ -98,8 +115,19 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
       notifyAll();
     }
 
+    private synchronized void notifyWaitersAndInterruptCommand() {
+      notifyAll(); // for the reason given in notifyWaiters
+      if (commandInterruptible && commandThread != null) {
+        commandThread.interrupt(); // the client went away after the first write
+        commandInterruptible = false;
+      }
+    }
+
     @Override
     public synchronized void onNext(byte[] response) throws IOException {
+      if (commandThread == null) {
+        commandThread = Thread.currentThread();
+      }
       boolean interrupted = false;
       while (!observer.isReady() && !observer.isCancelled()) {
         try {
@@ -123,14 +151,19 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
         throw new IOException(e.getMessage(), e);
       } finally {
         // Restore the interrupt bit.
-        if (interrupted || observer.isCancelled()) {
+        if (interrupted) {
           Thread.currentThread().interrupt();
+        }
+        if (commandInterruptible && observer.isCancelled()) {
+          commandThread.interrupt(); // the client was already gone at the first write
+          commandInterruptible = false;
         }
       }
     }
 
     @Override
-    public void onCompleted() throws IOException {
+    public synchronized void onCompleted() throws IOException {
+      commandInterruptible = false; // a late event may otherwise interrupt the pooled commandThread
       try {
         observer.onCompleted();
       } catch (StatusRuntimeException e) {
@@ -176,11 +209,6 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     // and if that fails, try again with IPv4.
     InetSocketAddress address = new InetSocketAddress("[::1]", port);
     try {
-      // TODO(bazel-team): Remove the following check after upgrading netty to a version with a fix
-      //   for https://github.com/netty/netty/issues/10402
-      if (Epoll.isAvailable() && !Socket.isIPv6Preferred()) {
-        throw new IOException("ipv6 is not preferred on the system.");
-      }
       // For some strange reasons, Bazel server sometimes fails to bind to IPv6 localhost when
       // running in macOS sandbox-exec with internet blocked. Retrying seems to help.
       // See https://github.com/bazelbuild/bazel/issues/20743

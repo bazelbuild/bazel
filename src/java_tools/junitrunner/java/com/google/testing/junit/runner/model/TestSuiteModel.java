@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -50,7 +50,7 @@ public class TestSuiteModel {
   private final TestClock testClock;
   private final AtomicBoolean wroteXml = new AtomicBoolean(false);
   private final XmlResultWriter xmlResultWriter;
-  @Nullable private final Filter shardingFilter;
+  private final @Nullable Filter shardingFilter;
 
   private TestSuiteModel(Builder builder) {
     rootNode = builder.rootNode;

@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -53,16 +53,16 @@ public interface OutputService {
 
     /**
      * The action file system implementation is purely in-memory, taking full control of the output
-     * base. It's not able to stage remote outputs accessed as inputs by local actions, but is able
-     * to do input discovery. Used by Blaze.
+     * base. It's not able to stage remote outputs accessed as inputs by local actions or to do
+     * input discovery. Used by Blaze.
      */
     IN_MEMORY_ONLY_FILE_SYSTEM,
 
     /**
      * The action file system implementation mixes an in-memory and a local file system. It uses the
      * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
-     * local actions. It's able to stage remote outputs accessed as inputs by local actions and to
-     * do input discovery. Used by Blaze.
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions, but
+     * unable to do input discovery. Used by Blaze.
      */
     STAGE_REMOTE_FILES_FILE_SYSTEM,
 
@@ -102,10 +102,6 @@ public interface OutputService {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
     }
 
-    public boolean supportsInputDiscovery() {
-      return this != REMOTE_FILE_SYSTEM;
-    }
-
     public boolean isEnabled() {
       return this != DISABLED;
     }
@@ -142,15 +138,13 @@ public interface OutputService {
    * Starts the build.
    *
    * @param buildId the build identifier
-   * @param workspaceName the name of the workspace in which the build is running
    * @param eventHandler an {@link EventHandler} to inform of events
    * @param finalizeActions whether this build is finalizing actions so that the output service can
    *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
    */
-  ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
+  ModifiedFileSet startBuild(UUID buildId, EventHandler eventHandler, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Flush and wait for in-progress downloads. */
@@ -167,7 +161,7 @@ public interface OutputService {
 
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, EnvironmentalExecException, InterruptedException;
+      throws IOException, ExecException, InterruptedException;
 
   @Nullable
   BatchStat getBatchStatter();
@@ -290,9 +284,32 @@ public interface OutputService {
     SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
         throws InterruptedException;
 
-    /** Guards an action from the beginning to the end of its {@link Action#execute execution}. */
+    /**
+     * Guards an action from the beginning to the end of its {@link Action#execute execution},
+     * during which it may read its {@link Action#getInputs inputs} and the given discovered inputs.
+     *
+     * <p>The discovered inputs are those returned by {@link Action#discoverInputs}, which aren't
+     * necessarily part of {@link Action#getInputs} yet: {@code CppCompileAction}, for example, only
+     * adds them after execution. They are empty for actions that don't discover inputs.
+     */
     SilentCloseable enterActionExecution(
-        Action action, boolean wasRewound, InputMetadataProvider metadataProvider)
+        Action action,
+        boolean wasRewound,
+        NestedSet<Artifact> discoveredInputs,
+        InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
+     * Guards an action from the beginning to the end of its {@link Action#discoverInputs input
+     * discovery}, during which it may read the evaluated inputs and its scheduling dependencies.
+     *
+     * <p>The evaluated inputs include inputs restored from the action cache, but may exclude inputs
+     * previously pruned by the action. Those pruned inputs may have been restored in {@link
+     * Action#getInputs} without being evaluated yet. Newly discovered inputs are evaluated before
+     * execution and protected by {@link #enterActionExecution}.
+     */
+    SilentCloseable enterInputDiscovery(
+        Action action, NestedSet<Artifact> evaluatedInputs, InputMetadataProvider metadataProvider)
         throws InterruptedException;
 
     /**
@@ -308,7 +325,18 @@ public interface OutputService {
 
           @Override
           public SilentCloseable enterActionExecution(
-              Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+              Action action,
+              boolean wasRewound,
+              NestedSet<Artifact> discoveredInputs,
+              InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterInputDiscovery(
+              Action action,
+              NestedSet<Artifact> evaluatedInputs,
+              InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };

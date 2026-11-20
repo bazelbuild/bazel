@@ -78,16 +78,6 @@ public class AttributeProvider {
   }
 
   /**
-   * If true, no rule of this class ever declares a license regardless of what the rule's or
-   * package's <code>licenses</code> attribute says.
-   *
-   * <p>This is useful for rule types that don't make sense for license checking.
-   */
-  boolean ignoreLicenses() {
-    return ignoreLicenses;
-  }
-
-  /**
    * Returns true iff the attribute 'attrName' is defined for this rule or macro class, and has type
    * 'type'.
    */

@@ -53,10 +53,8 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -103,7 +101,9 @@ import javax.annotation.concurrent.GuardedBy;
  */
 public class CommandEnvironment {
   private static final ImmutableSet<String> ALWAYS_INHERITED_REPO_ENV =
-      OS.getCurrent() == OS.WINDOWS ? ImmutableSet.of("PATH", "PATHEXT") : ImmutableSet.of("PATH");
+      OS.getCurrent() == OS.WINDOWS
+          ? ImmutableSet.of("PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT")
+          : ImmutableSet.of("PATH");
 
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
@@ -183,6 +183,7 @@ public class CommandEnvironment {
   @Nullable // Optionally set in `beforeCommand` phase.
   private LongVersionGetter versionGetter;
   private boolean useFakeStampData = false;
+  @Nullable private String originatingUser;
 
   private UiEventHandler uiEventHandler;
 
@@ -272,12 +273,6 @@ public class CommandEnvironment {
     this.configFlagDefinitions = configFlagDefinitions;
     this.resourceManager = resourceManager;
 
-    // Record the command's starting time again, for use by
-    // TimestampGranularityMonitor.waitForTimestampGranularity().
-    // This should be done as close as possible to the start of
-    // the command's execution.
-    timestampGranularityMonitor.setCommandStartTime();
-
     CommonCommandOptions commandOptions =
         checkNotNull(
             options.getOptions(CommonCommandOptions.class),
@@ -350,35 +345,16 @@ public class CommandEnvironment {
                 : clientEnv);
     var nonstrictRepoEnvBuilder = new TreeMap<>(clientEnv);
 
-    // TODO: This only needs to check for loads() rather than analyzes() due to
-    //  the effect of --action_env on the repository env. Revert back to
-    //  analyzes() when --action_env no longer affects it.
-    if (command.buildPhase().loads() || command.name().equals("info")) {
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (var envVar : options.getOptions(CoreOptions.class).getActionEnvironment()) {
         switch (envVar) {
-          case EnvVar.Set(String name, String value) -> {
-            visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
-              repoEnvBuilder.put(name, value);
-              nonstrictRepoEnvBuilder.put(name, value);
-            }
-          }
-          case EnvVar.Inherit(String name) -> {
-            visibleActionEnv.add(name);
-          }
-          case EnvVar.Unset(String name) -> {
-            visibleActionEnv.remove(name);
-            if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
-              repoEnvBuilder.remove(name);
-              nonstrictRepoEnvBuilder.remove(name);
-            }
-          }
+          case EnvVar.Set(String name, String unusedValue) -> visibleActionEnv.remove(name);
+          case EnvVar.Inherit(String name) -> visibleActionEnv.add(name);
+          case EnvVar.Unset(String name) -> visibleActionEnv.remove(name);
         }
       }
-    }
-    if (command.buildPhase().analyzes() || command.name().equals("info")) {
       for (EnvVar envVar : options.getOptions(TestOptions.class).getTestEnvironment()) {
         if (envVar instanceof EnvVar.Inherit(String name)) {
           visibleTestEnv.add(name);
@@ -711,10 +687,6 @@ public class CommandEnvironment {
     return directories.getWorkingDirectory();
   }
 
-  public String getWorkspaceName() {
-    return runtime.getRuleClassProvider().getRunfilesPrefix();
-  }
-
   /**
    * Returns the output base directory associated with this Blaze server process. This is the base
    * directory for shared Blaze state as well as tool and strategy specific subdirectories.
@@ -728,7 +700,7 @@ public class CommandEnvironment {
    * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    return directories.getExecRoot(getWorkspaceName());
+    return directories.getExecRoot();
   }
 
   /**
@@ -977,30 +949,6 @@ public class CommandEnvironment {
 
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
-
-    // Determine if Skyfocus will run for this command: Skyfocus runs only for commands that
-    // execute actions. Throw an error if this is a command that is not guaranteed to work
-    // correctly on a focused Skyframe graph.
-    if (getCommand().buildPhase().executes()) {
-      skyframeExecutor.prepareForSkyfocus(
-          options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
-    } else if (getCommand().buildPhase().loads()
-        && !getSkyframeExecutor().getSkyfocusState().activeDirectories().isEmpty()) {
-      // A non-empty active directories implies a focused Skyframe state.
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      command.name()
-                          + " is not supported after using Skyfocus because it can"
-                          + " return partial/incorrect results. Run clean or shutdown and try"
-                          + " again.")
-                  .setSkyfocus(
-                      Skyfocus.newBuilder()
-                          .setCode(Skyfocus.Code.DISALLOWED_OPERATION_ON_FOCUSED_GRAPH)
-                          .build())
-                  .build()));
-    }
   }
 
   /**
@@ -1010,9 +958,7 @@ public class CommandEnvironment {
    * <ul>
    *   <li>the client environment as the base;
    *   <li>if {@code --experimental_strict_repo_env} is set, only the variables {@code PATH} and, on
-   *       Windows only, {@code PATHEXT} are kept;
-   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
-   *       applied on top of that;
+   *       Windows only, {@code PATHEXT}, {@code SYSTEMDRIVE} and {@code SYSTEMROOT} are kept;
    *   <li>finally, {@code --repo_env} is applied on top of that.
    * </ul>
    */
@@ -1027,8 +973,6 @@ public class CommandEnvironment {
    *
    * <ul>
    *   <li>the client environment as the base;
-   *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
-   *       applied on top of that;
    *   <li>finally, {@code --repo_env} is applied on top of that.
    * </ul>
    *
@@ -1192,6 +1136,15 @@ public class CommandEnvironment {
 
   public boolean getUseFakeStampData() {
     return useFakeStampData;
+  }
+
+  public void setOriginatingUser(@Nullable String originatingUser) {
+    this.originatingUser = originatingUser;
+  }
+
+  @Nullable
+  public String getOriginatingUser() {
+    return originatingUser;
   }
 
   public void setUiEventHandler(UiEventHandler uiEventHandler) {

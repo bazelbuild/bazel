@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -74,15 +74,15 @@ public final class SpawnInputUtils {
     throw noSuchInput("runfiles fileset in " + filesetArtifact, inputName, spawn);
   }
 
-  public static SpecialArtifact getTreeArtifactWithName(Spawn spawn, String name) {
+  public static TreeArtifact getTreeArtifactWithName(Spawn spawn, String name) {
     ActionInput input = getInputWithName(spawn, name);
     checkState(
-        input instanceof SpecialArtifact && ((SpecialArtifact) input).isTreeArtifact(),
+        input instanceof TreeArtifact,
         "Expected spawn %s to have tree artifact input with name %s, but it is: %s",
         spawn.getResourceOwner().describe(),
         name,
         input);
-    return (SpecialArtifact) input;
+    return (TreeArtifact) input;
   }
 
   public static Artifact getExpandedToArtifact(

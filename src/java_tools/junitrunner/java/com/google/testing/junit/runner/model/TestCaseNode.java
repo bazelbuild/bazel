@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.junit.runner.Description;
 
 /** A leaf in the test suite model. */
@@ -49,7 +49,7 @@ class TestCaseNode extends TestNode
   private final Set<TestIntegration> integrations =
       Collections.newSetFromMap(new ConcurrentHashMap<TestIntegration, Boolean>());
 
-  @Nullable private volatile TestInterval runTimeInterval = null;
+  private volatile @Nullable TestInterval runTimeInterval = null;
   private volatile State state = State.INITIAL;
 
   TestCaseNode(Description description, TestSuiteNode parent) {
@@ -197,8 +197,7 @@ class TestCaseNode extends TestNode
     return false;
   }
 
-  @Nullable
-  public TestInterval getRuntime() {
+  public @Nullable TestInterval getRuntime() {
     return runTimeInterval;
   }
 

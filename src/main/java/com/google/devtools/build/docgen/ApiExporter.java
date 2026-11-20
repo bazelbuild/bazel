@@ -33,7 +33,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -311,9 +310,7 @@ public class ApiExporter {
             + "Exports all Starlark builtins to a file including the embedded native rules.\n"
             + "The link map path (-m), rule class provider (-p), output file (-f), and at least\n"
             + " one input_dir (-i) or binproto (--be_stardoc_proto) must be specified.\n");
-    System.err.println(
-        parser.describeOptionsWithDeprecatedCategories(
-            Collections.<String, String>emptyMap(), HelpVerbosity.LONG));
+    System.err.println(parser.describeOptions(HelpVerbosity.LONG));
   }
 
   public static void main(String[] args) {

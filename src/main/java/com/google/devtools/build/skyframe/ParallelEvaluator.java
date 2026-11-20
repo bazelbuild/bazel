@@ -144,7 +144,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
+            evaluatorContext
+                .getVisitor()
+                .enqueueEvaluation(skyKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
             break;
           case DONE:
             // Scheduling above starts concurrent evaluation, so a key that is a dependency of an

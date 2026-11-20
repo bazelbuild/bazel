@@ -89,8 +89,6 @@ public final class SkyFunctions {
   // Non-hermetic because accesses package locator
   public static final SkyFunctionName TARGET_PATTERN_PHASE =
       SkyFunctionName.createNonHermetic("TARGET_PATTERN_PHASE");
-  static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
-      SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
   static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.createHermetic("RECURSIVE_PKG");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.createHermetic("CONFIGURED_TARGET");
@@ -123,8 +121,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
   public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.createHermetic("RECURSIVE_FILESYSTEM_TRAVERSAL");
-  public static final SkyFunctionName FILESET_ENTRY =
-      SkyFunctionName.createHermetic("FILESET_ENTRY");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
   public static final SkyFunctionName PLATFORM = SkyFunctionName.createHermetic("PLATFORM");
   public static final SkyFunctionName PLATFORM_MAPPING =
@@ -134,8 +130,6 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("REPOSITORY_DIRECTORY");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
-  public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
-      SkyFunctionName.createHermetic("LOCAL_REPOSITORY_LOOKUP");
   public static final SkyFunctionName REGISTERED_EXECUTION_PLATFORMS =
       SkyFunctionName.createHermetic("REGISTERED_EXECUTION_PLATFORMS");
   public static final SkyFunctionName REGISTERED_TOOLCHAINS =
@@ -182,8 +176,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName VENDOR_FILE = SkyFunctionName.createHermetic("VENDOR_FILE");
 
   public static final SkyFunctionName FLAG_SET = SkyFunctionName.createHermetic("FLAG_SET");
-  public static final SkyFunctionName BUILD_OPTIONS_SCOPE =
-      SkyFunctionName.createHermetic("BUILD_OPTIONS_SCOPE");
 
   public static Predicate<SkyKey> isSkyFunction(SkyFunctionName functionName) {
     return key -> key.functionName().equals(functionName);

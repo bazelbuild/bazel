@@ -21,6 +21,17 @@ java_test(
     ],
 )
 
+java_test(
+    name = "CommonQueryOptionsTest",
+    srcs = ["CommonQueryOptionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/query2/common:options",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
 java_library(
     name = "QueryPreloadingTest_lib",
     testonly = 1,

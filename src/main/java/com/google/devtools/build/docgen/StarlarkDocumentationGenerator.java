@@ -15,7 +15,6 @@ package com.google.devtools.build.docgen;
 
 import com.google.devtools.common.options.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.Collections;
 
 /** The main class for the Starlark documentation generator. */
 public class StarlarkDocumentationGenerator {
@@ -28,8 +27,7 @@ Usage: skydoc_bin output_dir --link_map_path=link_map.json [other options]
 Generates Starlark API documentation, including Starlark and BUILD language
 built-in functions and data types, providers, configuration fragments, etc.
 """);
-    System.err.println(
-        parser.describeOptionsWithDeprecatedCategories(Collections.emptyMap(), HelpVerbosity.LONG));
+    System.err.println(parser.describeOptions(HelpVerbosity.LONG));
   }
 
   private static void fail(Throwable e, boolean printStackTrace) {

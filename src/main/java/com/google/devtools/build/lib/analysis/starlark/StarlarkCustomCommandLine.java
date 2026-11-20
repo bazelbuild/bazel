@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -46,13 +46,13 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -149,7 +149,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * Representation of a sequence of arguments originating from {@code Args.add_all} or {@code
    * Args.add_joined}.
    */
-  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  @AutoCodec
   static final class VectorArg {
 
     private static final Interner<VectorArg> interner = BlazeInterners.newWeakInterner();
@@ -190,8 +190,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Nullable private final String formatJoined;
     @Nullable private final String terminateWith;
 
-    @VisibleForSerialization
-    VectorArg(
+    private VectorArg(
         boolean isNestedSet,
         boolean expandDirectories,
         boolean uniquify,
@@ -528,7 +527,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (seenTreeArtifacts.isEmpty() || !artifact.hasParent()) {
         return false;
       }
-      SpecialArtifact parent = artifact.getParent();
+      Artifact parent = artifact.getParent();
       // Loop to handle subtree artifacts, even though in practice subtrees can only have one
       // ancestor tree.
       while (parent != null) {
@@ -754,7 +753,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         this.nestedSet = nestedSet;
         if (nestedSetElementType == FileApi.class) {
           this.nestedSetStringificationType = StringificationType.FILE;
-        } else if (nestedSetElementType == Label.class) {
+        } else if (nestedSetElementType == Label.class
+            || nestedSetElementType == TransitiveInfoCollectionApi.class) {
           this.nestedSetStringificationType = StringificationType.LABEL;
         } else {
           this.nestedSetStringificationType = StringificationType.DEFAULT;
@@ -908,15 +908,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * instances are weakly interned so that all command lines with the same flag "template" share a
    * single instance.
    */
-  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  @AutoCodec
   static final class Recipe {
     private static final Interner<Recipe> interner = BlazeInterners.newWeakInterner();
 
     final Object[] elements;
     private final int hashCode;
 
-    @VisibleForSerialization
-    Recipe(Object[] elements) {
+    private Recipe(Object[] elements) {
       this.elements = elements;
       this.hashCode = Arrays.hashCode(elements);
     }
@@ -1114,19 +1113,21 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   private static Object /* String | DerivedArtifact */ expandToCommandLine(
       Object object, @Nullable RepositoryMapping mainRepoMapping) {
-    // Label arguments are rare, so we don't bother rendering them lazily.
-    if (object instanceof Label label) {
-      return label.getDisplayForm(mainRepoMapping);
-    }
-
-    // DerivedArtifacts are path mapped lazily.
-    return object instanceof DerivedArtifact derivedArtifact
-        ? derivedArtifact
-        : CommandLineItem.expandToCommandLine(object);
+    return switch (object) {
+      // Label or target arguments are rare, so we don't bother rendering them lazily.
+      case Label label -> label.getDisplayForm(mainRepoMapping);
+      case TransitiveInfoCollection target -> target.getLabel().getDisplayForm(mainRepoMapping);
+      // DerivedArtifacts are path mapped lazily.
+      case DerivedArtifact derivedArtifact -> derivedArtifact;
+      default -> CommandLineItem.expandToCommandLine(object);
+    };
   }
 
   private static void addSingleObjectToFingerprint(
       Fingerprint fingerprint, Object object, @Nullable RepositoryMapping mainRepoMapping) {
+    if (object instanceof TransitiveInfoCollection target) {
+      object = target.getLabel();
+    }
     if (object instanceof Label label) {
       fingerprint.addString(label.getDisplayForm(mainRepoMapping));
       return;
@@ -1565,6 +1566,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public String getRunfilesPathString() {
       PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
       return fileset.getRunfilesPath().getRelative(relativePath).getPathString();
+    }
+
+    @Override
+    public String getRlocationPathString() {
+      PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
+      return fileset.getRlocationPath().getRelative(relativePath).getPathString();
     }
 
     @Override

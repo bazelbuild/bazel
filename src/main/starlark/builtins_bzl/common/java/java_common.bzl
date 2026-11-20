@@ -28,13 +28,13 @@ def _internal_exports() -> struct:
     return struct(
         create_compilation_action = _java_common_internal.create_compilation_action,
         create_header_compilation_action = _java_common_internal.create_header_compilation_action,
+        create_jvm_compile_action = _java_common_internal.create_jvm_compile_action,
         check_java_toolchain_is_declared_on_rule = _java_common_internal._check_java_toolchain_is_declared_on_rule,
         check_provider_instances = _java_common_internal.check_provider_instances,
         collect_native_deps_dirs = _java_common_internal.collect_native_deps_dirs,
         expand_java_opts = _java_common_internal.expand_java_opts,
         get_runtime_classpath_for_archive = _java_common_internal.get_runtime_classpath_for_archive,
         google_legacy_api_enabled = _java_common_internal._google_legacy_api_enabled,
-        incompatible_disable_non_executable_java_binary = _java_common_internal.incompatible_disable_non_executable_java_binary,
         incompatible_java_info_merge_runtime_module_flags = _java_common_internal._incompatible_java_info_merge_runtime_module_flags,
         target_kind = _java_common_internal.target_kind,
     )

@@ -14,10 +14,6 @@ filegroup(
 java_library(
     name = "http",
     srcs = glob(["*.java"]),
-    runtime_deps = [
-        # This is required for client TLS.
-        "//third_party/java/netty_tcnative",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/authandtls",

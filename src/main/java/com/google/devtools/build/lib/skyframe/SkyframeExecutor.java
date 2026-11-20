@@ -26,8 +26,6 @@ import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUnin
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
-import static com.google.devtools.build.lib.skyframe.SkyfocusExecutor.toFileStateKey;
-import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
@@ -43,16 +41,12 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multiset;
-import com.google.common.collect.Multisets;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -85,7 +79,6 @@ import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -103,7 +96,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -138,11 +130,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
-import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -189,12 +179,10 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
-import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -216,19 +204,16 @@ import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMe
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions.FrontierViolationCheck;
-import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusDumpOption;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
-import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
+import com.google.devtools.build.lib.skyframe.config.ConfigurationMnemonicLookup;
 import com.google.devtools.build.lib.skyframe.config.FlagSetFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
@@ -255,10 +240,8 @@ import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContex
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.EnvVar;
-import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -285,7 +268,6 @@ import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryGraph;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -302,15 +284,12 @@ import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.nio.file.FileSystems;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -320,9 +299,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -339,9 +318,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -455,8 +432,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
-
   private final ImmutableList<BuildFileName> buildFilesByPriority;
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
@@ -522,8 +497,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private IgnoredSubdirectories ignoredPaths = IgnoredSubdirectories.EMPTY;
 
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
-
-  private SkyfocusState skyfocusState = SkyfocusState.DISABLED;
 
   @Nullable private PlatformMappingKey platformMappingKey;
 
@@ -612,9 +585,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * invocation.
    */
   public void syncRemoteAnalysisCachingState(
-      FrontierNodeVersion currentInvocationVersion, ClientId currentInvocationClientId) {
+      FrontierNodeVersion currentInvocationVersion,
+      ClientId currentInvocationClientId,
+      @Nullable String currentInvocationUntrimmedConfigurationChecksum) {
     remoteAnalysisCachingState.setVersion(currentInvocationVersion);
     remoteAnalysisCachingState.setClientId(currentInvocationClientId);
+    remoteAnalysisCachingState.setUntrimmedConfigurationChecksum(
+        currentInvocationUntrimmedConfigurationChecksum);
   }
 
   /**
@@ -626,8 +603,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void invalidateWithExternalService(ExtendedEventHandler eventHandler)
       throws InterruptedException {
     boolean remoteAnalysisCachingCurrentlyEnabled = isRemoteAnalysisCachingEnabled();
+    boolean remoteAnalysisCachingPreviouslyEnabled = remoteAnalysisCachingHasEverBeenEnabled;
     remoteAnalysisCachingHasEverBeenEnabled |= remoteAnalysisCachingCurrentlyEnabled;
-    if (!remoteAnalysisCachingHasEverBeenEnabled) {
+    if (!remoteAnalysisCachingPreviouslyEnabled) {
       return;
     }
 
@@ -635,7 +613,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         () -> {
           try (SilentCloseable c = Profiler.instance().profile("getDeserializedKeys")) {
             return getEvaluator().getInMemoryGraph().getAllNodeEntries().parallelStream()
-                .filter(e -> e.isDone() && e.getValue() instanceof DeserializedSkyValue)
+                .filter(e -> e.toValue() instanceof DeserializedSkyValue && !isLocallyDelegated(e))
                 .map(InMemoryNodeEntry::getKey)
                 .collect(toImmutableSet());
           }
@@ -697,6 +675,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // RemoteAnalysisCachingState *after* the actual Skyframe deletion.
   }
 
+  /**
+   * Returns true if {@code e} is a pre-transition {@link ConfiguredTargetKey} that missed in
+   * Skycache and delegated locally to a post-transition key whose {@link DeserializedSkyValue} was
+   * returned unchanged.
+   */
+  private boolean isLocallyDelegated(InMemoryNodeEntry e) {
+    if (!(e.getKey() instanceof ConfiguredTargetKey key)
+        || !(e.toValue() instanceof ConfiguredTargetValue value)) {
+      return false;
+    }
+    ConfiguredTarget ct = value.getConfiguredTarget();
+    if (ct == null || Objects.equals(key.getConfigurationKey(), ct.getConfigurationKey())) {
+      return false; // Common case: the value belongs to this key.
+    }
+    InMemoryNodeEntry delegate = getEvaluator().getInMemoryGraph().getIfPresent(ct.getLookupKey());
+    return delegate != null && delegate.toValue() == value;
+  }
+
   @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
     return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
@@ -707,7 +703,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public ArtifactPathResolver createPathResolverForArtifactValues(ActionInputMap actionInputMap) {
       return outputService.supportsPathResolverForArtifactValues()
           ? outputService.createPathResolverForArtifactValues(
-              directories.getExecRoot(ruleClassProvider.getRunfilesPrefix()).asFragment(),
+              directories.getExecRoot().asFragment(),
               directories.getRelativeOutputPath(),
               fileSystem,
               getPackagePathEntries(),
@@ -722,12 +718,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       FileSystem fileSystem,
       BlazeDirectories directories,
       ActionKeyContext actionKeyContext,
-      Factory workspaceStatusActionFactory,
+      WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
       ExternalFileAction externalFileAction,
       SkyFunction ignoredSubdirectoriesFunction,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
@@ -790,7 +785,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.externalFilesHelper =
         ExternalFilesHelper.create(
             pkgLocator, externalFileAction, directories, repoContentsCachePathSupplier);
-    this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
@@ -829,13 +823,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
-    map.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
+    map.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories, externalFilesHelper));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(SkyFunctions.DIRECTORY_TREE_DIGEST, new DirectoryTreeDigestFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
-        new PackageLookupFunction(
-            deletedPackages, crossRepositoryLabelViolationStrategy, buildFilesByPriority));
+        new PackageLookupFunction(deletedPackages, buildFilesByPriority));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.PROJECT, new ProjectFunction());
     map.put(SkyFunctions.PROJECT_FILES_LOOKUP, new ProjectFilesLookupFunction());
@@ -990,7 +983,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));
-    map.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     map.put(
         SkyFunctions.REGISTERED_EXECUTION_PLATFORMS, new RegisteredExecutionPlatformsFunction());
     map.put(SkyFunctions.REGISTERED_TOOLCHAINS, new RegisteredToolchainsFunction());
@@ -1009,7 +1001,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     FlagSetFunction flagSetFunction = new FlagSetFunction();
     map.put(SkyFunctions.FLAG_SET, flagSetFunction);
     this.buildDriverFunction = buildDriverFunction;
-    map.put(SkyFunctions.BUILD_OPTIONS_SCOPE, new BuildOptionsScopeFunction());
 
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
@@ -1034,6 +1025,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected Version getMinimalVersionForBaselineOptionsFunction() {
     return Version.minimal();
+  }
+
+  /**
+   * Returns whether the executor supports analysis-only caching (skipping execution nodes).
+   *
+   * <p>Overridden by subclasses that support this mode. Defaults to {@code false}.
+   */
+  public boolean supportsSkycacheAnalysisOnly() {
+    return false;
   }
 
   protected SkyFunction newActionExecutionFunction() {
@@ -1219,7 +1219,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
       };
 
-  private static boolean isAnalysisPhaseActionLookupKey(SkyKey key) {
+  /**
+   * Returns true if {@code key} is an {@link ActionLookupKey} counted toward analysis-phase state
+   * and metrics (that is, any {@link ActionLookupKey} except {@link ActionTemplateExpansionKey},
+   * which owns actions generated by expanding {@code TreeArtifact} action templates during
+   * execution).
+   *
+   * <p>Note: {@link CoverageReportValue#COVERAGE_REPORT_KEY} is still matched here for now even
+   * though it is evaluated post-analysis when building coverage report artifacts.
+   */
+  public static boolean isAnalysisPhaseActionLookupKey(SkyKey key) {
     return key instanceof ActionLookupKey && !(key instanceof ActionTemplateExpansionKey);
   }
 
@@ -1235,7 +1244,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Prevent stale Skycache configuration from persisting between cleans.
     remoteAnalysisCachingState = RemoteAnalysisCachingServerState.initializeEmpty();
     remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
-    skyfocusState = DISABLED;
+    remoteAnalysisCachingHasEverBeenEnabled = false;
     // cleanupInterningPools must be called before init(), since init() initializes a new graph,
     // losing all references to the SkyKeyInterners that must be cleaned up.
     memoizingEvaluator.cleanupInterningPools();
@@ -1415,30 +1424,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
     boolean trackIncrementalState = tracksStateForIncrementality();
 
-    // If remote analysis cache retrieval is enabled, we can only perform a partial discard. See
-    // b/466388360.
-    boolean remoteAnalysisCachingEnabled =
-        remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled();
+    // Targets may be analyzed during execution below a remotely retrieved value, which prunes the
+    // analysis-phase traversal of its dependencies. In that case, we can only perform a partial
+    // discard. See b/466388360.
+    boolean partialDiscard =
+        discardType.discardsAnalysis()
+            && remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled()
+            // On a clean build with no remote analysis cache hits, a full discard is safe.
+            && (analysisCount.get() > 1 || remoteAnalysisCacheReaderDepsProvider.sawCacheHit());
 
-    try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
-      graph.parallelForEach(
-          e -> {
-            if (!e.isDone()) {
-              return;
-            }
-            boolean removeNode =
-                processDiscardAndDetermineRemoval(
-                    e,
-                    discardType,
-                    topLevelPackages,
-                    topLevelTargets,
-                    topLevelAspects,
-                    trackIncrementalState,
-                    remoteAnalysisCachingEnabled);
-            if (removeNode) {
-              graph.remove(e.getKey());
-            }
-          });
+    getEventBus().post(new AboutToClearAnalysisCacheEvent());
+
+    try (SilentCloseable p = trackDiscardAnalysisCache(discardType, partialDiscard)) {
+      graph.parallelForEach(e -> {
+        if (!e.isDone()) {
+          return;
+        }
+        boolean removeNode =
+            processDiscardAndDetermineRemoval(
+                e,
+                discardType,
+                topLevelPackages,
+                topLevelTargets,
+                topLevelAspects,
+                trackIncrementalState,
+                partialDiscard);
+        if (removeNode) {
+          graph.remove(e.getKey());
+        }
+      });
     }
   }
 
@@ -1469,7 +1483,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Collection<ConfiguredTarget> topLevelTargets,
       ImmutableSet<AspectKey> topLevelAspects,
       boolean trackIncrementalState,
-      boolean remoteAnalysisCachingEnabled) {
+      boolean partialDiscard) {
     SkyKey key = entry.getKey();
     SkyFunctionName functionName = key.functionName();
     if (discardType.discardsLoading()) {
@@ -1492,10 +1506,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           return false; // It was already cleared.
         }
         boolean topLevel = topLevelTargets.contains(configuredTarget);
-        if (!topLevel
-            && !trackIncrementalState
-            && !remoteAnalysisCachingEnabled
-            && !hasActions(ctValue)) {
+        if (!topLevel && !trackIncrementalState && !hasActions(ctValue)) {
           // If not tracking incremental state, removing these nodes doesn't hurt. Morally we should
           // always be able to remove these, since they're not used for execution, but it leaves the
           // graph inconsistent, and the --discard_analysis_cache with --track_incremental_state
@@ -1507,7 +1518,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // empty configuration key and will never change.
           return false;
         }
-        ctValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
+        ctValue.clear(!topLevel && !partialDiscard);
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectKey aspectKey = (AspectKey) key;
         AspectValue aspectValue = (AspectValue) entry.getValue();
@@ -1515,10 +1526,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           return false; // Not successfully analyzed.
         }
         boolean topLevel = topLevelAspects.contains(key);
-        if (!topLevel
-            && !trackIncrementalState
-            && !remoteAnalysisCachingEnabled
-            && !hasActions(aspectValue)) {
+        if (!topLevel && !trackIncrementalState && !hasActions(aspectValue)) {
           return true;
         }
         if (isEmptyOptionsKey(aspectKey.getConfigurationKey())) {
@@ -1526,7 +1534,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // empty configuration key and will never change.
           return false;
         }
-        aspectValue.clear(!topLevel && !remoteAnalysisCachingEnabled);
+        aspectValue.clear(!topLevel && !partialDiscard);
       }
     }
     return false;
@@ -1537,9 +1545,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
-  private SilentCloseable trackDiscardAnalysisCache(DiscardType discardType) {
+  private SilentCloseable trackDiscardAnalysisCache(DiscardType discardType, boolean partial) {
     AutoProfiler profiler =
-        GoogleAutoProfilerUtils.logged("discarding analysis cache " + discardType);
+        GoogleAutoProfilerUtils.logged(
+            "discarding analysis cache " + discardType + (partial ? " (partial)" : ""));
     return () -> {
       Duration d = Duration.ofNanos(profiler.completeAndGetElapsedTimeNanos());
       getEventBus().post(new AnalysisCacheClearEvent(d));
@@ -1568,8 +1577,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new WorkspaceStatusAction.Environment() {
           @Override
           public Artifact createStableArtifact(String name) {
-            ArtifactRoot root =
-                directories.getBuildDataDirectory(ruleClassProvider.getRunfilesPrefix());
+            ArtifactRoot root = directories.getBuildDataDirectory();
             return skyframeBuildView
                 .getArtifactFactory()
                 .getDerivedArtifact(
@@ -1578,8 +1586,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public Artifact createVolatileArtifact(String name) {
-            ArtifactRoot root =
-                directories.getBuildDataDirectory(ruleClassProvider.getRunfilesPrefix());
+            ArtifactRoot root = directories.getBuildDataDirectory();
             return skyframeBuildView
                 .getArtifactFactory()
                 .getConstantMetadataArtifact(
@@ -1662,23 +1669,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                     .analysisData(starlarkExecTransition)
                     .build());
 
-    ImmutableMap<String, Label> flagsAliases =
-        baselineOptions.get(CoreOptions.class).getCommandLineFlagAliasesMap();
-
-    ImmutableSet.Builder<Label> hostFlags = ImmutableSet.builder();
-    for (Map.Entry<String, Label> alias : flagsAliases.entrySet()) {
-      if (alias.getKey().startsWith("host_")) {
-        hostFlags.add(alias.getValue());
-      }
-    }
-
-    // ImmutableSet.copyOf() is needed here because AutoCodec doesn't have a mapping for
-    // ImmutableMap.KeySet and this could cause a serialization failure even though the
-    // key content remains the same before and after serialization and deserialization.
     StarlarkBuildSettingsDetailsValue.Key starlarkBuildSettingsDetailsKey =
         StarlarkBuildSettingsDetailsValue.Key.create(
-            ImmutableSet.copyOf(baselineOptions.getStarlarkOptions().keySet()),
-            ImmutableSet.copyOf(hostFlags.build()));
+            baselineOptions.getStarlarkOptions().keySet(),
+            baselineOptions.get(CoreOptions.class).getHostFlagAliases());
     EvaluationResult<StarlarkBuildSettingsDetailsValue> result =
         evaluate(
             ImmutableList.of(starlarkBuildSettingsDetailsKey),
@@ -1743,14 +1737,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public IgnoredSubdirectories getIgnoredPaths() {
     return ignoredPaths;
-  }
-
-  public final SkyfocusState getSkyfocusState() {
-    return skyfocusState;
-  }
-
-  public final void setSkyfocusState(SkyfocusState skyfocusState) {
-    this.skyfocusState = skyfocusState;
   }
 
   protected Differencer.Diff getDiff(
@@ -2264,9 +2250,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
   public Collection<SkyKey> getTransitiveConfigurationKeys() {
-    return memoizingEvaluator.getDoneValues().keySet().stream()
-        .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
-        .collect(toImmutableList());
+    return ImmutableList.copyOf(
+        memoizingEvaluator
+            .getInMemoryGraph()
+            .collectDoneValues(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
+            .keySet());
   }
 
   /**
@@ -2281,6 +2269,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public StarlarkAttributeTransitionProvider getStarlarkExecTransition(
       BuildOptions options, ExtendedEventHandler eventHandler)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
+    StarlarkBuildSettingsDetailsValue scopeDetails = StarlarkBuildSettingsDetailsValue.EMPTY;
+    StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey =
+        StarlarkBuildSettingsDetailsValue.keyForStarlarkOptions(
+            options.getStarlarkOptions(), options.get(CoreOptions.class).getHostFlagAliases());
+    if (scopeDetailsKey != null) {
+      EvaluationResult<SkyValue> result =
+          evaluate(
+              ImmutableList.of(scopeDetailsKey),
+              /* keepGoing= */ false,
+              /* numThreads= */ DEFAULT_THREAD_COUNT,
+              eventHandler);
+      if (result.hasError()) {
+        throw new StarlarkExecTransitionLoadingException(
+            result.getError(scopeDetailsKey).getException());
+      }
+      scopeDetails = (StarlarkBuildSettingsDetailsValue) result.get(scopeDetailsKey);
+    }
     return StarlarkExecTransitionLoader.loadStarlarkExecTransition(
             options,
             (bzlKey) -> {
@@ -2310,8 +2315,43 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 throw new IllegalStateException("Unknown error while creating exec transition", e);
               }
               return (BzlLoadValue) result.get(bzlKey);
-            })
+            },
+            scopeDetails)
         .orElse(null);
+  }
+
+  /**
+   * Resolves the top-level target platform label from {@code buildOptions} without analyzing any
+   * platform targets.
+   *
+   * <p>When {@code --platforms} is empty, evaluates {@code --platform_mappings} so the top-level
+   * platform label matches the mapped configuration. This is not needed for cache key correctness,
+   * but preserves cross-configuration storage savings from cl/990365172 for builds whose platform
+   * comes from {@code --platform_mappings}.
+   */
+  public Label resolveTopLevelPlatform(ExtendedEventHandler eventHandler, BuildOptions buildOptions)
+      throws InvalidConfigurationException {
+    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+    if (!platformOptions.getPlatforms().isEmpty()) {
+      return platformOptions.computeTargetPlatform();
+    }
+    PlatformMappingKey platformMappingKey = platformOptions.getPlatformMappingKey();
+    EvaluationResult<SkyValue> evaluationResult =
+        evaluateSkyKeys(eventHandler, ImmutableSet.of(platformMappingKey));
+    if (evaluationResult.hasError()) {
+      throwInvalidConfigurationException(eventHandler, evaluationResult);
+    }
+    PlatformMappingValue platformMappingValue =
+        (PlatformMappingValue) evaluationResult.get(platformMappingKey);
+    try {
+      return platformMappingValue
+          .map(buildOptions)
+          .getOptions()
+          .get(PlatformOptions.class)
+          .computeTargetPlatform();
+    } catch (OptionsParsingException e) {
+      throw new InvalidConfigurationException(Code.PLATFORM_MAPPING_EVALUATION_FAILURE, e);
+    }
   }
 
   private BuildConfigurationKey createBuildConfigurationKey(
@@ -2323,38 +2363,43 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluateSkyKeys(eventHandler, ImmutableSet.of(key));
     // Handle all possible errors by reporting them to the user.
     if (evaluationResult.hasError()) {
-      Map.Entry<SkyKey, ErrorInfo> firstError =
-          Iterables.get(evaluationResult.errorMap().entrySet(), 0);
-      SkyKey errorKey = firstError.getKey();
-      ErrorInfo error = firstError.getValue();
-      Throwable e = error.getException();
-
-      if (e != null) {
-        // Wrap exceptions related to loading
-        if (e instanceof DetailedException detailedException) {
-          throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
-        }
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-        // If we get here, e is non-null but not an InvalidConfigurationException, so wrap it and
-        // throw.
-        throw new InvalidConfigurationException(Code.PLATFORM_MAPPING_EVALUATION_FAILURE, e);
-      } else if (!error.getCycleInfo().isEmpty()) {
-        // This should not ever happen: there should not be a way for BuildConfigurationKeyValue.Key
-        // to produce a skyframe cycle. Produce a basic error message for developers
-        // to use to track down and fix the problem.
-        // Unfortunately, there's no way to express this as an invariant, so manual inspection of
-        // skyfunctions is the only way to prevent this.
-        cyclesReporter.reportCycles(error.getCycleInfo(), errorKey, eventHandler);
-        throw new InvalidConfigurationException(
-            "cannot load build configuration key because of this cycle", Code.CYCLE);
-      }
-
-      // Unclear what could have happened if the exception is null and there isn't a cycle.
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
+      throwInvalidConfigurationException(eventHandler, evaluationResult);
     }
     BuildConfigurationKeyValue buildConfigurationKeyValue =
         (BuildConfigurationKeyValue) evaluationResult.get(key);
     return buildConfigurationKeyValue.buildConfigurationKey();
+  }
+
+  private void throwInvalidConfigurationException(
+      ExtendedEventHandler eventHandler, EvaluationResult<SkyValue> evaluationResult)
+      throws InvalidConfigurationException {
+    Map.Entry<SkyKey, ErrorInfo> firstError =
+        Iterables.get(evaluationResult.errorMap().entrySet(), 0);
+    SkyKey errorKey = firstError.getKey();
+    ErrorInfo error = firstError.getValue();
+    Throwable e = error.getException();
+
+    if (e != null) {
+      // Wrap exceptions related to loading (including InvalidConfigurationException, which
+      // implements DetailedException).
+      if (e instanceof DetailedException detailedException) {
+        throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), e);
+      }
+      // If we get here, e is non-null and not a DetailedException, so wrap it and throw.
+      throw new InvalidConfigurationException(Code.PLATFORM_MAPPING_EVALUATION_FAILURE, e);
+    } else if (!error.getCycleInfo().isEmpty()) {
+      // This should not ever happen: there should not be a way for BuildConfigurationKeyValue.Key
+      // to produce a skyframe cycle. Produce a basic error message for developers
+      // to use to track down and fix the problem.
+      // Unfortunately, there's no way to express this as an invariant, so manual inspection of
+      // skyfunctions is the only way to prevent this.
+      cyclesReporter.reportCycles(error.getCycleInfo(), errorKey, eventHandler);
+      throw new InvalidConfigurationException(
+          "cannot load build configuration key because of this cycle", Code.CYCLE);
+    }
+
+    // Unclear what could have happened if the exception is null and there isn't a cycle.
+    throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
   }
 
   /**
@@ -3080,6 +3125,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return memoizingEvaluator;
   }
 
+  /** Returns the output directory mnemonics of the configurations in the graph. */
+  public ConfigurationMnemonicLookup getConfigurationMnemonicLookup() {
+    return new ConfigurationMnemonicLookup(this::getDoneValue);
+  }
+
+  /** Returns the value of the node for {@code key} if it is done, otherwise {@code null}. */
+  @Nullable
+  private SkyValue getDoneValue(SkyKey key) {
+    InMemoryNodeEntry entry = memoizingEvaluator.getInMemoryGraph().getIfPresent(key);
+    return entry != null && entry.isDone() ? entry.toValue() : null;
+  }
+
   /**
    * Initializes and syncs the graph with the given options, readying it for the next evaluation.
    *
@@ -3791,17 +3848,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // For non-incremental builds, do a parallel sweep over the whole graph.
         memoizingEvaluator
             .getInMemoryGraph()
-            .parallelForEach(
-                e -> {
-                  if (!(e.getKey() instanceof ActionLookupKey key) || !e.isDone()) {
-                    return;
-                  }
-                  SkyValue value = e.getValue();
-                  if (value == null) {
-                    return; // Error.
-                  }
-                  alvTraversal.accumulate(key, value);
-                });
+            .parallelForEach(e -> {
+              if (!isAnalysisPhaseActionLookupKey(e.getKey()) || !e.isDone()) {
+                return;
+              }
+              SkyValue value = e.getValue();
+              if (value == null) {
+                return; // Error.
+              }
+              alvTraversal.accumulate((ActionLookupKey) e.getKey(), value);
+            });
       } else {
         // When incrementality is enabled, traverse the analysis graph top-down. This is slower, but
         // is necessary to avoid collecting nodes that are in the graph from a previous build, but
@@ -3849,16 +3905,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public ImmutableMap<String, Object> getStarlarkOptions() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, String> getScopesAttributes() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
             return ImmutableMap.of();
           }
 
@@ -4128,7 +4174,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getDoneValues(),
+                memoizingEvaluator
+                    .getInMemoryGraph()
+                    .collectDoneValues(
+                        DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker()::applies),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {
@@ -4235,8 +4284,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         numWithoutNewValues,
         changedKeysWithNewValues.keySet());
 
-    handleSkyfocusVerificationSet(diff);
-
     recordingDiffer.invalidate(keysToBeChangedLaterInThisBuild);
     recordingDiffer.inject(changedKeysWithNewValues);
     modifiedFiles.addAndGet(
@@ -4247,85 +4294,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
   }
 
-  /**
-   * Given a set of {@link SkyKey}s that were deemed to have changed, check their intersection with
-   * the {@link SkyframeFocuser} is non-empty.
-   *
-   * <p>If it's non-empty, it means that there were changed files outside the active directories,
-   * but within the transitive closure of the focused targets. The build cannot proceed normally
-   * because Skyfocus has removed the nodes and edges from the backing graph to build those files
-   * incrementally
-   *
-   * <p>The only ways forward are to:
-   *
-   * <ol>
-   *   <li>1) Present an error to the user on the files that have changed, and ask the user to
-   *       expand their active directories to include these files.
-   *   <li>2) Automatically expand the active directories and reset the analysis cache to rebuild
-   *       the Skyframe graph. (i.e. new build).
-   * </ol>
-   *
-   * This function currently implements only option 1).
-   *
-   * <p>Only runs when Skyfocus is enabled (--experimental_enable_skyfocus).
-   */
-  private void handleSkyfocusVerificationSet(Differencer.Diff diff) throws AbruptExitException {
-    if (!skyfocusState.enabled()) {
-      return;
-    }
 
-    ImmutableSet<SkyKey> verificationSet = skyfocusState.verificationSet();
-    if (diff.isEmpty() || verificationSet.isEmpty()) {
-      return;
-    }
-
-    Set<String> intersection = new TreeSet<>();
-    Consumer<SkyKey> maybeAddToIntersection =
-        (SkyKey k) -> {
-          if (!verificationSet.contains(k)) {
-            return;
-          }
-          RootedPath rp =
-              switch (k) {
-                case RootedPath r -> r;
-                case DirectoryListingStateValue.Key d -> d.argument();
-                default ->
-                    throw new IllegalStateException(
-                        "Unhandled key type in verification set: " + k.getCanonicalName());
-              };
-          // RootedPath#toString() prints square brackets around the components, but we don't
-          // want that.
-          intersection.add(
-              rp.getRoot() + FileSystems.getDefault().getSeparator() + rp.getRootRelativePath());
-        };
-
-    diff.changedKeysWithoutNewValues().forEach(maybeAddToIntersection);
-    diff.changedKeysWithNewValues().keySet().forEach(maybeAddToIntersection);
-
-    if (intersection.isEmpty()) {
-      return;
-    }
-
-    StringBuilder message = new StringBuilder();
-    message.append(
-        "Skyfocus detected changes outside of the active directories. These files/directories must"
-            + " be added to the active directories.");
-    message.append("\n");
-    for (String path : intersection) {
-      message.append(path);
-      message.append("\n");
-    }
-
-    throw new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message.toString())
-                .setSkyfocus(
-                    Skyfocus.newBuilder()
-                        .setCode(Skyfocus.Code.NON_ACTIVE_DIRECTORIES_CHANGE)
-                        .build())
-                .build()));
-  }
 
   private static final int MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG = 10;
 
@@ -4507,7 +4476,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .setUnnecessaryTemporaryStateDropperReceiver(unnecessaryTemporaryStateDropperReceiver);
   }
 
-  void dropUnnecessaryTemporarySkyframeState() {
+  @VisibleForTesting
+  public void dropUnnecessaryTemporarySkyframeState() {
     dropper.drop();
   }
 
@@ -4726,287 +4696,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  /**
-   * Prepares the Skyframe graph for Skyfocus.
-   *
-   * <p>This function is called at the beginning of a command, and it decides whether to run
-   * Skyfocus or not.
-   */
-  public final void prepareForSkyfocus(
-      SkyfocusOptions skyfocusOptions, Reporter reporter, String productName) {
-    if (!memoizingEvaluator.skyfocusSupported()) {
-      skyfocusState = DISABLED;
-      return;
-    }
-
-    // Always reset top level evaluations for each invocation for an evaluator that supports
-    // Skyfocus.
-    memoizingEvaluator.cleanupLatestTopLevelEvaluations();
-
-    if (!skyfocusOptions.getSkyfocusEnabled()) {
-      skyfocusState = DISABLED;
-      return;
-    }
-
-    reporter.handle(
-        Event.info(
-            "--experimental_enable_skyfocus is enabled. "
-                + StringUtilities.capitalize(productName)
-                + " will reclaim memory not needed to build the active directories. Run '"
-                + productName
-                + " dump --skyframe=active_directories' to show the active directories, after this"
-                + " command."));
-
-    if (skyfocusOptions.getFrontierViolationCheck().equals(FrontierViolationCheck.STRICT)) {
-      reporter.handle(
-          Event.warn("Changes outside of the active directories will cause a build error."));
-    }
-
-    ImmutableSet<String> newUserDefinedactiveDirectories =
-        ImmutableSet.copyOf(skyfocusOptions.getActiveDirectories());
-    ImmutableSet<FileStateKey> activeactiveDirectories = skyfocusState.activeDirectories();
-
-    if (!activeactiveDirectories.isEmpty()) {
-      for (String s : newUserDefinedactiveDirectories) {
-        FileStateKey key = toFileStateKey(pkgLocator.get(), s);
-        if (!activeactiveDirectories.contains(key)) {
-          // New active directories contains new files. Unfortunately, this is a suboptimal path,
-          // and we
-          // have to re-run full analysis.
-          reporter.handle(
-              Event.warn(
-                  "active directories changed to include new files, discarding analysis cache. This"
-                      + " can be expensive, so choose your active directories carefully."));
-          resetEvaluator();
-          break;
-        }
-      }
-    }
-
-    memoizingEvaluator.rememberTopLevelEvaluations(true);
-    skyfocusState = skyfocusState.toBuilder().enabled(true).options(skyfocusOptions).build();
-  }
-
-  /**
-   * Run Skyfocus. This only works if Skyfocus is enabled explicitly via the command-line flag, and
-   * focusing is necessary (e.g. new active directories, or analysis cache was dropped).
-   */
-  public final void runSkyfocus(
-      ImmutableSet<Label> topLevelTargets,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
-      Reporter reporter,
-      @Nullable ActionCache actionCache,
-      OptionsParsingResult options)
-      throws InterruptedException {
-    if (!skyfocusState.enabled() || topLevelTargets.isEmpty()) {
-      return;
-    }
-
-    int beforeNodeCount = this.getEvaluator().getValues().size();
-    long beforeHeap = 0;
-    if (skyfocusState.options().getDumpPostGcStats()) {
-      // we have to gc once here to get an accurate reading on the exact work Skyfocus is
-      // doing.
-      System.gc();
-      beforeHeap =
-          getHeapSize(
-              options
-                  .getOptions(MemoryPressureOptions.class)
-                  .getJvmHeapHistogramInternalObjectPattern()
-                  .regexPattern());
-    }
-    long beforeActionCacheEntries = actionCache == null ? 0 : actionCache.size();
-
-    ImmutableMultiset<SkyFunctionName> skyFunctionCountBefore = ImmutableMultiset.of();
-    InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
-    SkyfocusDumpOption dumpKeysOption = skyfocusState.options().getDumpKeys();
-    if (skyfocusState.options().getDumpKeys() != SkyfocusDumpOption.NONE) {
-      skyFunctionCountBefore = getSkyFunctionNameCount(graph);
-    }
-
-    Optional<SkyfocusState> maybeNewSkyfocusState =
-        SkyfocusExecutor.prepareActiveDirectories(
-            topLevelTargets,
-            activeDirectoriesMatcher,
-            (InMemoryMemoizingEvaluator) getEvaluator(),
-            skyfocusState,
-            packageManager,
-            pkgLocator.get(),
-            reporter);
-
-    if (maybeNewSkyfocusState.isEmpty()) {
-      return;
-    }
-
-    SkyfocusState newSkyfocusState = maybeNewSkyfocusState.get();
-
-    // Run Skyfocus!
-    FocusResult focusResult =
-        SkyfocusExecutor.execute(
-            newSkyfocusState.activeDirectories(),
-            (InMemoryMemoizingEvaluator) getEvaluator(),
-            reporter,
-            actionCache);
-
-    skyfocusState =
-        newSkyfocusState.toBuilder()
-            .frontierSet(focusResult.deps())
-            .verificationSet(focusResult.verificationSet())
-            .build();
-
-    // Shouldn't result in an empty graph.
-    checkState(!focusResult.deps().isEmpty(), "FocusResult deps should not be empty");
-    checkState(!focusResult.rdeps().isEmpty(), "FocusResults rdeps should not be empty");
-
-    // Now that the graph has dropped nodes, run a GC to reclaim some memory.
-    System.gc();
-    // Next, shrink the interners' backing maps - which now have larger
-    // capacities than necessary - and reclaim some more memory.
-    PooledInterner.shrinkAll();
-
-    dumpSkyfocusKeys(dumpKeysOption, reporter, focusResult, graph, skyFunctionCountBefore);
-
-    if (skyfocusState.options().getDumpKeys() != SkyfocusDumpOption.NONE) {
-      reportMetricChange(
-          reporter,
-          "Rdep edges",
-          focusResult.rdepEdgesBefore(),
-          focusResult.rdepEdgesAfter(),
-          Long::toString);
-
-      reportMetricChange(
-          reporter,
-          "Node count",
-          beforeNodeCount,
-          memoizingEvaluator.getValues().size(),
-          Long::toString);
-
-      if (actionCache != null) {
-        reportMetricChange(
-            reporter,
-            "Action cache count",
-            beforeActionCacheEntries,
-            actionCache.size(),
-            Long::toString);
-      }
-    }
-
-    if (skyfocusState.options().getDumpPostGcStats()) {
-      reportMetricChange(
-          reporter,
-          "Heap",
-          beforeHeap,
-          getHeapSize(
-              options
-                  .getOptions(MemoryPressureOptions.class)
-                  .getJvmHeapHistogramInternalObjectPattern()
-                  .regexPattern()),
-          StringUtilities::prettyPrintBytes);
-    }
-  }
-
-  /**
-   * Returns the current heap size in bytes.
-   *
-   * <p>Identical implementation to `blaze info used-heap-size-after-gc`, except that depending on
-   * that function would cause a cyclic dep.
-   *
-   * <p>TODO: b/311665999 - Remove the subtraction of FillerArray once we figure out an alternative.
-   */
-  private static long getHeapSize(Pattern internalJvmObjectPattern) {
-    MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-    return memBean.getHeapMemoryUsage().getUsed()
-        - HeapOffsetHelper.getSizeOfFillerArrayOnHeap(
-            internalJvmObjectPattern, BugReporter.defaultInstance());
-  }
-
-  /**
-   * Reports the reduction in the given value from before to after.
-   *
-   * @param eventHandler the event handler
-   * @param prefix the prefix to use for the message
-   * @param before the value before
-   * @param after the value after
-   * @param valueFormatter the function to format the value
-   */
-  private static void reportMetricChange(
-      ExtendedEventHandler eventHandler,
-      String prefix,
-      long before,
-      long after,
-      LongFunction<String> valueFormatter) {
-    checkState(!prefix.isEmpty(), "A prefix must be specified.");
-
-    String message =
-        String.format(
-            "%s: %s -> %s", prefix, valueFormatter.apply(before), valueFormatter.apply(after));
-    if (before > 0) {
-      double change = (double) (before - after) / before * 100;
-      message += String.format(" (%+.2f%%)", -change);
-    }
-
-    eventHandler.handle(Event.info(message));
-  }
-
-  /**
-   * Reports the computed set of SkyKeys that need to be kept in the Skyframe graph for incremental
-   * correctness.
-   *
-   * @param reporter the event reporter
-   * @param focusResult the result from SkyframeFocuser
-   */
-  private static void dumpSkyfocusKeys(
-      SkyfocusDumpOption dumpKeysOption,
-      Reporter reporter,
-      FocusResult focusResult,
-      InMemoryGraph graph,
-      ImmutableMultiset<SkyFunctionName> skyFunctionNameCountsBefore) {
-    if (dumpKeysOption == SkyfocusDumpOption.VERBOSE) {
-      try (PrintStream pos = new PrintStream(reporter.getOutErr().getOutputStream())) {
-        pos.println("Roots kept: " + focusResult.roots().size());
-        focusResult.roots().forEach(k -> pos.println(k.getCanonicalName()));
-
-        pos.println("Leafs (including active directories) kept: " + focusResult.leafs().size());
-        focusResult.leafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
-
-        pos.println("Rdeps kept: " + focusResult.rdeps().size());
-        focusResult.rdeps().forEach(k -> pos.println(k.getCanonicalName()));
-
-        pos.println("Deps kept: " + focusResult.deps().size());
-        focusResult.deps().forEach(k -> pos.println(k.getCanonicalName()));
-
-        pos.println("Verification set: " + focusResult.verificationSet().size());
-        focusResult.verificationSet().forEach(k -> pos.println(k.getCanonicalName()));
-      }
-    } else if (dumpKeysOption == SkyfocusDumpOption.COUNT) {
-      reporter.handle(Event.info(String.format("Roots kept: %d", focusResult.roots().size())));
-      reporter.handle(Event.info(String.format("Leafs kept: %d", focusResult.leafs().size())));
-      reporter.handle(Event.info(String.format("Rdeps kept: %d", focusResult.rdeps().size())));
-      reporter.handle(Event.info(String.format("Deps kept: %d", focusResult.deps().size())));
-      reporter.handle(
-          Event.info(String.format("Verification set: %d", focusResult.verificationSet().size())));
-      ImmutableMultiset<SkyFunctionName> skyFunctionNameCountsAfter =
-          getSkyFunctionNameCount(graph);
-      skyFunctionNameCountsBefore.forEachEntry(
-          (entry, beforeCount) ->
-              reportMetricChange(
-                  reporter,
-                  entry.toString(),
-                  beforeCount,
-                  skyFunctionNameCountsAfter.count(entry),
-                  Long::toString));
-    }
-  }
-
-  /**
-   * Returns a multiset of the SkyFunctionNames in the given graph, sorted by the highest count
-   * first.
-   */
-  private static ImmutableMultiset<SkyFunctionName> getSkyFunctionNameCount(InMemoryGraph graph) {
-    Multiset<SkyFunctionName> counts = ConcurrentHashMultiset.create();
-    graph.parallelForEach(entry -> counts.add(entry.getKey().functionName()));
-    return Multisets.copyHighestCountFirst(counts);
-  }
 
   /**
    * Defines configuration for the diff checking and the progress message shown during a slow diff

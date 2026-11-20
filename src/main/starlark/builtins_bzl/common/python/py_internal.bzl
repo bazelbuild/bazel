@@ -21,6 +21,15 @@ These may change at any time and are closely coupled to the rule implementation.
 _py_builtins = _builtins.internal.py_builtins
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
+RESTRICTED_API_ALLOWLIST = [
+    ("_builtins", ""),
+    ("", "third_party/bazel_rules/rules_python"),
+    ("rules_python", ""),
+]
+
+def _check_allowlisted_caller():
+    _py_builtins.check_private_api_caller(allowlist = RESTRICTED_API_ALLOWLIST, depth = 2)
+
 # NOTE: Directly exporting the Java objects on _py_builtins results in some
 # stricter serialization check failures within the Google implementation.
 # Instead, they must be wrapped in a Starlark function.
@@ -44,6 +53,7 @@ def _declare_constant_metadata_file(*args, **kwargs):
     return _py_builtins.declare_constant_metadata_file(*args, **kwargs)
 
 def _declare_shareable_artifact(ctx: Ctx, *args, **kwargs) -> File:
+    _check_allowlisted_caller()
     return ctx.actions.declare_shareable_artifact(*args, **kwargs)
 
 def _expand_location_and_make_variables(*args, **kwargs):
@@ -77,6 +87,7 @@ def _regex_match(*args, **kwargs):
     return _py_builtins.regex_match(*args, **kwargs)
 
 def _runfiles_enabled(ctx: Ctx) -> bool:
+    _check_allowlisted_caller()
     return ctx.configuration.runfiles_enabled()
 
 def _linkstamp_file(linkstamp, *args, **kwargs) -> File:
@@ -90,12 +101,15 @@ def _merge_runfiles_with_generated_inits_empty_files_supplier(*args, **kwargs):
     return _py_builtins.merge_runfiles_with_generated_inits_empty_files_supplier(*args, **kwargs)
 
 def _share_native_deps(ctx: Ctx) -> bool:
+    _check_allowlisted_caller()
     return ctx.fragments.cpp.share_native_deps()
 
 def _stamp_binaries(ctx: Ctx) -> bool:
+    _check_allowlisted_caller()
     return ctx.configuration.stamp_binaries()
 
 def _strip_opts(ctx: Ctx) -> Sequence[str]:
+    _check_allowlisted_caller()
     return ctx.fragments.cpp.strip_opts()
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "pyd", "wasm"]

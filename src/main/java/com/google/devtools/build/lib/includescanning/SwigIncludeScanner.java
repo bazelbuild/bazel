@@ -54,7 +54,7 @@ public class SwigIncludeScanner extends LegacyIncludeScanner {
         /* quoteIncludePaths= */ ImmutableList.of(),
         includePaths,
         /* frameworkIncludePaths= */ ImmutableList.of(),
-        directories.getOutputPath(execRoot.getBaseName()),
+        directories.getOutputPath(),
         execRoot,
         artifactFactory,
         () -> spawnIncludeScanner);

@@ -22,7 +22,6 @@ test_suite(
         ":PyRuntimeInfoTest",
         ":PyTestConfiguredTargetTest",
         ":PythonToolchainTest",
-        ":PythonVersionTest",
     ],
 )
 
@@ -43,7 +42,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -58,7 +56,6 @@ java_test(
     srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/junit",
         "//third_party/java/truth",
@@ -99,8 +96,10 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         ":PythonTestUtils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:repo_mapping_manifest_action",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/junit",
         "//third_party/java/truth",
@@ -129,17 +128,8 @@ java_test(
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
-    name = "PythonVersionTest",
-    srcs = ["PythonVersionTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],
@@ -176,7 +166,6 @@ java_test(
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/junit",
         "//third_party/java/truth",

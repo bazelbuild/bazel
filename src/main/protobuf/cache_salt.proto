@@ -38,6 +38,6 @@ message CacheSalt {
   }
 
   // Ensures that a scrubbed spawn can never collide with a non-scrubbed one.
-  // See the documentation for the --experimental_remote_scrub_config flag.
+  // See the documentation for the --experimental_remote_scrubbing_config flag.
   ScrubSalt scrub_salt = 3;
 }

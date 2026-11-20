@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,7 +28,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -62,6 +66,7 @@ import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -78,7 +83,6 @@ import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -98,8 +102,10 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Random;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentMap;
@@ -116,6 +122,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link CombinedCache}. */
@@ -132,14 +139,11 @@ public class CombinedCacheTest {
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private final MerkleTreeComputer merkleTreeComputer =
       new MerkleTreeComputer(
-          digestUtil,
-          /* remoteExecutionCache= */ null,
-          "buildRequestId",
-          "commandId",
-          TestConstants.WORKSPACE_NAME);
+          digestUtil, /* remoteExecutionCache= */ null, "buildRequestId", "commandId");
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;
+  @Mock private ByteStreamUploader uploader;
 
   @Before
   public void setUp() throws Exception {
@@ -284,7 +288,11 @@ public class CombinedCacheTest {
     Path file = execRoot.getRelative("file");
 
     getFromFuture(
-        combinedCache.uploadBlob(remoteActionExecutionContext, emptyDigest, ByteString.EMPTY));
+        combinedCache.uploadBlob(
+            remoteActionExecutionContext,
+            emptyDigest,
+            (Blob) ByteString.EMPTY::newInput,
+            /* force= */ false));
     assertThat(
             getFromFuture(
                 combinedCache.findMissingDigests(
@@ -634,8 +642,14 @@ public class CombinedCacheTest {
     assertThat(futures).hasSize(2);
     assertThat(cacheProtocol.getInProgressUploads()).isNotEmpty();
 
+    CountDownLatch allFuturesCancelled = new CountDownLatch(2);
+    for (SettableFuture<Void> future : futures) {
+      future.addListener(allFuturesCancelled::countDown, directExecutor());
+    }
+
     thread.interrupt();
     ensureInputsPresentReturned.await();
+    assertThat(allFuturesCancelled.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
@@ -855,18 +869,25 @@ public class CombinedCacheTest {
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
 
     Map<Digest, SettableFuture<Void>> uploadFutures = new ConcurrentHashMap<>();
-    // 3 unique file digests + 2 unique directory blob digests = 5 uploads total.
-    CountDownLatch uploadCalls = new CountDownLatch(5);
+    // Wait for all six subscriptions, including both consumers of the shared bar upload.
+    CountDownLatch uploadSubscriptions = new CountDownLatch(6);
     doAnswer(
             invocationOnMock -> {
               Digest digest = invocationOnMock.getArgument(1, Digest.class);
               SettableFuture<Void> future = SettableFuture.create();
               uploadFutures.put(digest, future);
-              uploadCalls.countDown();
               return future;
             })
         .when(cacheProtocol)
         .uploadBlobImpl(any(), any(), (Blob) any());
+    doAnswer(
+            invocationOnMock -> {
+              var future = invocationOnMock.callRealMethod();
+              uploadSubscriptions.countDown();
+              return future;
+            })
+        .when(cacheProtocol)
+        .uploadBlob(any(), any(), (Blob) any(), eq(false));
 
     Path foo = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(foo, "foo");
@@ -920,12 +941,21 @@ public class CombinedCacheTest {
     // act
     thread1.start();
     thread2.start();
-    uploadCalls.await();
+    assertThat(uploadSubscriptions.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
     assertThat(uploadFutures).hasSize(5);
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(5);
 
     thread1.interrupt();
     ensureInterrupted.await();
+
+    // Cancellation can race with an upload supplier returning on another thread. Wait until
+    // cancellation reaches both uploads that are exclusive to the interrupted consumer.
+    for (Digest digest : ImmutableList.of(fooDigest, merkleTree1.digest())) {
+      assertThrows(
+          CancellationException.class,
+          () -> uploadFutures.get(digest).get(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    }
 
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).hasSize(3);
@@ -942,6 +972,9 @@ public class CombinedCacheTest {
     ensureInputsPresentReturned.await();
     assertThat(cacheProtocol.getInProgressUploads()).isEmpty();
     assertThat(cacheProtocol.getFinishedUploads()).hasSize(3);
+    // The shared bar upload has two subscriptions but only one underlying request.
+    verify(cacheProtocol, times(5)).uploadBlobImpl(any(), any(), (Blob) any());
+    verify(cacheProtocol, times(6)).uploadBlob(any(), any(), (Blob) any(), eq(false));
   }
 
   @Test
@@ -971,6 +1004,47 @@ public class CombinedCacheTest {
   }
 
   @Test
+  public void ensureInputsPresent_chunksInputsOverThreshold() throws Exception {
+    when(uploader.uploadBlobAsync(any(), any(), any())).thenReturn(immediateFuture(null));
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    CombinedCache.Chunking chunking = mock(CombinedCache.Chunking.class);
+    when(chunking.supported()).thenReturn(true);
+    ChunkingConfig config =
+        ChunkingConfig.fromServerCapabilities(grpcCacheClient.serverCapabilities().get());
+    when(chunking.config()).thenReturn(config);
+    ChunkedBlobUploader uploader = mock(ChunkedBlobUploader.class);
+    when(chunking.uploader()).thenReturn(uploader);
+    RemoteExecutionCache remoteCache =
+        spy(
+            new RemoteExecutionCache(
+                grpcCacheClient,
+                /* diskCacheClient= */ null,
+                /* symlinkTemplate= */ null,
+                digestUtil,
+                immediateFuture(chunking)));
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+
+    Path path = execRoot.getRelative("foo");
+    // exceed chunking threshold
+    byte[] blob = new byte[2 * (int) config.chunkingThreshold()];
+    new Random().nextBytes(blob);
+    FileSystemUtils.writeContent(path, blob);
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("foo"), path);
+    doAnswer(unused -> immediateFuture(ImmutableSet.of(digestUtil.compute(path, path.stat()))))
+        .when(grpcCacheClient)
+        .findMissingDigests(any(), any());
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext, merkleTree, ImmutableMap.of(), /* force= */ false);
+
+    // could verify individual chunks, or the call itself
+    verify(uploader, times(1))
+        .uploadChunked(eq(remoteActionExecutionContext), any(), any(), any(Boolean.class));
+  }
+
+  @Test
   public void shutdownNow_cancelInProgressUploads() throws Exception {
     RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     // Return a future that never completes
@@ -991,17 +1065,7 @@ public class CombinedCacheTest {
 
   @Test
   public void uploadFile_chunkedUpload_deduplicatesRemoteUpload() throws Exception {
-    // Spy on a real GrpcCacheClient so that final methods on the RemoteCacheClient base class
-    // (e.g. dedupUpload, uploadFile) execute their real implementations against a properly
-    // initialized casUploadCache.
-    GrpcCacheClient grpcCacheClient =
-        spy(
-            new GrpcCacheClient(
-                mock(ReferenceCountedChannel.class),
-                mock(CallCredentialsProvider.class),
-                Options.getDefaults(RemoteOptions.class),
-                mock(RemoteRetrier.class),
-                digestUtil));
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
     doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
     doAnswer(unused -> immediateFuture(ImmutableSet.of()))
         .when(grpcCacheClient)
@@ -1051,7 +1115,6 @@ public class CombinedCacheTest {
       combinedCache.release();
     }
   }
-
 
   @Test
   public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()
@@ -1206,16 +1269,16 @@ public class CombinedCacheTest {
   }
 
   private GrpcCacheClient newChunkingGrpcCacheClient() throws IOException {
-    GrpcCacheClient grpcCacheClient =
-        spy(
-            new GrpcCacheClient(
-                mock(ReferenceCountedChannel.class),
-                mock(CallCredentialsProvider.class),
-                Options.getDefaults(RemoteOptions.class),
-                mock(RemoteRetrier.class),
-                digestUtil));
-    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
-    return grpcCacheClient;
+    ReferenceCountedChannel channel = mock(ReferenceCountedChannel.class);
+    when(channel.serverCapabilities()).thenReturn(Futures.immediateFuture(chunkingCapabilities()));
+    return spy(
+        new GrpcCacheClient(
+            channel,
+            mock(CallCredentialsProvider.class),
+            Options.getDefaults(RemoteOptions.class),
+            mock(RemoteRetrier.class),
+            digestUtil,
+            uploader));
   }
 
   private CombinedCache newChunkingCombinedCache(GrpcCacheClient grpcCacheClient) {
@@ -1281,11 +1344,11 @@ public class CombinedCacheTest {
 
     Path file1 = execRoot.getRelative("file1");
     FileSystemUtils.writeContent(file1, "hot-remote-cold-disk".getBytes(UTF_8));
-    Digest digest1 = digestUtil.compute(file1);
+    Digest digest1 = digestUtil.compute(file1, file1.stat());
 
     Path file2 = execRoot.getRelative("file2");
     FileSystemUtils.writeContent(file2, "cold-remote-cold-disk".getBytes(UTF_8));
-    Digest digest2 = digestUtil.compute(file2);
+    Digest digest2 = digestUtil.compute(file2, file2.stat());
 
     // Pre-populate remote cache with digest1
     getFromFuture(

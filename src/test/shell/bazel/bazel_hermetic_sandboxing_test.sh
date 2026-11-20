@@ -407,6 +407,31 @@ EOF
   expect_not_log "FETCHING_EXT_REPO"
 }
 
+# Test that the build fails instead of falling back to processwrapper-sandbox when linux-sandbox
+# is not supported.
+# Regression test for https://github.com/bazelbuild/bazel/issues/32161.
+function test_fails_when_linux_sandbox_unsupported() {
+  # In a user namespace without uid mappings, linux-sandbox can't create its nested user namespace.
+  if ! unshare --user true; then
+    echo "Skipping test: unable to create a user namespace" >&2
+    return 0
+  fi
+  # Use a separate output base so that the server started inside the namespace doesn't replace the
+  # one used by the other tests.
+  local -r output_base="${TEST_TMPDIR}/unsupported_output_base"
+
+  unshare --user bazel --output_base="${output_base}" build examples/hermetic:input_file \
+    &> $TEST_log && fail "Expected build to fail when linux-sandbox is unsupported" || true
+  expect_log "Failed to initialize sandbox: --experimental_use_hermetic_linux_sandbox requires linux-sandbox, which is not supported on this machine (.*\"clone\": Operation not permitted)"
+
+  unshare --user bazel --output_base="${output_base}" build \
+    --noexperimental_use_hermetic_linux_sandbox examples/hermetic:input_file &> $TEST_log \
+    || fail "Expected build to fall back to processwrapper-sandbox and succeed"
+  expect_log "processwrapper-sandbox"
+
+  bazel --output_base="${output_base}" shutdown
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 is_linux || exit 0

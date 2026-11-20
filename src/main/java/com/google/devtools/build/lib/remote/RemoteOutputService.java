@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -123,12 +124,11 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
-      throws AbruptExitException {
+      UUID buildId, EventHandler eventHandler, boolean finalizeActions) throws AbruptExitException {
     // One of the responsibilities of OutputService.startBuild() is that it ensures the output path
     // is valid. If the previous OutputService redirected the output path to a remote location, we
     // must undo this.
-    Path outputPath = directories.getOutputPath(workspaceName);
+    Path outputPath = directories.getOutputPath();
     try {
       if (outputPath.isSymbolicLink()) {
         outputPath.delete();
@@ -168,7 +168,7 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
-      throws IOException, InterruptedException {
+      throws IOException, LostInputsExecException, InterruptedException {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }

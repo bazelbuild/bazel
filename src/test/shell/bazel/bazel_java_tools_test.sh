@@ -63,6 +63,7 @@ http_archive(
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = "com_google_absl")
+bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 EOF
   # Dependencies of java_tools
   add_platforms "MODULE.bazel"
@@ -172,6 +173,13 @@ function test_java_tools_has_proguard() {
   expect_path_in_java_tools "java_tools/third_party/java/proguard/GPL.md"
 }
 
+function test_java_tools_has_proguard_allowlister() {
+  expect_path_in_java_tools "java_tools/tools/jdk/proguard_allowlister.cc"
+  expect_path_in_java_tools "java_tools/tools/jdk/proguard_allowlister_lib.cc"
+  expect_path_in_java_tools "java_tools/tools/jdk/proguard_allowlister_lib.h"
+  expect_path_in_java_tools_prebuilt "java_tools/tools/jdk/proguard_allowlister"
+}
+
 function test_java_tools_toolchain_builds() {
   bazel build @bazel_tools//tools/jdk:toolchain || fail "toolchain failed to build"
 }
@@ -213,6 +221,26 @@ function test_java_tools_one_version_builds_with_layering_check() {
 
   bazel build --repo_env=CC=clang --features=layering_check \
     @local_java_tools//:one_version_cc_bin || fail "one_version failed to build with layering check"
+}
+
+function test_java_tools_proguard_allowlister_builds() {
+  bazel build @local_java_tools//:proguard_allowlister_cc_bin \
+    || fail "proguard_allowlister failed to build"
+}
+
+function test_java_tools_proguard_allowlister_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:proguard_allowlister_cc_bin \
+    || fail "proguard_allowlister failed to build with layering check"
+}
+
+function test_java_tools_prebuilt_proguard_allowlister_builds() {
+  bazel build @local_java_tools_prebuilt//:prebuilt_proguard_allowlister \
+    || fail "prebuilt_proguard_allowlister failed to build"
 }
 
 run_suite "Java tools archive tests"

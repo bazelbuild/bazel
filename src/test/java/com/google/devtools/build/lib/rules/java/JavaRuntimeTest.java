@@ -74,7 +74,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         load("@rules_java//java/toolchains:java_toolchain.bzl", "java_toolchain")
         java_toolchain(
             name = "jt",
-            singlejar = ["sj"],
+            singlejar = "sj",
             java_runtime = None,
         )
         """);

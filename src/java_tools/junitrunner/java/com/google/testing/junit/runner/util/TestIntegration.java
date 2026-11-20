@@ -14,7 +14,6 @@
 
 package com.google.testing.junit.runner.util;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.EnumMap;
 import java.util.Map;
 

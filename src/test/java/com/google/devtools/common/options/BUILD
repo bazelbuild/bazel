@@ -61,7 +61,6 @@ java_test(
         "//third_party/java/guava:htmlescapers",
         "//third_party/java/guava:reflect",
         "//third_party/java/guava:testing",
-        "//third_party/java/jimfs",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",

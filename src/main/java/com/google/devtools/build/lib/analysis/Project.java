@@ -55,9 +55,7 @@ import javax.annotation.Nullable;
  * {@code src/main/java/com/google/devtools/build/lib/analysis}, {@code src/test/cpp}, and more.
  *
  * <p>"Project data" is any useful information that might be associated with a project. Possible
- * consumers include <a
- * href="https://github.com/bazelbuild/bazel/commit/693215317a6732085731809266f63ff0e7fc31a5">
- * Skyfocus</a>> and project-sanctioned build flags (i.e. "these are the correct flags to use with
+ * consumers include project-sanctioned build flags (i.e. "these are the correct flags to use with
  * this project").
  *
  * <p>Projects are defined in .scl files that are checked into source control with BUILD files and

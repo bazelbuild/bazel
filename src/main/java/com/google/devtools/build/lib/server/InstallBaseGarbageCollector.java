@@ -108,7 +108,8 @@ public final class InstallBaseGarbageCollector {
         return;
       }
       Duration age =
-          Duration.between(Instant.ofEpochMilli(status.getLastModifiedTime()), Instant.now());
+          Duration.between(
+              Instant.ofEpochSecond(0, status.getLastModifiedTimeNanos()), Instant.now());
       if (age.compareTo(maxAge) < 0) {
         // The install base was recently used. Back off.
         // If the install base belongs to an older binary that doesn't lock it before use, it's

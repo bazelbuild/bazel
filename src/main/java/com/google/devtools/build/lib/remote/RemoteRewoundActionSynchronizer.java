@@ -21,8 +21,11 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -30,17 +33,21 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CheckReturnValue;
+import java.lang.invoke.VarHandle;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * A {@link RewoundActionSynchronizer} implementation for Bazel's remote filesystem, which is backed
@@ -62,26 +69,26 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   // An action generally has at most one such task in flight, but nothing prevents an action from
   // executing multiple spawns whose outputs are uploaded concurrently.
-  private final ConcurrentHashMap<ActionLookupData, ImmutableList<Cancellable>> outputUploadTasks =
+  private final ConcurrentHashMap<PathFragment, ImmutableList<Cancellable>> outputUploadTasks =
       new ConcurrentHashMap<>();
 
-  // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
-  // non-rewound actions (readers) as long as no rewound action has attempted to prepare for its
-  // execution.
-  // This ensures high throughput and low memory footprint for the common case of no rewound
-  // actions. In this case, there won't be any writers and the performance characteristics of a
-  // ReentrantReadWriteLock are comparable to that of an atomic counter. A StampedLock would not be
-  // a good fit as its performance regresses with 127 or more concurrent readers.
-  // Note that it wouldn't be correct to only start using this lock once an action is rewound,
-  // because a non-rewound action consuming its non-lost outputs could have already started
-  // executing.
-  @Nullable private volatile ReadWriteLock coarseLock = new ReentrantReadWriteLock();
+  // As long as no rewound action has attempted to prepare for its execution, consumers acquire no
+  // locks and only register themselves here. A rewound action waits for the registered consumers
+  // that read its outputs, while all other consumers keep running.
+  // This keeps the common case of no rewound actions cheap. Registration can't be deferred until an
+  // action is rewound, because a non-rewound action consuming its non-lost outputs could have
+  // already started executing.
+  // The set only holds consumers that are currently executing, discovering inputs or processing
+  // top-level outputs. Its size thus scales with the number of concurrently running actions, which
+  // is capped at BuildRequestOptions.MAX_JOBS (5000), even with async execution. An entry costs
+  // about 100 bytes plus the lock keys a rewound action caches in it. Beyond that, it only
+  // references state that the consumer keeps alive anyway.
+  private final Set<RegisteredConsumer> registeredConsumers = ConcurrentHashMap.newKeySet();
 
-  // A fine-grained lock structure that is switched to when the first rewound action attempts to
-  // prepare for its execution. This structure is used to ensure that rewound actions do not
-  // delete their outputs while they are being read by other actions, while still allowing
-  // rewound actions and non-rewound actions to run concurrently (i.e., not force the equivalent
-  // of --jobs=1 for as long as a rewound action is running, as the coarse lock would).
+  // A fine-grained lock structure that is inflated when the first rewound action attempts to
+  // prepare for its execution and used by all consumers from then on. This structure is used to
+  // ensure that rewound actions do not delete their outputs while they are being read by other
+  // actions, while still allowing rewound actions and non-rewound actions to run concurrently.
   // A rewound action will acquire the write lock on its own key before it prepares for execution,
   // while any action will acquire a read lock on the key of each action generating one of its
   // inputs (see inputKeysFor) before it starts executing.
@@ -92,8 +99,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   //
   // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
   // are no longer needed.
-  @Nullable
-  private volatile LoadingCache<ActionLookupData, ReaderPreferringReadWriteLock> fineLocks;
+  @Nullable private volatile LoadingCache<PathFragment, ReaderPreferringReadWriteLock> fineLocks;
 
   public RemoteRewoundActionSynchronizer(
       AbstractActionInputPrefetcher actionInputFetcher, WalkableGraph graph) {
@@ -104,8 +110,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   /*
   Proof of deadlock freedom:
 
-  As long as the coarse lock is used, there can't be any deadlock because there is only a single
-  read-write lock.
+  A consumer that registered itself before the fine locks were inflated acquires no locks and thus
+  never waits for one. A rewound action only waits for such consumers before it acquires its write
+  lock and thus while it holds no locks (see WR below), so these waits can't be part of a cycle.
 
   For the fine locks, we show that a cycle of lock waits would imply a cycle of dependencies,
   which Skyframe disallows. Throughout, "X depends on Y" means that the Skyframe node executing
@@ -113,19 +120,25 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   1. Relating lock keys to dependencies between actions.
 
-  Every write-lock key identifies an action (see actionKeyFor). By
-  enterActionPreparationForRewinding, only a rewound action acquires the write lock of its own key.
-  It does so before it prepares for execution, holds the lock until the end of its execution and
-  acquires no other write lock.
+  Every write-lock key identifies an action up to sharing (see actionKeyFor) as shared actions are
+  executed and rewound as one by SkyframeActionExecutor. Below, an "action" always refers to its set
+  of shared actions, By enterActionPreparationForRewinding, only a rewound action acquires the write
+  lock of its own key. It does so before it prepares for execution, holds the lock until the end of
+  its execution and acquires no other write lock.
 
   By inputKeysFor, an action acquires the read lock of the key of each action that generates one of
-  its inputs, including the artifacts of its runfiles trees, before it starts executing. For a tree
-  artifact input, this is the action that generates the tree artifact, or the actions expanded
-  from an ActionTemplate that populate it, including producers of empty subdirectories. In either
-  case, the reader depends on that action: ActionExecutionFunction requests all inputs, including
-  discovered ones, before executing, and ArtifactFunction resolves an artifact by requesting its
-  generating action, or, for a tree artifact declared by a template, exactly the expanded actions
-  that populate it.
+  its inputs, including its discovered inputs and the artifacts of its runfiles trees, before it
+  starts executing. While it discovers inputs, it additionally holds the read locks of the keys of
+  the actions generating its scheduling dependencies, which are the artifacts it may read during
+  discovery. For a tree artifact input, this is the action that generates the tree artifact, or
+  the actions expanded from an ActionTemplate that populate it, including producers of empty
+  subdirectories. For an input generated by an action that insensitively propagates its inputs,
+  such as a symlink, the reader additionally acquires the read locks guarding that action's inputs,
+  recursively. In each case, the reader depends on that action: ActionExecutionFunction requests
+  the evaluated inputs (including inputs restored from the action cache) and scheduling
+  dependencies before discovering inputs, and all discovered inputs before executing.
+  ArtifactFunction resolves an artifact by requesting its generating action, or, for a tree
+  artifact declared by a template, exactly the expanded actions that populate it.
 
   Thus an action that holds or waits for the read lock of K depends on any action that can acquire
   the write lock of K.
@@ -142,8 +155,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   A -[XY(K)]-> B in C:
 
   * RR or WW: Readers never wait for other readers. Only the action identified by K acquires the
-    write lock of K (step 1) and Skyframe executes an action at most once at a time, so no two
-    writers of K exist. Readers therefore wait only for writers, and writers only for readers.
+    write lock of K (step 1) and SkyframeActionExecutor executes an action, shared members
+    included, at most once at a time, so no two writers of K exist. Readers therefore wait only
+    for writers, and writers only for readers.
 
   * WR: A waits for a write lock in enterActionPreparation, the only write lock it ever acquires.
     It holds no locks from this execution because read-lock acquisition in enterActionExecution
@@ -182,32 +196,31 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   private SilentCloseable enterActionPreparationForRewinding(Action action)
       throws InterruptedException {
-    var localCoarseLock = coarseLock;
-    if (localCoarseLock != null) {
-      // This is the first time a rewound action has attempted to prepare for its execution.
-      // Switch to using the fine locks under the protection of the coarse write lock.
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.prepareFirstRewinding")) {
-        localCoarseLock.writeLock().lockInterruptibly();
-      }
-      try {
-        // Check again under the lock to avoid a race between multiple rewound actions attempting
-        // to prepare for execution at the same time.
+    if (fineLocks == null) {
+      synchronized (this) {
         if (fineLocks == null) {
           fineLocks =
               Caffeine.newBuilder()
                   .weakValues()
-                  .build((ActionLookupData _) -> new ReaderPreferringReadWriteLock());
-          // Must be assigned after fineLocks as lockArtifactsForConsumption relies on a null
-          // coarseLock implying a non-null fineLocks.
-          coarseLock = null;
+                  .build((PathFragment _) -> new ReaderPreferringReadWriteLock());
         }
-      } finally {
-        localCoarseLock.writeLock().unlock();
+      }
+    }
+    // Pairs with the fence in lockArtifactsForConsumption so that every consumer that doesn't see
+    // the fine locks is seen here.
+    VarHandle.fullFence();
+    PathFragment key = actionKeyFor(action);
+    try (var _ =
+        Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.awaitRegisteredConsumers")) {
+      for (RegisteredConsumer consumer : registeredConsumers) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        consumer.awaitIfConsuming(key);
       }
     }
 
-    var writeLock = fineLocks.get(actionKeyFor(action));
+    var writeLock = fineLocks.get(key);
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.awaitRewoundActionConsumers")) {
@@ -266,11 +279,32 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   @Override
   public SilentCloseable enterActionExecution(
-      Action action, boolean wasRewound, InputMetadataProvider metadataProvider)
+      Action action,
+      boolean wasRewound,
+      NestedSet<Artifact> discoveredInputs,
+      InputMetadataProvider metadataProvider)
       throws InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterActionExecution")) {
-      return lockArtifactsForConsumption(action.getInputs().toList(), metadataProvider);
+      // Some actions, such as CppCompileAction, only add the discovered inputs to their inputs
+      // after execution, but read them during execution.
+      NestedSet<Artifact> inputs = action.getInputs();
+      return lockArtifactsForConsumption(
+          () -> Iterables.concat(inputs.toList(), discoveredInputs.toList()), metadataProvider);
+    }
+  }
+
+  @Override
+  public SilentCloseable enterInputDiscovery(
+      Action action, NestedSet<Artifact> evaluatedInputs, InputMetadataProvider metadataProvider)
+      throws InterruptedException {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterInputDiscovery")) {
+      return lockArtifactsForConsumption(
+          () ->
+              Iterables.concat(
+                  evaluatedInputs.toList(), action.getSchedulingDependencies().toList()),
+          metadataProvider);
     }
   }
 
@@ -284,7 +318,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.enterProcessOutputsAndGetLostArtifacts")) {
-      return lockArtifactsForConsumption(importantOutputs, fullMetadataProvider);
+      return lockArtifactsForConsumption(() -> importantOutputs, fullMetadataProvider);
     }
   }
 
@@ -299,7 +333,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    */
   @CheckReturnValue
   public Runnable registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
-    ActionLookupData key = actionKeyFor(action);
+    PathFragment key = actionKeyFor(action);
     // merge is atomic with respect to the removal of the entry in prepareOutputsForRewinding.
     outputUploadTasks.merge(
         key,
@@ -314,7 +348,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     return outputUploadTasks.containsKey(actionKeyFor(action));
   }
 
-  private void unregisterOutputUploadTask(ActionLookupData key, Cancellable task) {
+  private void unregisterOutputUploadTask(PathFragment key, Cancellable task) {
     outputUploadTasks.computeIfPresent(
         key,
         (unusedKey, tasks) -> {
@@ -326,29 +360,31 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   }
 
   private SilentCloseable lockArtifactsForConsumption(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
+      Supplier<Iterable<Artifact>> artifacts, InputMetadataProvider metadataProvider)
       throws InterruptedException {
-    var localCoarseLock = coarseLock;
-    if (localCoarseLock != null) {
-      // Common case for builds without any rewound actions: acquire the single lock that is never
-      // acquired by a writer.
-      localCoarseLock.readLock().lockInterruptibly();
+    // Registration never blocks, so check for interruption explicitly.
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
     }
-    // Read the fine locks after acquiring the coarse lock to allow the fine locks to be inflated
-    // lazily.
     var localFineLocks = fineLocks;
     if (localFineLocks == null) {
-      // Continuation of the common case for builds without any rewound actions: the fine locks
-      // have not been inflated.
-      return localCoarseLock.readLock()::unlock;
+      // Until the first rewound action inflates the fine locks, which most builds never do,
+      // consumers register instead of acquiring locks. Their artifacts are then only computed if a
+      // rewound action scans them.
+      var consumer = new RegisteredConsumer(artifacts, metadataProvider);
+      registeredConsumers.add(consumer);
+      // Pairs with the fence in enterActionPreparationForRewinding so that every rewound action
+      // finds this consumer registered if the fine locks are still null below.
+      VarHandle.fullFence();
+      localFineLocks = fineLocks;
+      if (localFineLocks == null) {
+        return consumer::unregister;
+      }
+      consumer.unregister();
     }
 
     // At this point, there has been at least one rewound action that has inflated the fine locks.
-    // We need to switch to them.
-    if (localCoarseLock != null) {
-      localCoarseLock.readLock().unlock();
-    }
-    var locks = localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider)).values();
+    var locks = localFineLocks.getAll(inputKeysFor(artifacts.get(), metadataProvider)).values();
     var locksToUnlockBuilder =
         ImmutableList.<ReaderPreferringReadWriteLock>builderWithExpectedSize(locks.size());
     try {
@@ -366,10 +402,67 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     return () -> locksToUnlock.forEach(ReaderPreferringReadWriteLock::unlockRead);
   }
 
+  /** A consumer that started before the fine locks were inflated and thus holds no locks. */
+  private final class RegisteredConsumer {
+    // The following fields are cleared on unregistration, since a rewound action iterating over
+    // registeredConsumers may still reference this consumer after its removal.
+    @GuardedBy("this")
+    @Nullable
+    private Supplier<Iterable<Artifact>> artifacts;
+
+    @GuardedBy("this")
+    @Nullable
+    private InputMetadataProvider metadataProvider;
+
+    @GuardedBy("this")
+    @Nullable
+    private ImmutableSet<PathFragment> lockKeys;
+
+    @GuardedBy("this")
+    private boolean registered = true;
+
+    RegisteredConsumer(
+        Supplier<Iterable<Artifact>> artifacts, InputMetadataProvider metadataProvider) {
+      this.artifacts = artifacts;
+      this.metadataProvider = metadataProvider;
+    }
+
+    void unregister() {
+      registeredConsumers.remove(this);
+      // Waits for a rewound action that is computing the lock keys, since the consumer may mutate
+      // its metadata provider once unregistered.
+      synchronized (this) {
+        registered = false;
+        artifacts = null;
+        metadataProvider = null;
+        lockKeys = null;
+        notifyAll();
+      }
+    }
+
+    /** Waits until this consumer is unregistered if it consumes artifacts guarded by the key. */
+    synchronized void awaitIfConsuming(PathFragment key) throws InterruptedException {
+      if (!registered) {
+        return;
+      }
+      if (lockKeys == null) {
+        // Rewound actions tend to arrive in bursts. Building the set costs about as much as a
+        // single scan of the inputs and makes later scans of this consumer nearly free.
+        lockKeys = ImmutableSet.copyOf(inputKeysFor(artifacts.get(), metadataProvider));
+      }
+      if (!lockKeys.contains(key)) {
+        return;
+      }
+      while (registered) {
+        wait();
+      }
+    }
+  }
+
   /**
    * Lazily returns the keys of the locks that guard the given artifacts (see {@link #lockKeysFor}).
    */
-  private Iterable<ActionLookupData> inputKeysFor(
+  private Iterable<PathFragment> inputKeysFor(
       Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
     return Iterables.concat(
         Iterables.transform(
@@ -381,12 +474,13 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    * Returns the keys of the locks that guard the given artifact. Runfiles trees are expanded into
    * the artifacts they contain. Tree artifacts declared by an {@link ActionTemplate} use the keys
    * of the expanded actions that populate them. Other artifacts use the key of their generating
-   * action.
+   * action and, if that action {@linkplain ActionExecutionMetadata#mayInsensitivelyPropagateInputs
+   * insensitively propagates its inputs}, also the keys guarding its inputs.
    *
    * <p>Consumers hold these read locks while executing and a rewound generating action holds the
    * write lock of its own key while re-executing (see {@link #actionKeyFor}).
    */
-  private Iterable<ActionLookupData> lockKeysFor(
+  private Iterable<PathFragment> lockKeysFor(
       DerivedArtifact artifact, InputMetadataProvider metadataProvider) {
     if (artifact.isRunfilesTree()) {
       return inputKeysFor(
@@ -394,23 +488,32 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
           metadataProvider);
     }
     ActionLookupData key = artifact.getGeneratingActionKey();
-    if (!artifact.isTreeArtifact()) {
-      return ImmutableList.of(key);
-    }
     try {
       var owner =
           (ActionLookupValue) checkNotNull(graph.getValue(key.getActionLookupKey()), artifact);
-      if (!(owner.getActions().get(key.getActionIndex()) instanceof ActionTemplate)) {
-        // This tree artifact is the output of a regular action and thus always consumed as a whole.
-        return ImmutableList.of(key);
+      ActionAnalysisMetadata generatingAction = owner.getActions().get(key.getActionIndex());
+      if (artifact.isTreeArtifact() && generatingAction instanceof ActionTemplate) {
+        // Crucially, action template expansion is never rewound and can thus be queried without
+        // locking.
+        var expansionKey =
+            ActionTemplateExpansionValue.key(key.getActionLookupKey(), key.getActionIndex());
+        var expansion =
+            (ActionTemplateExpansionValue) checkNotNull(graph.getValue(expansionKey), artifact);
+        return Lists.transform(
+            expansion.getGeneratingActionKeys(artifact),
+            expandedKey -> actionKeyFor(expansion.getActions().get(expandedKey.getActionIndex())));
       }
-      // Crucially, action template expansion is never rewound and can thus be queried without
-      // locking.
-      var expansionKey =
-          ActionTemplateExpansionValue.key(key.getActionLookupKey(), key.getActionIndex());
-      var expansion =
-          (ActionTemplateExpansionValue) checkNotNull(graph.getValue(expansionKey), artifact);
-      return expansion.getGeneratingActionKeys(artifact);
+      // A tree artifact that is the output of a regular action is always consumed as a whole.
+      PathFragment generatingActionKey = actionKeyFor(generatingAction);
+      if (generatingAction instanceof ActionExecutionMetadata action
+          && action.mayInsensitivelyPropagateInputs()) {
+        // The artifact may be materialized as a symlink to an input of its generating action, e.g.
+        // by AbstractActionInputPrefetcher, so reading it reads that input.
+        return Iterables.concat(
+            ImmutableList.of(generatingActionKey),
+            inputKeysFor(action.getInputs().toList(), metadataProvider));
+      }
+      return ImmutableList.of(generatingActionKey);
     } catch (InterruptedException e) {
       // Bazel's in-memory graph lookups do not throw InterruptedException.
       throw new IllegalStateException(e);
@@ -418,11 +521,11 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   }
 
   /**
-   * Returns the key that uniquely identifies the given action: the generating action key of its
-   * outputs. A rewound action holds the write lock of this key while re-executing and consumers of
+   * Returns the exec path of the action's primary output, which identifies the given action up to
+   * sharing. A rewound action holds the write lock of this key while re-executing and consumers of
    * its outputs hold its read lock while executing (see {@link #lockKeysFor}).
    */
-  private static ActionLookupData actionKeyFor(ActionExecutionMetadata action) {
-    return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+  private static PathFragment actionKeyFor(ActionAnalysisMetadata action) {
+    return action.getPrimaryOutput().getExecPath();
   }
 }

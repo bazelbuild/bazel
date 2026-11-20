@@ -315,8 +315,8 @@ bool IsEmacsTerminal();
 // issues (ie one stream deleting a line the other intended to be displayed).
 bool IsStandardTerminal();
 
-// Returns the number of columns of the terminal to which stdout is connected,
-// or 80 if there is no such terminal.
+// Returns the number of columns of the terminal to which stdout or stderr is
+// connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
 
 // Gets the system-wide explicit limit for the given resource.
@@ -343,6 +343,13 @@ bool UnlimitCoredumps();
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 std::string DetectBashAndExportBazelSh();
+
+// Returns the first bash.exe on `path_list` that is not under `windir` or
+// `local_app_data`\Microsoft\WindowsApps, or an empty string. Exposed for
+// testing.
+std::string FindBashInPath(const std::string& path_list,
+                           const std::string& windir,
+                           const std::string& local_app_data);
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze

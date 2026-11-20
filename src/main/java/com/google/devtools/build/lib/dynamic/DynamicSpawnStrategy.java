@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -526,6 +527,22 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     ImmutableList<SpawnResult> localResult;
     try {
       localResult = waitBranch(localBranch, options, context);
+    } catch (LostInputsExecException e) {
+      // The local branch lost an input while setting up its execution and never ran. The remote
+      // branch may not need the input's contents at all, e.g. for a remote cache hit, so it is
+      // awaited rather than cancelled, and the loss is only reported if it doesn't produce a result
+      // either.
+      ImmutableList<SpawnResult> remoteResult;
+      try {
+        remoteResult = waitBranch(remoteBranch, options, context);
+      } catch (ExecException | RuntimeException remoteException) {
+        e.addSuppressed(remoteException);
+        remoteResult = null;
+      }
+      if (remoteResult != null) {
+        return remoteResult;
+      }
+      throw e;
     } catch (ExecException | InterruptedException | RuntimeException e) {
       if (options.getDebugSpawnScheduler()) {
         context

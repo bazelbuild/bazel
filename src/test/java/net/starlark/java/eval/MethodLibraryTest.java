@@ -21,7 +21,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -309,6 +311,80 @@ public final class MethodLibraryTest {
         .testIfExactError(
             "unsupported comparison: builtin_function_or_method <=> builtin_function_or_method",
             "sorted([sorted, sorted])");
+  }
+
+  @StarlarkBuiltin(name = "BadComparable", documented = false, doc = "")
+  static final class BadComparable implements StarlarkValue, Comparable<BadComparable> {
+    final int val;
+
+    BadComparable(int val) {
+      this.val = val;
+    }
+
+    @Override
+    public int compareTo(BadComparable o) {
+      if (this.val == o.val) {
+        return 1; // Violates reflexivity.
+      }
+      return Integer.compare(this.val, o.val);
+    }
+  }
+
+  @Test
+  public void testSortedComparisonError() throws Exception {
+    Random rand = new Random(42);
+    List<BadComparable> list = new ArrayList<>();
+    for (int i = 0; i < 100; i++) {
+      list.add(new BadComparable(rand.nextInt(10)));
+    }
+    ev.update("bad_list", StarlarkList.copyOf(Mutability.IMMUTABLE, list));
+
+    Exception thrown = assertThrows(Exception.class, () -> ev.eval("sorted(bad_list)"));
+    assertThat(thrown).isInstanceOf(Starlark.UncheckedEvalException.class);
+    assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    assertThat(thrown)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains(
+            "sort: element ordering is not self-consistent (element types:"
+                + " [net.starlark.java.eval.MethodLibraryTest$BadComparable])");
+    assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  public void testSortedWithKeyComparisonError() throws Exception {
+    Random rand = new Random(42);
+    List<StarlarkInt> list = new ArrayList<>();
+    for (int i = 0; i < 100; i++) {
+      list.add(StarlarkInt.of(rand.nextInt(10)));
+    }
+    ev.update("int_list", StarlarkList.copyOf(Mutability.IMMUTABLE, list));
+    StarlarkCallable badComparable =
+        new StarlarkCallable() {
+          @Override
+          public String getName() {
+            return "bad_comparable";
+          }
+
+          @Override
+          public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+              throws EvalException {
+            return new BadComparable(((StarlarkInt) args.get(0)).toIntUnchecked());
+          }
+        };
+    ev.update("bad_comparable", badComparable);
+
+    Exception thrown =
+        assertThrows(Exception.class, () -> ev.eval("sorted(int_list, key = bad_comparable)"));
+    assertThat(thrown).isInstanceOf(Starlark.UncheckedEvalException.class);
+    assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    assertThat(thrown)
+        .hasCauseThat()
+        .hasMessageThat()
+        .contains(
+            "sort: element ordering is not self-consistent (key types:"
+                + " [net.starlark.java.eval.MethodLibraryTest$BadComparable])");
+    assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

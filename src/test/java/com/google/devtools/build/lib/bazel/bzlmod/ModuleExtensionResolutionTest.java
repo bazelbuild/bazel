@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -3374,6 +3375,121 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
             "@@+other_ext+other_foo//:foo",
             "@@+other_ext+other_bar//:bar")
         .inOrder();
+  }
+
+  @Test
+  public void overrideRepo_mainRepoCannotBeImported(
+      @TestParameter boolean customRepoName,
+      @TestParameter boolean importFirst,
+      @TestParameter boolean devDependency)
+      throws Exception {
+    String repoName = customRepoName ? "app_self" : "app";
+    String importStatement = "use_repo(ext, alias = 'self')";
+    String overrideStatement = "override_repo(ext, self = '%s')".formatted(repoName);
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        customRepoName ? "module(name='app', repo_name='app_self')" : "module(name='app')",
+        "ext = use_extension('//:defs.bzl', 'ext', dev_dependency = %s)"
+            .formatted(devDependency ? "True" : "False"),
+        importFirst ? importStatement : overrideStatement,
+        importFirst ? overrideStatement : importStatement);
+    invalidatePackages(false);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, ModuleFileValue.KEY_FOR_ROOT_MODULE, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("Error in use_repo: Cannot import repo 'self' from module extension 'ext'");
+    assertContainsEvent("because it is overridden with the root module");
+    assertContainsEvent("Please refer to @%s directly.".formatted(repoName));
+  }
+
+  @Test
+  public void overrideRepo_mainRepoCanBeImportedByOtherModules() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = "app", repo_name = "app_self")
+        bazel_dep(name = "ext", version = "1.0")
+        ext = use_extension("@ext//:defs.bzl", "ext")
+        override_repo(ext, self = "app_self")
+        """);
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "data = 'from the root module'");
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        """
+        module(name = "ext", version = "1.0")
+        ext = use_extension("//:defs.bzl", "ext")
+        use_repo(ext, alias = "self")
+        """);
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("ext+1.0/BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/data.bzl").getPathString(),
+        "load('@alias//:data.bzl', _data = 'data')",
+        "data = _data");
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        """
+        def _repo_impl(ctx):
+            fail("The overridden repository must not be fetched")
+        repo = repository_rule(implementation = _repo_impl)
+        def _ext_impl(ctx):
+            repo(name = "self")
+        ext = module_extension(implementation = _ext_impl)
+        """);
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext+//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("from the root module");
+  }
+
+  @Test
+  public void overrideRepo_mainRepoIsExcludedFromTidyImports(
+      @TestParameter boolean allRepos, @TestParameter boolean devDependency) throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='app', repo_name='app_self')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext', dev_dependency = %s)"
+            .formatted(devDependency ? "True" : "False"),
+        "override_repo(ext, self = 'app_self', dep = 'data_repo')");
+    scratch.overwriteFile("BUILD");
+    String directDeps = allRepos ? "'all'" : "['self', 'dep']";
+    scratch.file(
+        "defs.bzl",
+        """
+        load('@data_repo//:defs.bzl', 'data_repo')
+        def _ext_impl(ctx):
+            data_repo(name = 'self')
+            data_repo(name = 'dep')
+            return ctx.extension_metadata(
+                root_module_direct_deps = %s,
+                root_module_direct_dev_deps = %s,
+            )
+        ext = module_extension(implementation = _ext_impl)
+        """
+            .formatted(devDependency ? "[]" : directDeps, devDependency ? directDeps : "[]"));
+    invalidatePackages(false);
+
+    SkyKey skyKey =
+        SingleExtensionValue.evalKey(
+            ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty()));
+    EvaluationResult<SingleExtensionValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).fixup()).isPresent();
+    // Keep suggesting imports of overrides backed by other repositories.
+    assertThat(result.get(skyKey).fixup().get().moduleFilePathToBuildozerCommands())
+        .containsExactly(PathFragment.create("MODULE.bazel"), "use_repo_add ext dep");
   }
 
   @Test

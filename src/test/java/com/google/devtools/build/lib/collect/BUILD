@@ -77,11 +77,10 @@ java_test(
 )
 
 java_test(
-    name = "PathFragmentPrefixTrieTest",
-    srcs = ["PathFragmentPrefixTrieTest.java"],
+    name = "ObjectToIntMapTest",
+    srcs = ["ObjectToIntMapTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/collect:object_to_int_map",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],

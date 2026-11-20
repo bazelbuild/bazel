@@ -55,14 +55,14 @@ public final class FileArtifactValueTest {
     Path path = fileSystem.getPath(name);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, content);
-    path.setLastModifiedTime(mtime);
+    path.setLastModifiedTimeNanos(mtime);
     return path;
   }
 
   private Path scratchDir(String name, long mtime) throws IOException {
     Path path = fs.getPath(name);
     path.createDirectoryAndParents();
-    path.setLastModifiedTime(mtime);
+    path.setLastModifiedTimeNanos(mtime);
     return path;
   }
 
@@ -98,7 +98,11 @@ public final class FileArtifactValueTest {
             FileArtifactValue.createForDirectoryWithMtime(2),
             FileArtifactValue.createForDirectoryWithMtime(2))
         .addEqualityGroup(
-            // expireAtEpochMilli doesn't contribute to the equality
+            // expireAtEpochMilli doesn't contribute to the equality, and a plain
+            // RemoteFileArtifactValue is equal to a RemoteFileArtifactValueWithMaterializationData
+            // with the same (digest, size, locationIndex) and inMemoryOutput=false.
+            FileArtifactValue.createForRemoteFile(
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* size= */ 1, /* locationIndex= */ 1),
             FileArtifactValue.createForRemoteFileWithMaterializationData(
                 toBytes("00112233445566778899AABBCCDDEEFF"),
                 /* size= */ 1,
@@ -111,6 +115,19 @@ public final class FileArtifactValueTest {
                 /* locationIndex= */ 1,
                 /* expirationTime= */ Instant.ofEpochMilli(2),
                 /* inMemoryOutput= */ false))
+        .addEqualityGroup(
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(1),
+                /* inMemoryOutput= */ true),
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(2),
+                /* inMemoryOutput= */ true))
         .addEqualityGroup(
             // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
             FileArtifactValue.createFromExistingWithResolvedPath(
@@ -226,7 +243,7 @@ public final class FileArtifactValueTest {
   @Test
   public void testEmptyFile() throws Exception {
     Path path = scratchFile("/root/empty", 1L, "");
-    path.setLastModifiedTime(1L);
+    path.setLastModifiedTimeNanos(1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isEqualTo(path.getDigest());
     assertThat(value.getSize()).isEqualTo(0L);
@@ -268,7 +285,7 @@ public final class FileArtifactValueTest {
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
-    path.setLastModifiedTime(123);
+    path.setLastModifiedTimeNanos(123);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -299,7 +316,7 @@ public final class FileArtifactValueTest {
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -315,7 +332,7 @@ public final class FileArtifactValueTest {
     assertThat(value.wasModifiedSinceDigest(path)).isFalse();
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "cOntent");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
@@ -348,7 +365,7 @@ public final class FileArtifactValueTest {
     clock.advanceMillis(1);
     FileSystemUtils.writeContentAsLatin1(path, "new content");
     FileSystemUtils.writeContentAsLatin1(path, "content");
-    path.setLastModifiedTime(0);
+    path.setLastModifiedTimeNanos(0);
     // This is not necessarily the intended behavior, but a consequence of the need to avoid
     // false positives due to hard link creation/deletion. "Breaking" this test in the future while
     // preserving the behavior on other test cases would thus be a welcome change.

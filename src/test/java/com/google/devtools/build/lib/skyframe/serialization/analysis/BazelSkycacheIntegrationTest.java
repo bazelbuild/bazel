@@ -23,13 +23,15 @@ import static org.mockito.Mockito.mock;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandStartEvent;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -102,6 +104,13 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
   }
 
   private class ModuleWithOverrides extends SerializationModule {
+    @Override
+    public void workspaceInit(
+        BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+      super.workspaceInit(runtime, directories, builder);
+      builder.allowExternalRepositories(true);
+    }
+
     @Override
     protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier(
         BlazeRuntime runtime) {
@@ -189,7 +198,6 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
         load("//tree:rule.bzl", "tree_rule")
         tree_rule(name = "my_tree")
         """);
-    writeProjectSclWithActiveDirs("tree");
 
     assertUploadSuccess("//tree:my_tree");
 
@@ -198,13 +206,12 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
 
     // Verify that tree artifacts (which are DerivedArtifacts that do not have generating action
     // keys)
-    // are serialized as SpecialArtifact keys in the frontier.
-    var specialArtifacts = filterKeys(serializedKeys, SpecialArtifact.class);
-    assertThat(specialArtifacts).isNotEmpty();
+    // are serialized as TreeArtifact keys in the frontier.
+    var treeArtifacts = filterKeys(serializedKeys, TreeArtifact.class);
+    assertThat(treeArtifacts).isNotEmpty();
     assertThat(
-            specialArtifacts.stream()
-                .filter(SpecialArtifact::isTreeArtifact)
-                .map(SpecialArtifact::getRootRelativePathString)
+            treeArtifacts.stream()
+                .map(TreeArtifact::getRootRelativePathString)
                 .collect(toImmutableList()))
         .containsExactly("tree/my_tree_dir");
   }
@@ -212,7 +219,6 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
   @Test
   public void constantMetadataCoverage() throws Exception {
     write("bar/BUILD", "genrule(name = 'one', outs = ['one.txt'], cmd = 'touch $@')");
-    writeProjectSclWithActiveDirs("bar");
     var unused = getSkyframeExecutor().getWorkspaceStatusArtifacts(events.reporter());
     assertUploadSuccess("//bar:one");
 

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetComple
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -79,6 +80,14 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected void disableActionRewinding() {
     addOptions("--norewind_lost_inputs");
   }
+
+  protected abstract String getLocalFileWriteStrategyFlag();
+
+  protected abstract String getRemoteFileWriteStrategyFlag();
+
+  protected abstract String getLocalTemplateExpansionStrategyFlag();
+
+  protected abstract String getRemoteTemplateExpansionStrategyFlag();
 
   protected abstract void assertOutputEquals(Path path, String expectedContent) throws Exception;
 
@@ -117,6 +126,88 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertOutputsDoNotExist("//:foo");
     assertOutputsDoNotExist("//:foobar");
+  }
+
+  // The trailing line break cannot be avoided with a batch tool on Windows.
+  private static final String CAPTURED_STDOUT =
+      OS.getCurrent() == OS.WINDOWS ? "hello stdout\r\n" : "hello stdout";
+
+  private void writeStdoutRule() throws IOException {
+    // A rule whose only output is the captured stdout of a tool invoked via ctx.actions.run.
+    boolean isWindows = OS.getCurrent() == OS.WINDOWS;
+    write(
+        "a/defs.bzl",
+        """
+        def _impl(ctx):
+            tool = ctx.actions.declare_file(ctx.label.name + "%s")
+            ctx.actions.write(
+                tool,
+                %s,
+                is_executable = True,
+            )
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.run(
+                outputs = [],
+                executable = tool,
+                stdout = out,
+                mnemonic = "Capture",
+            )
+            return DefaultInfo(files = depset([out]))
+
+        capture = rule(implementation = _impl)
+        """
+            .formatted(
+                isWindows ? ".bat" : ".sh",
+                isWindows
+                    ? "\"@echo off\\necho hello stdout\\n\""
+                    : "\"#!/bin/bash\\nprintf '%s' 'hello stdout'\\n\""));
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "capture")
+
+        capture(name = "capture")
+        """);
+  }
+
+  @Test
+  public void stdoutOutput_notDownloadedUnderMinimal() throws Exception {
+    // The stdout output is an ordinary output: under build-without-the-bytes it is not eagerly
+    // downloaded, but its (remote) metadata is available.
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+    writeStdoutRule();
+
+    buildTarget("//a:capture");
+    waitDownloads();
+
+    assertOnlyOutputRemoteContent("//a:capture", "capture.out", CAPTURED_STDOUT);
+  }
+
+  @Test
+  public void stdoutOutput_downloadedWithRegex() throws Exception {
+    // remote_download_regex matching the stdout file forces it to be downloaded, just like any
+    // other output.
+    writeStdoutRule();
+    addOptions("--remote_download_regex=.*capture\\.out$");
+
+    buildTarget("//a:capture");
+    waitDownloads();
+
+    assertOnlyOutputContent("//a:capture", "capture.out", CAPTURED_STDOUT);
+  }
+
+  @Test
+  public void stdoutOutput_downloadTopLevel() throws Exception {
+    // Requesting top-level outputs downloads the stdout output with its captured content.
+    setDownloadToplevel();
+    writeStdoutRule();
+
+    buildTarget("//a:capture");
+    waitDownloads();
+
+    assertOnlyOutputContent("//a:capture", "capture.out", CAPTURED_STDOUT);
   }
 
   @Test
@@ -1208,6 +1299,54 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_symlinkToWrittenFile(
+      @TestParameter({"local", "remote"}) String fileWriteStrategy,
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule)
+      throws Exception {
+    setDownloadToplevel();
+    writeSymlinkRule();
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load(':symlink.bzl', 'symlink')
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
+          name = 'foo',
+          content = 'hello',
+          # assertValidOutputFile checks for the executable bit.
+          executable = True,
+        )
+        symlink(
+          name = 'foo-link',
+          target_artifact = ':foo',
+        )
+        """
+            .formatted(fileWriteRule));
+
+    setFileWriteStrategy(fileWriteRule, fileWriteStrategy);
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello");
+
+    // Delete target, re-download it
+    getOutputPath("foo").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello");
+  }
+
+  @Test
   public void downloadToplevel_unresolvedSymlink(@TestParameter SymlinkTargetType targetType)
       throws Exception {
     Path targetPath = TestUtils.createUniqueTmpDir(null).getChild("target");
@@ -1255,6 +1394,88 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
       assertThat(FileSystemUtils.readContent(getOutputPath("foo-link/file.txt"), UTF_8))
           .isEqualTo("hello world");
     }
+  }
+
+  @Test
+  public void downloadMinimal_fileWrite(
+      @TestParameter boolean isExecutable,
+      @TestParameter({"local", "remote"}) String fileWriteStrategy,
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule)
+      throws Exception {
+    writeFileWriteRules();
+    // Remote execution stages all files as executable.
+    write(
+        "BUILD",
+        """
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
+            name = 'foo',
+            content = 'hello',
+            executable = %2$s,
+        )
+        genrule(
+            name = 'gen',
+            srcs = [':foo'],
+            outs = ['out/gen.txt'],
+            cmd = \"""
+            %3$s
+            cat $(location :foo) $(location :foo) > $@
+            \""",
+        )
+        """
+            .formatted(
+                fileWriteRule,
+                isExecutable ? "True" : "False",
+                OS.getCurrent() == OS.WINDOWS
+                    ? ""
+                    : """
+                    [ -x $(location :foo) ] || { echo "unexpectedly not executable"; exit 1; }
+                    """));
+
+    setFileWriteStrategy(fileWriteRule, fileWriteStrategy);
+
+    buildTarget("//:gen");
+    if (fileWriteStrategy.equals("remote")) {
+      assertOutputsDoNotExist("//:foo");
+    } else {
+      assertValidOutputFile("foo", "hello");
+    }
+    assertOutputsDoNotExist("//:gen");
+  }
+
+  @Test
+  public void downloadToplevel_fileWrite(
+      @TestParameter boolean isExecutable,
+      @TestParameter({"local", "remote"}) String fileWriteStrategy,
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule)
+      throws Exception {
+    setDownloadToplevel();
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
+          name = 'foo',
+          content = 'hello',
+          executable = %2$s,
+        )
+        """
+            .formatted(fileWriteRule, isExecutable ? "True" : "False"));
+
+    setFileWriteStrategy(fileWriteRule, fileWriteStrategy);
+
+    buildTarget("//:foo");
+
+    assertOnlyOutputContent("//:foo", "foo", "hello");
+    // TODO: Bazel doesn't honor the executable bit.
+    assertThat(getOutputPath("foo").isExecutable()).isTrue();
+
+    // Delete file, re-create it
+    assertThat(getOutputPath("foo").delete()).isTrue();
+    buildTarget("//:foo");
+
+    assertOnlyOutputContent("//:foo", "foo", "hello");
   }
 
   @Test
@@ -1557,8 +1778,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOutputsDoNotExist("//:foo");
     assertOutputsDoNotExist("//:foobar");
 
-    // Install a previous checker with download-all, without running a build or materializing any
-    // outputs.
+    // Run a non-building command with download-all in between, without materializing any outputs.
+    // It neither replaces the previous build's checker nor is compared against it.
     setDownloadAll();
     addOptions("workspace");
     runtimeWrapper.newCommand(InfoCommand.class);
@@ -1694,6 +1915,55 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Assert: remote file metadata has contents proxy and action node is not marked as dirty.
     assertValidOutputFile("out/foo.txt", "foo\n");
     assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    assertThat(actionEventCollector.getCachedActionEvents()).isEmpty();
+    var metadata = getOnlyElement(getMetadata("//:foo").values());
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getContentsProxy()).isNotNull();
+  }
+
+  @Test
+  public void incrementalBuild_writeFileOutputIsPrefetched_noRuns() throws Exception {
+    // We need to download the intermediate output
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    // Arrange: Prepare workspace and run a clean build
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(
+          name = 'foo',
+          content = 'foo',
+          executable = True,
+        )
+        genrule(
+          name = 'foobar',
+          srcs = [':foo'],
+          outs = ['out/foobar.txt'],
+          cmd = 'cat $(location :foo) > $@ && echo bar >> $@',
+          tags = ['no-remote'],
+        )
+        """);
+
+    addOptions(getRemoteFileWriteStrategyFlag());
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("foo", "foo");
+    assertValidOutputFile("out/foobar.txt", "foobar\n");
+    assertThat(getOnlyElement(getMetadata("//:foo").values()).isRemote()).isTrue();
+
+    // Act: Do an incremental build without any modifications
+    var actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: remote file metadata has contents proxy and action node is not marked as dirty.
+    assertValidOutputFile("foo", "foo");
+    assertValidOutputFile("out/foobar.txt", "foobar\n");
     assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
     assertThat(actionEventCollector.getCachedActionEvents()).isEmpty();
     var metadata = getOnlyElement(getMetadata("//:foo").values());
@@ -1875,6 +2145,68 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--strategy_regexp=.*bar=local");
     if (actionRewinding) {
       // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingRemoteFileWrite(
+      @TestParameter boolean actionRewinding) throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    writeFileWriteRules();
+    write(
+        "a/BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(
+            name = "foo",
+            content = "foo\\n",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":foo",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/bar.in", "bar");
+    addOptions(getRemoteFileWriteStrategyFlag());
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo");
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions(getRemoteFileWriteStrategyFlag());
+
+    // Clean build, foo is only stored remotely
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build and stores its
+      // contents remotely again.
       enableActionRewinding();
     } else {
       // The build fails because of remote cache eviction, but an incremental build without
@@ -2164,6 +2496,31 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void infoAfterBuild_keepsCompletionsOfPreviousBuild() throws Exception {
+    writeFooAndBar();
+    var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
+    getRuntimeWrapper().registerSubscriber(completionStats);
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    assertThat(completionStats.recomputed()).isEqualTo(2);
+
+    // The info command neither completes targets nor downloads outputs, so it must not be treated
+    // as a change of command mode that discards the completions of the preceding build. See
+    // https://github.com/bazelbuild/bazel/issues/32363.
+    addOptions("workspace");
+    runtimeWrapper.newCommand(InfoCommand.class);
+    runtimeWrapper.executeCustomCommand();
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    assertThat(completionStats.recomputed()).isEqualTo(0);
+    assertThat(targetCompletions()).containsExactly("//:foo (build)", "//:bar (build)");
+  }
+
+  @Test
   public void downloadOutputsModeChange_discardsCompletionsOfPreviousBuild() throws Exception {
     writeFooAndBar();
     var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
@@ -2269,7 +2626,11 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(metadata.isRemote()).isTrue();
     assertThat(metadata.getSize()).isEqualTo(content.length());
     assertThat(metadata.getDigest())
-        .isEqualTo(getDigestHashFunction().getHashFunction().hashString(content, UTF_8).asBytes());
+        .isEqualTo(
+            getDigestHashFunction()
+                .getHashFunction()
+                .hashBytes(StringUnsafe.getInternalStringBytes(content))
+                .asBytes());
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
@@ -2467,6 +2828,90 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     public int recomputed() {
       return recomputed;
     }
+  }
+
+  /**
+   * Selects the strategy for the file write performed by the given rule written by {@link
+   * #writeFileWriteRules}.
+   */
+  protected void setFileWriteStrategy(String fileWriteRule, String strategy) {
+    var flag =
+        switch (fileWriteRule) {
+          case "expand_template" ->
+              switch (strategy) {
+                case "local" -> getLocalTemplateExpansionStrategyFlag();
+                case "remote" -> getRemoteTemplateExpansionStrategyFlag();
+                default -> throw new IllegalArgumentException(strategy);
+              };
+          case "write_file" ->
+              switch (strategy) {
+                case "local" -> getLocalFileWriteStrategyFlag();
+                case "remote" -> getRemoteFileWriteStrategyFlag();
+                default -> throw new IllegalArgumentException(strategy);
+              };
+          default -> throw new IllegalArgumentException(fileWriteRule);
+        };
+    addOptions(flag);
+  }
+
+  protected void writeFileWriteRules() throws IOException {
+    write(
+        "rules/write_file.bzl",
+        """
+        def _write_file_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.write(output = out, content = ctx.attr.content, is_executable = ctx.attr.executable)
+            return DefaultInfo(files = depset([out]))
+
+        write_file = rule(
+            implementation = _write_file_impl,
+            attrs = {
+                "content": attr.string(),
+                "executable": attr.bool(default = False),
+            },
+        )
+        """);
+    write(
+        "rules/expand_template.bzl",
+        """
+        def identity(x):
+            return x
+
+        def _expand_template_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            substitutions = ctx.actions.template_dict()
+            substitutions.add_joined(
+                "%CONTENT%",
+                depset([ctx.attr.content]),
+                join_with = "",
+                map_each = identity)
+            ctx.actions.expand_template(
+                output = out,
+                template = ctx.file._template,
+                computed_substitutions = substitutions,
+                is_executable = ctx.attr.executable,
+            )
+            return DefaultInfo(files = depset([out]))
+
+        expand_template = rule(
+            implementation = _expand_template_impl,
+            attrs = {
+                "content": attr.string(),
+                "executable": attr.bool(default = False),
+                "_template": attr.label(
+                    default = "template.txt",
+                    allow_single_file = True,
+                ),
+            },
+        )
+        """);
+    write(
+        "rules/BUILD",
+        """
+        exports_files(["template.txt"])
+        """);
+    FileSystemUtils.writeContentAsLatin1(
+        getWorkspace().getRelative("rules/template.txt"), "%CONTENT%");
   }
 
   protected static class ActionEventCollector {

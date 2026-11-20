@@ -27,7 +27,11 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -51,7 +55,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
@@ -134,27 +137,29 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public ConstantMetadataArtifact getConstantMetadataArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getConstantMetadataArtifact(rootRelativePath, root);
     }
 
     @Override
-    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public RunfilesArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getRunfilesArtifact(rootRelativePath, root);
     }
 
     @Override
-    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getTreeArtifact(rootRelativePath, root);
     }
 
     @Override
-    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public UnresolvedSymlinkArtifact getSymlinkArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getSymlinkArtifact(rootRelativePath, root);
     }
 
     @Override
-    public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public FilesetArtifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getFilesetArtifact(rootRelativePath, root);
     }
 
@@ -394,20 +399,6 @@ public final class AnalysisTestUtil {
   public static BuildOptions execOptions(
       BuildOptions targetOptions, SkyframeExecutor skyframeExecutor, ExtendedEventHandler handler)
       throws Exception {
-    // Get Starlark flags' "scope = '<string>'" info, which can control whether the flags propagate
-    // to the exec config.
-    var starlarkFlagScopeInfo =
-        skyframeExecutor.evaluateSkyKeys(
-            handler,
-            ImmutableList.of(
-                BuildOptionsScopeValue.Key.create(
-                    targetOptions, new ArrayList<>(targetOptions.getStarlarkOptions().keySet()))),
-            /* keepGoing= */ false);
-
-    BuildOptions targetOptionsWithScopeInfo =
-        ((BuildOptionsScopeValue) Iterables.getOnlyElement(starlarkFlagScopeInfo.values()))
-            .getResolvedBuildOptionsWithScopeTypes();
-
     return Iterables.getOnlyElement(
         ExecutionTransitionFactory.createFactory()
             .create(
@@ -415,13 +406,9 @@ public final class AnalysisTestUtil {
                     .attributes(FakeAttributeMapper.empty())
                     .executionPlatform(targetOptions.get(PlatformOptions.class).getHostPlatform())
                     .analysisData(
-                        skyframeExecutor.getStarlarkExecTransition(
-                            targetOptionsWithScopeInfo, handler))
+                        skyframeExecutor.getStarlarkExecTransition(targetOptions, handler))
                     .build())
-            .apply(
-                new BuildOptionsView(
-                    targetOptionsWithScopeInfo, targetOptions.getFragmentClasses()),
-                handler)
+            .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
             .values());
   }
 }

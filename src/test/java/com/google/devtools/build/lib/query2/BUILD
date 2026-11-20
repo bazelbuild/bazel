@@ -43,9 +43,46 @@ java_test(
     ],
 )
 
+java_test(
+    name = "AllowlistQueryTest",
+    srcs = ["AllowlistQueryTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:AllowlistUtil",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "SkyQueryEnvironmentTest",
+    srcs = ["SkyQueryEnvironmentTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+    ],
+)
+
 test_suite(
     name = "AllTests",
     tests = [
+        ":AllowlistQueryTest",
+        ":SkyQueryEnvironmentTest",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:BuildOutputFormatterCallbackTest",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:ProtoOutputFormatterCallbackTest",
         "//src/test/java/com/google/devtools/build/lib/query2/cquery:TransitionsOutputFormatterTest",

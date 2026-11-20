@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -68,7 +68,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
+        .thenReturn(new SymlinkTreeStrategy(outputService));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
     when(context.getEventHandler()).thenReturn(eventHandler);
@@ -86,7 +86,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
         .createSymlinkTree(any(), any());
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .setEmptyFilesSupplier(
                 new Runfiles.EmptyFilesSupplier() {
                   @Override
@@ -108,8 +108,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.CREATE,
-            "workspace");
+            RunfileSymlinksMode.CREATE);
 
     action.execute(context);
 
@@ -118,9 +117,9 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     verify(outputService, times(1)).createSymlinkTree(capture.capture(), any());
     assertThat(capture.getValue())
         .containsExactly(
-            PathFragment.create("TESTING/dir/runfile"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/runfile"),
             runfile.getPath().asFragment(),
-            PathFragment.create("TESTING/dir/empty"),
+            PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/empty"),
             null);
   }
 
@@ -131,7 +130,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
+        .thenReturn(new SymlinkTreeStrategy(outputService));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(eventHandler);
     when(outputService.canCreateSymlinkTree()).thenReturn(false);
@@ -141,7 +140,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
+        new Runfiles.Builder()
             .setEmptyFilesSupplier(
                 new Runfiles.EmptyFilesSupplier() {
                   @Override
@@ -163,18 +162,25 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.CREATE,
-            "workspace");
+            RunfileSymlinksMode.CREATE);
 
     action.execute(context);
     // Check that the OutputService is not used.
     verify(outputService, never()).createSymlinkTree(any(), any());
 
-    Path p = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/runfile");
+    Path p =
+        outputManifest
+            .getPath()
+            .getParentDirectory()
+            .getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/runfile");
     assertWithMessage("Path %s expected to exist", p).that(p.exists(Symlinks.NOFOLLOW)).isTrue();
     assertWithMessage("Path %s expected to be a symlink", p).that(p.isSymbolicLink()).isTrue();
     assertThat(p.readSymbolicLink()).isEqualTo(runfile.getPath().asFragment());
-    Path q = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/empty");
+    Path q =
+        outputManifest
+            .getPath()
+            .getParentDirectory()
+            .getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/dir/empty");
     assertWithMessage("Path %s expected to be a file", q).that(q.isFile()).isTrue();
     assertThat(FileSystemUtils.readContent(q)).isEmpty();
   }

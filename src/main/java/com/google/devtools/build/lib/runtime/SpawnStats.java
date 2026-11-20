@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -28,7 +29,6 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Collects results from SpawnResult. */
@@ -39,7 +39,6 @@ public class SpawnStats {
 
   private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
   private final ConcurrentHashMap<String, String> runnerExecKinds = new ConcurrentHashMap<>();
-  private final AtomicLong totalWallTimeMillis = new AtomicLong();
   // Counts all actions, where an action can run an arbitrary number of spawns (including zero).
   private final AtomicInteger allActionsCount = new AtomicInteger();
   // Counts internal actions, such as SymlinkTree actions, which are recognized by having zero
@@ -54,24 +53,14 @@ public class SpawnStats {
       nonInternalActionsCount.incrementAndGet();
     }
     for (SpawnResult r : actionResult.spawnResults()) {
-      storeRunnerExecKind(r);
+      SpawnMetrics metrics = r.getMetrics();
+      runnerExecKinds.put(r.getRunnerName(), metrics.execKind().toString());
       runners.add(r.getRunnerName());
-      totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTimeInMs());
     }
-  }
-
-  private void storeRunnerExecKind(SpawnResult r) {
-    String name = r.getRunnerName();
-    String execKind = r.getMetrics().execKind().toString();
-    runnerExecKinds.put(name, execKind);
   }
 
   public void incrementActionCount() {
     allActionsCount.incrementAndGet();
-  }
-
-  public long getTotalWallTimeMillis() {
-    return totalWallTimeMillis.get();
   }
 
   public void recordActionCacheStats(ActionCacheStatistics actionCacheStatistics) {

@@ -240,7 +240,6 @@ public class ReaderPreferringReadWriteLockTest {
   }
 
   @Test
-  @SuppressWarnings("ThreadPriorityCheck")
   public void lockRead_interruptedWriter_doesNotEnterMonitor() throws Exception {
     var lock = new ReaderPreferringReadWriteLock();
     lock.lockReadInterruptibly();
@@ -253,7 +252,8 @@ public class ReaderPreferringReadWriteLockTest {
     writer.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
     lock.unlockRead();
 
-    // Cancelling the only writer must leave subsequent readers independent of the monitor.
+    // Cancelling the only writer must leave subsequent readers independent of the monitor, so they
+    // finish while it is held.
     var reader =
         new TestThread(
             () -> {
@@ -262,16 +262,8 @@ public class ReaderPreferringReadWriteLockTest {
                 lock.unlockRead();
               }
             });
-    try {
-      synchronized (lock) {
-        reader.start();
-        Thread.State state;
-        while ((state = reader.getState()) != Thread.State.TERMINATED) {
-          assertThat(state).isNotEqualTo(Thread.State.BLOCKED);
-          Thread.yield();
-        }
-      }
-    } finally {
+    synchronized (lock) {
+      reader.start();
       reader.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
     }
   }

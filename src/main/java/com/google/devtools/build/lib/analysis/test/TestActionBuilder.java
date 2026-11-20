@@ -284,7 +284,7 @@ public final class TestActionBuilder {
     if (collectCodeCoverage) {
       collectCoverageScript =
           ruleContext
-              .getPrerequisite("$collect_coverage_script")
+              .getPrerequisite(":collect_coverage_script")
               .getProvider(FilesToRunProvider.class);
       inputsBuilder.addTransitive(collectCoverageScript.getFilesToRun());
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
@@ -459,7 +459,6 @@ public final class TestActionBuilder {
                 shard,
                 run,
                 config,
-                ruleContext.getWorkspaceName(),
                 (!isExecutedOnWindows || executionSettings.needsShell())
                     ? ShToolchain.getPathForPlatform(
                         ruleContext.getConfiguration(), actionOwner.getExecutionPlatform())

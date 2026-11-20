@@ -31,6 +31,7 @@ java_library(
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/util:os",

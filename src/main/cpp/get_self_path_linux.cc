@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <limits.h>
 
+#include <cerrno>
 #include <string>
 
 #include "src/main/cpp/blaze_util_platform.h"

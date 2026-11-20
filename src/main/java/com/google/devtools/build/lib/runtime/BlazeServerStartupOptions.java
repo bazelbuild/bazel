@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -236,6 +237,33 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
               + " down the server when available system memory falls below critical thresholds."
               + " Linux and macOS only.")
   public abstract boolean getShutdownOnLowSysMem();
+
+  @Option(
+      name = "delete_output_base_on_shutdown",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, the server will delete its output base directory upon shutting down (whether"
+              + " via explicit shutdown, idle timeout, low memory, or batch mode completion). Only"
+              + " supported on local filesystems; network filesystems (such as NFS) are not"
+              + " supported.")
+  public abstract boolean getDeleteOutputBaseOnShutdown();
+
+  @Option(
+      name = "redact_client_env",
+      allowMultiple = true,
+      defaultValue = "null",
+      valueHelp = "<pattern>",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Hides the value of a client environment variable in the server log. The value is a"
+              + " case-insensitive pattern for the variable name. '*' matches any characters and"
+              + " may appear anywhere in the pattern, more than once if needed. 'FOO' hides only"
+              + " 'FOO'; 'FOO*' also hides 'FOOBAR'; '*_SIGNER' hides 'MY_SIGNER'. May be"
+              + " repeated. Adds to Bazel's built-in heuristic for credential-like names.")
+  public abstract List<String> getRedactClientEnv();
 
   @Deprecated
   @Option(

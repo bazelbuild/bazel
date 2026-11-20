@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
-import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRequestEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -773,14 +773,21 @@ public class RunCommand implements BlazeCommand {
             env.getSkyframeExecutor()
                 .getActionGraph(env.getReporter())
                 .getGeneratingAction(Iterables.getOnlyElement(statusArtifacts));
-    TestTargetExecutionSettings settings = testAction.getExecutionSettings();
-    // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
-    Preconditions.checkState(
-        settings.getRunfilesSymlinksCreated()
-            == options.getOptions(CoreOptions.class).getBuildRunfileLinks());
-
+    if (testAction.getUnrunnableReason() != null) {
+      // Fail just like executing the test action with `bazel test` would.
+      env.getReporter().handle(Event.error(testAction.getUnrunnableReason()));
+      throw new RunCommandException(
+          BlazeCommandResult.failureDetail(
+              FailureDetail.newBuilder()
+                  .setMessage(testAction.getUnrunnableReason())
+                  .setToolchain(
+                      FailureDetails.Toolchain.newBuilder()
+                          .setCode(FailureDetails.Toolchain.Code.NO_MATCHING_TOOLCHAIN))
+                  .build()),
+          builtTargets.stopTime);
+    }
     Path execRoot = env.getExecRoot();
-    Path runfilesDir = settings.getRunfilesDir();
+    Path runfilesDir = testAction.getExecutionSettings().getRunfilesDir();
     if (runfilesDir == null) {
       runfilesDir = builtTargets.targetToRunRunfilesDir.getParentDirectory();
     }
@@ -1005,7 +1012,7 @@ public class RunCommand implements BlazeCommand {
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
     if (configuration.runfilesEnabled()) {
-      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
+      workingDir = workingDir.getRelative(LabelConstants.MAIN_REPO_DIR_NAME);
     }
 
     // Return early if runfiles staging is managed by the output service.
@@ -1020,7 +1027,7 @@ public class RunCommand implements BlazeCommand {
     try {
       runfilesSupport
           .getRunfilesDirectory()
-          .getRelative(runfilesSupport.getRunfilesTree().getWorkspaceName())
+          .getRelative(LabelConstants.MAIN_REPO_DIR_NAME)
           .createDirectoryAndParents();
     } catch (IOException e) {
       throw new RunfilesException(

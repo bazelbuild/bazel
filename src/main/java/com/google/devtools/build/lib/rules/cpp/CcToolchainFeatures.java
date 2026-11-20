@@ -558,20 +558,6 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.withFeatureSetSets = withFeatureSetSets;
     }
 
-    @Deprecated
-    @VisibleForTesting
-    public Tool(
-        PathFragment toolPathFragment,
-        ImmutableSet<String> executionRequirements,
-        ImmutableSet<WithFeatureSet> withFeatureSetSets)
-        throws EvalException {
-      this(
-          toolPathFragment,
-          PathOrigin.CROSSTOOL_PACKAGE,
-          executionRequirements,
-          withFeatureSetSets);
-    }
-
     private static void checkToolPath(PathFragment toolPath, PathOrigin origin)
         throws EvalException {
       switch (origin) {

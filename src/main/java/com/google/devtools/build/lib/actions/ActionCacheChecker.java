@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
@@ -83,14 +83,14 @@ public class ActionCacheChecker {
     abstract boolean storeOutputMetadata();
 
     /**
-     * Optional target for which all actions are unconditionally executed, as requested by {@code
+     * Targets for which all actions are unconditionally executed, as requested by {@code
      * --bust_action_caches}.
      */
-    @Nullable
-    abstract Label bustActionCachesTarget();
+    abstract ImmutableSet<Label> bustActionCachesTargets();
 
     public static Builder builder() {
-      return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
+      return new AutoValue_ActionCacheChecker_CacheConfig.Builder()
+          .setBustActionCachesTargets(ImmutableSet.of());
     }
 
     /** Builder for ActionCacheChecker.CacheConfig. */
@@ -100,7 +100,7 @@ public class ActionCacheChecker {
 
       public abstract Builder setStoreOutputMetadata(boolean value);
 
-      public abstract Builder setBustActionCachesTarget(@Nullable Label value);
+      public abstract Builder setBustActionCachesTargets(ImmutableSet<Label> value);
 
       public abstract CacheConfig build();
     }
@@ -168,14 +168,12 @@ public class ActionCacheChecker {
 
   @Nullable
   private static TreeArtifactValue getCachedTreeMetadata(
-      @Nullable CachedOutputMetadata cachedOutputMetadata, Artifact artifact) {
-    checkArgument(artifact.isTreeArtifact());
-
+      @Nullable CachedOutputMetadata cachedOutputMetadata, TreeArtifact artifact) {
     if (cachedOutputMetadata == null) {
       return null;
     }
 
-    return cachedOutputMetadata.treeMetadata.get((SpecialArtifact) artifact);
+    return cachedOutputMetadata.treeMetadata.get(artifact);
   }
 
   /**
@@ -221,14 +219,14 @@ public class ActionCacheChecker {
             useArchivedTreeArtifacts);
 
     for (Artifact artifact : action.getOutputs()) {
-      if (artifact.isTreeArtifact()) {
-        TreeArtifactValue treeMetadata = getCachedTreeMetadata(cachedOutputMetadata, artifact);
+      if (artifact instanceof TreeArtifact treeArtifact) {
+        TreeArtifactValue treeMetadata = getCachedTreeMetadata(cachedOutputMetadata, treeArtifact);
         if (treeMetadata == null) {
-          treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, artifact);
+          treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, treeArtifact);
         }
         if (treeMetadata != null
-            && shouldTrustTreeMetadata(artifact, treeMetadata, outputChecker)) {
-          builder.addOutputTree((SpecialArtifact) artifact, treeMetadata);
+            && shouldTrustTreeMetadata(treeArtifact, treeMetadata, outputChecker)) {
+          builder.addOutputTree(treeArtifact, treeMetadata);
         } else {
           return false;
         }
@@ -307,8 +305,7 @@ public class ActionCacheChecker {
       checkState(action.isVolatile());
       return true;
     }
-    Label target = cacheConfig.bustActionCachesTarget();
-    return target != null && target.equals(action.getOwner().getLabel());
+    return cacheConfig.bustActionCachesTargets().contains(action.getOwner().getLabel());
   }
 
   private static ImmutableMap<String, String> computeEffectiveEnvironment(
@@ -333,19 +330,18 @@ public class ActionCacheChecker {
    */
   private record CachedOutputMetadata(
       ImmutableMap<Artifact, FileArtifactValue> fileMetadata,
-      ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata) {}
+      ImmutableMap<TreeArtifact, TreeArtifactValue> treeMetadata) {}
 
   private CachedOutputMetadata loadCachedOutputMetadata(
       Action action, ActionCache.Entry entry, OutputMetadataStore outputMetadataStore)
       throws InterruptedException {
     ImmutableMap.Builder<Artifact, FileArtifactValue> mergedFileMetadata = ImmutableMap.builder();
-    ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
+    ImmutableMap.Builder<TreeArtifact, TreeArtifactValue> mergedTreeMetadata =
         ImmutableMap.builder();
     ImmutableSet<String> proxyOutputs = ImmutableSet.copyOf(entry.getProxyOutputs());
 
     for (Artifact artifact : action.getOutputs()) {
-      if (artifact.isTreeArtifact()) {
-        SpecialArtifact parent = (SpecialArtifact) artifact;
+      if (artifact instanceof TreeArtifact parent) {
 
         if (proxyOutputs.contains(parent.getExecPathString())) {
           try {
@@ -441,7 +437,7 @@ public class ActionCacheChecker {
         mergedFileMetadata.buildOrThrow(), mergedTreeMetadata.buildOrThrow());
   }
 
-  private TreeArtifactValue constructProxyTreeMetadata(SpecialArtifact parent)
+  private TreeArtifactValue constructProxyTreeMetadata(TreeArtifact parent)
       throws IOException, InterruptedException {
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
     TreeArtifactValue.visitTree(
@@ -666,10 +662,9 @@ public class ActionCacheChecker {
 
   @Nullable
   private static TreeArtifactValue getOutputTreeMetadataMaybe(
-      OutputMetadataStore outputMetadataStore, Artifact artifact) throws InterruptedException {
-    checkArgument(artifact.isTreeArtifact());
+      OutputMetadataStore outputMetadataStore, TreeArtifact artifact) throws InterruptedException {
     try {
-      return outputMetadataStore.getTreeArtifactValue((SpecialArtifact) artifact);
+      return outputMetadataStore.getTreeArtifactValue(artifact);
     } catch (IOException e) {
       return null;
     }
@@ -720,8 +715,7 @@ public class ActionCacheChecker {
         actionCache.remove(execPath);
       }
       if (!outputMetadataStore.artifactOmitted(output)) {
-        if (output.isTreeArtifact()) {
-          SpecialArtifact parent = (SpecialArtifact) output;
+        if (output instanceof TreeArtifact parent) {
           TreeArtifactValue metadata = outputMetadataStore.getTreeArtifactValue(parent);
           builder.addOutputTree(parent, metadata, cacheConfig.storeOutputMetadata());
         } else {

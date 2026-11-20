@@ -25,16 +25,21 @@ java_library(
     srcs = ["SerializationRegistrySetupHelpers.java"],
     runtime_deps = [
         ":builtin_manager_codec",
+        ":starlark_collection_codecs",
     ],
     deps = [
         ":module_codec",
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/environment_group_configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/file_configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configuredtargets/package_group_configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider_map_impl",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
@@ -44,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -72,6 +78,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:concurrent",
     ],
 )
@@ -90,6 +97,7 @@ java_library(
     name = "frontier_node_version",
     srcs = ["FrontierNodeVersion.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:base",
@@ -105,7 +113,6 @@ java_library(
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
             "BuiltinManagerCodec.java",
-            "CacheMissReason.java",
             "CodecScanningConstants.java",
             "DependOnFutureShim.java",
             "DeserializedSkyValue.java",
@@ -119,14 +126,23 @@ java_library(
             "SerializationModule.java",
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
+            "DictCodec.java",
+            "StarlarkListCodec.java",
+            "StarlarkSetCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
+            "WireType.java",
             "WriteStatus.java",
             "WriteStatuses.java",
         ],
     ),
     add_opens = [
+        "java.base/java.lang",
         "java.base/java.lang.invoke",
+        "java.base/java.time",
+        # For VarHandle access to private fields of ArrayList and EnumMap.
+        "java.base/java.util",
+        "java.base/java.util.concurrent.atomic",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__subpackages__",
@@ -138,6 +154,7 @@ java_library(
         ":fingerprint_value_store",
         ":frontier_node_version",
         ":key_bytes_provider",
+        ":wire_type",
         ":write_status",
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -196,6 +213,15 @@ java_library(
 )
 
 java_library(
+    name = "wire_type",
+    srcs = ["WireType.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
+)
+
+java_library(
     name = "deserialized-sky-value",
     srcs = ["DeserializedSkyValue.java"],
     visibility = [
@@ -236,6 +262,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+# Codecs for Starlark collections. These are kept out of :serialization so that the core
+# serialization library does not depend on the Starlark interpreter.
+java_library(
+    name = "starlark_collection_codecs",
+    srcs = [
+        "DictCodec.java",
+        "StarlarkListCodec.java",
+        "StarlarkSetCodec.java",
+    ],
+    deps = [
+        ":serialization",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )

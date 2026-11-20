@@ -219,10 +219,10 @@ they will always create the same repositories when given the same inputs.
 To maximize the benefits of the lockfile feature, consider the following best
 practices:
 
-*   Regularly update the lockfile to reflect changes in project dependencies or
-    configuration. This ensures that subsequent builds are based on the most
-    up-to-date and accurate set of dependencies. To lock down all extensions
-    at once, run `bazel mod deps --lockfile_mode=update`.
+*   Regularly update the lockfile via `bazel mod tidy` to reflect changes in
+    project dependencies or configuration. This ensures that subsequent builds
+    are as efficient and repeatable as possible. This command also formats
+    module files and fixes supported `use_repo` calls.
 
 *   Include the lockfile in version control to facilitate collaboration and
     ensure that all team members have access to the same lockfile, promoting

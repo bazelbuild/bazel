@@ -45,11 +45,6 @@ public class NestedSetFingerprintCache {
   private final Set<Class<?>> seenMapFns = ConcurrentHashMap.newKeySet();
   private final Multiset<Class<?>> seenParametrizedMapFns = ConcurrentHashMultiset.create();
 
-  public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet)
-      throws CommandLineExpansionException, InterruptedException {
-    addNestedSetToFingerprintExceptionless(CommandLineItem.MapFn.DEFAULT, fingerprint, nestedSet);
-  }
-
   public <T> void addNestedSetToFingerprintExceptionless(
       CommandLineItem.ExceptionlessMapFn<? super T> mapFn,
       Fingerprint fingerprint,
@@ -60,6 +55,10 @@ public class NestedSetFingerprintCache {
       // addNestedSetToFingerprint only throws these exceptions if mapFn does.
       throw new IllegalStateException(e);
     }
+  }
+
+  public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet) {
+    addNestedSetToFingerprintExceptionless(CommandLineItem.MapFn.DEFAULT, fingerprint, nestedSet);
   }
 
   @SuppressWarnings("EnumOrdinal") // ordinal not used across different binary versions

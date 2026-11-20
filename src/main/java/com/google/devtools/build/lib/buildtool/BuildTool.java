@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -62,8 +61,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfte
 import com.google.devtools.build.lib.buildtool.buildevent.UpdateOptionsEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -94,7 +91,6 @@ import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Co
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
@@ -124,7 +120,6 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -382,53 +377,60 @@ public class BuildTool {
       var analysisDeps =
           RemoteAnalysisCacheFactory.create(
               env,
-              projectEvaluationResult.activeDirectoriesMatcher(),
               targetPatternPhaseValue.getTargetLabels(),
-              BuildView.getTopLevelConfigurationTrimmedOfTestOptions(
-                  buildOptions, env.getReporter()),
+              buildOptions,
               request.getUserOptions(),
               projectEvaluationResult.buildOptions());
       analysisCachingDeps = analysisDeps.deps();
       analysisCacheReaderDeps = analysisDeps.readerDeps();
       serializationDependenciesProvider = analysisDeps.serializationDeps();
 
-      if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
-        // a.k.a. Skymeld.
-        buildTargetsWithMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            buildOptions,
-            analysisCachingDeps,
-            analysisCacheReaderDeps);
-      } else {
-        buildTargetsWithoutMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            buildOptions,
-            analysisCachingDeps,
-            analysisCacheReaderDeps);
+      BuildFailedException delayedBuildFailedException = null;
+      try {
+        if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
+          // a.k.a. Skymeld.
+          buildTargetsWithMergedAnalysisExecution(
+              request,
+              result,
+              targetPatternPhaseValue,
+              buildOptions,
+              analysisCachingDeps,
+              analysisCacheReaderDeps);
+        } else {
+          buildTargetsWithoutMergedAnalysisExecution(
+              request,
+              result,
+              targetPatternPhaseValue,
+              buildOptions,
+              analysisCachingDeps,
+              analysisCacheReaderDeps);
+        }
+      } catch (BuildFailedException e) {
+        if (!request.getKeepGoing()
+            || !request.getBuildOptions().getPerformAnalysisPhase()
+            || !analysisCacheReaderDeps.mode().serializesValues()) {
+          throw e;
+        }
+        delayedBuildFailedException = e;
       }
 
       if (analysisCacheReaderDeps.mode().serializesValues()) {
         Preconditions.checkState(!analysisCachingDeps.bailedOut());
-        serializeValues(serializationDependenciesProvider);
+        try {
+          serializeValues(serializationDependenciesProvider);
+        } catch (Throwable t) {
+          if (delayedBuildFailedException != null) {
+            if (!delayedBuildFailedException.isErrorAlreadyShown()) {
+              reportExceptionError(delayedBuildFailedException);
+            }
+            t.addSuppressed(delayedBuildFailedException);
+          }
+          throw t;
+        }
       }
 
-      if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-        // Skyfocus only works at the end of a successful build.
-        ImmutableSet<Label> topLevelTargets =
-            result.getActualTargets().stream()
-                .map(ConfiguredTarget::getLabel)
-                .collect(toImmutableSet());
-        env.getSkyframeExecutor()
-            .runSkyfocus(
-                topLevelTargets,
-                projectEvaluationResult.activeDirectoriesMatcher(),
-                env.getReporter(),
-                env.getBlazeWorkspace().getPersistentActionCache(),
-                env.getOptions());
+      if (delayedBuildFailedException != null) {
+        throw delayedBuildFailedException;
       }
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
@@ -512,7 +514,11 @@ public class BuildTool {
               },
               env.getSkyframeExecutor().getMainRepoMapping(env.getReporter()));
       if (targetPlatformFlags.isPresent()) {
-        return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+        try {
+          return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+        } catch (OptionsParsingException e) {
+          throw new IllegalStateException("Failed to merge platform flags", e);
+        }
       }
     } catch (NoSuchTargetException e) {
       // Already handled by env.getReporter()).
@@ -621,7 +627,8 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
         }
         if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
-            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()
+            && executionTool.getSpawnStrategyRegistry().forceExclusiveIfLocalTestsInParallel()) {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
@@ -727,9 +734,10 @@ public class BuildTool {
 
                 @Override
                 public boolean forceExclusiveIfLocalTestsInParallel() {
-                  return executionTool
-                      .getTestActionContext()
-                      .forceExclusiveIfLocalTestsInParallel();
+                  return executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()
+                      && executionTool
+                          .getSpawnStrategyRegistry()
+                          .forceExclusiveIfLocalTestsInParallel();
                 }
               },
               remoteAnalysisCachingDependenciesProvider,
@@ -1212,7 +1220,8 @@ public class BuildTool {
       env.getSkyframeExecutor()
           .syncRemoteAnalysisCachingState(
               env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
-              env.getRemoteAnalysisCachingEventListener().getClientId());
+              env.getRemoteAnalysisCachingEventListener().getClientId(),
+              env.getRemoteAnalysisCachingEventListener().getUntrimmedConfigurationChecksum());
     }
   }
 
@@ -1359,32 +1368,6 @@ public class BuildTool {
     }
   }
 
-  /** Returns the project directories found in a project file. */
-  public static PathFragmentPrefixTrie getActiveDirectoriesMatcher(
-      Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException {
-    ProjectValue.Key key = new ProjectValue.Key(projectFile);
-    EvaluationResult<SkyValue> result =
-        skyframeExecutor.evaluateSkyKeys(
-            eventHandler, ImmutableList.of(key), /* keepGoing= */ false);
-
-    if (result.hasError()) {
-      // InvalidConfigurationException is chosen for convenience, and it's distinguished from
-      // the other InvalidConfigurationException cases by Code.INVALID_PROJECT.
-      throw new InvalidConfigurationException(
-          "unexpected error reading project configuration: " + result.getError(),
-          Code.INVALID_PROJECT);
-    }
-
-    try {
-      return PathFragmentPrefixTrie.of(
-          ((ProjectValue) result.get(key)).getDefaultProjectDirectories());
-    } catch (PathFragmentPrefixTrieException e) {
-      throw new InvalidConfigurationException(
-          "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
-    }
-  }
-
   private Reporter getReporter() {
     return env.getReporter();
   }
@@ -1439,9 +1422,8 @@ public class BuildTool {
               env.getVersionGetter(),
               env.getReporter(),
               env.getEventBus(),
-              env.getOptions()
-                  .getOptions(KeepStateAfterBuildOption.class)
-                  .getKeepStateAfterBuild());
+              env.getOptions().getOptions(KeepStateAfterBuildOption.class).getKeepStateAfterBuild(),
+              env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing());
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }

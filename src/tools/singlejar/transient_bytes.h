@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <ostream>
 
 #include "src/tools/singlejar/diag.h"
@@ -88,18 +89,16 @@ class TransientBytes {
   // used to decompress.
   void DecompressEntryContents(const CDH* cdh, const LH* lh,
                                Inflater* inflater) {
+    uint64_t in_bytes = cdh->no_size_in_local_header()
+                            ? cdh->compressed_file_size()
+                            : lh->compressed_file_size();
+#ifndef _WIN32
     uint64_t old_total_out = inflater->total_out();
-    uint64_t in_bytes;
-    uint64_t out_bytes;
+    uint64_t out_bytes = cdh->no_size_in_local_header()
+                             ? cdh->uncompressed_file_size()
+                             : lh->uncompressed_file_size();
+#endif
     const uint8_t* data = lh->data();
-
-    if (cdh->no_size_in_local_header()) {
-      in_bytes = cdh->compressed_file_size();
-      out_bytes = cdh->uncompressed_file_size();
-    } else {
-      in_bytes = lh->compressed_file_size();
-      out_bytes = lh->uncompressed_file_size();
-    }
 
     while (in_bytes > 0) {
       // A single region to inflate cannot exceed 4GB-1.

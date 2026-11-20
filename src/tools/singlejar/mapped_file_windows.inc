@@ -38,7 +38,7 @@ MappedFile::MappedFile()
 
 bool MappedFile::is_open() const { return hFile_ != INVALID_HANDLE_VALUE; }
 
-bool MappedFile::Open(const std::string& path) {
+bool MappedFile::Open(const std::string& path, bool /*populate*/) {
   if (is_open()) {
     diag_errx(1, "%s:%d: This instance is already open", __FILE__, __LINE__);
   }

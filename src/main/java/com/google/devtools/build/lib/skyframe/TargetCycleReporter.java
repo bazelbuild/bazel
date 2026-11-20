@@ -45,7 +45,6 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
   private static final Predicate<SkyKey> CONFIGURED_TARGET_OR_TRANSITIVE_RDEP =
       Predicates.or(
           IS_TARGET_OR_ASPECT,
-          SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE),
           SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
 
   TargetCycleReporter(PackageProvider packageProvider) {

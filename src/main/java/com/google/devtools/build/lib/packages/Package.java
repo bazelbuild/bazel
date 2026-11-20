@@ -20,6 +20,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -72,6 +75,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -235,11 +239,6 @@ public class Package extends Packageoid {
     return metadata.configSettingVisibilityPolicy();
   }
 
-  /** Convenience wrapper for {@link Metadata#workspaceName} */
-  public String getWorkspaceName() {
-    return getMetadata().workspaceName();
-  }
-
   /** Returns the InputFile target for this package's BUILD file. */
   public InputFile getBuildFile() {
     return buildFile;
@@ -352,7 +351,7 @@ public class Package extends Packageoid {
           label, String.format("target '%s' not declared in package '%s'", targetName, getName()));
     } else {
       String alternateTargetSuggestion =
-          getAlternateTargetSuggestion(metadata, targetName, targets);
+          getAlternateTargetSuggestion(metadata, targetName, targets, /* isFullPackage= */ true);
       throw new NoSuchTargetException(
           label,
           String.format(
@@ -364,8 +363,28 @@ public class Package extends Packageoid {
     }
   }
 
+  /**
+   * Returns a best-effort suggestion suffix for a missing target in a partial target collection
+   * (such as a {@link PackagePiece}).
+   */
   static String getAlternateTargetSuggestion(
       Metadata metadata, String targetName, ImmutableList<Target> otherTargets) {
+    return getAlternateTargetSuggestion(
+        metadata, targetName, otherTargets, /* isFullPackage= */ false);
+  }
+
+  /**
+   * Returns a best-effort suggestion suffix for a missing target.
+   *
+   * @param isFullPackage whether {@code otherTargets} holds every target in the package ({@code
+   *     false} for partial {@link PackagePiece} views, so package-wide claims like "no test rules
+   *     in package" are omitted)
+   */
+  private static String getAlternateTargetSuggestion(
+      Metadata metadata,
+      String targetName,
+      ImmutableList<Target> otherTargets,
+      boolean isFullPackage) {
     try {
       // If there's a file on the disk that's not mentioned in the BUILD file,
       // produce a more informative error.  NOTE! this code path is only executed
@@ -396,13 +415,232 @@ public class Package extends Packageoid {
             + getRepoRelativeBuildFilePathString(metadata)
             + "?)";
       } else {
-        return TargetSuggester.suggestTargets(
-            targetName, Lists.transform(otherTargets, Target::getName));
+        // First try rules consuming a matching source stem (plus 1-hop tests depending on matched
+        // libraries); if none match, fall back to fuzzy name matching on rules, remaining non-rule
+        // targets (such as InputFile/OutputFile), and finally listing declared rules.
+        ImmutableList<Rule> rules =
+            ImmutableList.copyOf(Iterables.filter(otherTargets, Rule.class));
+        ImmutableList<Rule> consumingRules =
+            findRulesConsumingSourceStem(
+                metadata.packageIdentifier(), targetName, otherTargets, rules);
+        if (!consumingRules.isEmpty()) {
+          return TargetSuggester.prettyPrintTargets(formatRulesWithClass(consumingRules));
+        }
+        ImmutableList<Rule> suggestedRules = findSuggestedRules(targetName, rules);
+        if (!suggestedRules.isEmpty()) {
+          return TargetSuggester.prettyPrintTargets(formatRulesWithClass(suggestedRules));
+        }
+        // All rules were already checked above, so any fuzzy match remaining in otherTargets is a
+        // non-rule target (typically an exported or generated file).
+        String nonRuleSuggestion =
+            TargetSuggester.suggestTargets(
+                targetName, Lists.transform(otherTargets, Target::getName));
+        if (!nonRuleSuggestion.isEmpty()) {
+          return nonRuleSuggestion;
+        }
+        return listAvailableRulesInPackage(targetName, rules, isFullPackage);
       }
     } catch (IOException e) {
       // Ignore - suggestions are best-effort.
       return "";
     }
+  }
+
+  private static final int MAX_CONSUMING_RULE_SUGGESTIONS = 10;
+  private static final int MAX_AVAILABLE_RULES_TO_LIST = 10;
+
+  private static final Pattern TEST_TARGET_NAME_PATTERN =
+      Pattern.compile(
+          "(?i:(?:^|[_-])(?:unit)?tests?(?:$|[_-])|[_-]test[_-]suite$)"
+              + "|Tests?$|TestSuite$|^Test[A-Z]");
+
+  /** Lists up to {@value #MAX_AVAILABLE_RULES_TO_LIST} declared rules in the package. */
+  private static String listAvailableRulesInPackage(
+      String targetName, ImmutableList<Rule> rules, boolean isFullPackage) {
+    ImmutableList.Builder<Rule> visibleRulesBuilder = ImmutableList.builder();
+    for (Rule rule : rules) {
+      // '_' rules are internal macro helpers and unlikely to be relevant to the caller.
+      if (!rule.getName().startsWith("_")) {
+        visibleRulesBuilder.add(rule);
+      }
+    }
+    ImmutableList<Rule> visibleRules = visibleRulesBuilder.build();
+    if (visibleRules.isEmpty()) {
+      return "";
+    }
+    // Best-effort heuristic to guess whether the caller intended to request a test target.
+    boolean looksLikeTest = looksLikeTestTargetName(targetName);
+    boolean hasTestRule = Iterables.any(visibleRules, TargetUtils::isTestOrTestSuiteRule);
+    ImmutableList<Rule> ordered = prioritizeTestsIfTestTarget(visibleRules, looksLikeTest);
+    int limit = Math.min(ordered.size(), MAX_AVAILABLE_RULES_TO_LIST);
+    String prefix =
+        isFullPackage && looksLikeTest && !hasTestRule
+            ? " (no test rules in package; available rules: "
+            : " (available rules: ";
+    String joined = Joiner.on(", ").join(formatRulesWithClass(ordered.subList(0, limit)));
+    if (ordered.size() <= MAX_AVAILABLE_RULES_TO_LIST) {
+      return prefix + joined + ")";
+    }
+    return String.format(
+        "%s%s, ... and %d more)", prefix, joined, ordered.size() - MAX_AVAILABLE_RULES_TO_LIST);
+  }
+
+  /** Returns whether {@code targetName} follows common test target naming conventions. */
+  private static boolean looksLikeTestTargetName(String targetName) {
+    return TEST_TARGET_NAME_PATTERN.matcher(targetName).find();
+  }
+
+  /**
+   * Reorders {@code candidateRules} to put test and {@code test_suite} rules first when {@code
+   * looksLikeTest} is true.
+   */
+  private static ImmutableList<Rule> prioritizeTestsIfTestTarget(
+      ImmutableList<Rule> candidateRules, boolean looksLikeTest) {
+    if (!looksLikeTest) {
+      return candidateRules;
+    }
+    ImmutableList.Builder<Rule> ordered = ImmutableList.builder();
+    for (Rule rule : candidateRules) {
+      if (TargetUtils.isTestOrTestSuiteRule(rule)) {
+        ordered.add(rule);
+      }
+    }
+    for (Rule rule : candidateRules) {
+      if (!TargetUtils.isTestOrTestSuiteRule(rule)) {
+        ordered.add(rule);
+      }
+    }
+    return ordered.build();
+  }
+
+  /** Formats each rule as {@code "<name>" (<rule_class>)} so callers see rule types. */
+  private static ImmutableList<String> formatRulesWithClass(Iterable<Rule> rules) {
+    ImmutableList.Builder<String> formatted = ImmutableList.builder();
+    for (Rule rule : rules) {
+      formatted.add("\"" + rule.getName() + "\" (" + rule.getRuleClass() + ")");
+    }
+    return formatted.build();
+  }
+
+  /**
+   * Returns up to 10 package rules whose names are closest in edit distance to {@code targetName}.
+   */
+  private static ImmutableList<Rule> findSuggestedRules(
+      String targetName, ImmutableList<Rule> rules) {
+    ImmutableList<String> suggestedRuleNames =
+        TargetSuggester.suggestedTargets(targetName, Lists.transform(rules, Target::getName));
+    if (suggestedRuleNames.isEmpty()) {
+      return ImmutableList.of();
+    }
+    Map<String, Rule> rulesByName = Maps.uniqueIndex(rules, Target::getName);
+    return ImmutableList.copyOf(Lists.transform(suggestedRuleNames, rulesByName::get));
+  }
+
+  /**
+   * Returns up to {@value #MAX_CONSUMING_RULE_SUGGESTIONS} rule targets in {@code packageId} that
+   * consume a source file matching {@code targetName} (by relative path, basename, or stem),
+   * followed by same-package test or {@code test_suite} rules that depend 1 hop on a matched
+   * non-test rule.
+   *
+   * <p>For example, if a developer tries to build {@code //pkg:foo_bar} or {@code
+   * //pkg:HelperUtil}, and {@code pkg/BUILD} defines {@code cc_library(name = "core_lib", srcs =
+   * ["foo_bar.cc", "sub/HelperUtil.cc"])}, this finds the matching source files ({@code foo_bar.cc}
+   * and {@code sub/HelperUtil.cc}) and suggests {@code core_lib} along with any same-package test
+   * rules that depend on {@code :core_lib}.
+   */
+  private static ImmutableList<Rule> findRulesConsumingSourceStem(
+      PackageIdentifier packageId,
+      String targetName,
+      ImmutableList<Target> otherTargets,
+      ImmutableList<Rule> rules) {
+    Set<String> matchingSourceFiles = new LinkedHashSet<>();
+    for (InputFile inputFile : Iterables.filter(otherTargets, InputFile.class)) {
+      if (matchesSourceFileStem(inputFile.getName(), targetName)) {
+        matchingSourceFiles.add(inputFile.getName());
+      }
+    }
+    if (matchingSourceFiles.isEmpty()) {
+      return ImmutableList.of();
+    }
+    Set<Rule> matchingRules = new LinkedHashSet<>();
+    Set<String> directNonTestRuleNames = new HashSet<>();
+    for (Rule rule : rules) {
+      if (referencesSamePackageTarget(rule, packageId, matchingSourceFiles)) {
+        matchingRules.add(rule);
+        if (!TargetUtils.isTestOrTestSuiteRule(rule)) {
+          directNonTestRuleNames.add(rule.getName());
+        }
+        if (matchingRules.size() >= MAX_CONSUMING_RULE_SUGGESTIONS) {
+          return ImmutableList.copyOf(matchingRules);
+        }
+      }
+    }
+    if (matchingRules.isEmpty()) {
+      return ImmutableList.of();
+    }
+    // Bridge 1 hop from matched non-test libraries to same-package test rules that depend on them.
+    if (!directNonTestRuleNames.isEmpty()) {
+      for (Rule rule : rules) {
+        if (!matchingRules.contains(rule)
+            && TargetUtils.isTestOrTestSuiteRule(rule)
+            && referencesSamePackageTarget(rule, packageId, directNonTestRuleNames)) {
+          matchingRules.add(rule);
+          if (matchingRules.size() >= MAX_CONSUMING_RULE_SUGGESTIONS) {
+            break;
+          }
+        }
+      }
+    }
+    return ImmutableList.copyOf(matchingRules);
+  }
+
+  /**
+   * Returns whether {@code rule} references any target in {@code targetNames} within {@code
+   * packageId}.
+   */
+  private static boolean referencesSamePackageTarget(
+      Rule rule, PackageIdentifier packageId, Set<String> targetNames) {
+    for (Label label : rule.getLabels()) {
+      if (label.getPackageIdentifier().equals(packageId) && targetNames.contains(label.getName())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns whether {@code sourceLabelName} matches {@code targetName} by exact name, basename,
+   * path without extension, or basename without extension (all case-insensitive).
+   *
+   * <p>For example, for a source file named {@code "sub/HelperUtil.cc"}, any of the following
+   * target names will match:
+   *
+   * <ul>
+   *   <li>{@code "sub/HelperUtil.cc"} (exact relative path)
+   *   <li>{@code "HelperUtil.cc"} (basename)
+   *   <li>{@code "sub/HelperUtil"} (relative path without extension)
+   *   <li>{@code "HelperUtil"} or {@code "helperutil"} (basename stem)
+   * </ul>
+   */
+  private static boolean matchesSourceFileStem(String sourceLabelName, String targetName) {
+    if (Ascii.equalsIgnoreCase(sourceLabelName, targetName)) {
+      return true;
+    }
+    int slashIdx = sourceLabelName.lastIndexOf('/');
+    if (slashIdx >= 0
+        && Ascii.equalsIgnoreCase(sourceLabelName.substring(slashIdx + 1), targetName)) {
+      return true;
+    }
+    int dotIdx = sourceLabelName.lastIndexOf('.');
+    if (dotIdx <= slashIdx + 1) {
+      return false;
+    }
+    String withoutExt = sourceLabelName.substring(0, dotIdx);
+    if (Ascii.equalsIgnoreCase(withoutExt, targetName)) {
+      return true;
+    }
+    String baseWithoutExt = sourceLabelName.substring(slashIdx + 1, dotIdx);
+    return Ascii.equalsIgnoreCase(baseWithoutExt, targetName);
   }
 
   private static String getRepoRelativeBuildFilePathString(Metadata metadata) {
@@ -428,18 +666,19 @@ public class Package extends Packageoid {
    * Returns the (innermost) symbolic macro instance that declared the given target, or null if the
    * target was not created in a symbolic macro.
    *
-   * <p>Throws {@link IllegalArgumentException} if the given name is not a target in this package.
+   * <p>Throws {@link IllegalArgumentException} if the given target does not belong to this package.
    *
    * <p>For packages produced by deserialization, this information is not available and {@code
    * IllegalStateException} is thrown.
    */
   @Nullable
-  public MacroInstance getDeclaringMacroForTarget(String target) {
+  public MacroInstance getDeclaringMacroForTarget(Target target) {
     Preconditions.checkState(
         targetsToDeclaringMacro != null,
         "Cannot retrieve MacroInstance information from deserialized packages");
-    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
-    return targetsToDeclaringMacro.get(target);
+    Preconditions.checkArgument(
+        this.equals(target.getPackageoid()), "Target must belong to this package");
+    return targetsToDeclaringMacro.get(target.getName());
   }
 
   /**
@@ -450,18 +689,19 @@ public class Package extends Packageoid {
    * <p>The caller should interpret a null result to mean that the declaration location of the
    * target is this package.
    *
-   * <p>Throws {@link IllegalArgumentException} if the given name is not a target in this package.
+   * <p>Throws {@link IllegalArgumentException} if the given target does not belong to this package.
    */
   @Nullable
-  public PackageIdentifier getDeclaringPackageForTargetIfInMacro(String target) {
-    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
+  public PackageIdentifier getDeclaringPackageForTargetIfInMacro(Target target) {
+    Preconditions.checkArgument(
+        this.equals(target.getPackageoid()), "Target must belong to this package");
     // Exactly one of targetsToDeclaringMacro and targetsToDeclaringPackage is non-null, depending
     // on whether this package was produced by deserialization.
     if (targetsToDeclaringMacro != null) {
-      MacroInstance macro = targetsToDeclaringMacro.get(target);
+      MacroInstance macro = targetsToDeclaringMacro.get(target.getName());
       return macro != null ? macro.getDefinitionPackage() : null;
     } else {
-      return targetsToDeclaringPackage.get(target);
+      return targetsToDeclaringPackage.get(target.getName());
     }
   }
 
@@ -579,7 +819,6 @@ public class Package extends Packageoid {
       PackageSettings packageSettings,
       PackageIdentifier id,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       boolean noImplicitFileExport,
@@ -601,7 +840,6 @@ public class Package extends Packageoid {
         Metadata.builder()
             .packageIdentifier(id)
             .buildFilename(filename)
-            .workspaceName(workspaceName)
             .repositoryMapping(repositoryMapping)
             .associatedModuleName(associatedModuleName)
             .associatedModuleVersion(associatedModuleVersion)
@@ -1211,6 +1449,16 @@ public class Package extends Packageoid {
       }
     }
 
+    @Override
+    @Nullable
+    public MacroInstance getTargetDeclaringMacro(String name) {
+      return checkNotNull(
+              recorder.getTargetsToDeclaringMacro(),
+              "getTargetDeclaringMacro() can only be used if trackFullMacroInformation was set to"
+                  + " true in the constructor")
+          .get(name);
+    }
+
     public void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       recorder.addRuleUnchecked(rule);
@@ -1413,10 +1661,6 @@ public class Package extends Packageoid {
       PackageIdentifier packageIdentifier,
       RootedPath buildFilename,
       Label buildFileLabel,
-      /**
-       * The name of the workspace this package is in. Used as a prefix for the runfiles directory.
-       */
-      String workspaceName,
       RepositoryMapping repositoryMapping,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
@@ -1443,8 +1687,6 @@ public class Package extends Packageoid {
 
       Builder buildFilename(RootedPath buildFilename);
 
-      Builder workspaceName(String workspaceName);
-
       Builder repositoryMapping(RepositoryMapping repositoryMapping);
 
       Builder associatedModuleName(Optional<String> associatedModuleName);
@@ -1462,7 +1704,6 @@ public class Package extends Packageoid {
     static Metadata of(
         PackageIdentifier packageIdentifier,
         RootedPath buildFilename,
-        String workspaceName,
         RepositoryMapping repositoryMapping,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
@@ -1480,7 +1721,6 @@ public class Package extends Packageoid {
           packageIdentifier,
           buildFilename,
           buildFileLabel,
-          workspaceName,
           repositoryMapping,
           associatedModuleName,
           associatedModuleVersion,
@@ -1496,7 +1736,6 @@ public class Package extends Packageoid {
     public Metadata {
       Preconditions.checkNotNull(packageIdentifier);
       Preconditions.checkNotNull(buildFilename);
-      Preconditions.checkNotNull(workspaceName);
       Preconditions.checkNotNull(repositoryMapping);
       Preconditions.checkNotNull(associatedModuleName);
       Preconditions.checkNotNull(associatedModuleVersion);

@@ -15,8 +15,11 @@
 package net.starlark.java.syntax;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.primitives.Booleans.falseFirst;
+import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
@@ -25,7 +28,12 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -43,8 +51,27 @@ import javax.annotation.Nullable;
  */
 public final class Types {
 
-  // TODO(ilist@): constructed types should probably be interned. In some cases it might help
-  // to precompute and memoize StarlarkTypes.getSupertypes.
+  // TODO(ilist@): In some cases it might help to precompute and memoize
+  // StarlarkType.getSupertypes.
+  private static final Interner<StarlarkType> TYPE_INTERNER = Interners.newWeakInterner();
+
+  private static final Comparator<StarlarkType> UNION_ELEMENT_COMPARATOR =
+      comparing(
+              (StarlarkType t) -> t instanceof NoneType,
+              falseFirst()) // By convention, None goes last
+          .thenComparing(t -> t.getClass().getName())
+          .thenComparing(StarlarkType::typeRepr);
+
+  /**
+   * Interns a {@link StarlarkType} instance by weak reference.
+   *
+   * <p>The given type's {@link Object#equals} implementation must only return true for instances of
+   * the same Java class and (if the implementation is generic) a compatible Java type.
+   */
+  @SuppressWarnings("unchecked") // cast is checked against type.getClass() at runtime
+  public static <T extends StarlarkType> T intern(T type) {
+    return (T) type.getClass().cast(TYPE_INTERNER.intern(type));
+  }
 
   /**
    * The Dynamic type of gradual typing; compatible with any other type, but not related by
@@ -453,6 +480,159 @@ public final class Types {
     }
   }
 
+  /**
+   * Compact representation of the set of indices of mandatory parameters in a function signature.
+   * Used by {@link GeneralCallableType}.
+   */
+  static sealed interface MandatoryParamIndices
+      permits CompactMandatoryParamIndices, BitSetMandatoryParamIndices {
+    static final Interner<MandatoryParamIndices> INTERNER = Interners.newWeakInterner();
+    static final MandatoryParamIndices EMPTY =
+        INTERNER.intern(new CompactMandatoryParamIndices(0L));
+
+    static MandatoryParamIndices of(BitSet bitSet) {
+      if (bitSet.isEmpty()) {
+        return EMPTY;
+      }
+      if (bitSet.length() <= Long.SIZE) {
+        long mask = 0L;
+        for (int i = bitSet.nextSetBit(0); i >= 0; i = bitSet.nextSetBit(i + 1)) {
+          mask |= 1L << i;
+        }
+        return ofMask(mask);
+      }
+      // Clone the bitset to prevent mutation of the interned instance.
+      return INTERNER.intern(new BitSetMandatoryParamIndices((BitSet) bitSet.clone()));
+    }
+
+    static MandatoryParamIndices ofMask(long mask) {
+      return mask == 0L ? EMPTY : INTERNER.intern(new CompactMandatoryParamIndices(mask));
+    }
+
+    static MandatoryParamIndices fromNames(
+        ImmutableList<String> parameterNames, ImmutableSet<String> mandatoryNames) {
+      if (mandatoryNames.isEmpty()) {
+        return EMPTY;
+      }
+      BitSet bitSet = new BitSet();
+      for (int i = 0; i < parameterNames.size(); i++) {
+        if (mandatoryNames.contains(parameterNames.get(i))) {
+          bitSet.set(i);
+        }
+      }
+      return of(bitSet);
+    }
+
+    static MandatoryParamIndices fromParameters(Resolver.Function rfn) {
+      int numNonResidual = rfn.getNumNonResidualParameters();
+      ImmutableList<Parameter> params = rfn.getParameters();
+      // Minimize temp allocations, since this method is called frequently.
+      if (numNonResidual <= Long.SIZE) {
+        long mandatoryMask = 0L;
+        for (int i = 0; i < numNonResidual; i++) {
+          if (params.get(i) instanceof Parameter.Mandatory) {
+            mandatoryMask |= 1L << i;
+          }
+        }
+        return MandatoryParamIndices.ofMask(mandatoryMask);
+      } else {
+        BitSet mandatoryBitSet = new BitSet();
+        for (int i = 0; i < numNonResidual; i++) {
+          if (params.get(i) instanceof Parameter.Mandatory) {
+            mandatoryBitSet.set(i);
+          }
+        }
+        return MandatoryParamIndices.of(mandatoryBitSet);
+      }
+    }
+
+    /** Returns the total number of mandatory parameters. */
+    abstract int getNumMandatoryParameters();
+
+    /** Returns whether the parameter at index {@code i} is mandatory. */
+    abstract boolean isMandatory(int i);
+  }
+
+  /**
+   * Compact implementation of {@link MandatoryParamIndices}, used when all mandatory parameter
+   * indices are {@code < 64}.
+   */
+  private static final class CompactMandatoryParamIndices implements MandatoryParamIndices {
+    private final long mask;
+
+    private CompactMandatoryParamIndices(long mask) {
+      this.mask = mask;
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return Long.bitCount(mask);
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      if (i < 0) {
+        throw new IndexOutOfBoundsException(i);
+      }
+      return i < Long.SIZE && (mask & (1L << i)) != 0;
+    }
+
+    @Override
+    public int hashCode() {
+      return Long.hashCode(mask);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj instanceof CompactMandatoryParamIndices other) {
+        return mask == other.mask;
+      }
+      return false;
+    }
+  }
+
+  /**
+   * A {@link BitSet}-based implementation of {@link MandatoryParamIndices}, used when any mandatory
+   * parameter index >= 64.
+   */
+  private static final class BitSetMandatoryParamIndices implements MandatoryParamIndices {
+    // Not mutated after construction; always has length() > Long.SIZE.
+    private final BitSet bitSet;
+
+    private BitSetMandatoryParamIndices(BitSet bitSet) {
+      this.bitSet = bitSet;
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return bitSet.cardinality();
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      return bitSet.get(i);
+    }
+
+    @Override
+    public int hashCode() {
+      return bitSet.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj instanceof BitSetMandatoryParamIndices other) {
+        return bitSet.equals(other.bitSet);
+      }
+      return false;
+    }
+  }
+
   /** Construct a CallableType representing a Starlark function. */
   public static GeneralCallableType generalCallable(
       ImmutableList<String> parameterNames,
@@ -468,25 +648,73 @@ public final class Types {
         "%s != %s",
         parameterNames.size(),
         parameterTypes.size());
+    return generalCallable(
+        parameterNames,
+        parameterTypes.stream().allMatch(ANY::equals) ? null : parameterTypes,
+        numPositionalOnlyParameters,
+        numPositionalParameters,
+        MandatoryParamIndices.fromNames(parameterNames, mandatoryParams),
+        varargsType,
+        kwargsType,
+        returns);
+  }
+
+  static GeneralCallableType generalCallable(
+      ImmutableList<String> parameterNames,
+      @Nullable ImmutableList<StarlarkType> parameterTypesIfNonAny,
+      int numPositionalOnlyParameters,
+      int numPositionalParameters,
+      MandatoryParamIndices mandatoryParamIndices,
+      @Nullable StarlarkType varargsType,
+      @Nullable StarlarkType kwargsType,
+      StarlarkType returns) {
+    if (parameterTypesIfNonAny != null) {
+      Preconditions.checkArgument(
+          parameterNames.size() == parameterTypesIfNonAny.size(),
+          "%s != %s",
+          parameterNames.size(),
+          parameterTypesIfNonAny.size());
+      Preconditions.checkArgument(
+          !parameterTypesIfNonAny.stream().allMatch(ANY::equals),
+          "parameterTypesIfNonAny must be null if all parameter types are Any");
+    }
     Preconditions.checkArgument(
         numPositionalOnlyParameters <= numPositionalParameters,
         "numPositionalOnlyParameters (%s) > numPositionalParameters (%s)",
         numPositionalOnlyParameters,
         numPositionalParameters);
     Preconditions.checkArgument(
-        numPositionalParameters <= parameterTypes.size(),
-        "numPositionalParameters (%s) > numParameterTypes (%s)",
+        numPositionalParameters <= parameterNames.size(),
+        "numPositionalParameters (%s) > numParameters (%s)",
         numPositionalParameters,
-        parameterTypes.size());
-    return new AutoValue_Types_GeneralCallableType(
-        parameterNames,
-        parameterTypes,
-        numPositionalOnlyParameters,
-        numPositionalParameters,
-        varargsType,
-        kwargsType,
-        returns,
-        mandatoryParams);
+        parameterNames.size());
+    return intern(
+        new AutoValue_Types_GeneralCallableType(
+            parameterNames,
+            numPositionalOnlyParameters,
+            numPositionalParameters,
+            varargsType,
+            kwargsType,
+            returns,
+            parameterTypesIfNonAny,
+            mandatoryParamIndices));
+  }
+
+  /**
+   * Returns a {@link GeneralCallableType} for a resolved Starlark function whose parameters and
+   * return value all have type {@link #ANY}. Such a type is determined purely by the names,
+   * optionality, and keyword-ness/positional-ness of the parameters.
+   */
+  public static GeneralCallableType allAnyFunction(Resolver.Function rfn) {
+    return generalCallable(
+        rfn.getParameterNames().subList(0, rfn.getNumNonResidualParameters()),
+        /* parameterTypesIfNonAny= */ null,
+        /* numPositionalOnlyParameters= */ 0,
+        rfn.getNumOrdinaryParameters(),
+        MandatoryParamIndices.fromParameters(rfn),
+        rfn.hasVarargs() ? ANY : null,
+        rfn.hasKwargs() ? ANY : null,
+        ANY);
   }
 
   public static SimpleCallableType simpleCallable(
@@ -498,7 +726,8 @@ public final class Types {
       checkArgument(
           parameterTypes.isEmpty(), "If hasVarargsAndKwargs is true, parameterTypes must be empty");
     }
-    return new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs);
+    return intern(
+        new AutoValue_Types_SimpleCallableType(returns, parameterTypes, hasVarargsAndKwargs));
   }
 
   /**
@@ -506,9 +735,8 @@ public final class Types {
    * ANY_CALLABLE} if the type is {@link ANY}; otherwise returns {@code null} if no callable type is
    * found.
    *
-   * <p>Intended for use with {@link net.starlark.java.eval.BuiltinFunction.BuiltinTypeFunction} and
-   * similar callable values whose {@code getStarlarkType} method doesn't directly return a {@link
-   * CallableType}.
+   * <p>Intended for use with {@code BuiltinFunction.BuiltinTypeFunction} and similar callable
+   * values whose {@code getStarlarkType} method doesn't directly return a {@link CallableType}.
    */
   @Nullable
   public static CallableType toCallableType(StarlarkType type, TypeContext context) {
@@ -541,8 +769,9 @@ public final class Types {
    * The interface describes them as follows:
    *
    * <ul>
-   *   <li>Their types are stored consecutively in <code>parameterTypes</code>.
-   *   <li>The list <code>parameterNames</code> matches <code>parameterTypes</code>. (Even
+   *   <li>Their types are accessed by index via {@link #getParameterType(int)}, where the indices
+   *       are "run-time order" (see {@link Resolver.Function#getParameterNames()}).
+   *   <li>The list <code>parameterNames</code> has one element per non-residual parameter. (Even
    *       positional-only parameters have names.)
    *   <li><code>numPositionalOnlyParameters</code> counts positional-only arguments.
    *   <li><code>numPositionalParameters</code> counts both positional-only and ordinary arguments.
@@ -551,16 +780,14 @@ public final class Types {
    * <p>Special parameters {@code *args} and {@code **kwargs} are stored separately. If they are
    * absent, they are set to {@code null}.
    *
-   * <p>Mandatory parameters (non-special parameters without default values) are stored as an
-   * ordered set.
-   *
    * <p>The return type is marked as Any if not annotated.
    */
   public abstract static class CallableType extends StarlarkType {
 
     public abstract ImmutableList<String> getParameterNames();
 
-    public abstract ImmutableList<StarlarkType> getParameterTypes();
+    /** Returns the number of non-residual parameters (i.e. excluding * / *args / **kwargs). */
+    public abstract int getNumNonResidualParameters();
 
     public abstract int getNumPositionalOnlyParameters();
 
@@ -568,6 +795,10 @@ public final class Types {
 
     public abstract int getNumMandatoryParameters();
 
+    /** Returns the type of a non-residual parameter by index (in "run-time order"). */
+    public abstract StarlarkType getParameterType(int i);
+
+    /** Returns whether the non-residual parameter at the given index is mandatory. */
     public abstract boolean isMandatory(int i);
 
     @Nullable
@@ -577,10 +808,6 @@ public final class Types {
     public abstract StarlarkType getKwargsType();
 
     public abstract StarlarkType getReturnType();
-
-    public StarlarkType getParameterTypeByPos(int i) {
-      return getParameterTypes().get(i);
-    }
 
     @Override
     public boolean assignableFromHook(StarlarkType t, TypeContext context) {
@@ -596,11 +823,11 @@ public final class Types {
 
         // Contravariant in the positional parameter types
         for (int i = 0; i < getNumPositionalParameters(); i++) {
-          StarlarkType thisParameterType = getParameterTypeByPos(i);
+          StarlarkType thisParameterType = getParameterType(i);
           @Nullable
           StarlarkType thatParameterType =
               i < that.getNumPositionalParameters()
-                  ? that.getParameterTypeByPos(i)
+                  ? that.getParameterType(i)
                   : that.getVarargsType();
           if (!nullTolerantAssignableFrom(thatParameterType, thisParameterType, context)) {
             return false;
@@ -608,15 +835,15 @@ public final class Types {
         }
 
         // Contravariant in the keyword parameter types
-        if (getParameterTypes().size() != getNumPositionalOnlyParameters()) {
-          for (int i = getNumPositionalOnlyParameters(); i < getParameterTypes().size(); i++) {
+        if (getNumNonResidualParameters() != getNumPositionalOnlyParameters()) {
+          for (int i = getNumPositionalOnlyParameters(); i < getNumNonResidualParameters(); i++) {
             String name = getParameterNames().get(i);
-            StarlarkType thisParameterType = getParameterTypeByPos(i);
+            StarlarkType thisParameterType = getParameterType(i);
             int thatParameterIndex = that.getKeywordParameterIndex(name);
             @Nullable
             StarlarkType thatParameterType =
                 thatParameterIndex >= 0
-                    ? that.getParameterTypeByPos(thatParameterIndex)
+                    ? that.getParameterType(thatParameterIndex)
                     : that.getKwargsType();
             if (!nullTolerantAssignableFrom(thatParameterType, thisParameterType, context)) {
               return false;
@@ -635,7 +862,7 @@ public final class Types {
         }
 
         // `that` cannot have mandatory parameters that `this` is not guaranteed to supply.
-        for (int i = 0; i < that.getParameterTypes().size(); i++) {
+        for (int i = 0; i < that.getNumNonResidualParameters(); i++) {
           if (!that.isMandatory(i)) {
             continue;
           }
@@ -674,7 +901,7 @@ public final class Types {
     }
 
     protected int getKeywordParameterIndex(String name) {
-      for (int i = getNumPositionalOnlyParameters(); i < getParameterTypes().size(); i++) {
+      for (int i = getNumPositionalOnlyParameters(); i < getNumNonResidualParameters(); i++) {
         if (getParameterNames().get(i).equals(name)) {
           return i;
         }
@@ -689,7 +916,7 @@ public final class Types {
       // positional parameters
       int i = 0;
       for (; i < getNumPositionalOnlyParameters(); i++) {
-        StarlarkType type = getParameterTypeByPos(i);
+        StarlarkType type = getParameterType(i);
         if (isMandatory(i)) {
           params.add(type.typeRepr());
         } else {
@@ -703,7 +930,7 @@ public final class Types {
 
       for (; i < getNumPositionalParameters(); i++) {
         String name = getParameterNames().get(i);
-        StarlarkType type = getParameterTypeByPos(i);
+        StarlarkType type = getParameterType(i);
         if (isMandatory(i)) {
           params.add(name + ": " + type.typeRepr());
         } else {
@@ -713,14 +940,14 @@ public final class Types {
 
       if (getVarargsType() != null) {
         params.add("*args: " + getVarargsType().typeRepr());
-      } else if (i < getParameterTypes().size()) { // if there are going to be kwonly params
+      } else if (i < getNumNonResidualParameters()) { // if there are going to be kwonly params
         params.add("*");
       }
 
       // keyword parameters
-      for (; i < getParameterTypes().size(); i++) {
+      for (; i < getNumNonResidualParameters(); i++) {
         String name = getParameterNames().get(i);
-        String type = getParameterTypeByPos(i).typeRepr();
+        String type = getParameterType(i).typeRepr();
         if (isMandatory(i)) {
           params.add(name + ": " + type);
         } else {
@@ -743,7 +970,26 @@ public final class Types {
   // without positional-only parameter and by retrieving parameter names from StarlarkFunction
   @AutoValue
   abstract static class GeneralCallableType extends CallableType {
-    public abstract ImmutableSet<String> getMandatoryParameters();
+    /**
+     * Returns the list of non-residual parameter types, or null if all non-residual parameter types
+     * are {@link #ANY}.
+     */
+    @Nullable
+    abstract ImmutableList<StarlarkType> getParameterTypesIfNonAny();
+
+    abstract MandatoryParamIndices getMandatoryParamIndices();
+
+    @Override
+    public int getNumNonResidualParameters() {
+      return getParameterNames().size();
+    }
+
+    @Override
+    public StarlarkType getParameterType(int i) {
+      checkElementIndex(i, getNumNonResidualParameters());
+      ImmutableList<StarlarkType> types = getParameterTypesIfNonAny();
+      return types != null ? types.get(i) : ANY;
+    }
 
     @Override
     public final String typeRepr() {
@@ -755,25 +1001,26 @@ public final class Types {
 
     @Override
     public int getNumMandatoryParameters() {
-      return getMandatoryParameters().size();
+      return getMandatoryParamIndices().getNumMandatoryParameters();
     }
 
     @Override
     public boolean isMandatory(int i) {
-      if (i < 0 || i >= getParameterNames().size()) {
-        return false;
-      }
-      return getMandatoryParameters().contains(getParameterNames().get(i));
+      checkElementIndex(i, getNumNonResidualParameters());
+      return getMandatoryParamIndices().isMandatory(i);
     }
 
     @Override
-    public CallableType withReturnType(StarlarkType returnType) {
+    public GeneralCallableType withReturnType(StarlarkType returnType) {
+      if (returnType.equals(getReturnType())) {
+        return this;
+      }
       return generalCallable(
           getParameterNames(),
-          getParameterTypes(),
+          getParameterTypesIfNonAny(),
           getNumPositionalOnlyParameters(),
           getNumPositionalParameters(),
-          getMandatoryParameters(),
+          getMandatoryParamIndices(),
           getVarargsType(),
           getKwargsType(),
           returnType);
@@ -799,8 +1046,13 @@ public final class Types {
     }
 
     @Override
-    public ImmutableList<StarlarkType> getParameterTypes() {
-      return ImmutableList.of();
+    public int getNumNonResidualParameters() {
+      return 0;
+    }
+
+    @Override
+    public StarlarkType getParameterType(int i) {
+      throw new IndexOutOfBoundsException(i);
     }
 
     @Override
@@ -863,6 +1115,17 @@ public final class Types {
    */
   @AutoValue
   abstract static class SimpleCallableType extends CallableType {
+    abstract ImmutableList<StarlarkType> getParameterTypes();
+
+    @Override
+    public int getNumNonResidualParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public StarlarkType getParameterType(int i) {
+      return getParameterTypes().get(i);
+    }
 
     @Override
     public final String typeRepr() {
@@ -939,40 +1202,34 @@ public final class Types {
    * is returned.
    */
   public static StarlarkType union(StarlarkType... types) {
-    return union(ImmutableSet.copyOf(types));
+    return union(ImmutableList.copyOf(types));
   }
 
   /** Constructs a union type. */
-  // TODO: #28043 - Seems more appropriate to use List<StarlarkType> for the param and let this
-  // factory method take care of deduplication. For the moment we have a convenience overload below.
-  public static StarlarkType union(ImmutableSet<StarlarkType> types) {
-    ImmutableSet.Builder<StarlarkType> subtypesBuilder = ImmutableSet.builder();
-    // Unions are flattened
+  public static StarlarkType union(Collection<StarlarkType> types) {
+    if (types.size() == 1) {
+      // Optimize the common case.
+      return types.iterator().next();
+    }
+    ArrayList<StarlarkType> flattenedSubtypeList = new ArrayList<>(types.size());
     for (StarlarkType type : types) {
-      if (type instanceof UnionType union) {
-        subtypesBuilder.addAll(union.getTypes());
+      if (type.equals(Types.OBJECT)) {
+        return Types.OBJECT;
+      } else if (type instanceof UnionType union) {
+        // Unions are flattened
+        flattenedSubtypeList.addAll(union.getTypes());
       } else if (!type.equals(Types.NEVER)) {
-        subtypesBuilder.add(type);
+        flattenedSubtypeList.add(type);
       }
     }
-    ImmutableSet<StarlarkType> subtypes = subtypesBuilder.build();
-    if (subtypes.contains(Types.OBJECT)) {
-      return Types.OBJECT;
-    }
+    flattenedSubtypeList.sort(UNION_ELEMENT_COMPARATOR);
+    ImmutableSet<StarlarkType> subtypes = ImmutableSet.copyOf(flattenedSubtypeList);
     if (subtypes.size() == 1) {
       return subtypes.iterator().next();
     } else if (subtypes.isEmpty()) {
       return Types.NEVER;
     }
-    return new AutoValue_Types_UnionType(subtypes);
-  }
-
-  public static StarlarkType union(List<StarlarkType> types) {
-    if (types.size() == 1) {
-      // Optimize the common case.
-      return types.getFirst();
-    }
-    return union(ImmutableSet.copyOf(types));
+    return intern(new AutoValue_Types_UnionType(subtypes));
   }
 
   /** Returns the list of a union's types, or a singleton list if {@code type} is not a union. */
@@ -1034,7 +1291,7 @@ public final class Types {
   }
 
   public static ListType list(StarlarkType elementType) {
-    return new AutoValue_Types_ListType(elementType);
+    return intern(new AutoValue_Types_ListType(elementType));
   }
 
   /**
@@ -1044,7 +1301,7 @@ public final class Types {
    * parameter; and it MUST NOT be inferred as or in a type parameter of a generic function.
    */
   public static ListRvalueType listRvalue(StarlarkType elementType) {
-    return new AutoValue_Types_ListRvalueType(elementType);
+    return intern(new AutoValue_Types_ListRvalueType(elementType));
   }
 
   /** List type */
@@ -1145,7 +1402,7 @@ public final class Types {
   }
 
   public static DictType dict(StarlarkType keyType, StarlarkType valueType) {
-    return new AutoValue_Types_DictType(keyType, valueType);
+    return intern(new AutoValue_Types_DictType(keyType, valueType));
   }
 
   /**
@@ -1155,7 +1412,7 @@ public final class Types {
    * parameter; and it MUST NOT be inferred as or in a type parameter of a generic function.
    */
   public static DictRvalueType dictRvalue(StarlarkType keyType, StarlarkType valueType) {
-    return new AutoValue_Types_DictRvalueType(keyType, valueType);
+    return intern(new AutoValue_Types_DictRvalueType(keyType, valueType));
   }
 
   /** Dict type */
@@ -1244,7 +1501,7 @@ public final class Types {
   }
 
   public static SetType set(StarlarkType elementType) {
-    return new AutoValue_Types_SetType(elementType);
+    return intern(new AutoValue_Types_SetType(elementType));
   }
 
   /** Set type */
@@ -1296,7 +1553,7 @@ public final class Types {
   }
 
   public static FixedLengthTupleType tuple(ImmutableList<StarlarkType> elementTypes) {
-    return new AutoValue_Types_FixedLengthTupleType(elementTypes);
+    return intern(new AutoValue_Types_FixedLengthTupleType(elementTypes));
   }
 
   public static FixedLengthTupleType tuple(StarlarkType first, StarlarkType... rest) {
@@ -1304,7 +1561,7 @@ public final class Types {
   }
 
   public static HomogeneousTupleType homogeneousTuple(StarlarkType elementType) {
-    return new AutoValue_Types_HomogeneousTupleType(elementType);
+    return intern(new AutoValue_Types_HomogeneousTupleType(elementType));
   }
 
   /** Tuple type. */
@@ -1489,7 +1746,7 @@ public final class Types {
 
   /** Collection type */
   public static CollectionType collection(StarlarkType elementType) {
-    return new AutoValue_Types_CollectionType(elementType);
+    return intern(new AutoValue_Types_CollectionType(elementType));
   }
 
   /** Returns true if {@code type} may be used as a collection. */
@@ -1582,7 +1839,7 @@ public final class Types {
 
   /** Sequence type */
   public static SequenceType sequence(StarlarkType elementType) {
-    return new AutoValue_Types_SequenceType(elementType);
+    return intern(new AutoValue_Types_SequenceType(elementType));
   }
 
   /** Abstract sequence type for common sequence functionality. Exists to be subclassed. */
@@ -1638,7 +1895,7 @@ public final class Types {
 
   /** Mapping type */
   public static MappingType mapping(StarlarkType keyType, StarlarkType valueType) {
-    return new AutoValue_Types_MappingType(keyType, valueType);
+    return intern(new AutoValue_Types_MappingType(keyType, valueType));
   }
 
   /**
@@ -1758,14 +2015,35 @@ public final class Types {
     }
   }
 
+  private static ImmutableMap<String, StarlarkType> sortFieldsByName(
+      Map<String, StarlarkType> fields) {
+    if (fields.size() <= 1 || isSortedByKey(fields)) {
+      return ImmutableMap.copyOf(fields);
+    }
+    ArrayList<Map.Entry<String, StarlarkType>> entries = new ArrayList<>(fields.entrySet());
+    entries.sort(Map.Entry.comparingByKey());
+    return ImmutableMap.copyOf(entries);
+  }
+
+  private static boolean isSortedByKey(Map<String, StarlarkType> fields) {
+    String prev = null;
+    for (String key : fields.keySet()) {
+      if (prev != null && prev.compareTo(key) > 0) {
+        return false;
+      }
+      prev = key;
+    }
+    return true;
+  }
+
   /** Immutable partial struct type */
-  public static StructType partialStruct(ImmutableMap<String, StarlarkType> fields) {
-    return new AutoValue_Types_StructType(fields, /* partial= */ true);
+  public static StructType partialStruct(Map<String, StarlarkType> fields) {
+    return intern(new AutoValue_Types_StructType(sortFieldsByName(fields), /* partial= */ true));
   }
 
   /** Immutable total struct type */
-  public static StructType struct(ImmutableMap<String, StarlarkType> fields) {
-    return new AutoValue_Types_StructType(fields, /* partial= */ false);
+  public static StructType struct(Map<String, StarlarkType> fields) {
+    return intern(new AutoValue_Types_StructType(sortFieldsByName(fields), /* partial= */ false));
   }
 
   /**

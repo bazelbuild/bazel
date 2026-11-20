@@ -27,7 +27,7 @@ public final class CastExpression extends Expression {
 
   CastExpression(
       FileLocations locs, int startOffset, Expression type, Expression value, int rparenOffset) {
-    super(locs, Kind.CAST);
+    super(locs);
     this.startOffset = startOffset;
     this.type = type;
     this.value = value;

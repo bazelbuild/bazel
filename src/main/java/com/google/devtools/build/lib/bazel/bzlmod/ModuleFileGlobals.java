@@ -102,11 +102,12 @@ public class ModuleFileGlobals {
         @Param(
             name = "version",
             doc =
-                "The version of the module. Can be omitted only if this module is the root module"
-                    + " (as in, if it's not going to be depended on by another module). The version"
-                    + " must be in a relaxed SemVer format; see <a"
-                    + " href=\"/external/module#version_format\">the documentation</a> for more"
-                    + " details.",
+                "The version of the module. Can be omitted if this module is the root module (as"
+                    + " in, if it's not going to be depended on by another module) or if it is"
+                    + " fetched from a registry, in which case it defaults to the version the"
+                    + " module is published under in the registry. The version must be in a relaxed"
+                    + " SemVer format; see <a href=\"/external/module#version_format\">the"
+                    + " documentation</a> for more details.",
             named = true,
             positional = false,
             defaultValue = "''"),
@@ -181,10 +182,17 @@ public class ModuleFileGlobals {
       context.addRepoNameUsage(repoName, "as the module's own repo name", thread.getCallStack());
     }
     Version parsedVersion;
-    try {
-      parsedVersion = Version.parse(version);
-    } catch (ParseException e) {
-      throw new EvalException("Invalid version in module()", e);
+    if (version.isEmpty()) {
+      // The version of a module from a registry is already known, so there is no need to repeat it
+      // in its MODULE.bazel file. For the root module and modules with non-registry overrides, the
+      // version in the key is empty.
+      parsedVersion = context.getModuleBuilder().getKey().version();
+    } else {
+      try {
+        parsedVersion = Version.parse(version);
+      } catch (ParseException e) {
+        throw new EvalException("Invalid version in module()", e);
+      }
     }
     context
         .getModuleBuilder()
@@ -282,6 +290,9 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "bazel_dep()");
     context.setNonModuleCalled();
     validateModuleName(name);
+    if (name.equals(context.getModuleBuilder().getName())) {
+      throw Starlark.errorf("module '%s' cannot depend on itself", name);
+    }
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
@@ -492,7 +503,7 @@ public class ModuleFileGlobals {
     // their Label representation. If multiple strings map to the same Label, this would result in a
     // crash.
     // ownName can't change anymore as calling module() after this results in an error.
-    String ownName = module.getRepoName().orElse(module.getName());
+    String ownName = module.getRepoNameOrName();
     RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
     ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
     if (module.getKey().equals(ModuleKey.ROOT)) {
@@ -525,7 +536,7 @@ public class ModuleFileGlobals {
         RepositoryMapping.create(
             ImmutableMap.<String, RepositoryName>builder()
                 .put("", RepositoryName.MAIN)
-                .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
+                .put(module.getRepoNameOrName(), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
     Label label;
@@ -685,6 +696,10 @@ public class ModuleFileGlobals {
           Overrides one or more repos defined by the given module extension with the given repos
           visible to the current module. This is ignored if the current module is not the root
           module or `--ignore_dev_dependency` is enabled.
+
+          <p>A repository may be overridden with the root module itself. In that case, the root
+          module must refer to itself by its own repository name instead of importing the
+          overridden repository with <code>use_repo</code>. Other modules may still import it.
 
           <p>Use <a href="#inject_repo"><code>inject_repo</code></a> instead to add a new repo.
           """,

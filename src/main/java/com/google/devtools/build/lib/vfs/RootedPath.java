@@ -27,11 +27,10 @@ import javax.annotation.Nullable;
  * <p>Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative
  * paths.
  *
- * <p>Instances are interned (except on Windows), which results in a large memory benefit (see
- * cl/516855266). In addition to being a {@link SkyKey} itself, {@link RootedPath} is used as a
- * field in several other common {@link SkyKey} types. Interning on the level of those keys does not
- * deduplicate referenced {@link RootedPath} instances which are also used as a {@link SkyKey}
- * directly.
+ * <p>Instances are interned, which results in a large memory benefit (see cl/516855266). In
+ * addition to being a {@link SkyKey} itself, {@link RootedPath} is used as a field in several other
+ * common {@link SkyKey} types. Interning on the level of those keys does not deduplicate referenced
+ * {@link RootedPath} instances which are also used as a {@link SkyKey} directly.
  */
 @AutoCodec
 public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
@@ -116,6 +115,25 @@ public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
       return null;
     }
     return createInternal(root, rootRelativeParentDirectory);
+  }
+
+  /**
+   * Returns the {@link RootedPath} of the direct child {@code baseName} of this path, under the
+   * same root.
+   *
+   * @throws IllegalArgumentException if {@code baseName} is empty, "." or "..", or contains a
+   *     separator
+   */
+  public RootedPath getChild(String baseName) {
+    return createInternal(root, rootRelativePath.getChild(baseName));
+  }
+
+  /**
+   * Returns the last segment of the root-relative path, or the empty string if this is the root
+   * itself (or, for an absolute root, a mount name such as '/' or 'C:/').
+   */
+  public String getRootRelativeBaseName() {
+    return rootRelativePath.getBaseName();
   }
 
   @Override

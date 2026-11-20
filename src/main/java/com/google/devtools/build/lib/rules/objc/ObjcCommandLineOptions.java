@@ -25,16 +25,6 @@ import com.google.devtools.common.options.OptionsClass;
 @OptionsClass
 public abstract class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
-      name = "device_debug_entitlements",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SIGNING,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "If set, and compilation mode is not 'opt', objc apps will include debug entitlements "
-              + "when signing.")
-  public abstract boolean getDeviceDebugEntitlements();
-
-  @Option(
       name = "incompatible_disallow_sdk_frameworks_attributes",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,

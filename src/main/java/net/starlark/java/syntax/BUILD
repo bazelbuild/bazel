@@ -43,7 +43,6 @@ java_library(
         "Lexer.java",
         "ListExpression.java",
         "LoadStatement.java",
-        "Location.java",
         "Node.java",
         "NodePrinter.java",
         "NodeVisitor.java",
@@ -58,7 +57,6 @@ java_library(
         "StarlarkType.java",
         "Statement.java",
         "StringLiteral.java",
-        "SyntaxError.java",
         "SyntaxUtils.java",
         "TokenKind.java",
         "TypeAliasStatement.java",
@@ -73,12 +71,42 @@ java_library(
         "VarStatement.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
+    exports = [
+        ":location",
+        ":syntax_error",
+    ],
     # Do not add Bazel or Google dependencies here!
     deps = [
+        ":location",
+        ":syntax_error",
         "//src/main/java/net/starlark/java/spelling",
         "//third_party/java/auto:auto_value",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
         "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "location",
+    srcs = ["Location.java"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    # Do not add Bazel or Google dependencies here!
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "syntax_error",
+    srcs = ["SyntaxError.java"],
+    visibility = ["//src/main/java/net/starlark/java:clients"],
+    # Do not add Bazel or Google dependencies here!
+    deps = [
+        ":location",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )

@@ -70,4 +70,19 @@ public interface InMemoryNodeEntry extends NodeEntry {
   @Override // Remove InterruptedException.
   @Nullable
   MarkedDirtyResult markDirty(DirtyType dirtyType);
+
+  /**
+   * Atomically promotes this node from {@link DirtyType#DIRTY} to {@link DirtyType#CHANGE} if it is
+   * in {@link LifecycleState#CHECK_DEPENDENCIES} and has not yet been scheduled for evaluation.
+   *
+   * <p>Does nothing if the node is not in {@link LifecycleState#CHECK_DEPENDENCIES} or if it has
+   * already been scheduled for evaluation, in which case the evaluator may already be partway
+   * through checking the node's dependencies.
+   *
+   * <p>The check and the promotion are executed atomically so that the node cannot be scheduled in
+   * between.
+   *
+   * @return the lifecycle state observed before potentially marking this node changed
+   */
+  LifecycleState tryPromoteDirtyToChanged();
 }

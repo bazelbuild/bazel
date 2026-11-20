@@ -21,13 +21,13 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -56,6 +56,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   private Artifact buildFile;
   private Artifact relativeSymlink;
   private Artifact absoluteSymlink;
+  private Artifact symlink;
+  private Artifact rootSymlink;
   private Artifact manifestOutputFile;
 
   @Before
@@ -84,19 +86,31 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Path relativeSymlinkPath = outputDir.getRoot().asPath().getChild("relative_symlink");
     relativeSymlinkPath.createSymbolicLink(PathFragment.create("../some/relative/path"));
     relativeSymlink =
-        SpecialArtifact.create(
+        UnresolvedSymlinkArtifact.create(
             outputDir,
             outputDir.getExecPath().getChild("relative_symlink"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     Path absoluteSymlinkPath = outputDir.getRoot().asPath().getChild("absolute_symlink");
     absoluteSymlinkPath.createSymbolicLink(PathFragment.create("/absolute/path"));
     absoluteSymlink =
-        SpecialArtifact.create(
+        UnresolvedSymlinkArtifact.create(
             outputDir,
             outputDir.getExecPath().getChild("absolute_symlink"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.UNRESOLVED_SYMLINK);
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    Path symlinkPath = outputDir.getRoot().asPath().getChild("symlink");
+    symlinkPath.createSymbolicLink(PathFragment.create("/symlink/path"));
+    symlink =
+        UnresolvedSymlinkArtifact.create(
+            outputDir,
+            outputDir.getExecPath().getChild("symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    Path rootSymlinkPath = outputDir.getRoot().asPath().getChild("root_symlink");
+    rootSymlinkPath.createSymbolicLink(PathFragment.create("/root/path"));
+    rootSymlink =
+        UnresolvedSymlinkArtifact.create(
+            outputDir,
+            outputDir.getExecPath().getChild("root_symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
   private SourceManifestAction createSymlinkAction() {
@@ -108,7 +122,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   private SourceManifestAction createAction(ManifestType type, boolean addInitPy) {
-    Runfiles.Builder builder = new Runfiles.Builder("TESTING");
+    Runfiles.Builder builder = new Runfiles.Builder();
     builder.addSymlinks(fakeManifest);
     if (addInitPy) {
       builder.setEmptyFilesSupplier(analysisMock.pySupport().getEmptyRunfilesSupplier());
@@ -134,7 +148,9 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
           .isNotEmpty();
       Map.Entry<PathFragment, Artifact> expectedEntry = expectedSequence.remove(0);
       assertThat(rootRelativePath)
-          .isEqualTo(PathFragment.create("TESTING").getRelative(expectedEntry.getKey()));
+          .isEqualTo(
+              PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME)
+                  .getRelative(expectedEntry.getKey()));
       assertThat(symlinkTarget).isEqualTo(expectedEntry.getValue().getPath().asFragment());
     }
 
@@ -174,7 +190,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
                 mockWriter,
                 NULL_ACTION_OWNER,
                 manifestOutputFile,
-                new Runfiles.Builder("TESTING").addSymlinks(fakeManifest).build())
+                new Runfiles.Builder().addSymlinks(fakeManifest).build())
             .getFileContents(reporter);
     assertThat(mockWriter.unconsumedInputs()).isEqualTo(0);
     assertThat(manifestContents).isEmpty();
@@ -186,10 +202,11 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     assertThat(manifestContents)
         .isEqualTo(
             """
-            TESTING/trivial/BUILD /workspace/trivial/BUILD
-            TESTING/trivial/__init__.py\s
-            TESTING/trivial/trivial.py /workspace/trivial/trivial.py
-            """);
+            %1$s/trivial/BUILD /workspace/trivial/BUILD
+            %1$s/trivial/__init__.py\s
+            %1$s/trivial/trivial.py /workspace/trivial/trivial.py
+            """
+                .formatted(LabelConstants.MAIN_REPO_DIR_NAME));
   }
 
   /**
@@ -202,10 +219,11 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     assertThat(manifestContents)
         .isEqualTo(
             """
-            TESTING/trivial/BUILD
-            TESTING/trivial/__init__.py
-            TESTING/trivial/trivial.py
-            """);
+            %1$s/trivial/BUILD
+            %1$s/trivial/__init__.py
+            %1$s/trivial/trivial.py
+            """
+                .formatted(LabelConstants.MAIN_REPO_DIR_NAME));
   }
 
   /**
@@ -220,7 +238,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Artifact swigDotSO = ActionsTestUtil.createArtifact(swiggedLibPath, swiggedFile);
     fakeManifest.put(swiggedFile.relativeTo(rootDirectory), swigDotSO);
     String manifestContents = createSymlinkAction().getFileContents(reporter);
-    assertThat(manifestContents).containsMatch(".*TESTING/swig/__init__.py .*");
+    assertThat(manifestContents)
+        .containsMatch(".*" + LabelConstants.MAIN_REPO_DIR_NAME + "/swig/__init__.py .*");
     assertThat(manifestContents).containsMatch("fakeLib.so");
   }
 
@@ -284,7 +303,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
-            new Runfiles.Builder("TESTING")
+            new Runfiles.Builder()
                 .addRootSymlinks(ImmutableMap.of(PathFragment.create("a"), buildFile))
                 .build());
 
@@ -293,7 +312,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
-            new Runfiles.Builder("TESTING")
+            new Runfiles.Builder()
                 .addRootSymlinks(ImmutableMap.of(PathFragment.create("b"), buildFile))
                 .build());
 
@@ -311,7 +330,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
-            new Runfiles.Builder("TESTING")
+            new Runfiles.Builder()
                 .addSymlink(PathFragment.create("a"), buildFile)
                 .setEmptyFilesSupplier(
                     new Runfiles.EmptyFilesSupplier() {
@@ -335,7 +354,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
-            new Runfiles.Builder("TESTING")
+            new Runfiles.Builder()
                 .addSymlink(PathFragment.create("a"), buildFile)
                 .setEmptyFilesSupplier(
                     new Runfiles.EmptyFilesSupplier() {
@@ -366,14 +385,17 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest,
-            new Runfiles.Builder("TESTING")
+            new Runfiles.Builder()
                 .addArtifact(absoluteSymlink)
                 .addArtifact(buildFile)
                 .addArtifact(relativeSymlink)
+                .addSymlink(PathFragment.create("custom_symlink"), symlink)
+                .addRootSymlink(PathFragment.create("root_symlink"), rootSymlink)
                 .build());
 
     NestedSet<Artifact> inputs = action.getInputs();
-    assertThat(inputs.toList()).containsExactly(absoluteSymlink, relativeSymlink);
+    assertThat(inputs.toList())
+        .containsExactly(absoluteSymlink, relativeSymlink, symlink, rootSymlink);
 
     // Verify that the return value of getInputs is cached.
     assertThat(inputs).isEqualTo(action.getInputs());
@@ -382,10 +404,13 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     assertThat(action.getFileContents(reporter))
         .isEqualTo(
             """
-            TESTING/BUILD /workspace/trivial/BUILD
-            TESTING/absolute_symlink /absolute/path
-            TESTING/relative_symlink ../some/relative/path
-            """);
+            %1$s/BUILD /workspace/trivial/BUILD
+            %1$s/absolute_symlink /absolute/path
+            %1$s/custom_symlink /symlink/path
+            %1$s/relative_symlink ../some/relative/path
+            root_symlink /root/path
+            """
+                .formatted(LabelConstants.MAIN_REPO_DIR_NAME));
   }
 
   @Test
@@ -406,7 +431,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest,
-            new Runfiles.Builder("TESTING")
+            new Runfiles.Builder()
                 .addSymlink(PathFragment.create("no/sp\\ace"), buildFile)
                 .addSymlink(PathFragment.create("also/no/sp\\ace"), fileWithSpaceAndBackslash)
                 .addSymlink(PathFragment.create("still/no/sp\\ace"), fileWithNewlineAndBackslash)
@@ -427,36 +452,38 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
       assertThat(action.getFileContents(reporter))
           .isEqualTo(
               """
-              TESTING/also/no/sp/ace /workspace/trivial/file with sp/ace
-               TESTING/also/with\\nnewline /workspace/trivial/file with sp/ace
-               TESTING/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp/ace
-               TESTING/also/with\\ssp/ace /workspace/trivial/file with sp/ace
-               TESTING/more/with\\nnewline /workspace/trivial/file\\nwith/newline
-               TESTING/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith/newline
-               TESTING/more/with\\ssp/ace /workspace/trivial/file\\nwith/newline
-              TESTING/no/sp/ace /workspace/trivial/BUILD
-               TESTING/still/no/sp/ace /workspace/trivial/file\\nwith/newline
-               TESTING/with\\nnew/line /workspace/trivial/BUILD
-               TESTING/with\\nnew/line\\sand\\sspace /workspace/trivial/BUILD
-               TESTING/with\\ssp/ace /workspace/trivial/BUILD
-              """);
+              %1$s/also/no/sp/ace /workspace/trivial/file with sp/ace
+               %1$s/also/with\\nnewline /workspace/trivial/file with sp/ace
+               %1$s/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp/ace
+               %1$s/also/with\\ssp/ace /workspace/trivial/file with sp/ace
+               %1$s/more/with\\nnewline /workspace/trivial/file\\nwith/newline
+               %1$s/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith/newline
+               %1$s/more/with\\ssp/ace /workspace/trivial/file\\nwith/newline
+              %1$s/no/sp/ace /workspace/trivial/BUILD
+               %1$s/still/no/sp/ace /workspace/trivial/file\\nwith/newline
+               %1$s/with\\nnew/line /workspace/trivial/BUILD
+               %1$s/with\\nnew/line\\sand\\sspace /workspace/trivial/BUILD
+               %1$s/with\\ssp/ace /workspace/trivial/BUILD
+              """
+                  .formatted(LabelConstants.MAIN_REPO_DIR_NAME));
     } else {
       assertThat(action.getFileContents(reporter))
           .isEqualTo(
               """
-              TESTING/also/no/sp\\ace /workspace/trivial/file with sp\\ace
-               TESTING/also/with\\nnewline /workspace/trivial/file with sp\\bace
-               TESTING/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp\\bace
-               TESTING/also/with\\ssp\\bace /workspace/trivial/file with sp\\bace
-               TESTING/more/with\\nnewline /workspace/trivial/file\\nwith\\bnewline
-               TESTING/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith\\bnewline
-               TESTING/more/with\\ssp\\bace /workspace/trivial/file\\nwith\\bnewline
-              TESTING/no/sp\\ace /workspace/trivial/BUILD
-               TESTING/still/no/sp\\bace /workspace/trivial/file\\nwith\\bnewline
-               TESTING/with\\nnew\\bline /workspace/trivial/BUILD
-               TESTING/with\\nnew\\bline\\sand\\sspace /workspace/trivial/BUILD
-               TESTING/with\\ssp\\bace /workspace/trivial/BUILD
-              """);
+              %1$s/also/no/sp\\ace /workspace/trivial/file with sp\\ace
+               %1$s/also/with\\nnewline /workspace/trivial/file with sp\\bace
+               %1$s/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp\\bace
+               %1$s/also/with\\ssp\\bace /workspace/trivial/file with sp\\bace
+               %1$s/more/with\\nnewline /workspace/trivial/file\\nwith\\bnewline
+               %1$s/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith\\bnewline
+               %1$s/more/with\\ssp\\bace /workspace/trivial/file\\nwith\\bnewline
+              %1$s/no/sp\\ace /workspace/trivial/BUILD
+               %1$s/still/no/sp\\bace /workspace/trivial/file\\nwith\\bnewline
+               %1$s/with\\nnew\\bline /workspace/trivial/BUILD
+               %1$s/with\\nnew\\bline\\sand\\sspace /workspace/trivial/BUILD
+               %1$s/with\\ssp\\bace /workspace/trivial/BUILD
+              """
+                  .formatted(LabelConstants.MAIN_REPO_DIR_NAME));
     }
   }
 
@@ -465,7 +492,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Artifact manifest1 = getBinArtifactWithNoOwner("manifest1");
     Artifact manifest2 = getBinArtifactWithNoOwner("manifest2");
 
-    Runfiles runfiles = new Runfiles.Builder("TESTING").addArtifact(buildFile).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(buildFile).build();
 
     SourceManifestAction action1 =
         new SourceManifestAction(

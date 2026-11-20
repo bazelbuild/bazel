@@ -68,6 +68,15 @@ import org.junit.Before;
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static final String OUTPUTDIR = TestConstants.PRODUCT_NAME + "-out//bin";
 
+  protected static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
+  protected static final ImmutableList<String> SIMULATOR_COMPILE_FLAGS =
+      ImmutableList.of(
+          "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
+  protected static final String FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT =
+      "File '%s' is present in both srcs and non_arc_srcs which is forbidden.";
+  protected static final ImmutableList<String> DEFAULT_COMPILER_FLAGS =
+      ImmutableList.of("-DOS_IOS");
+
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
           keyForBuild(Label.parseCanonicalUnchecked("//test_starlark:apple_binary_starlark.bzl")),
@@ -1371,7 +1380,7 @@ cc_toolchain_forwarder = rule(
   protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode)
       throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
-        ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+        ImmutableList.<String>builder().addAll(DEFAULT_COMPILER_FLAGS);
 
     useConfiguration(
         "--platforms=" + MockObjcSupport.IOS_X86_64,

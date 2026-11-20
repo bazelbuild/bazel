@@ -42,18 +42,20 @@ import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.devtools.build.lib.util.io.UnsynchronizedByteArrayOutputStream;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +79,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 26;
+  private static final int VERSION = 27;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -792,8 +794,7 @@ public class CompactPersistentActionCache implements ActionCache {
     return actionMap.size();
   }
 
-  private void encodeRemoteMetadata(FileArtifactValue value, ByteArrayOutputStream sink)
-      throws IOException {
+  private void encodeRemoteMetadata(FileArtifactValue value, OutputStream sink) throws IOException {
     checkArgument(value.isRemote(), "metadata is not remote: %s", value);
 
     MetadataDigestUtils.write(value.getDigest(), sink);
@@ -918,7 +919,8 @@ public class CompactPersistentActionCache implements ActionCache {
         (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
             + maxDiscoveredInputsSize
             + estimatedOutputMetadataSize;
-    ByteArrayOutputStream sink = new ByteArrayOutputStream(estimatedSize);
+    UnsynchronizedByteArrayOutputStream sink =
+        new UnsynchronizedByteArrayOutputStream(estimatedSize);
 
     MetadataDigestUtils.write(entry.getDigest(), sink);
 
@@ -926,9 +928,21 @@ public class CompactPersistentActionCache implements ActionCache {
     if (entry.discoversInputs()) {
       VarInt.putVarInt(entry.prunedInputs() ? 1 : 0, sink);
       ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
-      VarInt.putVarInt(discoveredInputPaths.size(), sink);
-      for (String discoveredInputPath : discoveredInputPaths) {
-        VarInt.putVarInt(indexer.getOrCreateIndex(discoveredInputPath), sink);
+      // The order of discovered inputs is irrelevant (the input digest is order-independent), so
+      // store the indices sorted and delta-encoded. Since the indexer hands out indices in
+      // insertion order, inputs that are commonly discovered together (e.g. the headers of a
+      // library) tend to have nearby indices, so most deltas fit into a single byte instead of the
+      // 3-4 bytes needed for an absolute index in a large build.
+      int[] indices = new int[discoveredInputPaths.size()];
+      for (int i = 0; i < indices.length; i++) {
+        indices[i] = indexer.getOrCreateIndex(discoveredInputPaths.get(i));
+      }
+      Arrays.sort(indices);
+      VarInt.putVarInt(indices.length, sink);
+      int previous = 0;
+      for (int index : indices) {
+        VarInt.putVarInt(index - previous, sink);
+        previous = index;
       }
     }
 
@@ -1023,10 +1037,15 @@ public class CompactPersistentActionCache implements ActionCache {
         }
         ImmutableList.Builder<String> builder =
             ImmutableList.builderWithExpectedSize(numDiscoveredInputs);
+        int id = 0;
         for (int i = 0; i < numDiscoveredInputs; i++) {
-          int id = VarInt.getVarInt(source);
-          String filename = getStringForIndex(indexer, id);
-          builder.add(filename);
+          int delta = VarInt.getVarInt(source);
+          if (delta < 0) {
+            throw new IOException("Invalid discovered input index delta: " + delta);
+          }
+          // An overflow results in a negative index, which getStringForIndex rejects.
+          id += delta;
+          builder.add(getStringForIndex(indexer, id));
         }
         discoveredInputPaths = builder.build();
       }

@@ -179,9 +179,12 @@ public interface PathMapper {
     PathFragment mappedExecPath = map(execPath);
     // map never changes the root-relative part of the exec path, so we can remove that suffix to
     // get the mapped root part.
-    int rootRelativeSegmentCount = execPath.segmentCount() - root.getExecPath().segmentCount();
+    int rootRelativeLength =
+        execPath.getPathString().length() - root.getExecPath().getPathString().length();
+    String mappedExecPathStr = mappedExecPath.getPathString();
     PathFragment mappedRootExecPath =
-        mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
+        PathFragment.createAlreadyNormalized(
+            mappedExecPathStr.substring(0, mappedExecPathStr.length() - rootRelativeLength));
     return new MappedArtifactRoot(mappedRootExecPath);
   }
 

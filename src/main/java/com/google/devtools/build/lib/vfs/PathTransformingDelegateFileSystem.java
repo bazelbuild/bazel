@@ -111,13 +111,14 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return delegateFs.getLastModifiedTime(toDelegatePath(path), followSymlinks);
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return delegateFs.getLastModifiedTimeNanos(toDelegatePath(path), followSymlinks);
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    delegateFs.setLastModifiedTime(toDelegatePath(path), newTime);
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    delegateFs.setLastModifiedTimeNanos(toDelegatePath(path), newTime);
   }
 
   @Override

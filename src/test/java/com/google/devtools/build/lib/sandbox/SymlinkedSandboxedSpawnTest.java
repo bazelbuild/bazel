@@ -67,6 +67,7 @@ public class SymlinkedSandboxedSpawnTest {
         new SymlinkedSandboxedSpawn(
             sandboxDir,
             execRoot,
+            workspaceDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             new SandboxInputs(
@@ -101,6 +102,7 @@ public class SymlinkedSandboxedSpawnTest {
         new SymlinkedSandboxedSpawn(
             sandboxDir,
             execRoot,
+            workspaceDir,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),

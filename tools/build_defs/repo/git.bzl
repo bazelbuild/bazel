@@ -305,7 +305,7 @@ git_repository = repository_rule(
     doc = """Clone an external git repository.
 
 Clones a Git repository, checks out the specified branch, tag, or commit, and
-makes its targets available for binding. If no branch, tag or commit is
+makes its targets available to the build. If no branch, tag or commit is
 specified, check out the repository's default branch. Also determine the id
 and date of the commit that was checked out, and return a dict with
 parameters that provide a reproducible version of this rule (which a tag or

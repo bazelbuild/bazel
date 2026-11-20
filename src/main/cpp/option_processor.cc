@@ -30,18 +30,20 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor-internal.h"
+#include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/sem_ver.h"
+#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_cat.h"
-#include "src/main/cpp/rc_file.h"
-#include "src/main/cpp/startup_options.h"
-#include "src/main/cpp/util/exit_code.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -82,8 +84,7 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
   const string lowercase_product_name = GetLowercaseProductName();
 
   if (args.empty()) {
-    blaze_util::StringPrintf(error,
-                             "Unable to split command line, args is empty");
+    *error = "Unable to split command line, args is empty";
     return nullptr;
   }
 
@@ -121,28 +122,24 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
         // skip the next argument and proceed to examine the argument located
         // two places after.
         if (i + 1 >= args.size()) {
-          blaze_util::StringPrintf(
-              error,
+          *error = absl::StrFormat(
               "Startup option '%s' expects a value.\n"
               "Usage: '%s=somevalue' or '%s somevalue'.\n"
               "  For more info, run '%s help startup_options'.",
-              current_arg.c_str(), current_arg.c_str(), current_arg.c_str(),
-              lowercase_product_name.c_str());
+              current_arg, current_arg, current_arg, lowercase_product_name);
           return nullptr;
         }
         // In this case we transform it to the form '--bazelrc=value'.
-        startup_args.push_back(std::move(current_arg) + "=" +
-                               std::move(args[i + 1]));
+        startup_args.push_back(absl::StrCat(current_arg, "=", args[i + 1]));
         i += 2;
       }
     } else {
       // If the current argument is not a valid unary or nullary startup option
       // then fail.
-      blaze_util::StringPrintf(
-          error,
+      *error = absl::StrFormat(
           "Unknown startup option: '%s'.\n"
           "  For more info, run '%s help startup_options'.",
-          current_arg.c_str(), lowercase_product_name.c_str());
+          current_arg, lowercase_product_name);
       return nullptr;
     }
   }
@@ -155,10 +152,10 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
   string& command = args[i];
   // Distinguish an empty command from the case of no command above.
   if (command.empty()) {
-    blaze_util::StringPrintf(error,
-                             "Command cannot be the empty string.\n"
-                             "  For more info, run '%s help'.",
-                             lowercase_product_name.c_str());
+    *error = absl::StrFormat(
+        "Command cannot be the empty string.\n"
+        "  For more info, run '%s help'.",
+        lowercase_product_name);
     return nullptr;
   }
 
@@ -307,7 +304,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   // Get the env var provided rc.
   const std::vector<std::string> env_var_rc_files =
-      blaze_util::Split(GetEnv("BAZELRC"), ',');
+      absl::StrSplit(GetEnv("BAZELRC"), ',', absl::SkipEmpty());
   blaze_exit_code::ExitCode env_exit_code =
       internal::GetAndValidateExistingRcFiles(env_var_rc_files, &rc_files);
   if (env_exit_code != blaze_exit_code::SUCCESS) {
@@ -328,8 +325,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // non-existent files, so that this can serve to debug why a certain file is
   // not being read. The final files which are read will be logged as they are
   // parsed, and can be found using --announce_rc.
-  std::string joined_rcs;
-  blaze_util::JoinStrings(rc_files, ',', &joined_rcs);
+  std::string joined_rcs = absl::StrJoin(rc_files, ",");
   BAZEL_LOG(INFO) << "Looking for the following rc files: " << joined_rcs;
 
   // It's possible that workspace == home, that files are symlinks for each
@@ -443,8 +439,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
 static void PrintStartupOptions(const std::string& source,
                                 const std::vector<std::string>& options) {
   if (!source.empty()) {
-    std::string startup_args;
-    blaze_util::JoinStrings(options, ' ', &startup_args);
+    std::string startup_args = absl::StrJoin(options, " ");
     fprintf(stderr, "INFO: Reading 'startup' options from %s: %s\n",
             source.c_str(), startup_args.c_str());
   }
@@ -541,12 +536,16 @@ std::vector<BlazercOption> OptionProcessor::GetBlazercOptions(
   std::string terminal_rc_source = "client";
   // LINT.ThenChange(//src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
   result.push_back({terminal_rc_source, "common",
-                    "--isatty=" + blaze_util::ToString(IsStandardTerminal())});
-  result.push_back(
-      {terminal_rc_source, "common",
-       "--terminal_columns=" + blaze_util::ToString(GetTerminalColumns())});
+                    absl::StrCat("--isatty=", IsStandardTerminal())});
+  result.push_back({terminal_rc_source, "common",
+                    absl::StrCat("--terminal_columns=", GetTerminalColumns())});
   if (IsEmacsTerminal() && !quiet) {
     result.push_back({terminal_rc_source, "common", "--emacs"});
+  }
+  std::string default_tool_tag = GetEnv("BLAZE_DEFAULT_TOOL_TAG");
+  if (!default_tool_tag.empty()) {
+    result.push_back(
+        {terminal_rc_source, "common", "--tool_tag=" + default_tool_tag});
   }
 
   for (const auto* blazerc : blazercs) {

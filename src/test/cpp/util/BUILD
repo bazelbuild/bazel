@@ -67,6 +67,7 @@ cc_test(
             ":windows_test_util",
             "//src/main/cpp:blaze_util",
             "//src/main/native/windows:lib-file",
+            "@abseil-cpp//absl/strings",
         ],
         "//conditions:default": [],
     }),
@@ -80,17 +81,6 @@ cc_test(
         "//src/main/cpp/util:bazel_log_handler",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "numbers_test",
-    srcs = ["numbers_test.cc"],
-    deps = [
-        "//src/main/cpp/util:numbers",
-        "//src/main/cpp/util:port",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],

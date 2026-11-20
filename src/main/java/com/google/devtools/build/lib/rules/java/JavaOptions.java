@@ -373,6 +373,17 @@ public abstract class JavaOptions extends FragmentOptions {
       help = "The number of CPUs to reserve for Turbine.")
   public abstract int getTurbineCpuReservation();
 
+  // TODO(cushon): enable by default and remove after a release with a new turbine
+  // (https://github.com/bazelbuild/bazel/pull/31597)
+  @Option(
+      name = "experimental_turbine_output_root_relative_path",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, passes --output_root_relative_path to Turbine.")
+  public abstract boolean getExperimentalTurbineOutputRootRelativePath();
+
   @Option(
       name = "java_runtime_version",
       defaultValue = "local_jdk",

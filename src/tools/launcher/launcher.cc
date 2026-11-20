@@ -149,14 +149,14 @@ void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
   ifstream manifest_file(AsAbsoluteWindowsPath(manifest_path.c_str()).c_str());
 
   if (!manifest_file) {
-    die(L"Couldn't open MANIFEST file: %s", manifest_path.c_str());
+    die(L"Couldn't open MANIFEST file: %ls", manifest_path.c_str());
   }
 
   string line;
   while (getline(manifest_file, line)) {
     size_t space_pos = line.find_first_of(' ');
     if (space_pos == string::npos) {
-      die(L"Wrong MANIFEST format at line: %s", line.c_str());
+      die(L"Wrong MANIFEST format at line: %hs", line.c_str());
     }
     wstring wline = blaze_util::CstringToWstring(line);
     wstring key = wline.substr(0, space_pos);
@@ -190,7 +190,7 @@ wstring BinaryLauncherBase::Rlocation(wstring path,
 
   auto entry = manifest_file_map.find(path);
   if (entry == manifest_file_map.end()) {
-    die(L"Rlocation failed on %s, path doesn't exist in MANIFEST file %s",
+    die(L"Rlocation failed on %ls, path doesn't exist in MANIFEST file %ls",
         path.c_str(), manifest_file.c_str());
   }
   return entry->second;
@@ -227,7 +227,7 @@ void BinaryLauncherBase::CreateCommandLine(
 
   wstring cmdline_str = cmdline.str();
   if (cmdline_str.size() >= MAX_CMDLINE_LENGTH) {
-    die(L"Command line too long: %s", cmdline_str.c_str());
+    die(L"Command line too long: %ls", cmdline_str.c_str());
   }
 
   // Copy command line into a mutable buffer.
@@ -243,9 +243,9 @@ bool BinaryLauncherBase::PrintLauncherCommandLine(
     has_print_cmd_flag |= (arg == L"--print_launcher_command");
   }
   if (has_print_cmd_flag) {
-    wprintf(L"%s\n", executable.c_str());
+    wprintf(L"%ls\n", executable.c_str());
     for (const auto& arg : arguments) {
-      wprintf(L"%s\n", arg.c_str());
+      wprintf(L"%ls\n", arg.c_str());
     }
   }
   return has_print_cmd_flag;
@@ -291,7 +291,7 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
       /* lpStartupInfo */ &startupInfo,
       /* lpProcessInformation */ &processInfo);
   if (!ok) {
-    PrintError(L"Cannot launch process: %s\nReason: %hs", cmdline.cmdline,
+    PrintError(L"Cannot launch process: %ls\nReason: %hs", cmdline.cmdline,
                GetLastErrorString().c_str());
     return GetLastError();
   }

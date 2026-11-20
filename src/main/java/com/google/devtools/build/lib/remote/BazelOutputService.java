@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.OutputMetadataStore;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -106,7 +106,9 @@ public class BazelOutputService implements OutputService {
       RemoteRetrier retrier,
       ReferenceCountedChannel channel,
       @Nullable String lastBuildId) {
-    this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
+    this.outputBaseId =
+        DigestUtil.hashCodeToString(
+            md5().hashBytes(StringUnsafe.getInternalStringBytes(outputBase.getPathString())));
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestUtil.getDigestFunction();
@@ -201,7 +203,7 @@ public class BazelOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
+      UUID buildId, EventHandler eventHandler, boolean finalizeActions)
       throws AbruptExitException, InterruptedException {
     checkState(this.buildId == null, "this.buildId must be null");
     this.buildId = buildId.toString();
@@ -212,8 +214,8 @@ public class BazelOutputService implements OutputService {
               FailureDetail.newBuilder()
                   .setMessage(
                       String.format(
-                          "--experimental_remote_output_service_path_prefix must be an absolute"
-                              + " path, got '%s'",
+                          "--experimental_remote_output_service_output_path_prefix must be an"
+                              + " absolute path, got '%s'",
                           outputPathPrefix))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
@@ -476,10 +478,9 @@ public class BazelOutputService implements OutputService {
       if (outputMetadataStore.artifactOmitted(output)) {
         continue;
       }
-      if (output.isTreeArtifact()) {
+      if (output instanceof TreeArtifact treeArtifact) {
         // TODO(chiwang): Use TreeArtifactLocator
-        var children =
-            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
+        var children = outputMetadataStore.getTreeArtifactValue(treeArtifact).getChildren();
         for (var child : children) {
           request.addArtifact(child);
         }
@@ -533,12 +534,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -581,12 +582,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -629,12 +630,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       return 0;
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 

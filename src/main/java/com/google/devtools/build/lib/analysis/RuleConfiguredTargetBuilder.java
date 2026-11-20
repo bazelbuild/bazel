@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -61,6 +63,7 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkFunction;
 
 /**
  * Builder class for analyzed rule instances.
@@ -278,6 +281,11 @@ public final class RuleConfiguredTargetBuilder {
           testResultInfo);
     }
 
+    if (!providersBuilder.contains(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey())
+        && !ruleContext.verifyNestedSetCountLimit()) {
+      return null;
+    }
+
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
     ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
     try {
@@ -371,16 +379,18 @@ public final class RuleConfiguredTargetBuilder {
    */
   private void propagateTransitiveValidationOutputGroups() throws InterruptedException {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
-      Label rdeLabel =
-          ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
-      // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null
-          && BuiltinRestriction.isNotAllowed(
-              rdeLabel,
-              ruleContext.getAnalysisEnvironment().getMainRepoMapping(),
-              BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
-        ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
-        return;
+      var implementation = ruleContext.getRule().getRuleClassObject().getConfiguredTargetFunction();
+      // Only allow native rules and allowlisted Starlark implementations to override propagation.
+      if (implementation instanceof StarlarkFunction function) {
+        BazelModuleContext moduleContext = BazelModuleContext.of(function.getModule());
+        if (BuiltinRestriction.isNotAllowed(
+            moduleContext.label(),
+            moduleContext.moduleRepoName(),
+            BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
+          ruleContext.ruleError(
+              moduleContext.label() + " cannot access the _transitive_validation private API");
+          return;
+        }
       }
       addOutputGroup(
           OutputGroupInfo.VALIDATION,

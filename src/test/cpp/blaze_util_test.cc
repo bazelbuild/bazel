@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <cstdio>
 #include <string>
 #include <vector>
 

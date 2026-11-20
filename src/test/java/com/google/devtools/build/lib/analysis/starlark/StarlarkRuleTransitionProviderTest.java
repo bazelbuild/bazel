@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.ArrayList;
@@ -60,6 +63,87 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(DummyTestFragment.class);
     return builder.build();
+  }
+
+  @Test
+  public void customExecScope_doesNotAddReferencedDefaultToTargetConfiguration() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+
+        def _transition_impl(settings, attr):
+            return {"//test:flag": "transitioned"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//test:flag"],
+        )
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+        string_flag(
+            name = "flag",
+            build_setting_default = "flag-default",
+            scope = "exec:--//test:other",
+        )
+        string_flag(name = "other", build_setting_default = "other-default")
+        my_rule(name = "test")
+        """);
+
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:flag"), "transitioned");
+  }
+
+  @Test
+  public void customExecScope_doesNotAddDefaultsToExecConfiguration(
+      @TestParameter boolean excludeStarlarkFlagsFromExecConfig,
+      @TestParameter boolean allowsMultiple)
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True, allow_multiple = %s),
+            attrs = {"scope": attr.string()},
+        )
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {"tool": attr.label(cfg = "exec")},
+        )
+        """
+            .formatted(allowsMultiple ? "True" : "False"));
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+        string_flag(
+            name = "flag",
+            build_setting_default = "default",
+            scope = "exec:--//test:host_flag",
+        )
+        string_flag(name = "host_flag", build_setting_default = "default")
+        my_rule(name = "tool")
+        my_rule(name = "test", tool = ":tool")
+        """);
+    useConfiguration(
+        "--flag_alias=host_flag=//test:host_flag",
+        "--incompatible_exclude_starlark_flags_from_exec_config="
+            + excludeStarlarkFlagsFromExecConfig,
+        "--experimental_propagate_custom_flag=//test:flag");
+
+    ConfiguredTarget tool = getDirectPrerequisite(getConfiguredTarget("//test"), "//test:tool");
+
+    assertThat(getConfiguration(tool).getOptions().getStarlarkOptions()).isEmpty();
   }
 
   @Test
@@ -329,6 +413,76 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         )
         """);
 
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "No attribute 'my_configurable_attr'. "
+            + "Either this attribute does not exist for this rule or the attribute "
+            + "was not resolved because it is set by a select that reads flags the transition "
+            + "may set.");
+  }
+
+  @Test
+  public void testSelectOnStarlarkFlagFromOtherRepoIsHiddenFromTransition() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='rules_x',version='1.0')");
+    registry.addModule(createModuleKey("rules_x", "1.0"), "module(name='rules_x', version='1.0')");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
+    scratch.file(
+        "modules/rules_x+1.0/BUILD",
+        """
+        load(":defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "flag",
+            build_setting_default = False,
+            visibility = ["//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "modules/rules_x+1.0/defs.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+
+        def _impl(settings, attr):
+            return {"//:flag": attr.my_configurable_attr}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//:flag"],
+        )
+
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            cfg = my_transition,
+            attrs = {
+                "my_configurable_attr": attr.bool(default = False),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("@rules_x//:defs.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            my_configurable_attr = select({
+                "//conditions:default": False,
+                ":true-config": True,
+            }),
+        )
+
+        config_setting(
+            name = "true-config",
+            flag_values = {"@rules_x//:flag": "True"},
+        )
+        """);
+
+    invalidatePackages();
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
     assertContainsEvent(
@@ -1774,6 +1928,77 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "'None' value not allowed for List-type option 'copt'. Please use '[]' instead if trying"
             + " to set option to empty value.");
+  }
+
+  @Test
+  public void successfulTypeConversionOfNativeImmutableListOption() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            return {"//command_line_option:allowed_cpu_values": ["k8", "arm", "k8"]}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:allowed_cpu_values"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
+
+    ConfiguredTarget ct = getConfiguredTarget("//test");
+    assertNoEvents();
+    assertThat(getConfiguration(ct).getOptions().get(CoreOptions.class).getAllowedCpuValues())
+        .isEqualTo(ImmutableList.of("arm", "k8"));
+  }
+
+  @Test
+  public void failedTypeConversionOfNativeImmutableListOptionNone() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            return {"//command_line_option:allowed_cpu_values": None}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:allowed_cpu_values"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "test")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "'None' value not allowed for List-type option 'allowed_cpu_values'. Please use '[]'"
+            + " instead if trying to set option to empty value.");
   }
 
   @Test

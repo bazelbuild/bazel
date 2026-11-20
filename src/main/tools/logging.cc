@@ -14,4 +14,6 @@
 
 #include "src/main/tools/logging.h"
 
+#include <cstdio>
+
 FILE* global_debug = nullptr;

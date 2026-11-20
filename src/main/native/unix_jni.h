@@ -61,9 +61,8 @@ enum StatTimes {
   STAT_CTIME,  // status change
 };
 
-// Returns milliseconds since Unix epoch from the given struct stat field.
-uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
-                               StatTimes t);
+// Returns nanoseconds since Unix epoch from the given struct stat field.
+int64_t StatEpochNanoseconds(const portable_stat_struct& statbuf, StatTimes t);
 
 // Runs getxattr(2). If the attribute is not found or extended attributes are
 // not supported by the filesystem, returns -1 and sets attr_not_found to true.
@@ -79,99 +78,22 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found);
 
-// Used to surround an region that we want sleep disabled for.
-// push_disable_sleep to start the area.
-// pop_disable_sleep to end the area.
-// Note that this is a stack so sleep will not be reenabled until the stack
-// is empty.
-// Returns 0 on success.
-// Returns -1 if sleep is not supported.
-int portable_push_disable_sleep();
-int portable_pop_disable_sleep();
+// Throws an exception of the given Java class name with the given message.
+void PostException(JNIEnv* env, const char* exception_classname,
+                   const std::string& message);
 
-// Starts up any infrastructure needed to do suspend monitoring.
-// May be called more than once.
-void portable_start_suspend_monitoring();
+// Throws a java.lang.AssertionError with the given message.
+void PostAssertionError(JNIEnv* env, const std::string& message);
 
-// These need to be kept in sync with constants in
-// j/c/g/devtools/build/lib/buildtool/buildevent/SystemSuspensionEvent.java
-typedef enum  {
-  SuspensionReasonSIGTSTP = 0,
-  SuspensionReasonSIGCONT = 1,
-  SuspensionReasonSleep = 2,
-  SuspensionReasonWake = 3
-} SuspensionReason;
+// Registers a singleton IntConsumer JNI callback as a global reference.
+// Throws AssertionError and returns false if already registered or if
+// registration fails.
+bool RegisterIntConsumerCallback(JNIEnv* env, jobject callback,
+                                 jobject* callback_global_ref,
+                                 const char* name);
 
-// Declaration for callback function that is called by suspend monitoring
-// when a suspension is detected.
-extern void suspend_callback(SuspensionReason value);
-
-// Starts up any infrastructure needed to do thermal monitoring.
-// May be called more than once.
-void portable_start_thermal_monitoring();
-
-// Declaration for callback function that is called by thermal monitoring
-// when a thermal event is detected.
-extern void thermal_callback(int value);
-
-// Returns the current thermal load.
-int portable_thermal_load();
-
-// Starts up any infrastructure needed to do system load advisory monitoring.
-// May be called more than once.
-void portable_start_system_load_advisory_monitoring();
-
-// Declaration for callback function that is called by system load advisory
-// monitoring when a system load advisory event is detected.
-extern void system_load_advisory_callback(int value);
-
-// Returns the system load advisory.
-int portable_system_load_advisory();
-
-// Starts up any infrastructure needed to do memory pressure monitoring.
-// May be called more than once.
-void portable_start_memory_pressure_monitoring();
-
-// These need to be kept in sync with constants in
-// j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
-typedef enum  {
-  MemoryPressureLevelNormal = 0,
-  MemoryPressureLevelWarning = 1,
-  MemoryPressureLevelCritical = 2,
-} MemoryPressureLevel;
-
-// Declaration for callback function that is called by memory pressure
-// monitoring when memory pressure is detected.
-extern void memory_pressure_callback(MemoryPressureLevel level);
-
-// Returns the current memory pressure.
-MemoryPressureLevel portable_memory_pressure();
-
-// Starts up any infrastructure needed to do disk space monitoring.
-// May be called more than once.
-void portable_start_disk_space_monitoring();
-
-// These need to be kept in sync with constants in
-// j/c/g/devtools/build/lib/buildtool/buildevent/SystemDiskSpaceEvent.java
-typedef enum  {
-  DiskSpaceLevelLow = 0,
-  DiskSpaceLevelVeryLow = 1,
-} DiskSpaceLevel;
-
-// Declaration for callback function that is called by disk space
-// monitoring when a disk space alert happens.
-extern void disk_space_callback(DiskSpaceLevel level);
-
-// Starts up any infrastructure needed to do cpu speed monitoring.
-// May be called more than once.
-void portable_start_cpu_speed_monitoring();
-
-// Returns the current CPU speed. Return -1 in case of error.
-int portable_cpu_speed();
-
-// Declaration for callback function that is called by cpu speed
-// monitoring when a cpu speed alert happens.
-extern void cpu_speed_callback(int speed);
+// Invokes accept(int) on the given IntConsumer global reference if non-null.
+void PerformIntegerValueCallback(jobject int_consumer_object, int value);
 
 }  // namespace blaze_jni
 

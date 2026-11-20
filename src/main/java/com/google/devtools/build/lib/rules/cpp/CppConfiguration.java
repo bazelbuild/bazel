@@ -600,15 +600,6 @@ public final class CppConfiguration extends Fragment
     // "FDO state should not propagate to the exec configuration");
   }
 
-  @Override
-  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
-      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
-    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
-    if (!cppOptions.getOutputDirectoryTag().isEmpty()) {
-      ctx.addToMnemonic(cppOptions.getOutputDirectoryTag());
-    }
-  }
-
   /** Returns true if we should share identical native libraries between different targets. */
   public boolean shareNativeDeps() {
     return cppOptions.getShareNativeDeps();
@@ -632,6 +623,13 @@ public final class CppConfiguration extends Fragment
   public String getFdoPathForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return fdoPath == null ? null : fdoPath.toString();
+  }
+
+  boolean isAllowedFdoAbsoluteSymlinkPath(String targetPath) {
+    return targetPath.equals(fdoPath)
+        || targetPath.equals(csFdoAbsolutePath)
+        || targetPath.equals(propellerOptimizeAbsoluteCCProfile)
+        || targetPath.equals(propellerOptimizeAbsoluteLdProfile);
   }
 
   @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")

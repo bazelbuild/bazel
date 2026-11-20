@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
 import static java.util.Objects.requireNonNull;
@@ -23,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -54,7 +52,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -184,8 +181,8 @@ public final class SkyframeErrorProcessor {
    * @param cause the exception that failed the key, or null if it failed because of a cycle.
    * @param executionDetailedExitCode non-null iff {@code reportingPriority} is {@link
    *     ReportingPriority#EXECUTION}.
-   * @param loadingRootCauses the labels of the {@link LoadingFailedCause}s among {@code
-   *     analysisRootCauses}, de-duplicated.
+   * @param isLoadingError whether {@code analysisRootCauses} contains any {@link
+   *     LoadingFailedCause}.
    */
   private record ClassifiedError(
       SkyKey normalizedKey,
@@ -193,7 +190,7 @@ public final class SkyframeErrorProcessor {
       ReportingPriority reportingPriority,
       @Nullable DetailedExitCode executionDetailedExitCode,
       NestedSet<Cause> analysisRootCauses,
-      ImmutableSet<Label> loadingRootCauses) {
+      boolean isLoadingError) {
 
     static ClassifiedError execution(
         SkyKey normalizedKey,
@@ -206,7 +203,7 @@ public final class SkyframeErrorProcessor {
           ReportingPriority.EXECUTION,
           executionDetailedExitCode,
           analysisRootCauses,
-          /* loadingRootCauses= */ ImmutableSet.of());
+          /* isLoadingError= */ false);
     }
 
     static ClassifiedError analysis(
@@ -219,13 +216,7 @@ public final class SkyframeErrorProcessor {
               : ReportingPriority.TARGET_ANALYSIS,
           /* executionDetailedExitCode= */ null,
           analysisRootCauses,
-          // A Cause carries a message as well as a label, so the same label can appear more
-          // than once. The pre-BEP LoadingFailureEvent protocol only knows about labels, so
-          // de-duplicate. TODO(ulfjack): Remove this once we've migrated to the BEP.
-          analysisRootCauses.toList().stream()
-              .filter(LoadingFailedCause.class::isInstance)
-              .map(Cause::getLabel)
-              .collect(toImmutableSet()));
+          analysisRootCauses.toList().stream().anyMatch(LoadingFailedCause.class::isInstance));
     }
 
     /** A cycle is the only way for a key to fail without an exception. */
@@ -236,10 +227,6 @@ public final class SkyframeErrorProcessor {
     /** True for all non-execution errors, including loading errors. */
     boolean isAnalysisError() {
       return reportingPriority != ReportingPriority.EXECUTION;
-    }
-
-    boolean isLoadingError() {
-      return !loadingRootCauses.isEmpty();
     }
 
     @Nullable
@@ -381,10 +368,8 @@ public final class SkyframeErrorProcessor {
    *       ErrorProcessingResult}.
    * </ul>
    *
-   * <p>A null {@code eventBus} indicates that this is a {@code BuildViewTestCase}. Such tests don't
-   * parse target patterns before requesting analysis, so the {@code result} may contain {@link
-   * SkyKey}s that are neither {@link AspectBaseKey}s nor {@link ConfiguredTargetKey}s, which cannot
-   * happen in production. Those keys are reported to the event handler and otherwise ignored.
+   * <p>When {@code eventBus} is null (in {@code BuildViewTestCase}), root causes are reported to
+   * {@code eventHandler} instead of posted to the event bus.
    *
    * @throws ViewCreationFailedException when the root cause is analysis-related.
    * @throws BuildFailedException when the root cause is execution-related.
@@ -405,8 +390,6 @@ public final class SkyframeErrorProcessor {
           ViewCreationFailedException,
           BuildFailedException,
           TestExecException {
-    boolean inBuildViewTest = eventBus == null;
-
     Map<SkyKey, ErrorInfo> allErrors = result.errorMap();
 
     // Phase 0: report the cycles and take the action conflicts out.
@@ -440,9 +423,7 @@ public final class SkyframeErrorProcessor {
         classifyAll(
             result,
             conflictHarvest.remainingErrors(),
-            eventHandler,
             keepEdges,
-            inBuildViewTest,
             bugReporter,
             includeExecutionPhase);
 
@@ -454,7 +435,7 @@ public final class SkyframeErrorProcessor {
 
     // Phase 2: report.
     for (ClassifiedError error : abortWith == null ? errors : ImmutableList.of(abortWith)) {
-      maybePostFailureEvents(eventHandler, eventBus, inBuildViewTest, error);
+      maybePostFailureEvents(eventHandler, eventBus, error);
       if (keepGoing) {
         logOrPrintWarningsKeepGoing(error, eventHandler);
       }
@@ -476,17 +457,11 @@ public final class SkyframeErrorProcessor {
    * Validates the non-conflict {@link RemainingError}s from {@link #harvestActionConflicts} and
    * converts each one via {@link #classify} into a {@link ClassifiedError} (recording its {@link
    * ReportingPriority}, {@link DetailedExitCode}, and root causes).
-   *
-   * <p>In {@code BuildViewTestCase} ({@code inBuildViewTest}), entries whose key is not a valid
-   * top-level error key are reported directly to {@code eventHandler} and omitted from the returned
-   * list.
    */
   private static ImmutableList<ClassifiedError> classifyAll(
       EvaluationResult<? extends SkyValue> result,
       ImmutableList<RemainingError> remainingErrors,
-      ExtendedEventHandler eventHandler,
       boolean keepEdges,
-      boolean inBuildViewTest,
       @Nullable BugReporter bugReporter,
       boolean includeExecutionPhase)
       throws InterruptedException {
@@ -504,15 +479,6 @@ public final class SkyframeErrorProcessor {
       }
       Preconditions.checkState(
           errorInfo.getException() != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
-
-      // TODO(b/561978611): Can we remove this divergence?
-      if (inBuildViewTest && !isValidErrorKeyType(errorKey)) {
-        // Tests don't call target pattern parsing before requesting the analysis of a target.
-        // Therefore if the package that contains them cannot be loaded, we get an error key that's
-        // neither a ConfiguredTargetKey nor an AspectBaseKey, which cannot happen in production.
-        eventHandler.handle(Event.error(errorInfo.toString()));
-        continue;
-      }
 
       errors.add(classify(result, bugReporter, errorKey, errorInfo));
     }
@@ -545,17 +511,14 @@ public final class SkyframeErrorProcessor {
    * {@link AspectBaseKey} nor a {@link ConfiguredTargetKey} gets nothing.
    */
   private static void maybePostFailureEvents(
-      ExtendedEventHandler eventHandler,
-      @Nullable EventBus eventBus,
-      boolean inBuildViewTest,
-      ClassifiedError error) {
-    if (inBuildViewTest) {
-      // eventBus is null, but tests can still assert on the expected root causes being found.
+      ExtendedEventHandler eventHandler, @Nullable EventBus eventBus, ClassifiedError error) {
+    if (eventBus == null) {
+      // In BuildViewTestCase, eventBus is null, but tests can still assert on the expected root
+      // causes being found.
       eventHandler.handle(Event.error(error.analysisRootCauses().toList().toString()));
       return;
     }
 
-    Preconditions.checkNotNull(eventBus);
     ConfiguredTargetKey attributedTo =
         switch (error.normalizedKey()) {
           case AspectBaseKey aspectKey -> aspectKey.getBaseConfiguredTargetKey();
@@ -564,15 +527,6 @@ public final class SkyframeErrorProcessor {
         };
     if (attributedTo == null) {
       return;
-    }
-
-    // For loading errors, we expect both LoadingFailureEvent and AnalysisFailureEvent.
-    if (error.isLoadingError()) {
-      for (Label loadingRootCause : error.loadingRootCauses()) {
-        // This event is only for backwards compatibility with the old event protocol. Remove
-        // once we've migrated to the build event protocol.
-        eventBus.post(new LoadingFailureEvent(attributedTo.getLabel(), loadingRootCause));
-      }
     }
 
     if (error.isAnalysisError()) {
@@ -642,7 +596,10 @@ public final class SkyframeErrorProcessor {
       return ClassifiedError.execution(
           errorKey,
           cause,
-          getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
+          // A cycle is the only way to fail without an exception (cause == null).
+          cause == null
+              ? CYCLE_CODE
+              : getExecutionDetailedExitCodeFromCause(result, cause, bugReporter),
           cause instanceof ActionExecutionException actionExecutionException
               ? actionExecutionException.getRootCauses()
               : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -939,7 +896,10 @@ public final class SkyframeErrorProcessor {
     if (cause instanceof ActionExecutionException actionExecutionCause) {
       String message = cause.getMessage();
       if (actionExecutionCause.getAction() != null) {
-        message = actionExecutionCause.getAction().describe() + " failed: " + message;
+        message =
+            actionExecutionCause.getAction().describe()
+                + " failed"
+                + (message == null ? "" : ": " + message);
       }
       // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
       if (actionExecutionCause.getLocation() != null) {
@@ -974,8 +934,12 @@ public final class SkyframeErrorProcessor {
     DetailedExitCode unknownExitCode =
         sendBugReportAndCreateUnknownExecutionDetailedExitCode(
             resultForDebugging, cause, bugReporter);
+    // The catastrophe bit is propagated through the ArtifactNestedSetEvalException.
+    boolean catastrophic = cause instanceof ArtifactNestedSetEvalException e && e.isCatastrophic();
     throw new BuildFailedException(
         Preconditions.checkNotNull(unknownExitCode.getFailureDetail()).getMessage(),
+        catastrophic,
+        /* errorAlreadyShown= */ false,
         unknownExitCode);
   }
 

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.RichArtifactData;
@@ -293,7 +293,7 @@ public abstract class ActionExecutionValue implements SkyValue {
       Artifact newArtifact, TreeArtifactValue tree) {
     checkState(newArtifact.isTreeArtifact(), "Expected tree artifact, got %s", newArtifact);
 
-    SpecialArtifact newParent = (SpecialArtifact) newArtifact;
+    TreeArtifact newParent = (TreeArtifact) newArtifact;
     TreeArtifactValue.Builder newTree = TreeArtifactValue.newBuilder(newParent);
 
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> child : tree.getChildValues().entrySet()) {

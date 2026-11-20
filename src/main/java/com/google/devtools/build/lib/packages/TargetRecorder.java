@@ -571,19 +571,23 @@ public final class TargetRecorder {
       }
 
       // Check if a prefix of this output file matches an already existing one.
-      PathFragment outputFileFragment = PathFragment.create(outputFileName);
-      int segmentCount = outputFileFragment.segmentCount();
-      for (int i = 1; i < segmentCount; i++) {
-        String prefix = outputFileFragment.subFragment(0, i).toString();
-        if (outputFilesByName.containsKey(prefix)) {
-          throw overlappingOutputFilePrefixes(outputFile, outputFilesByName.get(prefix));
-        }
-        if (targetMap.get(prefix) instanceof OutputFile) {
-          throw overlappingOutputFilePrefixes(outputFile, (OutputFile) targetMap.get(prefix));
-        }
+      if (outputFileName.indexOf('/') != -1 || outputFileName.indexOf('\\') != -1) {
+        String normalizedOutputFileName = PathFragment.create(outputFileName).getPathString();
+        for (int slashIndex = normalizedOutputFileName.indexOf(PathFragment.SEPARATOR_CHAR);
+            slashIndex > 0;
+            slashIndex =
+                normalizedOutputFileName.indexOf(PathFragment.SEPARATOR_CHAR, slashIndex + 1)) {
+          String prefix = normalizedOutputFileName.substring(0, slashIndex);
+          if (outputFilesByName.containsKey(prefix)) {
+            throw overlappingOutputFilePrefixes(outputFile, outputFilesByName.get(prefix));
+          }
+          if (targetMap.get(prefix) instanceof OutputFile prefixOutputFile) {
+            throw overlappingOutputFilePrefixes(outputFile, prefixOutputFile);
+          }
 
-        // Store in persistent map, for checking when adding future rules.
-        outputFilePrefixes.putIfAbsent(prefix, outputFile);
+          // Store in persistent map, for checking when adding future rules.
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
+        }
       }
     }
 

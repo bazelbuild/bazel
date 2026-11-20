@@ -58,10 +58,11 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 
 namespace blaze {
@@ -232,7 +233,7 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
   }
 }
 
-string GetProcessIdAsString() { return blaze_util::ToString(getpid()); }
+string GetProcessIdAsString() { return absl::StrCat(getpid()); }
 
 string GetHomeDir() { return GetPathEnv("HOME"); }
 
@@ -244,7 +245,7 @@ string Which(const string& executable) {
     return "";
   }
 
-  const vector<string> pieces = blaze_util::Split(path, ':');
+  const vector<string> pieces = absl::StrSplit(path, ':', absl::SkipEmpty());
   for (string piece : pieces) {
     if (piece.empty()) {
       piece = ".";
@@ -871,14 +872,15 @@ bool IsStandardTerminal() {
 
 int GetTerminalColumns() {
   struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
-    return ws.ws_col;
+  for (int fd : {STDOUT_FILENO, STDERR_FILENO}) {
+    if (ioctl(fd, TIOCGWINSZ, &ws) != -1 && ws.ws_col > 0) {
+      return ws.ws_col;
+    }
   }
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
-    char* endptr;
-    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
-    if (*endptr == '\0') {  // $COLUMNS is a valid number
+    int columns;
+    if (absl::SimpleAtoi(columns_env, &columns)) {
       return columns;
     }
   }

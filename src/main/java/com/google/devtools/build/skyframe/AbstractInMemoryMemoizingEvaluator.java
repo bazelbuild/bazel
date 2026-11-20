@@ -45,7 +45,6 @@ import java.io.PrintStream;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -94,11 +93,13 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   // Null until the first incremental evaluation completes. Always null when not keeping edges.
   @Nullable private IntVersion lastGraphVersion = null;
 
+  // The version of the first evaluation in the latest sequence of evaluations, which ends with a
+  // call to noteEvaluationsAtSameVersionMayBeFinished. Null until the first evaluation starts.
+  // Always null when not keeping edges.
+  @Nullable private IntVersion firstGraphVersionOfSequence = null;
+  private boolean evaluationSequenceFinished = true;
+
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
-
-  private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
-
-  private boolean rememberTopLevelEvaluations;
 
   protected AbstractInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
@@ -126,11 +127,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
-
-    // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
-    if (keepEdges && rememberTopLevelEvaluations) {
-      // Remember the top level evaluation of the build invocation for post-build consumption.
-      Iterables.addAll(latestTopLevelEvaluations, roots);
+    if (keepEdges && evaluationSequenceFinished) {
+      firstGraphVersionOfSequence = (IntVersion) graphVersion;
+      evaluationSequenceFinished = false;
     }
 
     // Mark for removal any nodes from the previous evaluation that were still inflight or were
@@ -235,19 +234,21 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public void rememberTopLevelEvaluations(boolean remember) {
-    this.rememberTopLevelEvaluations = remember;
-  }
-
-  @Override
-  public boolean skyfocusSupported() {
-    return true;
-  }
-
-  @Override
   public final void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+
+    // An unenqueued dirty node was last changed in an earlier evaluation or in
+    // the current graph version. With a zero window they are all eligible.
+    if (versionAgeLimit == 0 && !keepChangePrunableNodes) {
+      Set<SkyKey> dirtyKeys = progressReceiver.getAndClearUnenqueuedDirtyKeys();
+      if (!dirtyKeys.isEmpty()) {
+        dirtyKeys.addAll(valuesToDelete);
+        valuesToDelete = dirtyKeys;
+      }
+      return;
+    }
+
     var graph = getInMemoryGraph();
 
     var dirtyKeys = progressReceiver.getUnenqueuedDirtyKeys();
@@ -312,6 +313,11 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public final InMemoryNodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
     return getInMemoryGraph().getIfPresent(key);
+  }
+
+  @Override
+  public final boolean isRewinding(SkyKey key) {
+    return progressReceiver.isRewinding(key);
   }
 
   @Override
@@ -552,13 +558,17 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     }
   }
 
-  public Set<SkyKey> getLatestTopLevelEvaluations() {
-    return latestTopLevelEvaluations;
+  @Override
+  public void noteEvaluationsAtSameVersionMayBeFinished(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    evaluationSequenceFinished = true;
+    MemoizingEvaluator.super.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
   }
 
   @Override
-  public void cleanupLatestTopLevelEvaluations() {
-    latestTopLevelEvaluations = new HashSet<>();
+  @Nullable
+  public Version getFirstVersionOfLatestEvaluationSequence() {
+    return firstGraphVersionOfSequence;
   }
 
   @Override

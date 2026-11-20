@@ -19,7 +19,6 @@
 #include "src/main/native/windows/file.h"
 
 #include <stdint.h>  // uint8_t
-#include <versionhelpers.h>
 #include <winbase.h>
 #include <windows.h>
 #include <winioctl.h>
@@ -45,21 +44,6 @@ namespace windows {
 
 using std::unique_ptr;
 using std::wstring;
-
-DWORD DetermineSymlinkPrivilegeFlag() {
-  DWORD val = 0;
-  DWORD valSize = sizeof(val);
-  // Check if developer mode is disabled
-  if (RegGetValueW(
-          HKEY_LOCAL_MACHINE,
-          L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
-          L"AllowDevelopmentWithoutDevLicense", RRF_RT_DWORD, nullptr, &val,
-          &valSize) != ERROR_SUCCESS ||
-      val == 0) {
-    return 0;
-  }
-  return SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
-}
 
 wstring AddUncPrefixMaybe(const wstring& path) {
   return path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())
@@ -125,11 +109,11 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
   }
 }
 
-static int64_t WindowsFileTimeToUnixMillis(LARGE_INTEGER filetime) {
+static int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
   // Convert from Windows file time (100ns units since January 1, 1601) to
-  // Unix millis (1ms units since January 1, 1970). For the magic constant, see:
+  // Unix nanos (1ns units since January 1, 1970). For the magic constant, see:
   // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
-  return (filetime.QuadPart - 116444736000000000LL) / 10000LL;
+  return (filetime.QuadPart - 116444736000000000LL) * 100LL;
 }
 
 int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
@@ -176,7 +160,7 @@ int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
     return GetChangeTimeResult::kError;
   }
 
-  *result = WindowsFileTimeToUnixMillis(info.ChangeTime);
+  *result = WindowsFileTimeToUnixNanos(info.ChangeTime);
   return GetChangeTimeResult::kSuccess;
 }
 
@@ -524,15 +508,8 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   DWORD dir_flag = is_directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
-                           symlinkPrivilegeFlag | dir_flag)) {
-    if (GetLastError() == ERROR_INVALID_PARAMETER) {
-      // We are on a version of Windows that does not support the symlink
-      // privilege flag.
-      // Retry without the flag and return to error handling if necessary.
-      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), dir_flag)) {
-        return CreateSymlinkResult::kSuccess;
-      }
-    }
+                           SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE |
+                               dir_flag)) {
     *error = MakeErrorMessage(
         WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
         GetLastError() == ERROR_PRIVILEGE_NOT_HELD

@@ -423,6 +423,16 @@ public final class AspectKeyCreator {
     }
 
     @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("topLevelAspectsClasses", topLevelAspectsClasses)
+          .add("targetLabel", targetLabel)
+          .add("baseConfiguredTargetKey", getBaseConfiguredTargetKey())
+          .add("topLevelAspectsParameters", topLevelAspectsParameters)
+          .toString();
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (o == this) {
         return true;

@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelSetConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
-import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -97,19 +97,18 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "bust_action_caches",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "null",
+      converter = LabelSetConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
-          If set to a target label, unconditionally executes all actions of this target,
-          circumventing the usual caching layers. Intended for debugging only; no guarantees are
-          made that every execution strategy will respect it.
+          If set to one or more comma-separated target labels, unconditionally executes all actions
+          of those targets, circumventing the usual caching layers. Intended for debugging only; no
+          guarantees are made that every execution strategy will respect it.
           """)
-  @Nullable
-  public abstract Label getBustActionCachesTarget();
+  public abstract ImmutableSet<Label> getBustActionCachesTargets();
 
   @Option(
       name = "progress_report_interval",
@@ -195,6 +194,26 @@ public abstract class BuildRequestOptions extends OptionsBase {
           bar are built.
           """)
   public abstract List<String> getOutputGroups();
+
+  @Option(
+      name = "extra_default_output_groups",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      defaultValue = "null",
+      help =
+          """
+          A list of comma-separated output group names to treat as part of the default set of
+          output groups. Unlike `--output_groups=+foo`, which is always built, an extra default
+          output group is only built when the default set is: it is omitted if `--output_groups`
+          contains an unprefixed group, and can be removed with `--output_groups=-foo`. Intended
+          for wrappers and rc files that want to augment the default outputs without overriding
+          an explicit `--output_groups` selection. Artifacts in these output groups are not
+          displayed in results (see `--show_result`), and no warning is emitted if they are
+          absent from a top-level target or aspect.
+          """)
+  public abstract List<String> getExtraDefaultOutputGroups();
 
   @Option(
       name = "incompatible_fail_on_unknown_output_groups",
@@ -409,6 +428,19 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract boolean getRewindLostInputs();
 
   @Option(
+      name = "experimental_check_rewound_action_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Fail if regenerating a rewound action changes its recorded output contents. This detects"
+              + " nondeterministic regeneration before dependent actions consume the new result."
+              + " Best effort: requires previous output metadata and may miss changes when another"
+              + " shared action regenerates the outputs.")
+  public abstract boolean getCheckRewoundActionOutputs();
+
+  @Option(
       name = "experimental_max_repeated_lost_inputs",
       defaultValue = "20",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -478,6 +510,22 @@ public abstract class BuildRequestOptions extends OptionsBase {
               + "used with --target_pattern_file or --target_query.")
   public abstract String getTargetQueryFile();
 
+  @Option(
+      name = "experimental_skyframe_loading_and_analysis_dfs_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "If enabled, schedules Skyframe loading and analysis evaluation tasks in depth-first"
+              + " priority order (resumed nodes first, then unstarted nodes deepest-first) to"
+              + " narrow the active evaluation wave and reduce peak heap retained by"
+              + " simultaneously in-flight Skyframe nodes.")
+  public abstract boolean getSkyframeLoadingAndAnalysisDfsScheduling();
+
   /**
    * Do not use directly. Instead use {@link
    * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecutionSourceOfTruth()}.
@@ -490,22 +538,6 @@ public abstract class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
   public abstract boolean getMergedSkyframeAnalysisExecutionDoNotUseDirectly();
-
-  @Option(
-      name = "experimental_skymeld_analysis_overlap_percentage",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      converter = PercentageConverter.class,
-      help =
-          "The value represents the % of the analysis phase which will be overlapped with the"
-              + " execution phase. A value of x means Skyframe will queue up execution tasks and"
-              + " wait until there's x% of the top level target left to be analyzed before allowing"
-              + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
-              + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
-              + " they can.")
-  public abstract int getSkymeldAnalysisOverlapPercentage();
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter.IntegerConverter {

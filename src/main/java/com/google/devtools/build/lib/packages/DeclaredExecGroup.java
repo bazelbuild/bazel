@@ -36,33 +36,28 @@ import net.starlark.java.syntax.Identifier;
  *
  * @param toolchainTypesMap Returns the underlying map from label to ToolchainTypeRequirement.
  * @param execCompatibleWith Returns the execution constraints for this exec group.
- * @param copyFromDefault Whether this exec group should copy the data from the default exec group
- *     in the same rule.
  */
 @AutoCodec
 public record DeclaredExecGroup(
     ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap,
-    ImmutableSet<Label> execCompatibleWith,
-    boolean copyFromDefault)
+    ImmutableSet<Label> execCompatibleWith)
     implements ExecGroupApi {
   public DeclaredExecGroup {
     requireNonNull(toolchainTypesMap, "toolchainTypesMap");
     requireNonNull(execCompatibleWith, "execCompatibleWith");
+    // Ensures that an exec group's resolved toolchain context lists all of its toolchain types.
     checkArgument(
-        !copyFromDefault || (toolchainTypesMap.isEmpty() && execCompatibleWith.isEmpty()));
+        toolchainTypesMap.values().stream().noneMatch(ToolchainTypeRequirement::ignoreIfInvalid),
+        "Only the default exec group can have toolchain types that are ignored if invalid");
   }
 
   // This is intentionally a string that would fail {@code Identifier.isValid} so that
   // users can't create a group with the same name.
   public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
-  /** An exec group that copies all data from the default exec group. */
-  public static final DeclaredExecGroup COPY_FROM_DEFAULT = builder().copyFromDefault(true).build();
-
   /** Returns a builder for a new DeclaredExecGroup. */
   public static Builder builder() {
     return new AutoBuilder_DeclaredExecGroup_Builder()
-        .copyFromDefault(false)
         .toolchainTypes(ImmutableSet.of())
         .execCompatibleWith(ImmutableSet.of());
   }
@@ -105,14 +100,6 @@ public record DeclaredExecGroup(
     for (Map.Entry<String, DeclaredExecGroup> entry : execGroups.entrySet()) {
       String name = entry.getKey();
       DeclaredExecGroup declaredExecGroup = entry.getValue();
-
-      if (declaredExecGroup.copyFromDefault()) {
-        declaredExecGroup =
-            DeclaredExecGroup.builder()
-                .execCompatibleWith(defaultExecWith)
-                .toolchainTypes(defaultToolchainTypes)
-                .build();
-      }
       ImmutableCollection<Label> extraExecWith = execGroupExecWith.get(name);
       if (!extraExecWith.isEmpty()) {
         declaredExecGroup =
@@ -171,9 +158,6 @@ public record DeclaredExecGroup(
 
     /** Sets the execution constraints. */
     Builder execCompatibleWith(ImmutableSet<Label> execCompatibleWith);
-
-    /** Do not call, internal usage only. */
-    Builder copyFromDefault(boolean copyFromDefault);
 
     /** Returns the new DeclaredExecGroup instance. */
     DeclaredExecGroup build();

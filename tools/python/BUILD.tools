@@ -10,6 +10,7 @@
 # in Bazel 1.0.                                                                #
 ################################################################################
 
+load("@bazel_features//:features.bzl", "bazel_features")
 load(":python_version.bzl", "define_python_version_flag")
 
 package(default_visibility = ["//visibility:public"])
@@ -21,18 +22,12 @@ package(default_visibility = ["//visibility:public"])
 exports_files([
     "python_bootstrap_template.txt",
     "python_version.bzl",
-    "srcs_version.bzl",
     "toolchain.bzl",
-    "utils.bzl",
-    "private/py_test_alias.bzl",
-    # used in this BUILD file.
 ])
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]) + [
-        "private/py_test_alias.bzl",
-    ],
+    srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
 
@@ -84,7 +79,14 @@ config_setting(
 
 # The toolchain type for Python rules. Provides a Python 2 and/or Python 3
 # runtime.
-toolchain_type(name = "toolchain_type")
+# buildifier: disable=no-effect
+alias(
+    name = "toolchain_type",
+    actual = "@rules_python//python:toolchain_type",
+) if bazel_features.rules._toolchain_type_in_rules_python else toolchain_type(
+    # buildifier: disable=duplicated-name
+    name = "toolchain_type",
+)
 
 # A constraint_setting to use for constraints related to the location of the
 # system Python 2 interpreter on a platform.
@@ -106,4 +108,3 @@ alias(
     actual = "@rules_python//python:autodetecting_toolchain",
     deprecation = "Use @rules_python//python:autodetecting_toolchain",
 )
-

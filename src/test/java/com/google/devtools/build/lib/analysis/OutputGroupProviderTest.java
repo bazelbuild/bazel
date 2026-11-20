@@ -214,6 +214,64 @@ public final class OutputGroupProviderTest {
                 shouldRunTests, "x", "y", "z", OutputGroupInfo.VALIDATION_TOP_LEVEL));
   }
 
+  @Test
+  public void testExtraDefaultOutputGroupsAreAddedToDefaults(
+      @TestParameter boolean shouldRunTests) {
+    Set<String> outputGroups =
+        determineOutputGroups(
+            /* outputGroups= */ asList(),
+            /* extraDefaultOutputGroups= */ asList("a", "b"),
+            ValidationMode.OFF,
+            /* shouldRunTests= */ shouldRunTests);
+    // DEFAULT is already part of the default set, so shouldRunTests makes no difference.
+    assertThat(outputGroups).containsExactlyElementsIn(withDefaultGroups("a", "b"));
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroupsSurviveAddition(@TestParameter boolean shouldRunTests) {
+    Set<String> outputGroups =
+        determineOutputGroups(
+            /* outputGroups= */ asList("+c"),
+            /* extraDefaultOutputGroups= */ asList("a"),
+            ValidationMode.OFF,
+            /* shouldRunTests= */ shouldRunTests);
+    assertThat(outputGroups).containsExactlyElementsIn(withDefaultGroups("a", "c"));
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroupsCanBeSubtracted(@TestParameter boolean shouldRunTests) {
+    Set<String> outputGroups =
+        determineOutputGroups(
+            /* outputGroups= */ asList("-a"),
+            /* extraDefaultOutputGroups= */ asList("a", "b"),
+            ValidationMode.OFF,
+            /* shouldRunTests= */ shouldRunTests);
+    assertThat(outputGroups).containsExactlyElementsIn(withDefaultGroups("b"));
+  }
+
+  @Test
+  public void testExtraDefaultOutputGroupsDroppedByOverride(@TestParameter boolean shouldRunTests) {
+    Set<String> outputGroups =
+        determineOutputGroups(
+            /* outputGroups= */ asList("foo", "+c"),
+            /* extraDefaultOutputGroups= */ asList("a", "b"),
+            ValidationMode.OUTPUT_GROUP,
+            /* shouldRunTests= */ shouldRunTests);
+    // The plain "foo" overrides the default set, including the extra default output groups, but
+    // explicit "+" additions and the validation group are kept.
+    assertThat(outputGroups)
+        .containsExactlyElementsIn(
+            outputGroupsWithDefaultIfRunningTests(
+                shouldRunTests, "foo", "c", OutputGroupInfo.VALIDATION));
+  }
+
+  private static ImmutableSet<String> withDefaultGroups(String... groups) {
+    return ImmutableSet.<String>builder()
+        .addAll(OutputGroupInfo.DEFAULT_GROUPS)
+        .add(groups)
+        .build();
+  }
+
   private static Iterable<String> outputGroupsWithDefaultIfRunningTests(
       boolean shouldRunTests, String... groups) {
     ImmutableList.Builder<String> result = ImmutableList.builder();

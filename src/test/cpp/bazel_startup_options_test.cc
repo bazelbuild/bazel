@@ -26,6 +26,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/test/cpp/test_util.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/match.h"
 #include "absl/time/time.h"
 
 namespace blaze {
@@ -213,6 +214,8 @@ TEST_F(BazelStartupOptionsTest,
 #endif  // __linux || __APPLE__
 
 #if defined(__WIN32__) || defined(__CYGWIN__)
+// On Windows, the output base name is a short hash of the workspace path, see
+// GetHashedBaseDir in blaze_util_windows.cc.
 TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
   SetEnv("USER", "gandalf");
   SetEnv("HOME", "C:\\Users\\gandalf");
@@ -223,10 +226,10 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
 
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
             startup_options_->output_user_root);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
-            startup_options_->install_base);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  ASSERT_EQ(
+      blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -240,10 +243,10 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithUserProfile) {
 
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
             startup_options_->output_user_root);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
-            startup_options_->install_base);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  ASSERT_EQ(
+      blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -259,8 +262,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithTestTmpdir) {
             startup_options_->output_user_root);
   EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/install/deadbeef"),
             startup_options_->install_base);
-  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -276,8 +278,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithXdgCacheHome) {
             startup_options_->output_user_root);
   EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/install/deadbeef"),
             startup_options_->install_base);
-  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 #endif  // __WIN32__ || __CYGWIN__
@@ -300,6 +301,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "autodetect_server_javabase");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
+  ExpectValidNullaryOption(options, "delete_output_base_on_shutdown");
   ExpectValidNullaryOption(options, "system_rc");
   ExpectValidNullaryOption(options, "workspace_rc");
   ExpectValidNullaryOption(options, "write_command_log");
@@ -316,6 +318,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
+  ExpectIsUnaryOption(options, "redact_client_env");
   ExpectIsUnaryOption(options, "server_javabase");
 }
 
@@ -366,6 +369,39 @@ TEST_F(BazelStartupOptionsTest, BlockForLock) {
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=2"));
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=30"));
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=invalid"));
+}
+
+TEST_F(BazelStartupOptionsTest, RedactClientEnv) {
+  std::string error;
+  auto parse_flags = [this, &error](const std::vector<std::string>& args) {
+    ReinitStartupOptions();
+    std::vector<RcStartupFlag> flags;
+    for (const auto& arg : args) {
+      flags.push_back(RcStartupFlag("somewhere", arg));
+    }
+    error.clear();
+    return startup_options_->ProcessArgs(flags, &error);
+  };
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS,
+            parse_flags({"--redact_client_env=MY_INTERNAL_SIGNER",
+                         "--redact_client_env=FOOBAR_*"}))
+      << error;
+  EXPECT_EQ((std::vector<std::string>{"MY_INTERNAL_SIGNER", "FOOBAR_*"}),
+            startup_options_->redact_client_env);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flags({"--redact_client_env="}));
+  EXPECT_EQ(
+      "Invalid argument to --redact_client_env: ''. "
+      "Expected a non-empty variable name without '='.",
+      error);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV,
+            parse_flags({"--redact_client_env=FOO=bar"}));
+  EXPECT_EQ(
+      "Invalid argument to --redact_client_env: 'FOO=bar'. "
+      "Expected a non-empty variable name without '='.",
+      error);
 }
 
 TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {
@@ -576,6 +612,9 @@ TEST_F(BazelStartupOptionsTest,
                            "-XX:+UseCompactObjectHeaders") != result.end();
   EXPECT_FALSE(has_unlock);
   EXPECT_FALSE(has_use);
+  EXPECT_EQ(
+      std::find(result.begin(), result.end(), "-XX:-UseCompactObjectHeaders"),
+      result.end());
 }
 
 TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
@@ -601,6 +640,52 @@ TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
                            "-XX:+UseCompactObjectHeaders") != result.end();
   EXPECT_FALSE(has_unlock);
   EXPECT_FALSE(has_use);
+  EXPECT_NE(
+      std::find(result.begin(), result.end(), "-XX:-UseCompactObjectHeaders"),
+      result.end());
+}
+
+TEST_F(BazelStartupOptionsTest, DeleteOutputBaseOnShutdownParsing) {
+  std::string error;
+  EXPECT_FALSE(startup_options_->delete_output_base_on_shutdown);
+
+  EXPECT_EQ(
+      blaze_exit_code::SUCCESS,
+      startup_options_->ProcessArgs(
+          {RcStartupFlag("somewhere", "--delete_output_base_on_shutdown")},
+          &error));
+  EXPECT_TRUE(startup_options_->delete_output_base_on_shutdown);
+
+  EXPECT_EQ(
+      blaze_exit_code::SUCCESS,
+      startup_options_->ProcessArgs(
+          {RcStartupFlag("somewhere", "--nodelete_output_base_on_shutdown")},
+          &error));
+  EXPECT_FALSE(startup_options_->delete_output_base_on_shutdown);
+}
+
+TEST_F(BazelStartupOptionsTest, AddJVMLoggingArgumentsWritesPropertiesFile) {
+  UpdateConfiguration();
+  blaze_util::MakeDirectories(startup_options_->output_base, 0777);
+  std::vector<std::string> result;
+  startup_options_->AddJVMLoggingArguments(&result);
+
+  blaze_util::Path prop_file =
+      startup_options_->output_base.GetRelative("javalog.properties");
+  EXPECT_TRUE(blaze_util::PathExists(prop_file));
+
+  std::string content;
+  EXPECT_TRUE(blaze_util::ReadFile(prop_file, &content));
+  EXPECT_FALSE(content.empty());
+
+  bool has_prop_arg = false;
+  for (const auto& arg : result) {
+    if (absl::StrContains(arg, "-Djava.util.logging.config.file=")) {
+      has_prop_arg = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_prop_arg);
 }
 
 }  // namespace blaze

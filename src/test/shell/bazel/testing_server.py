@@ -29,11 +29,15 @@ import os
 import os.path
 try:
   from socketserver import TCPServer
+  from socketserver import ThreadingMixIn
+
   if os.name != 'nt':
     from socketserver import UnixStreamServer
 except ImportError:
   # Python 2.x compatibility hack.
   from SocketServer import TCPServer
+  from SocketServer import ThreadingMixIn
+
   if os.name != 'nt':
     from SocketServer import UnixStreamServer
 import random
@@ -132,6 +136,19 @@ class Handler(BaseHTTPRequestHandler):
       self.wfile.write(file_to_serve.read())
 
 
+def make_server(server_class, address):
+  if Handler.simulate_timeout:
+    # Requests never complete in this mode. Serve each one in its own thread so
+    # that clients time out reading the response instead of depending on what
+    # the kernel does with connections beyond the listen backlog, which macOS 27
+    # resets.
+    class ThreadingServer(ThreadingMixIn, server_class):
+      daemon_threads = True
+
+    server_class = ThreadingServer
+  return server_class(address, Handler)
+
+
 def main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('--unix_socket', action='store')
@@ -160,7 +177,7 @@ def main(argv):
 
   httpd = None
   if args.unix_socket:
-    httpd = UnixStreamServer(args.unix_socket, Handler)
+    httpd = make_server(UnixStreamServer, args.unix_socket)
     sys.stderr.write('Serving forever on %s.\n' % args.unix_socket)
   else:
     port = None
@@ -169,15 +186,15 @@ def main(argv):
         port = random.randrange(32760, 59760)
         if args.bind_address:
           if ':' in args.bind_address:
-            httpd = TCPServerV6((args.bind_address, port), Handler)
+            httpd = make_server(TCPServerV6, (args.bind_address, port))
           else:
-            httpd = TCPServer((args.bind_address, port), Handler)
+            httpd = make_server(TCPServer, (args.bind_address, port))
         elif socket.has_dualstack_ipv6():
-          httpd = TCPServerDualStack(('::', port), Handler)
+          httpd = make_server(TCPServerDualStack, ('::', port))
         elif socket.has_ipv6:
-          httpd = TCPServerV6(('::', port), Handler)
+          httpd = make_server(TCPServerV6, ('::', port))
         else:
-          httpd = TCPServer(('', port), Handler)
+          httpd = make_server(TCPServer, ('', port))
       except socket.error as e:
         # A port collision is the only bind failure worth retrying with a
         # different port. Retrying a permanent failure - e.g. the requested

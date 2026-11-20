@@ -45,12 +45,6 @@ public interface RuleDefinitionEnvironment {
     return Label.parseCanonicalUnchecked(getToolsRepository() + labelValue);
   }
 
-  /** Returns a label for network allowlist for tests if one should be added. */
-  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
-  default Optional<Label> getNetworkAllowlistForTests() {
-    return Optional.empty();
-  }
-
   /** Returns a label for explicit mnemonic allowlist if one should be added. */
   default Optional<Label> getNoExplicitMnemonicAllowlist() {
     return Optional.empty();

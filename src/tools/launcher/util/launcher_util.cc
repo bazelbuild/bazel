@@ -26,6 +26,8 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cctype>
+#include <iostream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -48,14 +50,22 @@ string GetLastErrorString() {
     return string();
   }
 
-  char* message_buffer;
-  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-                     FORMAT_MESSAGE_IGNORE_INSERTS,
-                 nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                 (LPSTR)&message_buffer, 0, nullptr);
+  char* message_buffer = nullptr;
+  DWORD size = FormatMessageA(
+      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+          FORMAT_MESSAGE_IGNORE_INSERTS,
+      nullptr, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+      (LPSTR)&message_buffer, 0, nullptr);
+
+  DWORD format_message_error = GetLastError();
 
   stringstream result;
-  result << "(error: " << last_error << "): " << message_buffer;
+  if (size == 0 || message_buffer == nullptr) {
+    result << "(error: 0x" << std::hex << last_error
+           << "): <FormatMessageA failed: 0x" << format_message_error << ">";
+  } else {
+    result << "(error: " << last_error << "): " << message_buffer;
+  }
   LocalFree(message_buffer);
   return result.str();
 }
@@ -94,7 +104,7 @@ wstring AsAbsoluteWindowsPath(const wchar_t* path) {
   wstring wpath;
   string error;
   if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    die(L"Couldn't convert %s to absolute Windows path: %hs", path,
+    die(L"Couldn't convert %ls to absolute Windows path: %hs", path,
         error.c_str());
   }
   return wpath;
@@ -131,7 +141,7 @@ wstring GetWindowsLongPath(const wstring& path) {
   wstring abs_path = AsAbsoluteWindowsPath(path.c_str());
   wstring error = bazel::windows::GetLongPath(abs_path.c_str(), &result);
   if (!error.empty()) {
-    PrintError(L"Failed to get long path for %s: %s", path.c_str(),
+    PrintError(L"Failed to get long path for %ls: %ls", path.c_str(),
                error.c_str());
   }
   return wstring(blaze_util::RemoveUncPrefixMaybe(result.get()));
@@ -215,7 +225,7 @@ std::wstring GetRandomStr(size_t len) {
 bool NormalizePath(const wstring& path, wstring* result) {
   string error;
   if (!blaze_util::AsWindowsPath(path, result, &error)) {
-    PrintError(L"Failed to normalize %s: %hs", path.c_str(), error.c_str());
+    PrintError(L"Failed to normalize %ls: %hs", path.c_str(), error.c_str());
     return false;
   }
   std::transform(result->begin(), result->end(), result->begin(), ::tolower);
@@ -234,7 +244,7 @@ bool RelativeTo(const wstring& path, const wstring& base, wstring* result) {
   if (blaze_util::IsAbsolute(path) != blaze_util::IsAbsolute(base)) {
     PrintError(
         L"Cannot calculate relative path from an absolute and a non-absolute"
-        " path.\npath = %s\nbase = %s",
+        " path.\npath = %ls\nbase = %ls",
         path.c_str(), base.c_str());
     return false;
   }
@@ -244,7 +254,7 @@ bool RelativeTo(const wstring& path, const wstring& base, wstring* result) {
     PrintError(
         L"Cannot calculate relative path from absolute path under different "
         "drives."
-        "\npath = %s\nbase = %s",
+        "\npath = %ls\nbase = %ls",
         path.c_str(), base.c_str());
     return false;
   }

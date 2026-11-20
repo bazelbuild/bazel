@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -2411,7 +2412,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-Xlinker",
             "-rpath",
             "-Xlinker",
-            "$ORIGIN/main.runfiles/" + ruleClassProvider.getRunfilesPrefix() + "/_solib_k8/")
+            "$ORIGIN/main.runfiles/" + LabelConstants.MAIN_REPO_DIR_NAME + "/_solib_k8/")
         .inOrder();
     assertThat(linkArgv)
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
@@ -2489,7 +2490,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-Xlinker",
             "-rpath",
             "-Xlinker",
-            "$ORIGIN/main.runfiles/" + ruleClassProvider.getRunfilesPrefix() + "/_solib_k8/")
+            "$ORIGIN/main.runfiles/" + LabelConstants.MAIN_REPO_DIR_NAME + "/_solib_k8/")
         .inOrder();
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-Xlinker -rpath -Xlinker $ORIGIN/../../../k8-fastbuild-ST-");
@@ -2686,5 +2687,36 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppCompileAction action = (CppCompileAction) getGeneratingAction(artifact);
     assertThat(action.getInputs().toList()).contains(getSourceArtifact("foo/compiler_input.txt"));
     assertThat(action.getArguments()).contains("-DFOO=foo/compiler_input.txt");
+  }
+
+  @Test
+  public void testAdditionalCompilerInputsAreIncludeScanningRoots() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = 'foo',
+            srcs = ['hello.cc'],
+            hdrs = ['other.h'],
+            additional_compiler_inputs = ['forced.def'],
+        )
+        """);
+    scratch.file(
+        "foo/hello.cc",
+        """
+        #define FORCED_HEADER "forced.def"
+        #include FORCED_HEADER
+        """);
+    scratch.file("foo/forced.def", "#include \"other.h\"");
+    scratch.file("foo/other.h");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:foo");
+    Artifact artifact = getBinArtifact("_objs/foo/hello.o", lib);
+    CppCompileAction action = (CppCompileAction) getGeneratingAction(artifact);
+    Artifact forcedInput = getSourceArtifact("foo/forced.def");
+    assertThat(action.getInputs().toList()).contains(forcedInput);
+    assertThat(action.getIncludeScannerSources()).contains(forcedInput);
   }
 }

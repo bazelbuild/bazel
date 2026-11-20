@@ -25,7 +25,7 @@ public class ActionKeyContext {
       new NestedSetFingerprintCache();
 
   public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet)
-      throws CommandLineExpansionException, InterruptedException {
+      throws InterruptedException {
     nestedSetFingerprintCache.addNestedSetToFingerprint(fingerprint, nestedSet);
   }
 

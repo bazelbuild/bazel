@@ -396,4 +396,39 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
+
+  @Test
+  public void describeKey_includesLtoFields() {
+    LtoBackendAction actionWithImports =
+        LtoBackendAction.create(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            targetConfig,
+            NestedSetBuilder.create(Order.STABLE_ORDER, index1Artifact, imports1Artifact),
+            allBitcodeFiles,
+            imports1Artifact,
+            ImmutableSet.of(destinationArtifact),
+            CommandLines.builder().addSingleArgument("clang").build(),
+            ActionEnvironment.create(ImmutableMap.of("FOO", "bar")));
+    LtoBackendAction actionWithoutImports =
+        LtoBackendAction.create(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            targetConfig,
+            NestedSetBuilder.create(Order.STABLE_ORDER, index2Artifact),
+            null,
+            null,
+            ImmutableSet.of(destinationArtifact),
+            CommandLines.builder().addSingleArgument("clang").build(),
+            ActionEnvironment.create(ImmutableMap.of("FOO", "bar")));
+
+    String descWithImports = actionWithImports.describeKey();
+    String descWithoutImports = actionWithoutImports.describeKey();
+    assertThat(descWithImports).contains("Mnemonic: CcLtoBackendCompile");
+    assertThat(descWithImports).contains("Mandatory input: " + index1Artifact.getExecPathString());
+    assertThat(descWithImports).contains("Imports: " + imports1Artifact.getExecPathString());
+    assertThat(descWithImports).contains("Bitcode files digest:");
+    assertThat(descWithoutImports).doesNotContain("Imports:");
+    assertThat(descWithoutImports)
+        .contains("Mandatory input: " + index2Artifact.getExecPathString());
+    assertThat(descWithImports).isNotEqualTo(descWithoutImports);
+  }
 }

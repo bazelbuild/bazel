@@ -1,5 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_test")
-
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
@@ -11,26 +9,4 @@ filegroup(
     testonly = 0,
     srcs = glob(["*"]),
     visibility = ["//src/test/java/com/google/devtools/build/lib/rules/cpp:__pkg__"],
-)
-
-java_test(
-    name = "CcProtoLibraryTest",
-    srcs = ["CcProtoLibraryTest.java"],
-    resources = [
-        "@rules_cc//cc:srcs",
-    ],
-    tags = ["manual"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/rules/cpp:cc-info",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
 )

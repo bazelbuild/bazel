@@ -320,7 +320,7 @@ Create LTO compilation context
 
 | Parameter | Description |
 | --- | --- |
-| `objects` | [dict](/versions/9.1.0/rules/lib/core/dict); default is `&lcub;&rcub;`  map of full object to index object |
+| `objects` | [dict](/versions/9.1.0/rules/lib/core/dict); default is `{}`  map of full object to index object |
 
 ## do_not_use_tools_cpp_compiler_present
 
@@ -432,7 +432,7 @@ Should be used for C++ transitive linking.
 | `stamp` | [int](/versions/9.1.0/rules/lib/core/int); default is `0`  Whether to include build information in the linked executable, if output_type is 'executable'. If 1, build information is always included. If 0 (the default build information is always excluded. If -1, uses the default behavior, which may be overridden by the --[no]stamp flag. This should be unset (or set to 0) when generating the executable output for test rules. |
 | `additional_inputs` | [sequence](/versions/9.1.0/rules/lib/core/list); or [depset](/versions/9.1.0/rules/lib/builtins/depset); default is `[]`  For additional inputs to the linking action, e.g.: linking scripts. |
 | `additional_outputs` | [sequence](/versions/9.1.0/rules/lib/core/list); default is `[]`  For additional outputs to the linking action, e.g.: map files. |
-| `variables_extension` | [dict](/versions/9.1.0/rules/lib/core/dict); default is `&lcub;&rcub;`  Additional variables to pass to the toolchain configuration when create link command line. |
+| `variables_extension` | [dict](/versions/9.1.0/rules/lib/core/dict); default is `{}`  Additional variables to pass to the toolchain configuration when create link command line. |
 
 ## merge_cc_infos
 

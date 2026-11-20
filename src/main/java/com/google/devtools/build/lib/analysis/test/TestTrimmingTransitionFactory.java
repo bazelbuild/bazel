@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
@@ -33,7 +34,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionDefinition;
 
 /**
  * Trimming transition factory which removes the test config fragment and certain options that are
@@ -42,7 +43,9 @@ import com.google.devtools.common.options.Options;
 public final class TestTrimmingTransitionFactory implements TransitionFactory<RuleTransitionData> {
 
   private static final ImmutableSet<String> TEST_OPTIONS =
-      ImmutableSet.copyOf(Options.getDefaults(TestOptions.class).asMap().keySet());
+      OptionDefinition.getOptionDefinitions(TestOptions.class).stream()
+          .map(OptionDefinition::getOptionName)
+          .collect(toImmutableSet());
 
   private static final Label TRANSITIVE_CONFIG_TO_TRIGGER_SKIP =
       Label.parseCanonicalUnchecked("//command_line_option/fragment:test");

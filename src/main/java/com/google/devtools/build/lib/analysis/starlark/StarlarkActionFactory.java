@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -49,11 +50,9 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
-import com.google.devtools.build.lib.analysis.actions.StarlarkMapActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -370,6 +369,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
 
+    if (output.isDirectory()) {
+      throw Starlark.errorf("for 'output', got a directory, want a regular file");
+    }
+
     String mnemonic = getMnemonic(mnemonicUnchecked, AbstractFileWriteAction.MNEMONIC);
 
     final Action action;
@@ -416,7 +419,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object stdoutUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.run");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
@@ -467,6 +471,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+        stdoutUnchecked,
         builder);
   }
 
@@ -567,13 +572,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       throws EvalException {
     if (!ctx.hasToolchainContext(execGroup)) {
       throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
-    }
-  }
-
-  private static void verifyAutomaticExecGroupExists(String execGroup, RuleContext ruleContext)
-      throws EvalException {
-    if (!ruleContext.hasToolchainContext(execGroup)) {
-      throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", execGroup);
     }
   }
 
@@ -680,6 +678,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+        /* stdoutUnchecked= */ Starlark.NONE,
         builder);
   }
 
@@ -732,6 +731,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked,
+      Object stdoutUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -741,10 +741,35 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     List<Artifact> outputArtifacts = Sequence.cast(outputs, Artifact.class, "outputs");
-    if (outputArtifacts.isEmpty()) {
-      throw Starlark.errorf("param 'outputs' may not be empty");
+
+    Artifact stdoutOutput = null;
+    if (stdoutUnchecked != Starlark.NONE) {
+      var artifact = (Artifact) stdoutUnchecked;
+      if (artifact.isSourceArtifact()) {
+        throw Starlark.errorf("param 'stdout' may not be a source file");
+      }
+      if (artifact.isTreeArtifact()) {
+        throw Starlark.errorf("param 'stdout' may not be a declared directory");
+      }
+      if (artifact.isSymlink()) {
+        throw Starlark.errorf("param 'stdout' may not be a declared symlink");
+      }
+      if (outputArtifacts.contains(artifact)) {
+        throw Starlark.errorf(
+            "file '%s' passed to 'stdout' may not also be listed in 'outputs'",
+            artifact.getExecPathString());
+      }
+      stdoutOutput = artifact;
+    }
+
+    if (outputArtifacts.isEmpty() && stdoutOutput == null) {
+      throw Starlark.errorf("param 'outputs' may not be empty while 'stdout' is not set");
     }
     builder.addOutputs(outputArtifacts);
+    if (stdoutOutput != null) {
+      builder.addOutput(stdoutOutput);
+      builder.setStdoutOutput(stdoutOutput);
+    }
 
     if (unusedInputsList != Starlark.NONE) {
       if (unusedInputsList instanceof Artifact artifact) {
@@ -837,6 +862,16 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     ImmutableMap<String, String> executionInfo =
         getExecutionInfo(executionRequirementsUnchecked, ruleContext);
+
+    // A persistent worker communicates via stdout, so we cannot capture it.
+    if (stdoutOutput != null
+        && (Spawns.supportsWorkers(executionInfo)
+            || Spawns.supportsMultiplexWorkers(executionInfo))) {
+      throw Starlark.errorf(
+          "parameter 'stdout' of actions.run is incompatible with worker execution (the"
+              + " '%s' or '%s' execution requirement)",
+          ExecutionRequirements.SUPPORTS_WORKERS, ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS);
+    }
     builder.setExecutionInfo(executionInfo);
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
@@ -884,9 +919,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
       // If toolchain and exec_groups are both defined, verify they are compatible.
       if (ruleContext.useAutoExecGroups() && toolchainLabel != null) {
-        if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
-            .map(ToolchainTypeRequirement::toolchainType)
-            .noneMatch(toolchainLabel::equals)) {
+        if (!ruleContext
+            .getToolchainContexts()
+            .getToolchainContext(execGroup)
+            .requestedToolchainTypeLabels()
+            .containsKey(toolchainLabel)) {
           throw Starlark.errorf(
               "`toolchain` and `exec_group` parameters inside actions.{run, run_shell} are not"
                   + " compatible; use one of them or define `toolchain` which is compatible with"
@@ -896,8 +933,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
       return execGroup;
     } else if (ruleContext.useAutoExecGroups() && toolchainLabel != null) {
-      verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
-      return toolchainLabel.toString();
+      String execGroup = ruleContext.getAutomaticExecGroup(toolchainLabel);
+      if (execGroup == null) {
+        throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", toolchainLabel);
+      }
+      return execGroup;
     }
 
     return DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
@@ -1181,8 +1221,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             .setMnemonic(mnemonic)
             .setResources(resourceSet)
             .setActionEnvironment(actionEnv)
-            .setExecutionInfo(executionInfo)
-            .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
+            .setExecutionInfo(executionInfo);
 
     // Verify whether declare_subdirectory is available for this target. The allowlist may match
     // either the target's package or the .bzl file defining the rule class.
@@ -1199,7 +1238,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Dict.cast(
                 inputDirectories,
                 String.class,
-                SpecialArtifact.class,
+                TreeArtifact.class,
                 StarlarkMapActionTemplate.INPUT_DIRECTORIES_KEY),
             Dict.cast(
                 additionalInputs,
@@ -1209,7 +1248,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             Dict.cast(
                 outputDirectories,
                 String.class,
-                SpecialArtifact.class,
+                TreeArtifact.class,
                 StarlarkMapActionTemplate.OUTPUT_DIRECTORIES_KEY),
             Dict.cast(tools, String.class, Object.class, StarlarkMapActionTemplate.TOOLS_KEY),
             Dict.cast(

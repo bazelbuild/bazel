@@ -52,11 +52,11 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -70,6 +70,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -83,8 +84,6 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public class MerkleTreeComputerTest {
-  private static final String WORKSPACE_NAME = "_main";
-
   private Path execRoot;
   private ArtifactRoot artifactRoot;
 
@@ -401,7 +400,7 @@ public class MerkleTreeComputerTest {
         runfilesTreeArtifact,
         AnalysisTestUtil.createRunfilesTree(
             runfilesTreeArtifact.getExecPath(),
-            new Runfiles.Builder(TestConstants.WORKSPACE_NAME).addArtifact(runfile).build()));
+            new Runfiles.Builder().addArtifact(runfile).build()));
     var spawn = new SpawnBuilder().withInputs(runfilesTreeArtifact).build();
     var uploader = new CountingMerkleTreeUploader();
 
@@ -573,6 +572,17 @@ public class MerkleTreeComputerTest {
                   .build());
       assertThat(dir.getFilesCount()).isEqualTo(firstDirectory.equals(secondDirectory) ? 2 : 1);
     }
+
+    assertThat(
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.DISCARD)
+                .digest())
+        .isEqualTo(merkleTree.digest());
   }
 
   @Test
@@ -618,6 +628,49 @@ public class MerkleTreeComputerTest {
     assertThat(pkgDir.getDirectoriesList().stream().map(DirectoryNode::getName))
         .containsExactly("gen_src");
     assertThat(pkgDir.getFilesList()).isEmpty();
+  }
+
+  @Test
+  public void allInputsScrubbed_producesEmptyTree() throws Exception {
+    var fakeFileCache = new FakeActionInputFileCache();
+    var artifact = ActionsTestUtil.createArtifact(artifactRoot, "dir/file");
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "content");
+    fakeFileCache.put(artifact, FileArtifactValue.createForTesting(artifact));
+    var spawn = new SpawnBuilder().withInputs(artifact).build();
+    var scrubConfig = Files.createTempFile("scrub", ".cfg");
+    Files.writeString(scrubConfig, "rules { transform { omitted_inputs: \".*\" } }");
+    var scrubber = Scrubber.parse(scrubConfig.toString());
+    Files.deleteIfExists(scrubConfig);
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+
+    var merkleTree =
+        (MerkleTree.Uploadable)
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    scrubber,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.KEEP);
+
+    assertThat(merkleTree.digest()).isEqualTo(digestUtil.compute(new byte[0]));
+    assertThat(merkleTree.inputFiles()).isEqualTo(0);
+    assertThat(merkleTree.inputBytes()).isEqualTo(0);
+    assertThat(merkleTree.blobs()).isEmpty();
+
+    var discarded =
+        createMerkleTreeComputer(/* uploader= */ null)
+            .buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                scrubber,
+                createSpawnExecutionContext(spawn, fakeFileCache),
+                MerkleTreeComputer.BlobPolicy.DISCARD);
+    assertThat(discarded).isInstanceOf(MerkleTree.RootOnly.BlobsDiscarded.class);
+    assertThat(discarded.digest()).isEqualTo(merkleTree.digest());
+    assertThat(discarded.inputFiles()).isEqualTo(0);
+    assertThat(discarded.inputBytes()).isEqualTo(0);
   }
 
   private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
@@ -676,8 +729,7 @@ public class MerkleTreeComputerTest {
         new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256),
         uploader,
         "buildRequestId",
-        "commandId",
-        WORKSPACE_NAME);
+        "commandId");
   }
 
   private FakeSpawnExecutionContext createSpawnExecutionContext(

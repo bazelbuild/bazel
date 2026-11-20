@@ -16,95 +16,112 @@ package com.google.devtools.build.lib.platform;
 
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.skybridge.ScOnly;
+import com.google.devtools.build.lib.util.OS;
 import java.util.function.IntConsumer;
 
 /** Implementation of {@link PlatformNativeDepsService}. */
 @ScOnly
 public class PlatformNativeDepsServiceImpl implements PlatformNativeDepsService {
+  private static final boolean IS_DARWIN = OS.getCurrent() == OS.DARWIN;
+  private static final boolean SUPPORTS_SLEEP_PREVENTION =
+      IS_DARWIN || OS.getCurrent() == OS.WINDOWS;
+
   static {
     JniLoader.loadJni();
   }
 
   @Override
   public int pushDisableSleep() {
-    return pushDisableSleepNative();
+    return SUPPORTS_SLEEP_PREVENTION ? pushDisableSleepNative() : -1;
   }
 
   private native int pushDisableSleepNative();
 
   @Override
   public int popDisableSleep() {
-    return popDisableSleepNative();
+    return SUPPORTS_SLEEP_PREVENTION ? popDisableSleepNative() : -1;
   }
 
   private native int popDisableSleepNative();
 
   @Override
   public void registerCPUSpeedJni(IntConsumer callback) {
-    registerCPUSpeedNative(callback);
+    if (IS_DARWIN) {
+      registerCPUSpeedNative(callback);
+    }
   }
 
   private native void registerCPUSpeedNative(IntConsumer callback);
 
   @Override
   public int cpuSpeed() {
-    return cpuSpeedNative();
+    return IS_DARWIN ? cpuSpeedNative() : -1;
   }
 
   private native int cpuSpeedNative();
 
   @Override
   public void registerDiskSpaceJni(IntConsumer callback) {
-    registerDiskSpaceNative(callback);
+    if (IS_DARWIN) {
+      registerDiskSpaceNative(callback);
+    }
   }
 
   private native void registerDiskSpaceNative(IntConsumer callback);
 
   @Override
   public void registerLoadAdvisoryJni(IntConsumer callback) {
-    registerLoadAdvisoryNative(callback);
+    if (IS_DARWIN) {
+      registerLoadAdvisoryNative(callback);
+    }
   }
 
   private native void registerLoadAdvisoryNative(IntConsumer callback);
 
   @Override
   public int systemLoadAdvisory() {
-    return systemLoadAdvisoryNative();
+    return IS_DARWIN ? systemLoadAdvisoryNative() : 0;
   }
 
   private native int systemLoadAdvisoryNative();
 
   @Override
   public void registerMemoryPressureJni(IntConsumer callback) {
-    registerMemoryPressureNative(callback);
+    if (IS_DARWIN) {
+      registerMemoryPressureNative(callback);
+    }
   }
 
   private native void registerMemoryPressureNative(IntConsumer callback);
 
   @Override
   public int systemMemoryPressure() {
-    return systemMemoryPressureNative();
+    return IS_DARWIN ? systemMemoryPressureNative() : 0;
   }
 
   private native int systemMemoryPressureNative();
 
   @Override
   public void registerSuspensionJni(IntConsumer callback) {
-    registerSuspensionNative(callback);
+    if (IS_DARWIN) {
+      registerSuspensionNative(callback);
+    }
   }
 
   private native void registerSuspensionNative(IntConsumer callback);
 
   @Override
   public void registerThermalJni(IntConsumer callback) {
-    registerThermalNative(callback);
+    if (IS_DARWIN) {
+      registerThermalNative(callback);
+    }
   }
 
   private native void registerThermalNative(IntConsumer callback);
 
   @Override
   public int thermalLoad() {
-    return thermalLoadNative();
+    return IS_DARWIN ? thermalLoadNative() : 0;
   }
 
   private native int thermalLoadNative();

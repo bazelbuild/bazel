@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleInjectionConverter;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleNameAndPath;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.ModuleOverrideConverter;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverrideConverter;
@@ -65,7 +66,7 @@ public class RepositoryOptionsTest {
   @Test
   public void testModuleOverridePathWithTilde() throws Exception {
     var converter = new ModuleOverrideConverter();
-    ModuleOverride actual = converter.convert("foo=~/bar");
+    ModuleNameAndPath actual = converter.convert("foo=~/bar");
     assertThat(PathFragment.create(actual.path()))
         .isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
   }
@@ -73,7 +74,7 @@ public class RepositoryOptionsTest {
   @Test
   public void testModuleOverrideRelativePath() throws Exception {
     var converter = new ModuleOverrideConverter();
-    ModuleOverride actual = converter.convert("foo=%workspace%/bar");
+    ModuleNameAndPath actual = converter.convert("foo=%workspace%/bar");
     assertThat(actual.path()).isEqualTo("%workspace%/bar");
     actual = converter.convert("foo=../../bar");
     assertThat(actual.path()).isEqualTo("../../bar");
@@ -92,6 +93,28 @@ public class RepositoryOptionsTest {
     expectedException.expect(OptionsParsingException.class);
     expectedException.expectMessage("Invalid repository name given to override");
     converter.convert("foo/bar=/baz");
+  }
+
+  @Test
+  public void testModuleInjectionConverter() throws Exception {
+    var converter = new ModuleInjectionConverter();
+    ModuleNameAndPath actual = converter.convert("foo=%workspace%/bar");
+    assertThat(actual.moduleName()).isEqualTo("foo");
+    assertThat(actual.path()).isEqualTo("%workspace%/bar");
+  }
+
+  @Test
+  public void testInvalidModuleInjection() throws Exception {
+    expectedException.expect(OptionsParsingException.class);
+    expectedException.expectMessage("Module injections must be of the form 'module-name=path'");
+    new ModuleInjectionConverter().convert("foo");
+  }
+
+  @Test
+  public void testInvalidModuleOverride() throws Exception {
+    expectedException.expect(OptionsParsingException.class);
+    expectedException.expectMessage("Module overrides must be of the form 'module-name=path'");
+    new ModuleOverrideConverter().convert("foo");
   }
 
 }

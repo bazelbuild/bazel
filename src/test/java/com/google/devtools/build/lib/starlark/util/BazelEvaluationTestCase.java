@@ -54,7 +54,6 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Comment;
 import net.starlark.java.syntax.DocComments;
-import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -128,14 +127,14 @@ public final class BazelEvaluationTestCase {
   /** Joins the lines, parses them as an expression, and evaluates it. */
   public final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Starlark.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    return Starlark.eval(input, getModule(), getStarlarkThread());
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
   public final void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    Starlark.execFile(input, getModule(), getStarlarkThread());
   }
 
   /**
@@ -170,7 +169,6 @@ public final class BazelEvaluationTestCase {
             label,
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
-            /* networkAllowlistForTests= */ Optional.empty(),
             noExplicitMnemonicAllowlist,
             fragmentNameToClass,
             /* mainRepoMapping= */ null)
@@ -206,6 +204,7 @@ public final class BazelEvaluationTestCase {
         BazelModuleContext.create(
             BazelModuleKey.createFakeModuleKeyForTesting(label),
             RepositoryMapping.EMPTY,
+            /* moduleRepoName= */ null,
             this.label.toString(),
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0],

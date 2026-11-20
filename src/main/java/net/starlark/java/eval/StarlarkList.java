@@ -14,9 +14,8 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.io.Serializable;
 import java.util.AbstractCollection;
@@ -108,9 +107,22 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     if (isEmpty()) {
       return mutability().isFrozen() ? Types.list(Types.NEVER) : Types.list(Types.ANY);
     }
-    return Types.list(
-        Types.union(
-            stream().map(e -> Starlark.getStarlarkType(e, semantics)).collect(toImmutableSet())));
+    // Minimize temp allocations, since this method is called frequently.
+    int size = size();
+    Object[] elems = elems();
+    StarlarkType firstType = Starlark.getStarlarkTypePropagatingStackOverflow(elems[0], semantics);
+    ImmutableSet.Builder<StarlarkType> elemTypes = null;
+    for (int i = 1; i < size; i++) {
+      StarlarkType t = Starlark.getStarlarkTypePropagatingStackOverflow(elems[i], semantics);
+      if (elemTypes != null) {
+        elemTypes.add(t);
+      } else if (!t.equals(firstType)) {
+        elemTypes = ImmutableSet.builder();
+        elemTypes.add(firstType);
+        elemTypes.add(t);
+      }
+    }
+    return Types.list(elemTypes == null ? firstType : Types.union(elemTypes.build()));
   }
 
   /**
@@ -273,7 +285,8 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     for (int i = 0; i < size; i++) {
       result = 31 * result + elems[i].hashCode();
     }
-    return 6047 + 4673 * result;
+    int h = 6047 + 4673 * result;
+    return h != 0 ? h : 1;
   }
 
   @Override
@@ -308,8 +321,10 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    for (Object elem : elems()) {
-      if (Starlark.checkedEquals(key, elem)) {
+    int size = size();
+    Object[] elems = elems();
+    for (int i = 0; i < size; i++) {
+      if (Starlark.checkedEquals(key, elems[i])) {
         return true;
       }
     }

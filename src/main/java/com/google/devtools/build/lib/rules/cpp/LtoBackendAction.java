@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -101,8 +102,7 @@ public final class LtoBackendAction extends SpawnAction {
         env,
         executionInfo,
         "LTO Backend Compile %{output}",
-        MNEMONIC,
-        OutputPathsMode.OFF);
+        MNEMONIC);
     mandatoryInputs = inputs;
     Preconditions.checkState(
         (allBitcodeFiles == null) == (importsFile == null),
@@ -119,8 +119,7 @@ public final class LtoBackendAction extends SpawnAction {
       NestedSet<Artifact> mandatoryInputs,
       Object rawOutputs,
       CommandLines commandLines,
-      ActionEnvironment environment,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      SpawnAttributes attributes,
       @Nullable BitcodeFiles bitcodeFiles,
       Artifact imports) {
     super(
@@ -128,16 +127,17 @@ public final class LtoBackendAction extends SpawnAction {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         mandatoryInputs,
         rawOutputs,
-        AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
-        environment,
-        sortedExecutionInfo,
         "LTO Backend Compile %{output}",
-        MNEMONIC,
-        OutputPathsMode.OFF);
+        attributes);
     this.mandatoryInputs = mandatoryInputs;
     this.bitcodeFiles = bitcodeFiles;
     this.imports = imports;
+  }
+
+  @Override
+  protected OutputPathsMode getOutputPathsMode() {
+    return OutputPathsMode.OFF;
   }
 
   @Override
@@ -322,6 +322,65 @@ public final class LtoBackendAction extends SpawnAction {
     }
     getEnvironment().addTo(fp);
     fp.addStringMap(getExecutionInfo());
+  }
+
+  @Override
+  public String describeKey() {
+    StringBuilder message = new StringBuilder();
+    message.append(getProgressMessage()).append('\n');
+    message.append("  GUID: ").append(GUID).append('\n');
+    message.append("  Mnemonic: ").append(getMnemonic()).append('\n');
+    for (Map.Entry<String, String> entry : getEnvironment().getFixedEnv().entrySet()) {
+      message
+          .append("  Environment variable: ")
+          .append(ShellEscaper.escapeString(entry.getKey()))
+          .append('=')
+          .append(ShellEscaper.escapeString(entry.getValue()))
+          .append('\n');
+    }
+    for (String var : getEnvironment().getInheritedEnv()) {
+      message
+          .append("  Environment variables taken from the client environment: ")
+          .append(ShellEscaper.escapeString(var))
+          .append('\n');
+    }
+    for (String var : getEnvironment().getUnsetEnv()) {
+      message
+          .append("  Unset environment variable: ")
+          .append(ShellEscaper.escapeString(var))
+          .append('\n');
+    }
+    for (Map.Entry<String, String> entry : getExecutionInfo().entrySet()) {
+      message
+          .append("  Execution info: ")
+          .append(entry.getKey())
+          .append('=')
+          .append(entry.getValue())
+          .append('\n');
+    }
+    try {
+      for (String argument : ShellEscaper.escapeAll(getArguments())) {
+        message.append("  Argument: ").append(argument).append('\n');
+      }
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      message.append("Interrupted while expanding command line\n");
+    } catch (CommandLineExpansionException e) {
+      message.append("Could not expand command line: ").append(e).append('\n');
+    }
+    for (Artifact input : mandatoryInputs.toList()) {
+      message.append("  Mandatory input: ").append(input.getExecPathString()).append('\n');
+    }
+    if (imports != null) {
+      message.append("  Imports: ").append(imports.getExecPathString()).append('\n');
+      Fingerprint fp = new Fingerprint();
+      bitcodeFiles.addToFingerprint(fp);
+      message
+          .append("  Bitcode files digest: ")
+          .append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()))
+          .append('\n');
+    }
+    return message.toString();
   }
 
   @VisibleForTesting

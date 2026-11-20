@@ -234,8 +234,8 @@ public interface SpawnResult {
   Long getNumInvoluntaryContextSwitches();
 
   /**
-   * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
-   * based on the maximum resident set size during command execution.
+   * Returns the memory in kibibytes (KiB) used during the {@link Spawn}'s execution. Based on the
+   * maximum resident set size during command execution.
    *
    * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
@@ -809,7 +809,7 @@ public interface SpawnResult {
                 // The memory usage of the largest child process. For Darwin maxrss returns size in
                 // bytes.
                 if (OS.getCurrent() == OS.DARWIN) {
-                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize() / 1000);
+                  setMemoryInKb(Math.ceilDiv(resourceUsage.getMaximumResidentSetSize(), 1024));
                 } else {
                   setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
                 }

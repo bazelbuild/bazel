@@ -183,12 +183,37 @@ public abstract class CommonCommandOptions extends OptionsBase {
               + " be written to the <output_base>/server/thread_dumps/ directory.")
   public abstract boolean getEnableThreadDump();
 
+  /**
+   * Converter for {@code --experimental_thread_dump_interval} that requires zero or at least 1s
+   * (and fitting in {@code long} milliseconds).
+   */
+  public static final class ThreadDumpIntervalConverter extends DurationConverter {
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      Duration duration;
+      try {
+        duration = super.convert(input);
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Illegal duration '" + input + "'.", e);
+      }
+      if (!duration.isZero() && duration.compareTo(Duration.ofSeconds(1)) < 0) {
+        throw new OptionsParsingException("Duration '" + input + "' must be zero or at least 1s.");
+      }
+      try {
+        var _ = duration.toMillis();
+      } catch (ArithmeticException e) {
+        throw new OptionsParsingException("Duration '" + input + "' is too large.", e);
+      }
+      return duration;
+    }
+  }
+
   @Option(
       name = "experimental_thread_dump_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      converter = DurationConverter.class,
+      converter = ThreadDumpIntervalConverter.class,
       help =
           "How often to dump the threads periodically. If zero, no thread dumps are written"
               + " periodically.")
@@ -470,6 +495,17 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract boolean getCollectSkyframeCounts();
 
   @Option(
+      name = "experimental_forced_gc_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = DurationConverter.class,
+      help =
+          "How often to force a garbage collection periodically during a command. If zero or"
+              + " negative, no forced garbage collections are run.")
+  public abstract Duration getForcedGcInterval();
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -639,19 +675,6 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract List<EnvVar> getRepositoryEnvironment();
 
   @Option(
-      name = "incompatible_repo_env_ignores_action_env",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          If true, `--action_env=NAME=VALUE` will no longer affect repository rule \
-          and module extension environments.
-          """)
-  public abstract boolean getRepoEnvIgnoresActionEnv();
-
-  @Option(
       name = "experimental_strict_repo_env",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -659,11 +682,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
-          If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`
-          (on Windows), and environment variables explicitly specified by `--repo_env`.
-
-          Note that unless `--incompatible_repo_env_ignores_action_env` is true,
-          `--action_env=NAME=VALUE` will also be included.
+          If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`,
+          `SYSTEMDRIVE` and `SYSTEMROOT` (the last three on Windows), and environment variables
+          explicitly specified by `--repo_env`.
           """)
   public abstract boolean getUseStrictRepoEnv();
 
@@ -712,7 +733,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The maximum number parallel http downloads.")
+      help =
+          "The maximum number of parallel HTTP downloads per host. Bazel registry files are"
+              + " fetched with a separate per-host limit of at least 32.")
   public abstract int getHttpMaxParallelDownloads();
 
   /** The option converter to check that the user can only specify legal profiler tasks. */

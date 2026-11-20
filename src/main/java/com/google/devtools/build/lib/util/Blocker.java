@@ -13,55 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static java.lang.invoke.MethodType.methodType;
-
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-
-/** Blocker wrapper for jdk.internal.misc.Blocker. */
+/**
+ * Thin wrapper around {@link jdk.internal.misc.Blocker}, so that only this target needs to export
+ * {@code java.base/jdk.internal.misc}.
+ */
 public final class Blocker {
 
-  public static Object begin() {
-    try {
-      return BEGIN.invoke();
-    } catch (Throwable e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
+  public static boolean begin() {
+    return jdk.internal.misc.Blocker.begin();
   }
 
-  public static void end(Object comp) {
-    try {
-      END.invoke(comp);
-    } catch (Throwable e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
-  }
-
-  private static final MethodHandle BEGIN = getBegin();
-
-  private static final MethodHandle END = getEnd();
-
-  private static Class<?> blockerType() {
-    return Runtime.version().feature() >= 23 ? boolean.class : long.class;
-  }
-
-  private static MethodHandle getEnd() {
-    try {
-      return MethodHandles.lookup()
-          .findStatic(
-              jdk.internal.misc.Blocker.class, "end", methodType(void.class, blockerType()));
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
-  }
-
-  private static MethodHandle getBegin() {
-    try {
-      return MethodHandles.lookup()
-          .findStatic(jdk.internal.misc.Blocker.class, "begin", methodType(blockerType()));
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
+  public static void end(boolean comp) {
+    jdk.internal.misc.Blocker.end(comp);
   }
 
   private Blocker() {}

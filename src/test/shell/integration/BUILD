@@ -292,6 +292,17 @@ sh_test(
 )
 
 sh_test(
+    name = "blaze_nouse_action_cache_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["blaze_nouse_action_cache_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "build_event_stream_test",
     size = "medium",
     timeout = "long",
@@ -361,6 +372,15 @@ sh_test(
 )
 
 sh_test(
+    name = "configured_attr_integ_test",
+    srcs = ["configured_attr_integ_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "configured_query_test",
     size = "large",
     srcs = ["configured_query_test.sh"],
@@ -423,7 +443,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 8,
+    shard_count = 12,
     tags = ["no_windows"],
     toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
@@ -483,19 +503,6 @@ sh_test(
 )
 
 sh_test(
-    name = "focus_test",
-    size = "medium",
-    timeout = "long",
-    srcs = ["focus_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    shard_count = 4,
-    tags = ["manual"],
-)
-
-sh_test(
     name = "force_delete_output_test",
     size = "medium",
     srcs = ["force_delete_output_test.sh"],
@@ -503,6 +510,17 @@ sh_test(
         ":test-deps",
     ],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "incremental_analysis_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["incremental_analysis_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -610,6 +628,7 @@ sh_test(
 sh_test(
     name = "mobile_install_test",
     size = "small",
+    timeout = "moderate",
     srcs = ["mobile_install_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -877,6 +896,18 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_custom_args_test",
+    size = "small",
+    timeout = "long",
+    srcs = ["starlark_custom_args_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 8,
+)
+
+sh_test(
     name = "starlark_dependency_pruning_test",
     timeout = "long",
     srcs = ["starlark_dependency_pruning_test.sh"],
@@ -960,12 +991,33 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
 )
 
 sh_test(
     name = "thread_dump_test",
     srcs = ["thread_dump_test.sh"],
     data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+cc_binary(
+    name = "futimens",
+    testonly = 1,
+    srcs = ["futimens.cc"],
+)
+
+sh_test(
+    name = "timestamp_granularity_test",
+    timeout = "long",
+    srcs = ["timestamp_granularity_test.sh"],
+    data = [
+        ":futimens",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],

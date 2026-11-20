@@ -90,7 +90,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -347,8 +346,7 @@ public class GrpcCacheClientTest {
           }
         };
     var merkleTreeComputer =
-        new MerkleTreeComputer(
-            DIGEST_UTIL, client, "buildRequestId", "commandId", TestConstants.WORKSPACE_NAME);
+        new MerkleTreeComputer(DIGEST_UTIL, client, "buildRequestId", "commandId");
     var spawn = new SpawnBuilder().withInput(virtualActionInput).build();
     var merkleTree =
         (MerkleTree.Uploadable)
@@ -618,9 +616,12 @@ public class GrpcCacheClientTest {
     getFromFuture(combinedCache.downloadFile(context, execRoot.getRelative("a/bar"), barDigest));
 
     // assert
-    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
-    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
-    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
+    Path path2 = execRoot.getRelative("a/foo");
+    assertThat(DIGEST_UTIL.compute(path2, path2.stat())).isEqualTo(fooDigest);
+    Path path1 = execRoot.getRelative("b/empty");
+    assertThat(DIGEST_UTIL.compute(path1, path1.stat())).isEqualTo(emptyDigest);
+    Path path = execRoot.getRelative("a/bar");
+    assertThat(DIGEST_UTIL.compute(path, path.stat())).isEqualTo(barDigest);
   }
 
   @Test
@@ -836,7 +837,7 @@ public class GrpcCacheClientTest {
     UploadManifest uploadManifest =
         UploadManifest.create(
             combinedCache.getRemoteCacheCapabilities(),
-            combinedCache.digestUtil,
+            combinedCache.digestUtil(),
             remotePathResolver,
             actionKey,
             action,
@@ -969,8 +970,10 @@ public class GrpcCacheClientTest {
     outErr.getErrorStream().write("foo err".getBytes(UTF_8));
     outErr.getOutputStream().close();
 
-    final Digest stdoutDigest = DIGEST_UTIL.compute(outErr.getOutputPath());
-    final Digest stderrDigest = DIGEST_UTIL.compute(outErr.getErrorPath());
+    Path path1 = outErr.getOutputPath();
+    final Digest stdoutDigest = DIGEST_UTIL.compute(path1, path1.stat());
+    Path path = outErr.getErrorPath();
+    final Digest stderrDigest = DIGEST_UTIL.compute(path, path.stat());
 
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {

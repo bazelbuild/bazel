@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -76,7 +76,7 @@ final class HeaderDiscovery {
       PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
-    Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
+    Map<PathFragment, TreeArtifact> treeArtifacts = new HashMap<>();
     for (Artifact a : allowedDerivedInputs.toList()) {
       if (a.isSourceArtifact()) {
         continue;
@@ -92,8 +92,8 @@ final class HeaderDiscovery {
       // action cache hit using the remaining un-renamed artifact.
       // TODO: Consider using a multimap here so that header resolution depends on _all_ identical
       // files, not just a single representative.
-      if (a.isTreeArtifact()) {
-        treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), (SpecialArtifact) a);
+      if (a instanceof TreeArtifact treeArtifact) {
+        treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), treeArtifact);
       } else {
         regularDerivedArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), a);
       }
@@ -119,7 +119,7 @@ final class HeaderDiscovery {
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
-      Map<PathFragment, SpecialArtifact> treeArtifacts,
+      Map<PathFragment, TreeArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
       PathMapper pathMapper)
@@ -215,7 +215,7 @@ final class HeaderDiscovery {
         continue;
       }
 
-      SpecialArtifact treeArtifact =
+      TreeArtifact treeArtifact =
           findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
@@ -249,14 +249,12 @@ final class HeaderDiscovery {
   }
 
   @Nullable
-  private static SpecialArtifact findOwningTreeArtifact(
-      PathFragment execPath,
-      Map<PathFragment, SpecialArtifact> treeArtifacts,
-      PathMapper pathMapper) {
+  private static TreeArtifact findOwningTreeArtifact(
+      PathFragment execPath, Map<PathFragment, TreeArtifact> treeArtifacts, PathMapper pathMapper) {
     // Check the map for the exec path's parent directory first. If the exec path matches a direct
     // child of a tree artifact (a common case), we can skip the full iteration below.
     PathFragment dir = execPath.getParentDirectory();
-    SpecialArtifact tree = treeArtifacts.get(dir);
+    TreeArtifact tree = treeArtifacts.get(dir);
     if (tree != null) {
       return tree;
     }

@@ -15,17 +15,25 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Expander;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
@@ -41,6 +49,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -49,10 +58,14 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -87,10 +100,9 @@ public class JavaStarlarkCommon
     }
   }
 
-  private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext)
-      throws EvalException, LabelSyntaxException {
+  private void checkJavaToolchainIsDeclaredOnRule(RuleContext ruleContext) throws EvalException {
     ToolchainInfo toolchainInfo =
-        ruleContext.getToolchainInfo(Label.parseCanonical(javaSemantics.getJavaToolchainType()));
+        ruleContext.getToolchainInfo(javaSemantics.getJavaToolchainType());
     if (toolchainInfo == null) {
       String ruleLocation = ruleContext.getRule().getLocation().toString();
       String ruleClass = ruleContext.getRule().getRuleClassObject().getName();
@@ -395,13 +407,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread) {
-    return thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY);
-  }
-
-  @Override
   public Sequence<?> expandJavaOpts(
       StarlarkRuleContext ctx, String attr, boolean tokenize, boolean execPaths)
       throws InterruptedException {
@@ -422,6 +427,219 @@ public class JavaStarlarkCommon
   public Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException {
     return StarlarkList.immutableCopyOf(
         JavaHelper.tokenizeJavaOptions(Sequence.noneableCast(opts, String.class, "opts")));
+  }
+
+  @Override
+  public void createJvmCompileAction(
+      StarlarkRuleContext ctx,
+      Sequence<?> outputs,
+      Depset mandatoryInputs,
+      Depset transitiveInputs,
+      Depset directJars,
+      Object executableUnchecked,
+      Object toolsUnchecked,
+      Sequence<?> arguments,
+      String mnemonic,
+      String progressMessage,
+      Dict<?, ?> envUnchecked,
+      Dict<?, ?> executionRequirementsUnchecked,
+      Object toolchainUnchecked,
+      Object outputDepsProto,
+      Depset dependencyArtifacts,
+      boolean insertDependencies,
+      boolean enableDirectClasspath,
+      boolean reduceClasspathIncompatible,
+      Sequence<?> executableArgs,
+      StarlarkThread thread)
+      throws EvalException, RuleErrorException, InterruptedException {
+    checkPrivateAccess(thread);
+    RuleContext ruleContext = ctx.getRuleContext();
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
+    NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
+    Object executableForLine =
+        switch (executableUnchecked) {
+          case Artifact executable -> {
+            toolsBuilder.addTransitive(singletonToolCache.get(executable));
+            yield executable;
+          }
+          case FilesToRunProvider executable -> {
+            Artifact executableArtifact = executable.getExecutable();
+            if (executableArtifact == null) {
+              throw Starlark.errorf("executable must be a single file");
+            }
+            toolsBuilder.addTransitive(executable.getFilesToRun());
+            yield executableArtifact;
+          }
+          case String executable -> executable;
+          default ->
+              throw Starlark.errorf(
+                  "expected file, FilesToRunProvider, or string for executable, got: %s",
+                  Starlark.type(executableUnchecked));
+        };
+    switch (toolsUnchecked) {
+      case Depset depset ->
+          toolsBuilder.addTransitive(Depset.cast(depset, Artifact.class, "tools"));
+      case Sequence<?> seq -> {
+        for (Object tool : seq) {
+          switch (tool) {
+            case Artifact a -> toolsBuilder.add(a);
+            case FilesToRunProvider f -> toolsBuilder.addTransitive(f.getFilesToRun());
+            case Depset d -> toolsBuilder.addTransitive(Depset.cast(d, Artifact.class, "tools"));
+            default ->
+                throw Starlark.errorf(
+                    "expected File, FilesToRunProvider, or depset in tools, got: %s",
+                    Starlark.type(tool));
+          }
+        }
+      }
+      default ->
+          throw Starlark.errorf(
+              "expected sequence or depset for tools, got: %s", Starlark.type(toolsUnchecked));
+    }
+    CustomCommandLine executableLine =
+        executableLineCache.get(
+            new ExecutableLineKey(
+                executableForLine,
+                Sequence.cast(executableArgs, String.class, "executable_args").getImmutableList()));
+
+    @Nullable
+    Artifact outputDepsProtoArtifact =
+        outputDepsProto instanceof Artifact artifact ? artifact : null;
+
+    NestedSetBuilder<Artifact> mandatoryInputsBuilder =
+        NestedSetBuilder.fromNestedSet(
+            Depset.cast(mandatoryInputs, Artifact.class, "mandatory_inputs"));
+    NestedSet<Artifact> transitiveInputsSet =
+        Depset.cast(transitiveInputs, Artifact.class, "transitive_inputs");
+    NestedSet<Artifact> directJarsSet = Depset.cast(directJars, Artifact.class, "direct_jars");
+    NestedSet<Artifact> additionalArtifactsForPathMapping =
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    JavaClasspathMode configClasspathMode =
+        configuration.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
+    JavaClasspathMode classpathMode;
+    if (enableDirectClasspath) {
+      NestedSet<Artifact> classpath;
+      if (!directJarsSet.isEmpty() || transitiveInputsSet.isEmpty()) {
+        classpath = directJarsSet;
+        additionalArtifactsForPathMapping = transitiveInputsSet;
+      } else {
+        classpath = transitiveInputsSet;
+      }
+      mandatoryInputsBuilder.addTransitive(classpath);
+      transitiveInputsSet = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      directJarsSet = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      classpathMode = JavaClasspathMode.OFF;
+      insertDependencies =
+          insertDependencies
+              && (configClasspathMode == JavaClasspathMode.BAZEL
+                  || configClasspathMode == JavaClasspathMode.BAZEL_NO_FALLBACK);
+      for (Args args : Sequence.cast(arguments, Args.class, "arguments")) {
+        if (!classpath.isEmpty()) {
+          args.addAll(
+              "--classpath",
+              Depset.of(Artifact.class, classpath),
+              /* mapEach= */ Starlark.NONE,
+              /* formatEach= */ Starlark.NONE,
+              /* beforeEach= */ Starlark.NONE,
+              /* omitIfEmpty= */ true,
+              /* uniquify= */ false,
+              /* expandDirectories= */ true,
+              /* terminateWith= */ Starlark.NONE,
+              /* allowClosure= */ false,
+              thread);
+        }
+        args.addArgument("--reduce_classpath_mode", "NONE", /* format= */ Starlark.NONE, thread);
+        break;
+      }
+    } else {
+      classpathMode =
+          outputDepsProtoArtifact != null && !reduceClasspathIncompatible
+              ? configClasspathMode
+              : JavaClasspathMode.OFF;
+    }
+
+    CommandLine flagLine = CommandLine.empty();
+    ImmutableList.Builder<CommandLine> extraCommandLineArgs = ImmutableList.builder();
+    boolean firstArgs = true;
+    for (Args args : Sequence.cast(arguments, Args.class, "arguments")) {
+      CommandLine commandLine =
+          args.build(ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
+      if (firstArgs) {
+        flagLine = commandLine;
+        firstArgs = false;
+      } else {
+        extraCommandLineArgs.add(commandLine);
+      }
+    }
+
+    ImmutableMap<String, String> env =
+        ImmutableMap.copyOf(Dict.noneableCast(envUnchecked, String.class, String.class, "env"));
+    ActionEnvironment actionEnvironment =
+        configuration.getActionEnvironment().withAdditionalFixedVariables(env);
+
+    ImmutableMap<String, String> executionRequirements =
+        TargetUtils.getFilteredExecutionInfo(
+            executionRequirementsUnchecked,
+            ruleContext.getRule(),
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+
+    toolchainUnchecked = ctx.maybeOverrideToolchain(toolchainUnchecked);
+    String execGroup =
+        StarlarkActionFactory.determineExecGroup(ruleContext, Starlark.NONE, toolchainUnchecked);
+
+    NestedSet<Artifact> dependencyArtifactsSet =
+        classpathMode != JavaClasspathMode.OFF
+            ? Depset.cast(dependencyArtifacts, Artifact.class, "dependency_artifacts")
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    NestedSet<Artifact> tools = toolsBuilder.build();
+    ruleContext.registerAction(
+        new JavaCompileAction(
+            /* mnemonic= */ mnemonic,
+            /* insertDependencies= */ insertDependencies,
+            /* owner= */ ruleContext.getActionOwner(execGroup),
+            /* tools= */ tools,
+            /* progressMessage= */ progressMessage.contains("%{")
+                ? progressMessageInterner.intern(progressMessage)
+                : progressMessage,
+            /* mandatoryInputs= */ mandatoryInputsBuilder.addTransitive(tools).build(),
+            /* transitiveInputs= */ transitiveInputsSet,
+            /* directJars= */ directJarsSet,
+            /* outputs= */ ImmutableSet.copyOf(
+                Sequence.cast(outputs, Artifact.class, "outputs").getImmutableList()),
+            /* env= */ actionEnvironment,
+            /* executionInfo= */ executionRequirements,
+            /* executableLine= */ executableLine,
+            /* flagLine= */ flagLine,
+            /* extraCommandLineArgs= */ extraCommandLineArgs.build(),
+            /* configuration= */ configuration,
+            /* dependencyArtifacts= */ dependencyArtifactsSet,
+            /* additionalArtifactsForPathMapping= */ additionalArtifactsForPathMapping,
+            /* outputDepsProto= */ outputDepsProtoArtifact,
+            /* classpathMode= */ classpathMode));
+  }
+
+  private record ExecutableLineKey(Object executable, ImmutableList<String> args) {}
+
+  private static final LoadingCache<ExecutableLineKey, CustomCommandLine> executableLineCache =
+      Caffeine.newBuilder().weakValues().build(JavaStarlarkCommon::buildExecutableLine);
+
+  private static final LoadingCache<Artifact, NestedSet<Artifact>> singletonToolCache =
+      Caffeine.newBuilder()
+          .weakValues()
+          .build(executable -> NestedSetBuilder.create(Order.STABLE_ORDER, executable));
+
+  private static final Interner<String> progressMessageInterner = BlazeInterners.newWeakInterner();
+
+  private static CustomCommandLine buildExecutableLine(ExecutableLineKey key) {
+    CustomCommandLine.Builder builder = CustomCommandLine.builder();
+    switch (key.executable()) {
+      case Artifact artifact -> builder.addExecPath(artifact);
+      case String string -> builder.addDynamicString(string);
+      default -> throw new AssertionError(key.executable());
+    }
+    return builder.addAll(key.args()).build();
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

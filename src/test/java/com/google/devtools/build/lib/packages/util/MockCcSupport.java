@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.Arrays;
 
 /**
  * Creates mock BUILD files required for the C/C++ rules.
@@ -276,6 +274,7 @@ public abstract class MockCcSupport {
             "cc/common/cc_shared_library_info.bzl",
             "cc/common/semantics.bzl",
             "cc/find_cc_toolchain.bzl",
+            "cc/private/toolchain/BUILD",
             "cc/toolchains/BUILD",
             "cc/toolchains/actions/BUILD",
             "cc/toolchains/cc_toolchain.bzl",
@@ -354,18 +353,6 @@ public abstract class MockCcSupport {
         "package_group(",
         "    name = 'disabling_parse_headers_and_layering_check_allowed',",
         "    packages = ['//...']",
-        ")");
-  }
-
-  public static void createStarlarkLooseHeadersWhitelist(MockToolsConfig config, String... packages)
-      throws IOException {
-    String joinedPackages = Arrays.stream(packages).map(s -> "'" + s + "'").collect(joining(","));
-    config.overwrite(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH
-            + "tools/build_defs/cc/whitelists/starlark_hdrs_check/BUILD",
-        "package_group(",
-        "    name = 'loose_header_check_allowed_in_toolchain',",
-        "    packages = [" + joinedPackages + "]",
         ")");
   }
 

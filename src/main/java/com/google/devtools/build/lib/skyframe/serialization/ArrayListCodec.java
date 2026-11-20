@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
-
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 
 /**
@@ -31,8 +28,26 @@ import java.util.ArrayList;
  */
 @SuppressWarnings({"rawtypes", "NonApiType"})
 class ArrayListCodec extends AsyncObjectCodec<ArrayList> {
-  private static final long ELEMENT_DATA_OFFSET;
-  private static final long SIZE_OFFSET;
+  /**
+   * Handles to the private {@link ArrayList} fields, used to make a list that wraps an array.
+   *
+   * <p>This requires {@code java.base/java.util} to be opened to this module. These fields aren't
+   * final, so writing to them is unaffected by final field mutation restrictions (JEP 500).
+   */
+  private static final VarHandle ELEMENT_DATA;
+
+  private static final VarHandle SIZE;
+
+  static {
+    try {
+      MethodHandles.Lookup lookup =
+          MethodHandles.privateLookupIn(ArrayList.class, MethodHandles.lookup());
+      ELEMENT_DATA = lookup.findVarHandle(ArrayList.class, "elementData", Object[].class);
+      SIZE = lookup.findVarHandle(ArrayList.class, "size", int.class);
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
 
   @Override
   public Class<ArrayList> getEncodedClass() {
@@ -48,7 +63,6 @@ class ArrayListCodec extends AsyncObjectCodec<ArrayList> {
     }
   }
 
-  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public ArrayList deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
@@ -57,37 +71,25 @@ class ArrayListCodec extends AsyncObjectCodec<ArrayList> {
       throw new SerializationException("Expected non-negative length: " + length);
     }
 
+    // Assigning anything other than 0 causes ArrayList's constructor to initialize an array, which
+    // just gets discarded below when elementData is explicitly set using its VarHandle.
+    ArrayList list = new ArrayList(/* initialCapacity= */ 0);
     if (length == 0) {
-      ArrayList empty = new ArrayList(/* initialCapacity= */ 0);
-      context.registerInitialValue(empty);
-      return empty;
+      context.registerInitialValue(list);
+      return list;
     }
 
-    ArrayList list;
-    try {
-      list = (ArrayList) unsafe().allocateInstance(ArrayList.class);
-    } catch (InstantiationException e) {
-      throw new SerializationException("could not instantiate ArrayList", e);
-    }
+    // Makes the list wrap `elements` directly, with its final size, before registering it. Elements
+    // are then written into the array as they become available, possibly concurrently.
+    Object[] elements = new Object[length];
+    ELEMENT_DATA.set(list, elements);
+    SIZE.set(list, length);
     context.registerInitialValue(list);
 
-    // Sets the elementData directly, then reflectively inserts it into the ArrayList. ArrayList's
-    // public API doesn't provide an efficient way to populate elementData by offset.
-    Object[] elementData = new Object[length];
-    deserializeObjectArray(context, codedIn, elementData, length);
-
-    unsafe().putObject(list, ELEMENT_DATA_OFFSET, elementData);
-    unsafe().putInt(list, SIZE_OFFSET, length);
+    for (int i = 0; i < length; i++) {
+      context.deserializeArrayElement(codedIn, elements, i);
+    }
 
     return list;
-  }
-
-  static {
-    try {
-      ELEMENT_DATA_OFFSET = getFieldOffset(ArrayList.class, "elementData");
-      SIZE_OFFSET = getFieldOffset(ArrayList.class, "size");
-    } catch (NoSuchFieldException e) {
-      throw new ExceptionInInitializerError(e);
-    }
   }
 }

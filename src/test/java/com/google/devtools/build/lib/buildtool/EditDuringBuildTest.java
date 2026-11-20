@@ -42,7 +42,7 @@ public class EditDuringBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testEditDuringBuild() throws Exception {
     Path in = write("edit/in", "line1");
-    in.setLastModifiedTime(123456789);
+    in.setLastModifiedTimeNanos(123456789);
 
     // Modify the actual source file, not a sandboxed copy.
     addOptions("--spawn_strategy=local");

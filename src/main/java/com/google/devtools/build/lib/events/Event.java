@@ -27,7 +27,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.PrintHandler;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -424,10 +424,10 @@ public final class Event implements Reportable {
   }
 
   /**
-   * Returns a {@link StarlarkThread.PrintHandler} that sends {@link EventKind#DEBUG} events to the
-   * provided {@link EventHandler}.
+   * Returns a {@link PrintHandler} that sends {@link EventKind#DEBUG} events to the provided {@link
+   * EventHandler}.
    */
-  public static StarlarkThread.PrintHandler makeDebugPrintHandler(EventHandler h) {
+  public static PrintHandler makeDebugPrintHandler(EventHandler h) {
     return (thread, msg) -> h.handle(Event.debug(thread.getCallerLocation(), msg));
   }
 

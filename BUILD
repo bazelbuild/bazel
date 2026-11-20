@@ -239,11 +239,6 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
-exports_files(
-    ["maven_install.json"],
-    visibility = ["//tools/compliance:__pkg__"],
-)
-
 py_binary(
     name = "combine_distfiles",
     srcs = ["combine_distfiles.py"],
@@ -309,6 +304,17 @@ platform(
         ":mount_capable",
     ],
     parents = ["@platforms//host"],
+)
+
+# The host platform, but with the oldest glibc that the hermetic LLVM toolchains
+# support. Binaries built for this platform run with glibc 2.17 or newer, like
+# the embedded JDK for Linux arm64 (the one for x86_64 needs glibc 2.9).
+# This is also an execution platform: tests need an execution platform that has
+# all constraints of the target platform.
+platform(
+    name = "linux_host_platform",
+    constraint_values = ["@llvm//constraints/libc:gnu.2.17"],
+    parents = [":default_host_platform"],
 )
 
 platform(

@@ -123,6 +123,16 @@ public interface MemoizingEvaluator {
   default void postLoggingStats(ExtendedEventHandler eventHandler) {}
 
   /**
+   * Returns the version of the first evaluation in the latest sequence of evaluations (see {@link
+   * #noteEvaluationsAtSameVersionMayBeFinished}), or {@code null} if nothing has been evaluated yet
+   * or versions aren't tracked.
+   */
+  @Nullable
+  default Version getFirstVersionOfLatestEvaluationSequence() {
+    return null;
+  }
+
+  /**
    * Returns the done (without error) values in the graph.
    *
    * <p>The returned map may be a live view of the graph.
@@ -140,6 +150,9 @@ public interface MemoizingEvaluator {
 
   @Nullable
   NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) throws InterruptedException;
+
+  /** Returns whether the key was rewound and has not yet completed successfully. */
+  boolean isRewinding(SkyKey key);
 
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
@@ -290,15 +303,4 @@ public interface MemoizingEvaluator {
    * is about to be thrown away.
    */
   void cleanupInterningPools();
-
-  boolean skyfocusSupported();
-
-  /**
-   * Enables Skyfocus, a graph optimizer for Skyframe with active directoriess, by remembering the
-   * root nodes.
-   */
-  void rememberTopLevelEvaluations(boolean remember);
-
-  /** Cleans up the set of evaluated root SkyKeys. Used for Skyfocus. */
-  void cleanupLatestTopLevelEvaluations();
 }

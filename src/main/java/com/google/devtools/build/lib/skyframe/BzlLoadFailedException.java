@@ -24,7 +24,7 @@ public final class BzlLoadFailedException extends AbstractSaneAnalysisException 
   private final Transience transience;
   private final DetailedExitCode detailedExitCode;
 
-  private BzlLoadFailedException(
+  BzlLoadFailedException(
       String errorMessage, DetailedExitCode detailedExitCode, Transience transience) {
     super(errorMessage);
     this.transience = transience;

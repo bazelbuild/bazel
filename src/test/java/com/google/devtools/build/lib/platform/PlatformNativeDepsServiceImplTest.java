@@ -58,4 +58,22 @@ public final class PlatformNativeDepsServiceImplTest {
       assertThat(service.popDisableSleep()).isEqualTo(-1);
     }
   }
+
+  @Test
+  public void testTelemetryNoOpsOnNonDarwin() {
+    if (OS.getCurrent() == OS.DARWIN) {
+      return;
+    }
+    var service = new PlatformNativeDepsServiceImpl();
+    service.registerCPUSpeedJni(ignored -> {});
+    service.registerDiskSpaceJni(ignored -> {});
+    service.registerLoadAdvisoryJni(ignored -> {});
+    service.registerMemoryPressureJni(ignored -> {});
+    service.registerSuspensionJni(ignored -> {});
+    service.registerThermalJni(ignored -> {});
+    assertThat(service.cpuSpeed()).isEqualTo(-1);
+    assertThat(service.systemLoadAdvisory()).isEqualTo(0);
+    assertThat(service.systemMemoryPressure()).isEqualTo(0);
+    assertThat(service.thermalLoad()).isEqualTo(0);
+  }
 }

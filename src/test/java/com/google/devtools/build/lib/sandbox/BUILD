@@ -52,6 +52,7 @@ java_test(
     srcs =
         [
             "AbstractContainerizingSandboxedSpawnTest.java",
+            "AsynchronousTreeDeleterTest.java",
             "SandboxHelpersTest.java",
             "SandboxModuleTest.java",
             "SandboxOptionsTest.java",
@@ -68,6 +69,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",

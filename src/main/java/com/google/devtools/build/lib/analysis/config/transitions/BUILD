@@ -141,18 +141,3 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
-
-java_library(
-    name = "comparing_transition",
-    srcs = ["ComparingTransition.java"],
-    deps = [
-        ":configuration_transition",
-        ":patch_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//third_party/java/guava:collect",
-    ],
-)

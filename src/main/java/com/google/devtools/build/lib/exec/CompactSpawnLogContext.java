@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -153,7 +153,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
   private final CompressionService compressionService;
   private final PathFragment execRoot;
-  private final String workspaceName;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
@@ -180,18 +179,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       BufferedOutputStream out,
       String displayName,
       PathFragment execRoot,
-      String workspaceName,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
       CompressionService compressionService,
       UUID invocationId,
       ExtendedEventHandler reporter,
-      Predicate<Spawn> logSpawnPredicate)
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
       throws IOException, InterruptedException {
-    super(logSpawnPredicate);
+    super(logSpawnPredicate, expandParamFiles);
     this.execRoot = execRoot;
-    this.workspaceName = workspaceName;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
@@ -211,14 +209,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   private void logInvocation() throws IOException, InterruptedException {
-    logEntryWithoutId(
-        () ->
-            ExecLogEntry.newBuilder()
-                .setInvocation(
-                    ExecLogEntry.Invocation.newBuilder()
-                        .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
-                        .setWorkspaceRunfilesDirectory(internalToUnicode(workspaceName))
-                        .setId(internalToUnicode(invocationId.toString()))));
+    logEntryWithoutId(() ->
+        ExecLogEntry.newBuilder()
+            .setInvocation(
+                ExecLogEntry.Invocation.newBuilder()
+                    .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
+                    .setWorkspaceRunfilesDirectory(
+                        internalToUnicode(LabelConstants.MAIN_REPO_DIR_NAME))
+                    .setId(internalToUnicode(invocationId.toString()))));
   }
 
   @Override
@@ -242,7 +240,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
-      builder.addAllArgs(Lists.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
+      builder.addAllArgs(
+          Lists.transform(getLoggedArguments(spawn), StringEncoding::internalToUnicode));
       builder.addAllEnvVars(getEnvironmentVariables(spawn));
       Platform platform = getPlatform(spawn, remoteOptions);
       if (platform != null) {
@@ -573,8 +572,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     return logEntry(
         shared ? runfilesTree.getExecPath().getPathString() : null,
         () -> {
-          Preconditions.checkState(workspaceName.equals(runfilesTree.getWorkspaceName()));
-
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
                   .setPath(internalToUnicode(runfilesTree.getExecPath().getPathString()));

@@ -23,6 +23,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.UploadPhaseTimings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -59,6 +60,13 @@ public class RemoteAnalysisCachingEventListener {
     }
   }
 
+  /** An event carrying the phase timings of a synchronous upload. */
+  public record UploadPhaseTimingsEvent(UploadPhaseTimings timings) {
+    public UploadPhaseTimingsEvent {
+      checkNotNull(timings);
+    }
+  }
+
   /** A SkyFunction/retrieval phase pair for logging. */
   public record FunctionAndPhase(SkyFunctionName functionName, RetrievalPhase phase) {
     public FunctionAndPhase {
@@ -88,6 +96,8 @@ public class RemoteAnalysisCachingEventListener {
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
 
+  private final AtomicReference<UploadPhaseTimings> uploadPhaseTimings = new AtomicReference<>();
+
   private FingerprintValueStore.Stats fingerprintValueStoreStats =
       FingerprintValueStore.EMPTY_STATS;
   private RemoteAnalysisCacheClient.Stats remoteAnalysisCacheStats =
@@ -95,11 +105,27 @@ public class RemoteAnalysisCachingEventListener {
 
   @Nullable private ClientId clientId;
 
+  @Nullable private String untrimmedConfigurationChecksum;
+
   @Subscribe
   @AllowConcurrentEvents
   @SuppressWarnings("unused")
   public void onSerializationComplete(SerializedNodeEvent event) {
     serializedKeys.add(event.key());
+  }
+
+  @Subscribe
+  @SuppressWarnings("unused")
+  public void onUploadPhaseTimings(UploadPhaseTimingsEvent event) {
+    uploadPhaseTimings.set(event.timings());
+  }
+
+  /**
+   * Returns the phase timings of this invocation's synchronous upload, or null if there was none.
+   */
+  @Nullable
+  public UploadPhaseTimings getUploadPhaseTimings() {
+    return uploadPhaseTimings.get();
   }
 
   /** Returns the counts of {@link SkyFunctionName} from serialized nodes of this invocation. */
@@ -242,6 +268,15 @@ public class RemoteAnalysisCachingEventListener {
 
   public ClientId getClientId() {
     return clientId;
+  }
+
+  public void setUntrimmedConfigurationChecksum(@Nullable String untrimmedConfigurationChecksum) {
+    this.untrimmedConfigurationChecksum = untrimmedConfigurationChecksum;
+  }
+
+  @Nullable
+  public String getUntrimmedConfigurationChecksum() {
+    return untrimmedConfigurationChecksum;
   }
 
   public void setInvalidationLookupMetrics(InvalidationLookupMetrics invalidationLookupMetrics) {

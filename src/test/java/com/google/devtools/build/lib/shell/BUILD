@@ -54,7 +54,6 @@ java_library(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
@@ -102,7 +101,7 @@ java_test(
         # TODO(laszlocsomor): remove the "no_windows" tag and merge "ShellUtilsWithBashTest" into
         # "ShellUtilsTest" after Bazel has a way to tell the test about the shell interpreter's
         # path, and therefore ShellUtilsWithBashTest can be made to run on Windows.  A possible
-        # approach is to update the sh_toolchain rule in //tools/sh:sh_toolchain.bzl to return a
+        # approach is to update the sh_toolchain rule in @rules_shell//shell/toolchains:sh_toolchain.bzl to return a
         # platform_common.TemplateVariableInfo provider, then add "toolchains" attribute to the
         # java_test, and pass the shell's path from a Make Variable using the "args" attribute.
         "no_windows",
@@ -284,7 +283,6 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
@@ -301,7 +299,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

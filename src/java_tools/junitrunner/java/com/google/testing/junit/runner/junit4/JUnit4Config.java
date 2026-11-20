@@ -17,7 +17,7 @@ package com.google.testing.junit.runner.junit4;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Properties;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Configuration for the JUnit4 test runner.
@@ -29,7 +29,7 @@ class JUnit4Config {
   private final boolean testRunnerFailFast;
   private final String testIncludeFilterRegexp;
   private final String testExcludeFilterRegexp;
-  @Nullable private final Path xmlOutputPath;
+  private final @Nullable Path xmlOutputPath;
   private final String junitApiVersion;
 
   private static final String XML_OUTPUT_FILE_ENV_VAR = "XML_OUTPUT_FILE";
@@ -78,11 +78,8 @@ class JUnit4Config {
     junitApiVersion = systemProperties.getProperty(JUNIT_API_VERSION_PROPERTY, "1").trim();
   }
 
-  /**
-   * Returns the XML output path, or null if not specified.
-   */
-  @Nullable
-  public Path getXmlOutputPath() {
+  /** Returns the XML output path, or null if not specified. */
+  public @Nullable Path getXmlOutputPath() {
     if (xmlOutputPath == null) {
       String envXmlOutputPath = System.getenv(XML_OUTPUT_FILE_ENV_VAR);
       return

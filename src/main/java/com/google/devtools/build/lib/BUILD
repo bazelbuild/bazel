@@ -142,9 +142,6 @@ java_library(
     name = "all-build-rules",
     exports = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/action_construction_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/shell_command",
         "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_and_execution_result",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
@@ -177,6 +174,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_tags_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_helper",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_visibility_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:action_construction_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/actions:shell_command",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
@@ -270,8 +270,6 @@ genrule(
     cmd = (
         "cat $(location //docs:command-line-reference-prefix.html) > $@ && " +
         "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
-        # TODO(#11179): Remove when the stub template fix is released.
-        "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
@@ -279,7 +277,6 @@ genrule(
         "help everything-as-html >> $@ 2>$${TMP}/stderr && " +
         "cat $(location //docs:command-line-reference-suffix.html) >> $@"
     ),
-    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],

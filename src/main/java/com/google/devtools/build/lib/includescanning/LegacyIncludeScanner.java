@@ -252,8 +252,19 @@ public class LegacyIncludeScanner implements IncludeScanner {
         // Construct the full framework path path/to/foo.framework.
         PathFragment fullFrameworkPath = includePath.getRelative(frameworkName);
 
-        if (onlyCheckGenerated && !isOutputFile(fullFrameworkPath)) {
-          return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+        boolean isOutputDirectory = isOutputFile(fullFrameworkPath);
+        if (onlyCheckGenerated && !isOutputDirectory) {
+          continue;
+        }
+        // Mirror the directoryExists() optimization in isFile(): because isFile() is called below
+        // with relHeaderPath rather than the full framework-qualified include path, its loop only
+        // checks subdirectories within relHeaderPath and not fullFrameworkPath itself. Checking
+        // fullFrameworkPath once upfront avoids probing both Headers/ and PrivateHeaders/ when the
+        // source .framework directory does not exist under this search path.
+        if (!isOutputDirectory
+            && !fullFrameworkPath.isAbsolute()
+            && !pathCache.directoryExists(fullFrameworkPath)) {
+          continue;
         }
 
         // Look for header in path/to/foo.framework/Headers/
@@ -263,8 +274,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
         viewedIllegalOutput =
             viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
-        boolean isOutputDirectory = fullHeaderPath.startsWith(outputPathFragment);
-        if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, headerData)) {
+        if (isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)) {
           foundHeaderPath = fullHeaderPath;
         } else {
           // Look for header in path/to/foo.framework/PrivateHeaders/
@@ -272,7 +282,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
               fullFrameworkPath.getRelative("PrivateHeaders").getRelative(relHeaderPath);
           viewedIllegalOutput =
               viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
-          if (isFile(fullHeaderPath, relHeaderPath, isOutputDirectory, headerData)) {
+          if (isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)) {
             foundHeaderPath = fullHeaderPath;
           } else {
             continue;
@@ -338,30 +348,23 @@ public class LegacyIncludeScanner implements IncludeScanner {
         return result;
       }
       // If the previous computation for this inclusion had a different pathToDeclaredHeader
-      // map, result may not be valid for this lookup. Because this is a hot spot, we tolerate a
-      // known correctness bug but try to catch most issues.
-      // (1) [correct]: The prior computation found an output file, but that file is not in the
-      // current lookup's inputs. We don't reuse the computation. b/149935208.
-      // (2) [correct]: The prior computation checked an output path not in its legal outputs, and
-      // then didn't find a file anywhere. However, that output file is a legal input for this
-      // lookup. We don't reuse the computation. b/2097998.
-      // (3) [INCORRECT]: Same as (2), except that the prior computation found a file after checking
-      // the output path not in its legal inputs. We incorrectly cache this computation, assuming it
-      // is very rare. b/150307245.
-      if (result.path != null) {
-        if (result.path.isSourceArtifact()
-            || result.path.equals(headerData.getHeaderArtifact(result.path.getExecPath()))) {
-          return result;
-        }
-      } else if (!result.viewedIllegalOutputFile) {
+      // map, result may not be valid for this lookup. Only reuse the cached result when no
+      // illegal output file was viewed earlier on the search path, and either no file was found,
+      // the found file is a source artifact, or the found output artifact matches the current
+      // action's declared header.
+      if (!result.viewedIllegalOutputFile
+          && (result.path == null
+              || result.path.isSourceArtifact()
+              || result.path.equals(headerData.getHeaderArtifact(result.path.getExecPath())))) {
         return result;
       }
 
-      result = locateOnPaths(inclusion, headerData, true);
-      if (result.path != null || !result.viewedIllegalOutputFile) {
-        // In this case, the result is now cachable either because a file has been found or
-        // because there are no more illegal output files. This is rare in practice. Avoid
-        // creating a future and modifying the cache in the common case.
+      // When the cached lookup found an artifact, it stopped before later search paths, so the
+      // fallback header may be a source file; only skip source paths when nothing was found.
+      result = locateOnPaths(inclusion, headerData, /* onlyCheckGenerated= */ result.path == null);
+      if (!result.viewedIllegalOutputFile) {
+        // Only update the cache when no illegal output file was viewed, so a fast-path-eligible
+        // entry isn't overwritten by one that always requires re-scanning.
         cache.put(inclusion, result);
       }
       return result;

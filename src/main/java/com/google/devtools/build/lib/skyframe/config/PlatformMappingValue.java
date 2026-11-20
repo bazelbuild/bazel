@@ -166,7 +166,9 @@ public final class PlatformMappingValue implements SkyValue {
     if (!(obj instanceof PlatformMappingValue that)) {
       return false;
     }
-    return this.flagsToPlatforms.equals(that.flagsToPlatforms)
+    // The first matching entry of flagsToPlatforms wins, so its order matters.
+    return Iterables.elementsEqual(
+            this.flagsToPlatforms.entrySet(), that.flagsToPlatforms.entrySet())
         && this.platformsToFlags.equals(that.platformsToFlags)
         && this.optionsClasses.equals(that.optionsClasses);
   }

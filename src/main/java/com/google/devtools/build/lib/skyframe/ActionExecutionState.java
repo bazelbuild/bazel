@@ -83,6 +83,10 @@ final class ActionExecutionState {
     this.state = Preconditions.checkNotNull(state);
   }
 
+  synchronized boolean isDone() {
+    return state.isDone();
+  }
+
   @Nullable
   ActionExecutionValue getResultOrDependOnFuture(
       SkyFunction.Environment env,

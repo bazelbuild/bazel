@@ -261,11 +261,6 @@ function it transitively calls:
   <li>(allowed in rule finalizers only, see <code>finalizer</code> below)
     <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
     <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
-  <li>(for <code>WORKSPACE</code> threads)
-    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
-    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
-    <a href="../globals/workspace#register_execution_platforms"><code>register_execution_platforms()</code></a>,
-    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
 </ul>
 """),
         @Param(
@@ -706,7 +701,7 @@ declared.
             defaultValue = "None",
             positional = false,
             doc =
-                "Experimental: the Stalark function initializing the attributes of the rule. "
+                "The Starlark function initializing the attributes of the rule. "
                     + "<p>The function is called at load time for each instance of the rule. It's "
                     + "called with <code>name</code> and the values of public attributes defined "
                     + "by the rule (not with generic attributes, for example <code>tags</code>). "
@@ -716,7 +711,7 @@ declared.
                     + "the attribute definition. "
                     + "<p>Initializers are evaluated before the default values specified in "
                     + "an attribute definition. Consequently, if a parameter in the initializer's "
-                    + "signature contains a default values, it overwrites the default from the "
+                    + "signature contains a default value, it overwrites the default from the "
                     + "attribute definition (except if returning <code>None</code>). "
                     + "<p>Similarly, if a parameter in the initializer's signature doesn't have a "
                     + "default, the parameter will become mandatory. It's a good practice to omit "
@@ -732,7 +727,7 @@ declared.
             defaultValue = "None",
             positional = false,
             doc =
-                "Experimental: the Stalark rule that is extended. When set the public"
+                "The Starlark rule that is extended. When set the public"
                     + " attributes are merged as well as advertised providers. The rule matches"
                     + " <code>executable</code> and <code>test</code> from the parent. Values of"
                     + " <code>fragments</code>, <code>toolchains</code>,"
@@ -752,7 +747,7 @@ declared.
               @ParamType(type = NoneType.class),
             },
             doc =
-                "Experimental: A label of an allowlist defining which rules can extending this"
+                "A label of an allowlist defining which rules can extend this"
                     + " rule. It can be set also to True/False to always allow/disallow extending."
                     + " Bazel defaults to always allowing extensions."),
         @Param(
@@ -763,7 +758,7 @@ declared.
             named = true,
             defaultValue = "[]",
             positional = false,
-            doc = "Experimental: List of subrules used by this rule."),
+            doc = "List of subrules used by this rule."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -818,7 +813,7 @@ declared.
             named = true,
             defaultValue = "[]",
             doc =
-                "Accepts a list of attribute names or [Experimental] a function that returns the"
+                "Accepts a list of attribute names or a function that returns the"
                     + " list of attribute names. The aspect propagates along dependencies specified"
                     + " in the attributes of a target with these names. Common values here include"
                     + " <code>deps</code> and <code>exports</code>. The list can also contain a"
@@ -833,7 +828,7 @@ declared.
             named = true,
             defaultValue = "[]",
             doc =
-                "Accepts a list of toolchain types or [Experimental] a function that returns the"
+                "Accepts a list of toolchain types or a function that returns the"
                     + " list of toolchain types. The aspect propagates to target toolchains which"
                     + " match these toolchain types."),
         @Param(
@@ -954,7 +949,7 @@ providers. That is, <code>[FooInfo, BarInfo]</code> will automatically be conver
             named = true,
             defaultValue = "None",
             doc =
-                "Experimental: a function that returns a boolean value indicating whether the"
+                "A function that returns a boolean value indicating whether the"
                     + " aspect should be propagated to a target."),
         @Param(
             name = "fragments",
@@ -1040,7 +1035,7 @@ providers. That is, <code>[FooInfo, BarInfo]</code> will automatically be conver
             named = true,
             defaultValue = "[]",
             positional = false,
-            doc = "Experimental: list of subrules used by this aspect.")
+            doc = "List of subrules used by this aspect.")
       },
       useStarlarkThread = true)
   StarlarkAspectApi aspect(

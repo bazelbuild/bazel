@@ -142,7 +142,7 @@ public abstract class CppOptions extends FragmentOptions {
   // this without warning spam because of a globally set bazelrc.
   @Option(
       name = "crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -456,7 +456,6 @@ public abstract class CppOptions extends FragmentOptions {
       name = "fdo_prefetch_hints",
       defaultValue = "null",
       converter = LabelConverter.class,
-      category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Use cache prefetch hints.")
@@ -470,7 +469,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "fdo_profile",
       defaultValue = "null",
-      category = "flags",
       converter = EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -480,7 +478,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "cs_fdo_profile",
       defaultValue = "null",
-      category = "flags",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -527,7 +524,6 @@ public abstract class CppOptions extends FragmentOptions {
       name = "propeller_optimize",
       defaultValue = "null",
       converter = LabelConverter.class,
-      category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -554,7 +550,6 @@ public abstract class CppOptions extends FragmentOptions {
       name = "memprof_profile",
       defaultValue = "null",
       converter = LabelConverter.class,
-      category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Use memprof profile.")
@@ -980,4 +975,13 @@ public abstract class CppOptions extends FragmentOptions {
           "If enabled, will estimate precise resource usage for local execution of"
               + " CppCompileAction.")
   public abstract boolean getExperimentalCppCompileResourcesEstimation();
+
+  @Override
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
+    if (!getOutputDirectoryTag().isEmpty()) {
+      ctx.addToMnemonic(getOutputDirectoryTag());
+    }
+  }
 }

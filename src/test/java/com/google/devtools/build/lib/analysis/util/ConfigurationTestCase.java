@@ -192,9 +192,22 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
 
     BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
+    return createConfigurationWithBaseline(targetOptions, targetOptions);
+  }
 
+  /**
+   * Returns a {@link BuildConfigurationValue} for {@code targetOptions} computed against {@code
+   * baselineOptions} as the top-level (baseline) configuration.
+   *
+   * <p>Use this to simulate a configuration reached via a transition: {@code baselineOptions} play
+   * the role of the command line, and {@code targetOptions} the post-transition options. The
+   * mnemonic (and therefore {@link BuildConfigurationValue#mnemonicDependsOnBaseline}) depends on
+   * the difference between the two.
+   */
+  protected BuildConfigurationValue createConfigurationWithBaseline(
+      BuildOptions baselineOptions, BuildOptions targetOptions) throws Exception {
     skyframeExecutor.handleDiffsForTesting(reporter);
-    skyframeExecutor.setBaselineConfiguration(targetOptions, reporter);
+    skyframeExecutor.setBaselineConfiguration(baselineOptions, reporter);
     return skyframeExecutor.createConfiguration(reporter, targetOptions, false);
   }
 

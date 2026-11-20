@@ -208,7 +208,6 @@ public abstract sealed class PackagePiece extends Packageoid
         PackageSettings packageSettings,
         PackagePieceIdentifier.ForBuildFile identifier,
         RootedPath filename,
-        String workspaceName,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
@@ -229,7 +228,6 @@ public abstract sealed class PackagePiece extends Packageoid
           Metadata.builder()
               .packageIdentifier(identifier.getPackageIdentifier())
               .buildFilename(filename)
-              .workspaceName(workspaceName)
               .repositoryMapping(repositoryMapping)
               .associatedModuleName(associatedModuleName)
               .associatedModuleVersion(associatedModuleVersion)
@@ -266,6 +264,12 @@ public abstract sealed class PackagePiece extends Packageoid
 
       public PackagePiece.ForBuildFile getPackagePiece() {
         return (PackagePiece.ForBuildFile) pkg;
+      }
+
+      @Override
+      @Nullable
+      public MacroInstance getTargetDeclaringMacro(String name) {
+        return null;
       }
 
       @Override
@@ -479,6 +483,12 @@ public abstract sealed class PackagePiece extends Packageoid
       @Override
       public boolean eagerlyExpandMacros() {
         return false;
+      }
+
+      @Override
+      @Nullable
+      public MacroInstance getTargetDeclaringMacro(String name) {
+        return recorder.getTarget(name) != null ? getPackagePiece().getEvaluatedMacro() : null;
       }
 
       /** Can only be called for a finalizer package piece. */

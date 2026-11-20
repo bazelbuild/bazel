@@ -5,6 +5,7 @@ java.management
 java.naming
 java.sql
 java.xml
+jdk.jfr
 jdk.management
 jdk.net
 jdk.security.auth

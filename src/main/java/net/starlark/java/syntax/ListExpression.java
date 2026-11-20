@@ -35,7 +35,7 @@ public final class ListExpression extends Expression {
       int lbracketOffset,
       ImmutableList<Expression> elements,
       int rbracketOffset) {
-    super(locs, Kind.LIST_EXPR);
+    super(locs);
     // An unparenthesized tuple must be non-empty.
     Preconditions.checkArgument(
         !elements.isEmpty() || (lbracketOffset >= 0 && rbracketOffset >= 0));

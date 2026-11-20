@@ -94,8 +94,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-I" (possibly empty but
    * never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
     return getPathFragmentList("includes");
@@ -105,8 +104,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-iquote" (possibly empty
    * but never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
     return getPathFragmentList("quote_includes");
@@ -116,8 +114,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-isystem" (possibly empty
    * but never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
     return getPathFragmentList("system_includes");
@@ -137,7 +134,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of external include directories (possibly empty but never null).
    * This includes the include dirs from the transitive deps closure of the target. This list does
    * not contain duplicates. All fragments are either absolute or relative to the exec root (see
-   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getExternalIncludeDirs() {
     return getPathFragmentList("external_includes");
@@ -303,12 +300,22 @@ public final class CcCompilationContext {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
     ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    // Summing transitive header lists over-allocates due to duplicate exported deps, and large
+    // maps prematurely promote to Old Gen (b/569269228). Estimate capacity from the deduplicated
+    // library count and cap it.
+    int transitiveInfoCount = transitiveHeaderInfos.size();
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
+    // The 4K and 2K upper bounds keep backing arrays under ~100 KB, safely within G1's default
+    // PLAB and survivor thresholds to prevent premature promotion to Old Gen. For large targets
+    // exceeding these caps, normal rehashing churn in Eden is far cheaper than survivor space
+    // spillover.
     Map<PathFragment, Artifact> pathToLegalArtifact =
-        CompactHashMap.createWithExpectedSize(transitiveHeaderInfos.size());
+        CompactHashMap.createWithExpectedSize(Math.min(transitiveInfoCount * 3, 4096));
     Set<Artifact> modularHeaders =
-        CompactHashSet.createWithExpectedSize(transitiveHeaderInfos.size());
+        createModularHeaders
+            ? CompactHashSet.createWithExpectedSize(Math.min(transitiveInfoCount * 2, 2048))
+            : CompactHashSet.create();
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {

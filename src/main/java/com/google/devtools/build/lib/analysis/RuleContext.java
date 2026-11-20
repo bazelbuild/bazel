@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
@@ -44,9 +44,9 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -54,9 +54,11 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -72,6 +74,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
@@ -386,11 +389,6 @@ public class RuleContext extends TargetContext
   @Nullable
   public Aspect getMainAspect() {
     return null;
-  }
-
-  /** Returns the workspace name for the rule. */
-  public String getWorkspaceName() {
-    return rule.getPackageMetadata().workspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -728,7 +726,7 @@ public class RuleContext extends TargetContext
   }
 
   @Override
-  public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+  public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(
         rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
@@ -742,11 +740,11 @@ public class RuleContext extends TargetContext
    * Creates a tree artifact in a directory that is unique to the package that contains the rule,
    * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
-  public Artifact getPackageRelativeTreeArtifact(PathFragment relative, ArtifactRoot root) {
+  public TreeArtifact getPackageRelativeTreeArtifact(PathFragment relative, ArtifactRoot root) {
     return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
-  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
+  public TreeArtifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
     return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
   }
 
@@ -1062,29 +1060,39 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
+  /**
+   * Returns the name of the automatic exec group of the given toolchain type, or {@code null} if
+   * there is none. The toolchain type can be given as the label it was requested with or as the
+   * label of the actual type.
+   */
   @Nullable
-  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
-    ResolvedToolchainContext toolchainContext =
-        toolchainContexts.getToolchainContext(toolchainType.toString());
-    if (toolchainContext != null && toolchainContext.forToolchainType(toolchainType) != null) {
-      // Return early if name of the Automatic Exec Group (AEG) and toolchain type matches.
-      return toolchainContext;
+  public String getAutomaticExecGroup(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    if (toolchainContexts.hasToolchainContext(toolchainType.toString())) {
+      // Prefer an exact match.
+      return toolchainType.toString();
     }
 
     // Alias can be used for toolchains, in which case name of AEG will not match with the toolchain
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
-    String aliasName =
-        toolchainContexts.getExecGroupNames().stream()
-            .filter(DeclaredExecGroup::isAutomatic)
-            .filter(
-                name -> {
-                  ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
-                  return (context != null
-                      && context.requestedToolchainTypeLabels().containsKey(toolchainType));
-                })
-            .findFirst()
-            .orElse(null);
-    return aliasName == null ? null : toolchainContexts.getToolchainContext(aliasName);
+    for (String execGroup : toolchainContexts.getExecGroupNames()) {
+      if (DeclaredExecGroup.isAutomatic(execGroup)
+          && toolchainContexts
+              .getToolchainContext(execGroup)
+              .requestedToolchainTypeLabels()
+              .containsKey(toolchainType)) {
+        return execGroup;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
+    String execGroup = getAutomaticExecGroup(toolchainType);
+    return execGroup == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
   /**
@@ -1136,6 +1144,9 @@ public class RuleContext extends TargetContext
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
     if (requiredConfigFragments == null) {
       return null;
+    }
+    if (!shouldIncludeMakeVariablesInRequiredConfigFragments()) {
+      return requiredConfigFragments;
     }
 
     RequiredConfigFragmentsProvider.Builder merged = null;
@@ -1304,6 +1315,64 @@ public class RuleContext extends TargetContext
     return getImplicitOutputArtifact(Iterables.getOnlyElement(result));
   }
 
+  /**
+   * Verifies that the number of newly constructed non-empty {@link NestedSet} instances created
+   * during the analysis of this target or aspect does not exceed {@code --nested_set_count_limit}.
+   *
+   * @return {@code true} if the target is within the limit or exempted by {@code
+   *     --nested_set_count_limit_allowlist}, or {@code false} if a rule error has been recorded.
+   */
+  public boolean verifyNestedSetCountLimit() {
+    StarlarkSemantics semantics = getAnalysisEnvironment().getStarlarkSemantics();
+    int limit = semantics.get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT);
+    int count = NestedSetOwnerScope.getCurrentNestedSetCount();
+    if (limit <= 0 || count <= limit) {
+      return true;
+    }
+    if (hasErrors() && !getConfiguration().allowAnalysisFailures()) {
+      return false;
+    }
+    if (isExemptFromNestedSetCountLimit(
+        semantics.get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT_ALLOWLIST))) {
+      return true;
+    }
+    ruleError(
+        String.format(
+            "Target created %d nested sets (depsets), which exceeds the maximum allowed limit of %d"
+                + " controlled by --nested_set_count_limit.%s",
+            count,
+            limit,
+            ruleClassProvider.getNestedSetCountLimitMessage().map(m -> " " + m).orElse("")));
+    return false;
+  }
+
+  /**
+   * Returns whether this target's package, or the package of the {@code .bzl} file defining the
+   * main Starlark aspect being evaluated, matches {@code allowlist}. Entries use {@code
+   * package_group} syntax ({@code //foo} matches only that package, {@code //foo/...} matches the
+   * subtree); malformed entries match nothing.
+   */
+  private boolean isExemptFromNestedSetCountLimit(List<String> allowlist) {
+    if (allowlist.isEmpty()) {
+      return false;
+    }
+    ImmutableList.Builder<PackageSpecification> specs = ImmutableList.builder();
+    for (String entry : allowlist) {
+      try {
+        specs.add(
+            PackageSpecification.fromStringForBzlVisibility(
+                RepositoryMapping.EMPTY, RepositoryName.MAIN, entry));
+      } catch (EvalException e) {
+        // Fail closed: a malformed entry exempts nothing.
+      }
+    }
+    PackageGroupContents contents = PackageGroupContents.create(specs.build());
+    return contents.containsPackage(getLabel().getPackageIdentifier())
+        || (getMainAspect() != null
+            && getMainAspect().getAspectClass() instanceof StarlarkAspectClass starlarkAspect
+            && contents.containsPackage(starlarkAspect.getExtensionLabel().getPackageIdentifier()));
+  }
+
   /** Only use from Starlark. Returns the implicit output artifact for a given output path. */
   public Artifact getImplicitOutputArtifact(String path) {
     return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory());
@@ -1388,6 +1457,20 @@ public class RuleContext extends TargetContext
    */
   public boolean shouldIncludeRequiredConfigFragmentsProvider() {
     return requiredConfigFragments != null;
+  }
+
+  /**
+   * Returns {@code true} if Make variables accessed through {@code ctx.var} or Make variable
+   * substitution should be recorded as {@code --define}s in {@link
+   * RequiredConfigFragmentsProvider}.
+   */
+  public boolean shouldIncludeMakeVariablesInRequiredConfigFragments() {
+    return requiredConfigFragments != null
+        && getConfiguration()
+                .getOptions()
+                .get(CoreOptions.class)
+                .getIncludeRequiredConfigFragmentsProvider()
+            != CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY;
   }
 
   @Override
@@ -1724,8 +1807,8 @@ public class RuleContext extends TargetContext
 
           if (attribute.isForDependencyResolution()) {
             if (!configuredTarget.isForDependencyResolution()
-                && !(configuredTarget.getConfiguredTarget()
-                    instanceof PackageGroupConfiguredTarget)) {
+                && configuredTarget.getConfiguredTarget().get(PackageSpecificationProvider.PROVIDER)
+                    == null) {
               attributeError(
                   attribute.getName(),
                   String.format(
@@ -1741,13 +1824,13 @@ public class RuleContext extends TargetContext
           if (!forAspect() && !allowMaterializerRuleRealDeps) {
             // Materializer rules can depend only on dependency resolution rules via "normal" /
             // non-dormant attributes, and everything else only via dormant attributes, except
-            // for PackageGroupConfiguredTargets and build settings.
+            // for package groups and build settings.
             if (target.getAssociatedRule().getRuleClassObject().isMaterializerRule()
                 && !(attribute.getType() == BuildType.DORMANT_LABEL
                     || attribute.getType() == BuildType.DORMANT_LABEL_LIST)
                 && !configuredTarget.isForDependencyResolution()
-                && !(configuredTarget.getConfiguredTarget()
-                    instanceof PackageGroupConfiguredTarget)) {
+                && configuredTarget.getConfiguredTarget().get(PackageSpecificationProvider.PROVIDER)
+                    == null) {
               attributeError(
                   attribute.getName(),
                   String.format(

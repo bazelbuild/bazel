@@ -51,8 +51,6 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-        "//third_party/java/protobuf",
-        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -64,13 +62,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_file_system",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_input_fetcher",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/protobuf:deps_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -237,25 +236,6 @@ java_test(
     ],
 )
 
-java_test(
-    name = "JavaInfoCodecTest",
-    srcs = ["JavaInfoCodecTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
-        "//third_party/java/guava:collect",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
 java_library(
     name = "java_compile_action_test_helper",
     testonly = 1,
@@ -266,5 +246,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//third_party/java/guava:base",
+    ],
+)
+
+java_test(
+    name = "JavaTargetAttributesTest",
+    srcs = ["JavaTargetAttributesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

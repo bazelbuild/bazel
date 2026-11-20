@@ -68,12 +68,25 @@ EOF
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_rules_shell MODULE.bazel
 }
 
 #### TESTS #############################################################
 
 function test_compile_helloworld() {
-  write_hello_world_files
+  mkdir -p hello || fail "mkdir hello failed"
+  cat >hello/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(name = 'hello',
+  srcs = ['hello.sh'])
+EOF
+
+  cat >hello/hello.sh <<EOF
+#!/usr/bin/env bash
+echo "hello!"
+EOF
+  chmod +x hello/hello.sh
+
   bazel run --experimental_ui_debug_all_events --discard_analysis_cache hello:hello >&$TEST_log \
       || fail "Build failed"
   expect_log "Loading package: hello"
@@ -199,7 +212,7 @@ EOF
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
   aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # Several top-level configured targets are allowed to stick around.
-  [[ "$ct_count" -le 20 ]] \
+  [[ "$ct_count" -le 25 ]] \
       || fail "Too many configured targets: $ct_count"
   [[ "$aspect_count" -eq 0 ]] || fail "Too many aspects: $aspect_count"
   bazel --batch clean >& "$TEST_log" || fail "Expected success"
@@ -218,7 +231,7 @@ EOF
   aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # One top-level aspect is allowed to stick around.
   [[ "$aspect_count" -le 1 ]] || fail "Too many aspects: $aspect_count"
-  [[ "$ct_count" -le 20 ]] || fail "Too many configured targets: $ct_count"
+  [[ "$ct_count" -le 25 ]] || fail "Too many configured targets: $ct_count"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/30800.

@@ -55,6 +55,26 @@ public final class ValueOrFutureMapTest {
   }
 
   @Test
+  public void throwingPopulator_failsFutureWithOriginalException() throws Exception {
+    var expectedException = new IllegalStateException("original failure");
+    var map =
+        new ValueOrFutureMap<>(
+            new ConcurrentHashMap<String, ValueOrFuture>(),
+            FutureValue::new,
+            future -> {
+              throw expectedException;
+            },
+            FutureValue.class);
+
+    var thrown = assertThrows(IllegalStateException.class, () -> map.getValueOrFuture("key"));
+    assertThat(thrown).isSameInstanceAs(expectedException);
+
+    var future = (FutureValue) map.getValueOrFuture("key");
+    var executionException = assertThrows(ExecutionException.class, future::get);
+    assertThat(executionException).hasCauseThat().isSameInstanceAs(expectedException);
+  }
+
+  @Test
   public void immediatePopulatorResult_returnsImmediateValue() throws Exception {
     var value = new Value("value");
     var map =

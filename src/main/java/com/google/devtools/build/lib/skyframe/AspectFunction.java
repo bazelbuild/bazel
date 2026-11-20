@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextProduce
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -88,7 +90,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
@@ -187,8 +188,8 @@ final class AspectFunction implements SkyFunction {
     this.analysisProgressReceiver = analysisProgressReceiver;
   }
 
-  static class State
-      implements SerializableSkyKeyComputeState, UnloadedToolchainContextsProducer.ResultSink {
+  static class State extends SerializableSkyKeyComputeState
+      implements UnloadedToolchainContextsProducer.ResultSink {
     @Nullable InitialValues initialValues;
 
     final DependencyResolver.State computeDependenciesState;
@@ -211,9 +212,6 @@ final class AspectFunction implements SkyFunction {
     // Will be true if the target doesn't require toolchain resolution.
     boolean baseTargetHasNoToolchains;
 
-    @Nullable // Initialized lazily
-    private RetrievalContext retrievalContext = null;
-
     private State(
         boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
@@ -232,15 +230,6 @@ final class AspectFunction implements SkyFunction {
     @Override
     public void acceptUnloadedToolchainContextsError(ToolchainException error) {
       this.baseTargetUnloadedToolchainContextsError = error;
-    }
-
-    @Override
-    public RetrievalContext getRetrievalContext() {
-      if (retrievalContext == null) {
-        retrievalContext = new RetrievalContext();
-      }
-
-      return retrievalContext;
     }
   }
 
@@ -382,7 +371,8 @@ final class AspectFunction implements SkyFunction {
 
       List<ConfiguredAspect> directlyRequiredAspects =
           Lists.transform(key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)));
-      try {
+      // The merged sets are owned by the merged aspects, whose keys determine the merge's result.
+      try (var _ = NestedSetOwnerScope.enter(key.getBaseKeys())) {
         associatedTarget = MergedConfiguredTarget.of(associatedTarget, directlyRequiredAspects);
       } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
@@ -417,7 +407,10 @@ final class AspectFunction implements SkyFunction {
                     ? null
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
-                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+                targetAndConfiguration.getConfiguration() == null
+                    ? StarlarkBuildSettingsDetailsValue.EMPTY
+                    : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }
@@ -940,7 +933,7 @@ final class AspectFunction implements SkyFunction {
                 .add(originalTarget.getPackageMetadata())
                 .addTransitive(transitiveState.transitivePackages())
                 .addTransitive(real.getTransitivePackages())
-                .build()
+                .buildUnowned()
             : null;
 
     analysisProgressReceiver.doneConfigureAspect();
@@ -996,13 +989,17 @@ final class AspectFunction implements SkyFunction {
         view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
+    NestedSet<Package.Metadata> transitivePackages;
     if (aspect.getDefinition().applyToGeneratingRules()
         && associatedTarget instanceof OutputFile outputFile) {
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitiveState);
     } else {
-      try {
+      transitivePackages = transitiveState.transitivePackages();
+      // Nested sets created while analyzing the aspect, including building its RuleContext, are
+      // owned by the aspect.
+      try (var _ = NestedSetOwnerScope.enter(key)) {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =
             view.getConfiguredTargetFactory()
@@ -1019,7 +1016,7 @@ final class AspectFunction implements SkyFunction {
                     baseTargetToolchainContexts,
                     execGroupCollectionBuilder,
                     configuration,
-                    transitiveState.transitivePackages(),
+                    transitivePackages,
                     key,
                     starlarkExecTransition);
       } catch (IOException e) {
@@ -1062,7 +1059,7 @@ final class AspectFunction implements SkyFunction {
     if (configuredAspect != NonApplicableAspect.INSTANCE) {
       analysisProgressReceiver.doneConfigureAspect();
     }
-    return AspectValue.create(key, aspect, configuredAspect, transitiveState.transitivePackages());
+    return AspectValue.create(key, aspect, configuredAspect, transitivePackages);
   }
 
   private static boolean targetSatisfiesAspect(Target target, Aspect aspect) {

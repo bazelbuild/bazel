@@ -56,9 +56,8 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   private final RunfileSymlinksMode runfileSymlinksMode;
   private final Artifact repoMappingManifest;
 
-  // Exactly one of these two fields is non-null.
+  // Null if and only if this is a fileset tree.
   @Nullable private final Runfiles runfiles;
-  @Nullable private final String workspaceNameForFileset;
   private final boolean preferTargetConfigurationRunfiles;
 
   /**
@@ -87,7 +86,6 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
         repoMappingManifest,
         config.getActionEnvironment(),
         config.getRunfileSymlinksMode(),
-        config.getWorkspaceName(),
         config.getOptions().get(CoreOptions.class).getPreferDependingConfigurationRunfiles());
   }
 
@@ -102,7 +100,6 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
    * @param repoMappingManifest the repository mapping manifest
-   * @param workspaceName name of the workspace
    */
   @VisibleForTesting
   public SymlinkTreeAction(
@@ -112,8 +109,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
       Artifact outputManifest,
       @Nullable Artifact repoMappingManifest,
       ActionEnvironment env,
-      RunfileSymlinksMode runfileSymlinksMode,
-      String workspaceName) {
+      RunfileSymlinksMode runfileSymlinksMode) {
     this(
         owner,
         inputManifest,
@@ -122,7 +118,6 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
         repoMappingManifest,
         env,
         runfileSymlinksMode,
-        workspaceName,
         /* preferTargetConfigurationRunfiles= */ false);
   }
 
@@ -134,7 +129,6 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
       @Nullable Artifact repoMappingManifest,
       ActionEnvironment env,
       RunfileSymlinksMode runfileSymlinksMode,
-      String workspaceName,
       boolean preferTargetConfigurationRunfiles) {
     super(
         owner,
@@ -150,10 +144,8 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     if (inputManifest.isFileset()) {
       checkArgument(runfiles == null, "Runfiles present for fileset %s", inputManifest);
       this.runfiles = null;
-      this.workspaceNameForFileset = checkNotNull(workspaceName);
     } else {
       this.runfiles = checkNotNull(runfiles);
-      this.workspaceNameForFileset = null;
     }
   }
 
@@ -165,7 +157,9 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.add(inputManifest);
     // On Windows, we need to know whether the target artifact is a file or a directory in order to
-    // correctly create a symlink or junction to it.
+    // correctly create a symlink or junction to it. Furthermore, if symlinks to files are emulated
+    // by copies (i.e. without --windows_enable_symlinks), the files need to be present on disk,
+    // which requires them to be inputs so that they can be prefetched if they are remote.
     if (runfileSymlinksMode == RunfileSymlinksMode.CREATE
         && runfiles != null
         && OS.getCurrent() == OS.WINDOWS) {
@@ -201,11 +195,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   }
 
   public boolean isFilesetTree() {
-    return workspaceNameForFileset != null;
-  }
-
-  public String getWorkspaceNameForFileset() {
-    return checkNotNull(workspaceNameForFileset, "Not a fileset tree: %s", outputManifest);
+    return runfiles == null;
   }
 
   public RunfileSymlinksMode getRunfileSymlinksMode() {
@@ -229,7 +219,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
       @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
-    fp.addNullableString(workspaceNameForFileset);
+    fp.addBoolean(isFilesetTree());
     fp.addInt(runfileSymlinksMode.ordinal());
     fp.addBoolean(preferTargetConfigurationRunfiles);
     env.addTo(fp);

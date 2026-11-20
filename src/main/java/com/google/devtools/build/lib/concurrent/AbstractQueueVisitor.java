@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
+import com.google.devtools.build.lib.concurrent.QuiescingTask.PriorityTier;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -32,6 +33,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -110,6 +112,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private final ExecutorService executorService;
 
   /**
+   * Whether submitted {@link QuiescingTask}s are dequeued according to {@link
+   * QuiescingTask#compareTo} rather than FIFO or work-stealing order.
+   */
+  private final boolean ordersTasksByPriority;
+
+  /**
    * Flag used to record when the main thread (the thread which called {@link #awaitQuiescence}) is
    * interrupted.
    *
@@ -166,6 +174,23 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   public static ExecutorService createExecutorService(int parallelism, String poolName) {
     return NamedForkJoinPool.newNamedPool(poolName, parallelism);
+  }
+
+  /**
+   * Creates a fixed-size {@link ThreadPoolExecutor} backed by a {@link PriorityBlockingQueue}.
+   *
+   * <p>The returned executor only accepts {@link Comparable} {@link Runnable}s (such as {@link
+   * QuiescingTask}) submitted via {@link ExecutorService#execute(Runnable)}. Calling {@code
+   * submit()} wraps tasks in a non-{@link Comparable} {@link java.util.concurrent.FutureTask} and
+   * will fail with {@link ClassCastException}.
+   */
+  public static ExecutorService createPriorityExecutorService(int parallelism, String poolName) {
+    return createExecutorService(
+        parallelism,
+        /* keepAliveTime= */ 1L,
+        /* units= */ TimeUnit.SECONDS,
+        /* workQueue= */ new PriorityBlockingQueue<>(),
+        poolName);
   }
 
   public static AbstractQueueVisitor createWithExecutorService(
@@ -258,7 +283,26 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     this.exceptionHandlingMode = exceptionHandlingMode;
     this.executorOwnership = executorOwnership;
     this.executorService = Preconditions.checkNotNull(executorService);
+    this.ordersTasksByPriority = ordersTasksByPriority(this.executorService);
     this.errorClassifier = Preconditions.checkNotNull(errorClassifier);
+  }
+
+  /**
+   * Returns whether this visitor's primary executor dequeues submitted {@link QuiescingTask}s in
+   * priority order via {@link QuiescingTask#compareTo}.
+   */
+  public final boolean ordersTasksByPriority() {
+    return ordersTasksByPriority;
+  }
+
+  /**
+   * Returns whether {@code executorService} is a {@link ThreadPoolExecutor} backed by a {@link
+   * PriorityBlockingQueue}, meaning submitted {@link QuiescingTask}s are dequeued according to
+   * {@link QuiescingTask#compareTo}.
+   */
+  static boolean ordersTasksByPriority(ExecutorService executorService) {
+    return executorService instanceof ThreadPoolExecutor threadPoolExecutor
+        && threadPoolExecutor.getQueue() instanceof PriorityBlockingQueue;
   }
 
   @Override
@@ -352,6 +396,14 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     private RunnableQuiescingTask(AbstractQueueVisitor visitor, Runnable runnable) {
       super(visitor);
       this.runnable = Preconditions.checkNotNull(runnable);
+    }
+
+    @Override
+    public PriorityTier priorityTier() {
+      // Raw Runnables submitted to a priority visitor (e.g. helper tasks spawned mid-evaluation)
+      // carry no graph depth and assist already-running work, so run them in IN_PROGRESS (highest
+      // priority).
+      return PriorityTier.IN_PROGRESS;
     }
 
     @Override

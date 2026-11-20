@@ -24,6 +24,9 @@ import javax.annotation.Nullable;
 /**
  * An {@link ActionExecutionException} thrown when an action fails to execute because one or more of
  * its inputs was lost. In some cases, Bazel may know how to fix this on its own.
+ *
+ * <p>The lost inputs may include outputs of the action itself that it read or downloaded after
+ * creating them.
  */
 public final class LostInputsActionExecutionException extends ActionExecutionException {
 

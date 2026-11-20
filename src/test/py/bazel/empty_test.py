@@ -14,14 +14,14 @@
 #
 # Empty test for platforms that don't need to run a particular test.
 
-import unittest
+from absl.testing import absltest
 
 
-class EmptyTest(unittest.TestCase):
+class EmptyTest(absltest.TestCase):
 
   def testNothing(self):
     pass
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

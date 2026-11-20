@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skyframe.serialization.testutils.AbstractObjectCodecTest;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link SingletonCodec}. */
 @RunWith(JUnit4.class)
-public class SingletonCodecTest extends AbstractObjectCodecTest<String> {
+public class SingletonCodecTest {
 
-  public SingletonCodecTest() {
-    super(SingletonCodec.of("SINGLETON", "mnemonic"), "SINGLETON");
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester("SINGLETON")
+        .addCodec(SingletonCodec.of("SINGLETON", "mnemonic"))
+        .runTests();
   }
 }

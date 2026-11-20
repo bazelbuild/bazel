@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -72,14 +74,12 @@ public final class SerializationRegistrySetupHelpers {
       ImmutableList.of("k8-opt", "k8-fastbuild", "k8-debug");
 
   public static ImmutableList<Object> makeReferenceConstants(
-      BlazeDirectories directories,
-      ConfiguredRuleClassProvider ruleClassProvider,
-      String workspaceName) {
+      BlazeDirectories directories, ConfiguredRuleClassProvider ruleClassProvider) {
     ImmutableList.Builder<Object> referenceConstants =
         ImmutableList.builder()
             .add(directories)
             .add(directories.getExecRootBase().getFileSystem())
-            .add(directories.getBuildDataDirectory(workspaceName))
+            .add(directories.getBuildDataDirectory())
             .add(ruleClassProvider.getFragmentRegistry().getAllFragments())
             // Commonly referenced if --trim_test_configuration is enabled.
             .add(
@@ -101,7 +101,7 @@ public final class SerializationRegistrySetupHelpers {
 
     for (OutputDirectory outputDirectory : OutputDirectory.values()) {
       for (String outputPath : OUTPUT_PATHS) {
-        referenceConstants.add(outputDirectory.getRoot(outputPath, directories, workspaceName));
+        referenceConstants.add(outputDirectory.getRoot(outputPath, directories));
       }
     }
     return referenceConstants.build();
@@ -165,12 +165,14 @@ public final class SerializationRegistrySetupHelpers {
             PackageGroupConfiguredTarget.class,
             RuleConfiguredTarget.class,
             FeatureConfiguration.class,
+            FilesetOutputTree.class,
             RunfilesArtifactValue.class,
             AspectValue.class,
             AliasConfiguredTarget.class,
             BuildConfigurationValue.class,
             InlineFileArtifactValue.class,
-            AspectKeyCreator.AspectKey.class);
+            AspectKeyCreator.AspectKey.class,
+            PackageGroupContents.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 

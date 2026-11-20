@@ -19,14 +19,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
@@ -62,6 +65,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -70,7 +74,6 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
-import com.google.protobuf.ByteString;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -172,7 +175,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -203,7 +206,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   @Test
   public void uploadsShouldIgnoreSpecialFiles() throws Exception {
     Path file = Mockito.spy(fs.getPath("/fifo"));
-    Mockito.doReturn(true).when(file).isSpecialFile();
+    FileStatus stat = mock(FileStatus.class);
+    when(stat.isSpecialFile()).thenReturn(true);
+    Mockito.doReturn(stat).when(file).stat();
 
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(file, new LocalFile(file, LocalFileType.LOG, /* artifactMetadata= */ null));
@@ -218,6 +223,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     String conversion = pathConverter.apply(file);
     assertThat(conversion).isEqualTo("file:///fifo");
+    assertThat(eventHandler.getEvents()).isEmpty();
 
     artifactUploader.release();
   }
@@ -234,7 +240,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -395,11 +401,16 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void directory_notUploaded() throws Exception {
+  public void directories_notUploaded() throws Exception {
     Path dir = fs.getPath("/dir");
+    Path runfilesDir = fs.getPath("/unmaterialized.runfiles");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         dir, new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null));
+    filesToUpload.put(
+        runfilesDir,
+        new LocalFile(
+            runfilesDir, LocalFileType.OUTPUT_DIRECTORY, FileArtifactValue.RUNFILES_TREE_MARKER));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
@@ -409,12 +420,15 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
+    assertThat(pathConverter.apply(runfilesDir)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
   @Test
   public void symlink_notUploaded() throws Exception {
     Path sym = fs.getPath("/sym");
+    sym.createSymbolicLink(PathFragment.create("missing-target"));
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
         sym, new LocalFile(sym, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null));
@@ -427,6 +441,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(sym)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
@@ -511,7 +526,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
       FileSystemUtils.writeContent(file, blob);
-      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file, file.stat()).getHash()), blob);
       filesToUpload.put(
           file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
     }
@@ -615,9 +630,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                 + digest.getHash()
                 + "/"
                 + digest.getSizeBytes());
-    verify(combinedCache, times(0)).uploadFile(any(), any(), any());
-    verify(combinedCache, times(0)).uploadBlob(any(), any(), any(ByteString.class));
-    verify(combinedCache, times(0)).uploadBlob(any(), any(), any(Blob.class));
+    verify(combinedCache, never()).uploadFile(any(), any(), any());
+    verify(combinedCache, never()).uploadBlob(any(), any(), any(Blob.class), any(Boolean.class));
   }
 
   @Test
@@ -628,10 +642,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // arrange
     Path remoteFile = fs.getPath("/remote-file");
     FileSystemUtils.writeContent(remoteFile, StandardCharsets.UTF_8, "hello world");
-    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile);
+    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile, remoteFile.stat());
     Path localFile = fs.getPath("/local-file");
     FileSystemUtils.writeContent(localFile, StandardCharsets.UTF_8, "foo bar");
-    Digest localDigest = DIGEST_UTIL.compute(localFile);
+    Digest localDigest = DIGEST_UTIL.compute(localFile, localFile.stat());
 
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
@@ -776,6 +790,71 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
+  public void isBuildOrTestLog_testLogsAndActionOutErr() {
+    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log")).isTrue();
+    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.xml")).isTrue();
+    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/stdout-12")).isTrue();
+    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/stderr-12")).isTrue();
+  }
+
+  @Test
+  public void isBuildOrTestLog_otherFiles() {
+    // A source file, and an output that is neither kind of log.
+    assertThat(isBuildOrTestLog("pkg/a.cc")).isFalse();
+    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/bin/pkg/liba.a")).isFalse();
+    // The parts of a log's path are there, but not where a log has them.
+    assertThat(isBuildOrTestLog("testlogs/a.log")).isFalse();
+    assertThat(isBuildOrTestLog("bazel-out/testlogs/a.log")).isFalse();
+    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/bin/testlogs/a.log")).isFalse();
+    assertThat(isBuildOrTestLog("pkg/bazel-out/k8-fastbuild/testlogs/a.log")).isFalse();
+    assertThat(isBuildOrTestLog("pkg/bazel-out/_tmp/actions/stdout-12")).isFalse();
+    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/stdin-12")).isFalse();
+    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/std")).isFalse();
+  }
+
+  private static boolean isBuildOrTestLog(String execPath) {
+    return ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(PathFragment.create(execPath));
+  }
+
+  @Test
+  public void minimalMode_onlyLogsUnderExecRootUploaded() throws Exception {
+    Path testLog = execRoot.getRelative("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log");
+    Path stderr = execRoot.getRelative("bazel-out/_tmp/actions/stderr-12");
+    Path output = execRoot.getRelative("bazel-out/k8-fastbuild/bin/pkg/liba.a");
+    // Has the path of a test log, but below a directory that is not the exec root.
+    Path lookalike = fs.getPath("/workspace/bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log");
+    ImmutableList<Path> files = ImmutableList.of(testLog, stderr, output, lookalike);
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    for (Path file : files) {
+      file.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, file.getPathString());
+      filesToUpload.put(
+          file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
+    }
+    StaticMissingDigestsFinder digestQuerier = new StaticMissingDigestsFinder(ImmutableSet.of());
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.MINIMAL);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+
+    for (Path file : files) {
+      assertThat(pathConverter.apply(file)).startsWith("bytestream://");
+    }
+    verify(combinedCache).uploadFile(any(), any(), eq(testLog));
+    verify(combinedCache).uploadFile(any(), any(), eq(stderr));
+    verify(combinedCache, never()).uploadFile(any(), any(), eq(output));
+    verify(combinedCache, never()).uploadFile(any(), any(), eq(lookalike));
+  }
+
+  @Test
   public void fileWithDirectoryMetadata_notUploaded() throws Exception {
     Path dir = fs.getPath("/dir");
     FileArtifactValue metadata = FileArtifactValue.createForDirectoryWithMtime(0);
@@ -863,6 +942,40 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ChunkLocationMap());
   }
 
+  @Test
+  public void noFiles_convertsNothingWithoutSchedulingAnUpload() throws Exception {
+    // Most build events reference no files, and the uploader is asked about every one of them.
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        new ByteStreamBuildEventArtifactUploader(
+            command -> {
+              throw new AssertionError("there is nothing to upload, so nothing to schedule");
+            },
+            reporter,
+            /* verboseFailures= */ true,
+            combinedCache,
+            /* remoteInstanceName= */ "",
+            /* remoteBytestreamUriPrefix= */ "localhost/instance",
+            /* buildRequestId= */ "none",
+            /* commandId= */ "none",
+            SyscallCache.NO_CACHE,
+            execRoot.asFragment(),
+            RemoteBuildEventUploadMode.ALL,
+            /* maximumOpenFiles= */ -1);
+
+    ListenableFuture<PathConverter> conversion = artifactUploader.upload(ImmutableMap.of());
+
+    assertThat(conversion.isDone()).isTrue();
+    assertThat(conversion.get()).isSameInstanceAs(PathConverter.NO_CONVERSION);
+
+    artifactUploader.release();
+    assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {
     return newArtifactUploader(
         combinedCache, RemoteBuildEventUploadMode.ALL, /* maximumOpenFiles= */ -1);
@@ -889,6 +1002,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /* buildRequestId= */ "none",
         /* commandId= */ "none",
         SyscallCache.NO_CACHE,
+        execRoot.asFragment(),
         remoteBuildEventUploadMode,
         maximumOpenFiles);
   }

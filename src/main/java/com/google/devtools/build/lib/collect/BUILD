@@ -36,11 +36,6 @@ java_library(
 )
 
 java_library(
-    name = "equivalence_relation",
-    srcs = ["EquivalenceRelation.java"],
-)
-
-java_library(
     name = "extrema",
     srcs = ["Extrema.java"],
     deps = [
@@ -86,13 +81,11 @@ java_library(
 )
 
 java_library(
-    name = "path_fragment_prefix_trie",
-    srcs = ["PathFragmentPrefixTrie.java"],
+    name = "object_to_int_map",
+    srcs = ["ObjectToIntMap.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
     ],
 )
 

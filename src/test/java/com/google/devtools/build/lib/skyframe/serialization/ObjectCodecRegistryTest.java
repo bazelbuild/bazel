@@ -90,8 +90,9 @@ public class ObjectCodecRegistryTest {
                 WireType.CodecWireType.UNSTABLE.getTypedTagNumber(barDefaultDescriptor.tag())))
         .isSameInstanceAs(barDefaultDescriptor);
 
-    assertThat(underTest.getCodecDescriptorForObject((byte) 9).codec().getClass())
-        .isSameInstanceAs(barDefaultDescriptor.codec().getClass());
+    assertThat(barDefaultDescriptor.codec()).isInstanceOf(DynamicCodec.class);
+    assertThat(underTest.getCodecDescriptorForObject((byte) 9).codec())
+        .isInstanceOf(DynamicCodec.class);
 
     // Bogus tags still throw.
     assertThrows(NoCodecException.class, () -> underTest.getCodecDescriptorByTag(42));

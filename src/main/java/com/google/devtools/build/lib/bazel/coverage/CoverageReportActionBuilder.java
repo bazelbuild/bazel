@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.bazel.coverage;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.primitives.Booleans.falseFirst;
-import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +55,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -67,7 +66,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
-import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
@@ -84,7 +82,7 @@ import javax.annotation.Nullable;
  * <p>The coverage report generation can have two phases, though they both run in the same action.
  * The source code of the coverage report tool {@code lcov_merger} is in the {@code
  * testing/coverage/lcov_merger} directory. The deployed binaries used by Blaze are under {@code
- * tools/coverage}.
+ * tools/test}.
  *
  * <p>The first phase is merging the individual coverage files into a single report file. The
  * location of this file is reported by Blaze. This phase always happens if the {@code
@@ -100,14 +98,6 @@ public final class CoverageReportActionBuilder {
 
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
-
-  private static final Comparator<ActionOwner> ACTION_OWNER_COMPARATOR =
-      Comparator.nullsFirst(
-          comparing(
-                  (ActionOwner actionOwner) -> actionOwner.getExecProperties().isEmpty(),
-                  falseFirst())
-              .thenComparing(ActionOwner::getLabel)
-              .thenComparing(ActionOwner::getConfigurationChecksum));
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -132,9 +122,8 @@ public final class CoverageReportActionBuilder {
     public ActionResult execute(ActionExecutionContext ctx)
         throws ActionExecutionException, InterruptedException {
       // The resources are fixed because this action borrows an arbitrary tested target's
-      // ActionOwner (see ACTION_OWNER_COMPARATOR): its exec properties describe that test rather
-      // than this report merge, so charging their `resources:` entries would tie the report's
-      // scheduling to whichever target happened to sort largest.
+      // ActionOwner, which describes the test resource usage rather than that of a coverage report
+      // generation.
       Spawn spawn =
           new BaseSpawn(
               command,
@@ -212,103 +201,101 @@ public final class CoverageReportActionBuilder {
       ArtifactFactory factory,
       ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
-      String workspaceName,
       CoverageHelper coverageHelper,
       Artifact htmlReport)
       throws InterruptedException {
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;
     }
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    FilesToRunProvider reportGenerator = null;
-    ActionOwner actionOwner = null;
-    for (ConfiguredTarget target : targetsToTest) {
-      // Skip incompatible tests.
-      if (target.get(IncompatiblePlatformProvider.PROVIDER) != null) {
-        continue;
+    try (var _ = NestedSetOwnerScope.enter(artifactOwner)) {
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      FilesToRunProvider reportGenerator = null;
+      ActionOwner actionOwner = null;
+      for (ConfiguredTarget target : targetsToTest) {
+        // Skip incompatible tests.
+        if (target.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+          continue;
+        }
+        TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
+        FilesToRunProvider generator = testParams.getCoverageReportGenerator();
+        if (generator == null) {
+          continue;
+        }
+        builder.addAll(testParams.getCoverageArtifacts());
+        ActionOwner candidateOwner = testParams.getActionOwnerForCoverage();
+        if (candidateOwner == null) {
+          continue;
+        }
+        // Use the first test with coverage enabled as the owner of the coverage report actions.
+        // This relies on targetsToTest having a deterministic order.
+        if (actionOwner == null) {
+          reportGenerator = generator;
+          actionOwner = candidateOwner;
+        }
       }
-      TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
-      FilesToRunProvider generator = testParams.getCoverageReportGenerator();
-      if (generator == null) {
-        continue;
+      // If all tests are incompatible, there's nothing to do.
+      if (reportGenerator == null) {
+        return null;
       }
-      builder.addAll(testParams.getCoverageArtifacts());
-      ActionOwner candidateOwner = testParams.getActionOwnerForCoverage();
-      if (candidateOwner == null) {
-        continue;
+      checkNotNull(actionOwner);
+      NestedSet<Artifact> baselineCoverageArtifacts =
+          getBaselineCoverageArtifacts(configuredTargets);
+      NestedSet<Artifact> coverageArtifacts =
+          builder.addTransitive(baselineCoverageArtifacts).build();
+      if (!coverageArtifacts.isEmpty()) {
+        Artifact baselineLcovArtifact =
+            factory.getDerivedArtifact(
+                TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
+                directories.getBuildDataDirectory(),
+                artifactOwner);
+        Action baselineLcovFileAction =
+            generateLcovFileWriteAction(
+                baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
+        Action baselineReportAction =
+            generateCoverageReportAction(
+                new CoverageArgs(
+                    directories,
+                    baselineCoverageArtifacts,
+                    baselineLcovArtifact,
+                    factory,
+                    artifactOwner,
+                    reportGenerator,
+                    /* htmlReport= */ null,
+                    actionOwner),
+                coverageHelper,
+                configuredTargets,
+                "_baseline_report.dat");
+        Artifact coverageLcovArtifact =
+            factory.getDerivedArtifact(
+                TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
+                directories.getBuildDataDirectory(),
+                artifactOwner);
+        Action coverageLcovFileAction =
+            generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
+        Action coverageReportAction =
+            generateCoverageReportAction(
+                new CoverageArgs(
+                    directories,
+                    coverageArtifacts,
+                    coverageLcovArtifact,
+                    factory,
+                    artifactOwner,
+                    reportGenerator,
+                    htmlReport,
+                    actionOwner),
+                coverageHelper,
+                configuredTargets,
+                "_coverage_report.dat");
+        return new CoverageReportActionsWrapper(
+            baselineReportAction,
+            coverageReportAction,
+            ImmutableList.of(baselineLcovFileAction, coverageLcovFileAction),
+            actionKeyContext);
+      } else {
+        reporter.handle(
+            Event.error("Cannot generate coverage report - no coverage information was collected"));
+        return null;
       }
-      // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
-      // and matching report generator each time by picking the owner that's lexicographically
-      // largest. We prefer an owner with exec properties set in case the action is run remotely.
-      if (reportGenerator == null
-          || actionOwner == null
-          || ACTION_OWNER_COMPARATOR.compare(candidateOwner, actionOwner) > 0) {
-        reportGenerator = generator;
-        actionOwner = candidateOwner;
-      }
-    }
-    // If all tests are incompatible, there's nothing to do.
-    if (reportGenerator == null) {
-      return null;
-    }
-    checkNotNull(actionOwner);
-    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    NestedSet<Artifact> coverageArtifacts =
-        builder.addTransitive(baselineCoverageArtifacts).build();
-    if (!coverageArtifacts.isEmpty()) {
-      Artifact baselineLcovArtifact =
-          factory.getDerivedArtifact(
-              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("baseline_lcov_files.tmp"),
-              directories.getBuildDataDirectory(workspaceName),
-              artifactOwner);
-      Action baselineLcovFileAction =
-          generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
-      Action baselineReportAction =
-          generateCoverageReportAction(
-              new CoverageArgs(
-                  directories,
-                  baselineCoverageArtifacts,
-                  baselineLcovArtifact,
-                  factory,
-                  artifactOwner,
-                  reportGenerator,
-                  workspaceName,
-                  /* htmlReport= */ null,
-                  actionOwner),
-              coverageHelper,
-              configuredTargets,
-              "_baseline_report.dat");
-      Artifact coverageLcovArtifact =
-          factory.getDerivedArtifact(
-              TestRunnerAction.COVERAGE_TMP_ROOT.getRelative("coverage_lcov_files.tmp"),
-              directories.getBuildDataDirectory(workspaceName),
-              artifactOwner);
-      Action coverageLcovFileAction =
-          generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
-      Action coverageReportAction =
-          generateCoverageReportAction(
-              new CoverageArgs(
-                  directories,
-                  coverageArtifacts,
-                  coverageLcovArtifact,
-                  factory,
-                  artifactOwner,
-                  reportGenerator,
-                  workspaceName,
-                  htmlReport,
-                  actionOwner),
-              coverageHelper,
-              configuredTargets,
-              "_coverage_report.dat");
-      return new CoverageReportActionsWrapper(
-          baselineReportAction,
-          coverageReportAction,
-          ImmutableList.of(baselineLcovFileAction, coverageLcovFileAction),
-          actionKeyContext);
-    } else {
-      reporter.handle(
-          Event.error("Cannot generate coverage report - no coverage information was collected"));
-      return null;
     }
   }
 
@@ -354,7 +341,7 @@ public final class CoverageReportActionBuilder {
       CoverageHelper coverageHelper,
       Collection<ConfiguredTarget> configuredTargets,
       String basename) {
-    ArtifactRoot root = args.directories().getBuildDataDirectory(args.workspaceName());
+    ArtifactRoot root = args.directories().getBuildDataDirectory();
     Artifact lcovOutput =
         args.factory()
             .getDerivedArtifact(

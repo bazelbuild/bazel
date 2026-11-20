@@ -56,7 +56,7 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
-#include "src/main/cpp/util/strings.h"
+#include "absl/strings/match.h"
 
 namespace blaze {
 
@@ -122,11 +122,20 @@ string GetSelfPath(const char* argv0) {
   }
   procstat_close(procstat);
   return string(buffer);
+#elif defined(__OpenBSD__) && OpenBSD >= 202610
+  // OpenBSD 8.0+
+  char buffer[PATH_MAX] = {};
+  if (getexecpath(buffer, sizeof(buffer)) != 0) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "getexecpath failed: " << GetLastErrorString();
+  }
+  return string(buffer);
 #elif defined(__OpenBSD__)
-  // OpenBSD does not provide a way for a running process to find a path to its
-  // own executable, so we try to figure out a path by inspecting argv[0]. In
-  // theory this is inadequate, since the parent process can set argv[0] to
-  // anything, but in practice this is good enough.
+  // Before getexecpath(3) was added in OpenBSD 8.0, there was no way for a
+  // running process to find a path to its own executable, so we try to figure
+  // out a path by inspecting argv[0]. In theory this is inadequate, since the
+  // parent process can set argv[0] to anything, but in practice this is good
+  // enough.
 
   const std::string argv0str(argv0);
 
@@ -206,7 +215,7 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 }
 
 bool IsSharedLibrary(const string &filename) {
-  return blaze_util::ends_with(filename, ".so");
+  return absl::EndsWith(filename, ".so");
 }
 
 string GetSystemJavabase() {

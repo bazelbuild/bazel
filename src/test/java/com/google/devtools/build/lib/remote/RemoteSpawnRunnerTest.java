@@ -103,7 +103,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -824,6 +823,43 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
+  public void testHumanReadableServerLogsSavedForFailingNoCacheAction() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    RemoteExecutionService service = runner.getRemoteExecutionService();
+    Digest logDigest = digestUtil.computeAsUtf8("bla");
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .putServerLogs(
+                "logname", LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
+            .setResult(ActionResult.newBuilder().setExitCode(31).build())
+            .build();
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenReturn(resp);
+    SettableFuture<Void> completed = SettableFuture.create();
+    completed.set(null);
+    when(cache.downloadFile(
+            any(RemoteActionExecutionContext.class), any(Path.class), eq(logDigest)))
+        .thenReturn(completed);
+
+    Spawn spawn = simpleSpawnWithExecutionInfo(NO_CACHE);
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
+
+    verify(service).maybeDownloadServerLogs(any(), eq(resp), eq(logDir));
+    ArgumentCaptor<RemoteActionExecutionContext> contextCaptor =
+        ArgumentCaptor.forClass(RemoteActionExecutionContext.class);
+    verify(cache).downloadFile(contextCaptor.capture(), any(Path.class), eq(logDigest));
+    // The spawn doesn't accept cached results, but its server logs must still be read from the
+    // remote cache.
+    assertThat(contextCaptor.getValue().getReadCachePolicy().allowRemoteCache()).isTrue();
+  }
+
+  @Test
   public void testHumanReadableServerLogsSavedForFailingActionWithStatus() throws Exception {
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
@@ -1432,7 +1468,6 @@ public class RemoteSpawnRunnerTest {
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
             "command-id",
-            TestConstants.WORKSPACE_NAME,
             digestUtil,
             remoteOptions,
             executionOptions,
@@ -1966,7 +2001,6 @@ public class RemoteSpawnRunnerTest {
                 remotePathResolver,
                 "build-req-id",
                 "command-id",
-                TestConstants.WORKSPACE_NAME,
                 digestUtil,
                 remoteOptions,
                 Options.getDefaults(ExecutionOptions.class),

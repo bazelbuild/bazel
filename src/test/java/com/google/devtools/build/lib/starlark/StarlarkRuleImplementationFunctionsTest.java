@@ -33,13 +33,14 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -366,6 +367,106 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testCreateSpawnActionWithStdout() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img", "stdout.txt");
+    Artifact stdoutOutput = action.getStdoutOutput();
+    assertThat(stdoutOutput).isNotNull();
+    assertThat(stdoutOutput.getFilename()).isEqualTo("stdout.txt");
+
+    Spawn spawn = action.getSpawnForTesting();
+    assertThat(spawn.getOutputFiles()).contains(stdoutOutput);
+    assertThat(spawn.getStdout()).isEqualTo(stdoutOutput);
+  }
+
+  @Test
+  public void testCreateSpawnActionWithStdoutOnlyOutput() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    // An empty 'outputs' is allowed as long as 'stdout' provides an output.
+    ev.exec(
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertArtifactFilenames(action.getOutputs(), "stdout.txt");
+    assertThat(action.getStdoutOutput()).isEqualTo(action.getPrimaryOutput());
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutAlsoInOutputsFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "may not also be listed in 'outputs'",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [out],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = out)");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWrongType() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' got value of type 'string', want 'File or NoneType'",
+        "ruleContext.actions.run(",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  stdout = 'not_a_file')");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWithWorkerFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' of actions.run is incompatible with worker execution",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  execution_requirements = {'supports-workers': '1'},",
+        "  stdout = out)");
+  }
+
+  @Test
+  public void testCreateSpawnActionStdoutWithMultiplexWorkerFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "parameter 'stdout' of actions.run is incompatible with worker execution",
+        "out = ruleContext.actions.declare_file('stdout.txt')",
+        "ruleContext.actions.run(",
+        "  outputs = [],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None,",
+        "  execution_requirements = {'supports-multiplex-workers': '1'},",
+        "  stdout = out)");
+  }
+
+  @Test
   public void createSpawnAction_progressMessageWithSubstitutions() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
@@ -627,6 +728,18 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo("foo/a.txt");
     assertThat(action.getFileContents()).isEqualTo("hello world");
     assertThat(action.makeExecutable()).isFalse();
+  }
+
+  @Test
+  public void testWriteToDirectoryFails() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "for 'output', got a directory, want a regular file",
+        "directory = ruleContext.actions.declare_directory('dir')",
+        "ruleContext.actions.write(",
+        "  output = directory,",
+        "  content = 'hello world',",
+        "  is_executable = False)");
   }
 
   @Test
@@ -3026,6 +3139,96 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testArgsTarget() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'ext', version = '1.0')");
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext', version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/BUILD").getPathString(),
+        "filegroup(name = 'ext_target', visibility = ['//visibility:public'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        """
+        genrule(
+            name = 'foo',
+            cmd = 'dummy_cmd',
+            srcs = ['a.txt', ':dep', '@ext//:ext_target'],
+            tools = ['t.exe'],
+            outs = ['c.txt'],
+        )
+        filegroup(name = 'dep')
+        """);
+    invalidatePackages();
+
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        """
+        def target_name(t):
+          return t.label.name
+        actions = ruleContext.actions
+        a = []
+        [(
+            a.append(actions.args().add(src)),
+            a.append(actions.args().add('-flag', src)),
+            a.append(actions.args().add('-flag', src, format = '_%s_')),
+        ) for src in ruleContext.attr.srcs]
+        a.append(actions.args().add_all(ruleContext.attr.srcs))
+        a.append(actions.args().add_joined(ruleContext.attr.srcs, join_with = ','))
+        a.append(actions.args().add_all(depset(ruleContext.attr.srcs)))
+        a.append(actions.args().add_joined(depset(ruleContext.attr.srcs), join_with = ','))
+        a.append(actions.args().add_all(ruleContext.attr.srcs, map_each = target_name))
+        a.append(
+            actions.args().add_joined(
+                ruleContext.attr.srcs, join_with = ',', map_each = target_name
+            )
+        )
+        ruleContext.actions.run(
+          inputs = depset(ruleContext.files.srcs),
+          outputs = ruleContext.files.srcs,
+          arguments = a,
+          executable = ruleContext.files.tools[0],
+          toolchain = None
+        )
+        """);
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "//foo:a.txt",
+            "-flag",
+            "//foo:a.txt",
+            "-flag",
+            "_//foo:a.txt_",
+            "//foo:dep",
+            "-flag",
+            "//foo:dep",
+            "-flag",
+            "_//foo:dep_",
+            "@ext//:ext_target",
+            "-flag",
+            "@ext//:ext_target",
+            "-flag",
+            "_@ext//:ext_target_",
+            "//foo:a.txt",
+            "//foo:dep",
+            "@ext//:ext_target",
+            "//foo:a.txt,//foo:dep,@ext//:ext_target",
+            "//foo:a.txt",
+            "//foo:dep",
+            "@ext//:ext_target",
+            "//foo:a.txt,//foo:dep,@ext//:ext_target",
+            "a.txt",
+            "dep",
+            "ext_target",
+            "a.txt,dep,ext_target")
+        .inOrder();
+  }
+
+  @Test
   public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -3832,6 +4035,60 @@ args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:
   }
 
   @Test
+  public void starlarkCustomCommandLineKeyComputation_target_repoMappingChanges() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'ext', version = '1.0')");
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext', version='1.0')");
+    scratch.file(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("ext+1.0/BUILD").getPathString(),
+        "filegroup(name = 'ext_target', visibility = ['//visibility:public'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        """
+        genrule(
+            name = 'foo',
+            cmd = 'dummy_cmd',
+            srcs = ['a.txt', ':dep', '@ext//:ext_target'],
+            tools = ['t.exe'],
+            outs = ['c.txt'],
+        )
+        filegroup(name = 'dep')
+        """);
+    invalidatePackages();
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    var mainRepoMapping1 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent1", RepositoryName.createUnvalidated("ext+")),
+            RepositoryName.MAIN);
+    var mainRepoMapping2 =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent2", RepositoryName.createUnvalidated("ext+")),
+            RepositoryName.MAIN);
+
+    for (String argsCode :
+        ImmutableList.of(
+            """
+            args = ruleContext.actions.args()
+            args.add(ruleContext.attr.srcs[2])
+            """,
+            """
+            args = ruleContext.actions.args()
+            args.add_all(ruleContext.attr.srcs)
+            """,
+            """
+            args = ruleContext.actions.args()
+            args.add_all(depset(ruleContext.attr.srcs))
+            """)) {
+      var commandLine1 = getCommandLine(mainRepoMapping1, argsCode);
+      var commandLine2 = getCommandLine(mainRepoMapping2, argsCode);
+      assertThat(ImmutableList.copyOf(commandLine1.arguments()))
+          .isNotEqualTo(ImmutableList.copyOf(commandLine2.arguments()));
+      assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    }
+  }
+
+  @Test
   public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAdd() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
@@ -4060,7 +4317,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     when(result.getTreeMetadata(any()))
         .thenAnswer(
             invocation -> {
-              SpecialArtifact arg = invocation.getArgument(0);
+              TreeArtifact arg = invocation.getArgument(0);
               if (!arg.getRootRelativePathString().equals(dirRelativePath)) {
                 throw new IllegalStateException();
               }

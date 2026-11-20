@@ -37,6 +37,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
@@ -58,11 +59,14 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -195,12 +199,17 @@ public class UploadManifest {
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
-    if (outErr.getErrorPath().exists()) {
-      stderrDigest = digestUtil.compute(outErr.getErrorPath());
+    // These are per-action temporary files, so caching their digests would only evict entries
+    // that can still be reused.
+    var errorStat = outErr.getErrorPath().statIfFound();
+    if (errorStat != null) {
+      stderrDigest = DigestUtil.buildDigest(outErr.getErrorPath().getDigest(), errorStat.getSize());
       digestToFile.put(stderrDigest, outErr.getErrorPath());
     }
-    if (outErr.getOutputPath().exists()) {
-      stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+    var outputStat = outErr.getOutputPath().statIfFound();
+    if (outputStat != null) {
+      stdoutDigest =
+          DigestUtil.buildDigest(outErr.getOutputPath().getDigest(), outputStat.getSize());
       digestToFile.put(stdoutDigest, outErr.getOutputPath());
     }
   }
@@ -313,6 +322,11 @@ public class UploadManifest {
     return digestToFile;
   }
 
+  /** Returns a directory tree already serialized for this upload. */
+  Tree getDirectoryTree(Digest digest) throws IOException {
+    return Tree.parseFrom(checkNotNull(digestToBlobs.get(digest)));
+  }
+
   @Nullable
   public Digest getStdoutDigest() {
     return stdoutDigest;
@@ -388,15 +402,22 @@ public class UploadManifest {
         Multimaps.synchronizedSortedSetMultimap(TreeMultimap.create());
 
     // Maps each directory found during the traversal to its files.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, FileNode> dirToFiles =
         Multimaps.synchronizedSortedSetMultimap(
-            TreeMultimap.<Path, FileNode>create(naturalOrder(), comparing(FileNode::getName)));
+            TreeMultimap.<Path, FileNode>create(
+                naturalOrder(),
+                comparing(FileNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     // Maps each directory found during the traversal to its symlinks.
+    // The values in this map are protos and thus retain Strings that do not use Bazel's internal
+    // encoding for Strings (see StringEncoding).
     private final SortedSetMultimap<Path, SymlinkNode> dirToSymlinks =
         Multimaps.synchronizedSortedSetMultimap(
             TreeMultimap.<Path, SymlinkNode>create(
-                naturalOrder(), comparing(SymlinkNode::getName)));
+                naturalOrder(),
+                comparing(SymlinkNode::getName, comparing(StringEncoding::unicodeToInternal))));
 
     DirectoryBuilder(Path rootDir) {
       super(
@@ -465,6 +486,15 @@ public class UploadManifest {
       return out.toByteString();
     }
 
+    // REAPI strings cannot represent arbitrary POSIX bytes. A replacement character would
+    // change a symlink target or collapse distinct directory entries into one name.
+    private static void checkPathEncoding(String path) throws IOException {
+      if (!Utf8.isWellFormed(StringUnsafe.getInternalStringBytes(path))) {
+        throw new IOException(
+            "Remote cache directory entries and symlink targets must be valid UTF-8");
+      }
+    }
+
     private void visit(Path path, Dirent.Type type) {
       try {
         if (type == Dirent.Type.FILE) {
@@ -474,6 +504,7 @@ public class UploadManifest {
         if (type == Dirent.Type.DIRECTORY) {
           visitAsDirectory(path);
           for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+            checkPathEncoding(dirent.getName());
             Path childPath = path.getChild(dirent.getName());
             Dirent.Type childType = dirent.getType();
             execute(() -> visit(childPath, childType));
@@ -490,6 +521,7 @@ public class UploadManifest {
           }
           if (statFollow == null || !target.isAbsolute()) {
             // Symlink uploaded as a symlink.
+            checkPathEncoding(target.getPathString());
             if (target.isAbsolute()) {
               checkAbsoluteSymlinkAllowed(path, target);
             }
@@ -523,8 +555,9 @@ public class UploadManifest {
 
     private void visitAsFile(Path path) throws IOException {
       Path parentPath = path.getParentDirectory();
-      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-      Digest digest = digestUtil.compute(path);
+      // When called, the file is known to exist and is not a symlink.
+      FileStatus stat = path.stat();
+      Digest digest = digestUtil.compute(path, stat);
       FileNode node =
           FileNode.newBuilder()
               .setName(internalToUnicode(path.getBaseName()))
@@ -691,7 +724,7 @@ public class UploadManifest {
           new IOException("Upload requested for unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, blob::newInput, force);
+    return combinedCache.uploadBlob(context, digest, (Blob) blob::newInput, force);
   }
 
   @CanIgnoreReturnValue

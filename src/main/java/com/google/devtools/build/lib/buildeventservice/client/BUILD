@@ -51,10 +51,6 @@ java_library(
 java_library(
     name = "build_event_service_grpc_client",
     srcs = ["BuildEventServiceGrpcClient.java"],
-    runtime_deps = [
-        # This is required for client TLS.
-        "//third_party/java/netty_tcnative",
-    ],
     deps = [
         ":build_event_service_client",
         ":build_event_service_proto_util",

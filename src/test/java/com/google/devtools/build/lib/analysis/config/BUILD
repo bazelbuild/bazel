@@ -60,6 +60,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:compilation_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -95,10 +96,12 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/protobuf:protobuf_lite",
@@ -150,6 +153,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

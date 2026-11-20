@@ -8,10 +8,10 @@ package(default_visibility = ["//visibility:private"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//scripts/aquery_differ:srcs",
         "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/remote:srcs",
         "//src/test/shell/bazel/testdata:srcs",
-        "//tools/aquery_differ:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )
@@ -141,7 +141,6 @@ sh_test(
         "@rules_java//toolchains:" + runtime,
     ],
 ) for (jdk, runtime) in [
-    (8, "jdk_8"),
     (11, "remote_jdk11"),
     (17, "remotejdk_17"),
     (21, "remotejdk_21"),
@@ -1021,23 +1020,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-# To run this test, ensure that maven_dependency_plugin() and
-# android_repositories() in WORKSPACE are uncommented.
-sh_test(
-    name = "maven_starlark_test",
-    size = "medium",
-    srcs = ["maven_starlark_test.sh"],
-    data = [
-        ":test-deps",
-        "//external:android_sdk_for_testing",
-        "@m2//:files",
-    ],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-)
-
 sh_test(
     name = "python_version_test",
     size = "medium",
@@ -1066,18 +1048,6 @@ sh_test(
     tags = [
         "no_windows",
     ],
-)
-
-sh_test(
-    name = "cc_import_starlark_test",
-    size = "medium",
-    srcs = ["cc_import_starlark_test.sh"],
-    data = [
-        ":test-deps",
-        "//tools/build_defs/cc:cc_import.bzl",
-        "//tools/build_defs/cc/tests:cc_import_tests_files",
-    ],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -1402,6 +1372,18 @@ sh_test(
         ":test-deps",
     ],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "combine_distfiles_to_tar_test",
+    size = "small",
+    srcs = ["combine_distfiles_to_tar_test.sh"],
+    data = [
+        "//:srcs",
+        "//src/test/shell:bashunit",
+    ],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(

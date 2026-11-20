@@ -74,18 +74,16 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.ForOverride;
-import com.google.errorprone.annotations.FormatMethod;
-import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -106,15 +104,44 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private final NestedSet<Artifact> tools;
   private final CommandLines commandLines;
-  private final ActionEnvironment env;
-
   private final CharSequence progressMessage;
-  private final String mnemonic;
+  protected final SpawnAttributes attributes;
 
-  private final ResourceSetOrBuilder resourceSetOrBuilder;
-  @VisibleForSerialization // protected access required due to b/32473060
-  protected final ImmutableSortedMap<String, String> sortedExecutionInfo;
-  private final OutputPathsMode outputPathsMode;
+  /**
+   * Shared, interned attributes for a {@link SpawnAction}.
+   *
+   * <p>Across a build, millions of actions share a relatively small number of unique combinations
+   * of these fields. Grouping and interning them saves memory compared to storing them as
+   * individual fields.
+   *
+   * <p>Because instances are interned and serialized, every component must have value-based {@code
+   * equals}/{@code hashCode} and must either be interned on deserialization or use {@code
+   * MemoizationEquality.BY_VALUE}. In particular, {@code resourceSetOrBuilder} must not be a lambda
+   * or a class with identity equality.
+   */
+  @AutoCodec
+  @VisibleForSerialization
+  public record SpawnAttributes(
+      ResourceSetOrBuilder resourceSetOrBuilder,
+      ActionEnvironment env,
+      ImmutableSortedMap<String, String> executionInfo,
+      String mnemonic) {
+    private static final Interner<SpawnAttributes> interner = BlazeInterners.newWeakInterner();
+
+    @AutoCodec.Instantiator
+    static SpawnAttributes create(
+        ResourceSetOrBuilder resourceSetOrBuilder,
+        ActionEnvironment env,
+        ImmutableSortedMap<String, String> executionInfo,
+        String mnemonic) {
+      return interner.intern(
+          new SpawnAttributes(
+              resourceSetOrBuilder,
+              env,
+              executionInfo.isEmpty() ? executionInfo : executionInfoInterner.intern(executionInfo),
+              mnemonic));
+    }
+  }
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -145,20 +172,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      String mnemonic) {
     super(owner, inputs, /* outputs= */ outputs);
     this.tools = tools;
-    this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.sortedExecutionInfo =
-        executionInfo.isEmpty()
-            ? ImmutableSortedMap.of()
-            : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
     this.commandLines = commandLines;
-    this.env = env;
     this.progressMessage = progressMessage;
-    this.mnemonic = mnemonic;
-    this.outputPathsMode = outputPathsMode;
+    this.attributes =
+        SpawnAttributes.create(
+            resourceSetOrBuilder, env, ImmutableSortedMap.copyOf(executionInfo), mnemonic);
   }
 
   /** Constructor for serialization. */
@@ -168,25 +189,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Object rawOutputs,
-      ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      ActionEnvironment env,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      SpawnAttributes attributes) {
     super(owner, inputs, /* rawOutputs= */ rawOutputs);
     this.tools = tools;
-    this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.sortedExecutionInfo =
-        sortedExecutionInfo.isEmpty()
-            ? ImmutableSortedMap.of()
-            : executionInfoInterner.intern(sortedExecutionInfo);
     this.commandLines = commandLines;
-    this.env = env;
     this.progressMessage = progressMessage;
-    this.mnemonic = mnemonic;
-    this.outputPathsMode = outputPathsMode;
+    this.attributes = attributes;
   }
 
   @Override
@@ -196,7 +206,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   public final ActionEnvironment getEnvironment() {
-    return env;
+    return attributes.env;
   }
 
   @VisibleForTesting
@@ -209,7 +219,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return commandLines.allArguments(
         PathMappers.create(
             this,
-            outputPathsMode,
+            getOutputPathsMode(),
             this instanceof StarlarkAction,
             /* inputMetadataProvider= */ null));
   }
@@ -310,7 +320,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @VisibleForTesting
   public ResourceSetOrBuilder getResourceSetOrBuilder() {
-    return resourceSetOrBuilder;
+    return attributes.resourceSetOrBuilder;
   }
 
   /**
@@ -368,7 +378,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     PathMapper pathMapper =
         PathMappers.create(
             this,
-            outputPathsMode,
+            getOutputPathsMode(),
             this instanceof StarlarkAction,
             actionExecutionContext.getInputMetadataProvider());
     ExpandedCommandLines expandedCommandLines =
@@ -393,6 +403,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return getOwner().getBuildConfigurationInfo().getCommandLineLimits();
   }
 
+  @ForOverride
+  protected OutputPathsMode getOutputPathsMode() {
+    return getOwner().getBuildConfigurationInfo().getOutputPathsMode();
+  }
+
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
@@ -400,13 +415,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
+    OutputPathsMode outputPathsMode = getOutputPathsMode();
     commandLines.addToFingerprint(
         actionKeyContext,
         inputMetadataProvider,
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo()),
         fp);
-    fp.addString(mnemonic);
-    env.addTo(fp);
+    fp.addString(attributes.mnemonic);
+    attributes.env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(
         getMnemonic(),
@@ -415,6 +431,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         actionKeyContext,
         outputPathsMode,
         fp);
+    Artifact stdoutOutput = getStdoutOutput();
+    if (stdoutOutput != null) {
+      fp.addString("stdout:");
+      fp.addPath(stdoutOutput.getExecPath());
+    }
   }
 
   @Override
@@ -422,7 +443,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    for (Map.Entry<String, String> entry : env.getFixedEnv().entrySet()) {
+    for (Map.Entry<String, String> entry : attributes.env.getFixedEnv().entrySet()) {
       message.append("  Environment variable: ");
       message.append(ShellEscaper.escapeString(entry.getKey()));
       message.append('=');
@@ -454,14 +475,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       message.append('\n');
     }
     message.append("  Output paths mode: ");
-    message.append(outputPathsMode);
+    message.append(getOutputPathsMode());
     message.append('\n');
     return message.toString();
   }
 
   @Override
   public final String getMnemonic() {
-    return mnemonic;
+    return attributes.mnemonic;
   }
 
   @Override
@@ -520,7 +541,20 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), sortedExecutionInfo);
+    return mergeMaps(super.getExecutionInfo(), attributes.executionInfo);
+  }
+
+  /**
+   * Returns the output into which the spawn's standard output stream is redirected, or {@code null}
+   * if the spawn's standard output is reported as regular action output (i.e. printed to the
+   * terminal).
+   *
+   * <p>The returned artifact, when non-null, is a regular output of the action (it is included in
+   * {@link #getOutputs} and in the spawn's output files).
+   */
+  @Nullable
+  public Artifact getStdoutOutput() {
+    return null;
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
@@ -529,6 +563,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
+    @Nullable private final Artifact stdoutOutput;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -550,11 +585,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           ImmutableMap.of(),
           parent.getExecutionInfo(),
           parent,
-          parent.resourceSetOrBuilder);
+          parent.attributes.resourceSetOrBuilder);
       this.inputs = SpawnInputs.of(inputs, additionalInputs);
       this.pathMapper = pathMapper;
       this.effectiveEnvironment = parent.getEffectiveEnvironment(clientEnv, pathMapper);
       this.reportOutputs = reportOutputs;
+      this.stdoutOutput = parent.getStdoutOutput();
     }
 
     @Override
@@ -575,6 +611,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @Override
     public Collection<? extends ActionInput> getOutputFiles() {
       return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getStdout() {
+      return stdoutOutput;
     }
   }
 
@@ -599,7 +641,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       } else {
         env =
             ActionEnvironment.create(
-                configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
+                configuration.getActionEnvironment().getFixedEnv(),
+                userFilteredInheritedEnv,
+                configuration.getActionEnvironment().getUnsetEnv());
       }
       env = env.withAdditionalFixedVariables(environment);
     } else if (useDefaultShellEnvironment) {
@@ -620,7 +664,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     @Nullable private ActionEnvironment actionEnvironment = null;
-    @Nullable private OutputPathsMode outputPathsMode = null;
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
@@ -643,7 +686,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.environment = other.environment;
       this.actionEnvironment = other.actionEnvironment;
-      this.outputPathsMode = other.outputPathsMode;
       this.executionInfo = other.executionInfo;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
       this.executableArg = other.executableArg;
@@ -710,8 +752,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           checkNotNull(actionEnvironment),
           executionInfo,
           progressMessage,
-          mnemonic,
-          checkNotNull(outputPathsMode));
+          mnemonic);
     }
 
     private CommandLines buildCommandLines() {
@@ -786,8 +827,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           env,
           executionInfo,
           progressMessage,
-          mnemonic,
-          PathMappers.getOutputPathsMode(configuration));
+          mnemonic);
     }
 
     /**
@@ -893,18 +933,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setActionEnvironment(ActionEnvironment actionEnvironment) {
       this.actionEnvironment = actionEnvironment;
-      return this;
-    }
-
-    /**
-     * Sets the output paths mode, for when we want to already have it before .build() is called.
-     * This is used for Starlark action templates .buildForStarlarkActionTemplate(), where we do not
-     * have access to the configuration upon action creation time which is required to create the
-     * ActionEnvironment.
-     */
-    @CanIgnoreReturnValue
-    public Builder setOutputPathsMode(OutputPathsMode outputPathsMode) {
-      this.outputPathsMode = outputPathsMode;
       return this;
     }
 
@@ -1129,83 +1157,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @CanIgnoreReturnValue
     public Builder setProgressMessage(@CompileTimeConstant String progressMessage) {
-      this.progressMessage = progressMessage;
-      return this;
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setProgressMessage(@FormatString String progressMessage, Object subject) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject);
-            }
-          });
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject0 Passed to {@link String#format}
-     * @param subject1 Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setProgressMessage(
-        @FormatString String progressMessage, Object subject0, Object subject1) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject0, subject1);
-            }
-          });
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject0 Passed to {@link String#format}
-     * @param subject1 Passed to {@link String#format}
-     * @param subject2 Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setProgressMessage(
-        @FormatString String progressMessage, Object subject0, Object subject1, Object subject2) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject0, subject1, subject2);
-            }
-          });
-    }
-
-    /**
-     * Sets a lazily computed progress message.
-     *
-     * <p>When possible, prefer use of one of the overloads that use {@link String#format}. If you
-     * do use this overload, take care not to capture anything expensive.
-     */
-    @CanIgnoreReturnValue
-    private Builder setProgressMessage(OnDemandString progressMessage) {
       this.progressMessage = progressMessage;
       return this;
     }

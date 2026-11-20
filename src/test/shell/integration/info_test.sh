@@ -44,6 +44,13 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 #### TESTS #############################################################
 
+function tear_down() {
+  if [[ -n "${outside_dir:-}" ]]; then
+    rm -rf "${outside_dir}"
+    unset outside_dir
+  fi
+}
+
 function test_info() {
   bazel info >$TEST_log \
     || fail "${PRODUCT_NAME} info failed"
@@ -63,6 +70,13 @@ function test_server_pid() {
   bazel info server_pid >$TEST_log \
     || fail "${PRODUCT_NAME} info failed"
   expect_log '[0-9]*'
+}
+
+function test_external_directory() {
+  bazel info external_directory >$TEST_log \
+    || fail "${PRODUCT_NAME} info failed"
+  local -r output_base="$(bazel info output_base 2>/dev/null)"
+  expect_log "^${output_base}/external\$"
 }
 
 function test_used_heap_size_after_gc() {
@@ -108,6 +122,203 @@ function test_invalid_flag_error() {
     && fail "expected ${PRODUCT_NAME} to fail with an invalid registry"
   expect_not_log "crashed due to an internal error"
   expect_log "Invalid registry URL: foobarbaz"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/14001
+function test_info_outside_workspace() {
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+
+  local extra_flags=""
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    extra_flags="--downloader_config=workspace-only.cfg"
+  fi
+  (cd "${outside_dir}" && bazel info $extra_flags) &> "$TEST_log" \
+    || fail "Expected info to work outside a workspace"
+
+  # Workspace-independent keys should be present.
+  expect_log 'install_base: '
+  expect_log 'output_base: '
+  expect_log 'release: '
+  expect_log 'server_pid: [0-9]*'
+
+  # Workspace-dependent keys should NOT be present.
+  expect_not_log 'workspace:'
+  expect_not_log "${PRODUCT_NAME}-bin:"
+  expect_not_log "${PRODUCT_NAME}-genfiles:"
+  expect_not_log "${PRODUCT_NAME}-testlogs:"
+  expect_not_log 'execution_root:'
+  expect_not_log 'output_path:'
+  expect_not_log 'package_path:'
+}
+
+function test_info_install_base_outside_workspace() {
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+
+  (cd "${outside_dir}" && bazel info install_base) > "$TEST_log" \
+    || fail "Expected info install_base to work outside a workspace"
+
+  local install_base
+  install_base="$(cat "$TEST_log")"
+  [[ -d "${install_base}" ]] || fail "install_base '${install_base}' is not a directory"
+}
+
+function test_info_workspace_key_outside_workspace() {
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+
+  (cd "${outside_dir}" && bazel info workspace) &> "$TEST_log" \
+    && fail "Expected bazel info workspace outside a workspace to fail"
+  assert_equals 2 "$?"
+  expect_log "ERROR: key(s) only supported from within a workspace (below a directory having a MODULE\.bazel file): 'workspace'"
+}
+
+function test_info_product_bin_outside_workspace() {
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+
+  (cd "${outside_dir}" && bazel info "${PRODUCT_NAME}-bin") &> "$TEST_log" \
+    && fail "Expected bazel info ${PRODUCT_NAME}-bin outside a workspace to fail"
+  assert_equals 2 "$?"
+  expect_log "ERROR: key(s) only supported from within a workspace (below a directory having a MODULE\.bazel file): '${PRODUCT_NAME}-bin'"
+}
+
+function test_info_mixed_keys_outside_workspace() {
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+
+  (cd "${outside_dir}" && bazel info release "${PRODUCT_NAME}-bin" package_path) &> "$TEST_log" \
+    && fail "Expected bazel info with workspace keys outside a workspace to fail"
+  assert_equals 2 "$?"
+  expect_log "release: "
+  expect_log "ERROR: key(s) only supported from within a workspace (below a directory having a MODULE\.bazel file): '${PRODUCT_NAME}-bin', 'package_path'"
+}
+
+function test_info_show_make_env_outside_workspace() {
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+
+  (cd "${outside_dir}" && bazel info --show_make_env) &> "$TEST_log" \
+    && fail "Expected bazel info --show_make_env outside a workspace to fail"
+  assert_equals 2 "$?"
+  expect_log "ERROR: option '--show_make_env' is only supported from within a workspace (below a directory having a MODULE\.bazel file)"
+}
+
+function write_string_flag_bzl() {
+  cat > "$1" <<'EOF'
+string_flag = rule(
+    implementation = lambda ctx: [],
+    build_setting = config.string(flag = True),
+)
+EOF
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/25145
+function test_label_flags_use_main_repo_mapping() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg/dep
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<'EOF'
+module(name = "my_module")
+bazel_dep(name = "dep")
+local_path_override(module_name = "dep", path = "dep")
+my_repo = use_repo_rule("//:my_repo.bzl", "my_repo")
+my_repo(name = "my_repo")
+EOF
+  cat > $pkg/my_repo.bzl <<'EOF'
+def _my_repo_impl(rctx):
+    rctx.file("BUILD", 'platform(name = "platform", visibility = ["//visibility:public"])')
+
+my_repo = repository_rule(_my_repo_impl)
+EOF
+  cat > $pkg/BUILD <<'EOF'
+platform(name = "platform")
+EOF
+  cat > $pkg/dep/MODULE.bazel <<'EOF'
+module(name = "dep")
+EOF
+  write_string_flag_bzl $pkg/dep/flag.bzl
+  cat > $pkg/dep/BUILD <<'EOF'
+load(":flag.bzl", "string_flag")
+platform(name = "platform", visibility = ["//visibility:public"])
+string_flag(name = "flag", build_setting_default = "", visibility = ["//visibility:public"])
+EOF
+  cd $pkg
+
+  bazel info --platforms=@my_repo//:platform bazel-bin &>$TEST_log \
+    || fail "expected success with a platform in a use_repo_rule repo"
+  bazel info --platforms=@my_module//:platform bazel-bin &>$TEST_log \
+    || fail "expected success with a platform in the main repo"
+  bazel info --platforms=@dep//:platform bazel-bin &>$TEST_log \
+    || fail "expected success with a platform in a bazel_dep"
+  # Regression test for https://github.com/bazelbuild/bazel/issues/29384
+  bazel info --flag_alias=host_dep_flag=@dep//:flag bazel-bin &>$TEST_log \
+    || fail "expected success with a flag alias for a flag in a bazel_dep"
+}
+
+function test_module_flag_alias_of_native_flag() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<'EOF'
+flag_alias(name = "compilation_mode", starlark_flag = "//:compilation_mode")
+EOF
+  write_string_flag_bzl $pkg/flag.bzl
+  cat > $pkg/BUILD <<'EOF'
+load(":flag.bzl", "string_flag")
+string_flag(name = "compilation_mode", build_setting_default = "")
+EOF
+  cd $pkg
+
+  bazel info --compilation_mode=opt bazel-bin &>$TEST_log \
+    || fail "${PRODUCT_NAME} info failed"
+  # The alias sets the Starlark flag, so the native flag keeps its default.
+  expect_log "-fastbuild/bin"
+  expect_not_log "-opt/bin"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/29176
+function test_info_keeps_analysis_cache() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  setup_module_dot_bazel "$pkg/MODULE.bazel" > /dev/null
+  cat > $pkg/BUILD <<'EOF'
+genrule(name = "gen", outs = ["out.txt"], cmd = "touch $@")
+EOF
+  cd $pkg
+  local -r disk_cache="$TEST_TMPDIR/$FUNCNAME-disk-cache"
+
+  # The second build ensures that the last one only reevaluates what info invalidated.
+  for i in 1 2; do
+    bazel build --disk_cache="$disk_cache" --build_event_json_file=bep.json //:gen &>$TEST_log \
+      || fail "${PRODUCT_NAME} build failed"
+  done
+  bazel info --disk_cache="$disk_cache" bazel-bin &>$TEST_log \
+    || fail "${PRODUCT_NAME} info failed"
+  bazel build --disk_cache="$disk_cache" --build_event_json_file=bep.json //:gen &>$TEST_log \
+    || fail "${PRODUCT_NAME} build failed"
+  grep -o '"builtValues":\[[^]]*\]' bep.json > built_values.txt || true
+  assert_not_contains '"CONFIGURED_TARGET"' built_values.txt
+}
+
+function test_keys_without_configuration_skip_module_resolution() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<'EOF'
+fail("MODULE.bazel was evaluated")
+EOF
+  cd $pkg
+
+  bazel info release output_base &>$TEST_log \
+    || fail "expected ${PRODUCT_NAME} info to succeed without module resolution"
+  bazel info bazel-bin &>$TEST_log \
+    && fail "expected module resolution to fail"
+  expect_log "MODULE.bazel was evaluated"
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME} info."

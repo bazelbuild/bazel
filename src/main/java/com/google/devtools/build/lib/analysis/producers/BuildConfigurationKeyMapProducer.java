@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -33,7 +33,7 @@ import java.util.Map;
  * <p>The output preserves the iteration order of the input.
  */
 public class BuildConfigurationKeyMapProducer
-    implements StateMachine, BuildConfigurationKeyProducer.ResultSink<String> {
+    implements StateMachine, BuildConfigurationKeyProducer.ResultSink<Integer> {
 
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink {
@@ -44,7 +44,11 @@ public class BuildConfigurationKeyMapProducer
 
     void acceptPlatformFlagsError(InvalidPlatformException error);
 
-    void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e);
+    /**
+     * Accepts an error resolving the scopes of the options' Starlark flags, or, for callers that
+     * apply a Starlark transition, an error applying it.
+     */
+    void acceptTransitionError(TransitionException e);
 
     void acceptTransitionedConfigurations(
         ImmutableMap<String, BuildConfigurationKey> transitionedOptions);
@@ -54,46 +58,63 @@ public class BuildConfigurationKeyMapProducer
   private final ResultSink sink;
   private final StateMachine runAfter;
   private final Map<String, BuildOptions> options;
+  private final boolean forBaseline;
+  private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
   private final Label label;
 
   // -------------------- Internal State --------------------
-  private final Map<String, BuildConfigurationKey> results;
+  private final BuildConfigurationKey[] results;
 
+  /**
+   * @param sourceFlagDetails see {@link BuildConfigurationKeyProducer}
+   */
   public BuildConfigurationKeyMapProducer(
-      ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options, Label label) {
+      ResultSink sink,
+      StateMachine runAfter,
+      Map<String, BuildOptions> options,
+      boolean forBaseline,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails,
+      Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.options = options;
-    this.results = Maps.newHashMapWithExpectedSize(options.size());
+    this.forBaseline = forBaseline;
+    this.sourceFlagDetails = sourceFlagDetails;
+    this.results = new BuildConfigurationKey[options.size()];
     this.label = label;
   }
 
   @Override
   public StateMachine step(Tasks tasks) {
-    options.forEach(
-        (context, buildOptions) ->
-            tasks.enqueue(
-                new BuildConfigurationKeyProducer<>(
-                    (BuildConfigurationKeyProducer.ResultSink<String>) this,
-                    StateMachine.DONE,
-                    context,
-                    buildOptions,
-                    label)));
+    int index = 0;
+    for (BuildOptions buildOptions : options.values()) {
+      tasks.enqueue(
+          new BuildConfigurationKeyProducer<>(
+              this,
+              StateMachine.DONE,
+              index++,
+              buildOptions,
+              forBaseline,
+              sourceFlagDetails,
+              label));
+    }
     return this::combineResults;
   }
 
   private StateMachine combineResults(Tasks tasks) {
-    if (this.results.size() != this.options.size()) {
-      // An error occurred while processing at least one set of options.
-      return StateMachine.DONE;
+    for (BuildConfigurationKey result : results) {
+      if (result == null) {
+        // An error occurred while processing at least one set of options.
+        return StateMachine.DONE;
+      }
     }
 
     // Ensure that the result keys are in the same order as the original.
     ImmutableMap.Builder<String, BuildConfigurationKey> output =
         ImmutableMap.builderWithExpectedSize(this.options.size());
+    int index = 0;
     for (String transitionKey : this.options.keySet()) {
-      BuildConfigurationKey resultKey = this.results.get(transitionKey);
-      output.put(transitionKey, resultKey);
+      output.put(transitionKey, results[index++]);
     }
 
     this.sink.acceptTransitionedConfigurations(output.buildOrThrow());
@@ -117,12 +138,12 @@ public class BuildConfigurationKeyMapProducer
 
   @Override
   public void acceptTransitionedConfiguration(
-      String transitionKey, BuildConfigurationKey transitionedOptionKey) {
-    this.results.put(transitionKey, transitionedOptionKey);
+      Integer index, BuildConfigurationKey transitionedOptionKey) {
+    this.results[index] = transitionedOptionKey;
   }
 
   @Override
-  public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
-    this.sink.acceptBuildOptionsScopeFunctionError(e);
+  public void acceptTransitionError(TransitionException e) {
+    this.sink.acceptTransitionError(e);
   }
 }

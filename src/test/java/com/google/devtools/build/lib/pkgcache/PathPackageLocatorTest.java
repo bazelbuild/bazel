@@ -46,7 +46,6 @@ public class PathPackageLocatorTest extends FoundationTestCase {
   private Path buildFile3B;
   private Path buildFile3CI;
   private Path rootDir1;
-  private Path rootDir1WorkspaceFile;
   private Path rootDir2;
   private Path rootDir3ParentParent;
   private Path rootDir3;
@@ -107,7 +106,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     rootDir4 = rootDir4Parent.getRelative("workspace");
     rootDir5 = scratch.resolve("/foo/bar");
 
-    rootDir1WorkspaceFile = scratch.file(rootDir1 + "/WORKSPACE");
+    scratch.file(rootDir1 + "/WORKSPACE");
     buildBazelFile1A = createBuildFile(rootDir1, "A", true);
     buildFile1B = createBuildFile(rootDir1, "B");
     createBuildFile(rootDir1, "C/I");
@@ -257,11 +256,6 @@ public class PathPackageLocatorTest extends FoundationTestCase {
                 PackageIdentifier.createInMainRepo("C/I"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile3CI);
     checkNoPackage(locatorWithSymlinks, "C/D");
-  }
-
-  @Test
-  public void testGetWorkspaceFile() throws Exception {
-    assertThat(locator.getWorkspaceFile(SyscallCache.NO_CACHE)).isEqualTo(rootDir1WorkspaceFile);
   }
 
   private void setLocator(String... roots) throws Exception {

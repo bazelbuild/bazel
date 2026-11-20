@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.io.IOException;
@@ -32,7 +32,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   static final int NEEDS_SHORT_PATH_NORMALIZATION = NEEDS_NORMALIZE + 1;
 
   private static final Splitter WINDOWS_PATH_SPLITTER =
-      Splitter.onPattern("[\\\\/]+").omitEmptyStrings();
+      Splitter.on(CharMatcher.anyOf("\\/")).omitEmptyStrings();
 
   private final ShortPathResolver shortPathResolver;
 
@@ -78,6 +78,10 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   public int needsToNormalize(String path) {
     int n = path.length();
     int normalizationLevel = NORMALIZED;
+    int driveStrLength = getDriveStrLength(path);
+    if (driveStrLength == 3 && Character.isLowerCase(path.charAt(0))) {
+      normalizationLevel = NEEDS_NORMALIZE;
+    }
     int dotCount = 0;
     char prevChar = 0;
     int segmentBeginIndex = 0; // The start index of the current path index
@@ -102,11 +106,18 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         }
         segmentBeginIndex = i + 1;
         segmentHasShortPathChar = false;
-      } else if (c == '~') {
-        // This path segment might be a Windows short path segment
-        segmentHasShortPathChar = true;
+        dotCount = 0;
+      } else {
+        if (c == '~') {
+          // This path segment might be a Windows short path segment
+          segmentHasShortPathChar = true;
+        }
+        if (c == '.' && dotCount >= 0) {
+          dotCount++;
+        } else {
+          dotCount = -1;
+        }
       }
-      dotCount = c == '.' ? dotCount + 1 : 0;
       prevChar = c;
     }
     if (segmentHasShortPathChar) {
@@ -114,7 +125,11 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         normalizationLevel = Math.max(normalizationLevel, NEEDS_SHORT_PATH_NORMALIZATION);
       }
     }
-    if ((n > 1 && isSeparator(prevChar)) || dotCount == 1 || dotCount == 2) {
+    boolean isUnnormalizedTrailingSlash =
+        isSeparator(prevChar)
+            && (n > driveStrLength
+                || (driveStrLength == 3 && Character.isLowerCase(path.charAt(0))));
+    if (isUnnormalizedTrailingSlash || dotCount == 1 || dotCount == 2) {
       normalizationLevel = Math.max(normalizationLevel, NEEDS_NORMALIZE);
     }
     return normalizationLevel;
@@ -137,7 +152,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         path = resolvedPath;
       }
     }
-    String[] segments = Iterables.toArray(WINDOWS_PATH_SPLITTER.splitToList(path), String.class);
+    String[] segments = WINDOWS_PATH_SPLITTER.splitToList(path).toArray(new String[0]);
     int driveStrLength = getDriveStrLength(path);
     boolean isAbsolute = driveStrLength > 0;
     int segmentSkipCount = isAbsolute && driveStrLength > 1 ? 1 : 0;

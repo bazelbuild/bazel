@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.difflib.patch.AbstractDelta;
@@ -27,7 +27,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -163,11 +165,30 @@ public class PatchUtil {
   }
 
   private static ImmutableList<String> readFile(Path file) throws IOException {
-    return FileSystemUtils.readLines(file, UTF_8);
+    return FileSystemUtils.readLinesAsLatin1(file);
   }
 
-  private static void writeFile(Path file, List<String> content) throws IOException {
-    FileSystemUtils.writeLinesAs(file, UTF_8, content);
+  private static void writeFile(Path file, List<String> content, boolean crlf) throws IOException {
+    if (crlf) {
+      file.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.asByteSink(file).asCharSink(ISO_8859_1).writeLines(content, "\r\n");
+    } else {
+      FileSystemUtils.writeLinesAs(file, ISO_8859_1, content);
+    }
+  }
+
+  /** Returns whether the first line of the file ends in CRLF. */
+  private static boolean startsWithCrlf(Path file) throws IOException {
+    try (InputStream in = new BufferedInputStream(file.getInputStream())) {
+      int previous = -1;
+      for (int c = in.read(); c != -1; c = in.read()) {
+        if (c == '\n') {
+          return previous == '\r';
+        }
+        previous = c;
+      }
+    }
+    return false;
   }
 
   private static boolean getReadPermission(int permission) {
@@ -209,10 +230,12 @@ public class PatchUtil {
     }
 
     ImmutableList<String> oldContent;
+    boolean crlf = false;
     if (inputFile == null) {
       oldContent = ImmutableList.of();
     } else {
       oldContent = readFile(inputFile);
+      crlf = startsWithCrlf(inputFile);
       // Preserve old file permission if no explicit permission is set.
       if (filePermission == -1) {
         filePermission = getFilePermissionValue(inputFile);
@@ -253,7 +276,7 @@ public class PatchUtil {
     boolean isDeleteFile = newFile == null && newContent.isEmpty();
 
     if (outputFile != null && !isDeleteFile) {
-      writeFile(outputFile, newContent);
+      writeFile(outputFile, newContent, crlf);
       if (filePermission != -1) {
         setFilePermission(outputFile, filePermission);
       }
@@ -319,6 +342,30 @@ public class PatchUtil {
               "Cannot patch file outside of external repository (%s), file path = \"%s\" at line"
                   + " %d",
               outputDirectory.getPathString(), path, loc));
+    }
+    try {
+      Path realOutputDirectory = null;
+      for (Path ancestor = filePath;
+          ancestor != null && !ancestor.equals(outputDirectory);
+          ancestor = ancestor.getParentDirectory()) {
+        if (ancestor.isSymbolicLink()) {
+          if (realOutputDirectory == null) {
+            realOutputDirectory = outputDirectory.resolveSymbolicLinks();
+          }
+          Path resolved = ancestor.resolveSymbolicLinks();
+          if (!resolved.startsWith(realOutputDirectory)) {
+            throw new PatchFailedException(
+                String.format(
+                    "Cannot patch file outside of external repository (%s), file path = \"%s\" at"
+                        + " line %d (resolves to %s)",
+                    outputDirectory.getPathString(), path, loc, resolved.getPathString()));
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new PatchFailedException(
+          String.format(
+              "Cannot resolve file path \"%s\" at line %d: %s", path, loc, e.getMessage()));
     }
     return filePath;
   }
@@ -473,8 +520,86 @@ public class PatchUtil {
     for (int i = 0; i <= patchFileLines.size(); i++) {
       // Adding an extra line to make sure last chunk also gets applied.
       String line = i < patchFileLines.size() ? patchFileLines.get(i) : "$";
-      LineType type;
-      switch (type = getLineType(line, isReadingChunk, isGitDiff)) {
+      LineType type = getLineType(line, isReadingChunk, isGitDiff);
+      // A git header line, an unknown line, or a "--- " line following a complete chunk (i.e., the
+      // start of the next file in a patch without git headers) should trigger an action to apply
+      // collected patch content to a file.
+      if (type == LineType.GIT_HEADER
+          || type == LineType.UNKNOWN
+          || (type == LineType.OLD_FILE && header != null)) {
+        // Renaming is a git only format
+        boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
+
+        if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
+          // We collected something useful, let's do some checks before applying the patch.
+          int patchStartLocation = i + 1 - patchContent.size();
+
+          checkPatchContentIsComplete(
+              patchContent, header, oldLineCount, newLineCount, patchStartLocation);
+
+          if (isRenaming) {
+            if (singleFile != null) {
+              if (singleFile.equals(newFile) || singleFile.equals(oldFile)) {
+                throw new PatchFailedException(
+                    "Renaming %s while applying patches to it as a single file is not supported."
+                        .formatted(singleFile));
+              }
+            } else {
+              checkFilesStatusForRenaming(
+                  oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+            }
+          }
+          if (singleFileStr != null
+              && strip == 0
+              && ("a/" + singleFileStr).equals(oldFileStr)
+              && ("b/" + singleFileStr).equals(newFileStr)) {
+            throw new PatchFailedException(
+                String.format(
+                    "error at line %d: the patch file contains a/b prefixes, did you forget to"
+                        + " set patch_strip = 1?",
+                    patchStartLocation));
+          }
+
+          if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
+            Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
+            checkFilesStatusForPatching(
+                patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+
+            applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+          }
+        }
+
+        patchContent.clear();
+        header = null;
+        oldFileStr = null;
+        newFileStr = null;
+        oldFile = null;
+        newFile = null;
+        filePermission = -1;
+        oldLineCount = 0;
+        newLineCount = 0;
+        isReadingChunk = false;
+        // If the new patch starts with "diff --git " then it's a git diff.
+        isGitDiff = type == LineType.GIT_HEADER;
+        if (isGitDiff) {
+          // In case there is no line starting with +++ and --- (file permission change),
+          // try to parse the file names from the line starting with "diff --git"
+          List<String> args = Splitter.on(' ').splitToList(line);
+          if (args.size() >= 4) {
+            oldFileStr = stripPath(args.get(2), strip);
+            if (!oldFileStr.isEmpty()) {
+              oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
+            }
+            newFileStr = stripPath(args.get(3), strip);
+            if (!newFileStr.isEmpty()) {
+              newFile = getFilePath(newFileStr, outputDirectory, i + 1);
+            }
+          }
+        }
+        hasRenameFrom = false;
+        hasRenameTo = false;
+      }
+      switch (type) {
         case OLD_FILE -> {
           patchContent.add(line);
           oldFileStr = extractPath(line, strip, i + 1);
@@ -583,82 +708,7 @@ public class PatchUtil {
             newFile = getFilePath(newFileStr, outputDirectory, i + 1);
           }
         }
-        case OTHER_GIT_LINE -> {}
-        case GIT_HEADER, UNKNOWN -> {
-          // A git header line or an unknown line should trigger an action to apply collected
-          // patch content to a file.
-          // Renaming is a git only format
-          boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
-
-          if (!patchContent.isEmpty() || isRenaming || filePermission != -1) {
-            // We collected something useful, let's do some checks before applying the patch.
-            int patchStartLocation = i + 1 - patchContent.size();
-
-            checkPatchContentIsComplete(
-                patchContent, header, oldLineCount, newLineCount, patchStartLocation);
-
-            if (isRenaming) {
-              if (singleFile != null) {
-                if (singleFile.equals(newFile) || singleFile.equals(oldFile)) {
-                  throw new PatchFailedException(
-                      "Renaming %s while applying patches to it as a single file is not supported."
-                          .formatted(singleFile));
-                }
-              } else {
-                checkFilesStatusForRenaming(
-                    oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
-              }
-            }
-            if (singleFileStr != null
-                && strip == 0
-                && ("a/" + singleFileStr).equals(oldFileStr)
-                && ("b/" + singleFileStr).equals(newFileStr)) {
-              throw new PatchFailedException(
-                  String.format(
-                      "error at line %d: the patch file contains a/b prefixes, did you forget to"
-                          + " set patch_strip = 1?",
-                      patchStartLocation));
-            }
-
-            if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
-              Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
-              checkFilesStatusForPatching(
-                  patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
-
-              applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
-            }
-          }
-
-          patchContent.clear();
-          header = null;
-          oldFileStr = null;
-          newFileStr = null;
-          oldFile = null;
-          newFile = null;
-          filePermission = -1;
-          oldLineCount = 0;
-          newLineCount = 0;
-          isReadingChunk = false;
-          // If the new patch starts with "diff --git " then it's a git diff.
-          isGitDiff = type == LineType.GIT_HEADER;
-          if (isGitDiff) {
-            // In case there is no line starting with +++ and --- (file permission change),
-            // try to parse the file names from the line starting with "diff --git"
-            List<String> args = Splitter.on(' ').splitToList(line);
-            if (args.size() >= 4) {
-              oldFileStr = stripPath(args.get(2), strip);
-              if (!oldFileStr.isEmpty()) {
-                oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
-              }
-              newFileStr = stripPath(args.get(3), strip);
-              if (!newFileStr.isEmpty()) {
-                newFile = getFilePath(newFileStr, outputDirectory, i + 1);
-              }
-            }
-          }
-          hasRenameFrom = false;
-          hasRenameTo = false;
-        }
+        case OTHER_GIT_LINE, GIT_HEADER, UNKNOWN -> {}
       }
     }
   }

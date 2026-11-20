@@ -35,7 +35,6 @@ import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplRes
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -172,15 +171,6 @@ public class OptionsParser implements OptionsParsingResult {
           (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses), false));
     }
 
-    /**
-     * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
-     */
-    @CanIgnoreReturnValue
-    public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
-      this.implBuilder.argsPreProcessor(preProcessor);
-      return this;
-    }
-
     /** Skip all the prefixes associated with Starlark options */
     @CanIgnoreReturnValue
     public Builder skipStarlarkOptionPrefixes() {
@@ -267,9 +257,6 @@ public class OptionsParser implements OptionsParsingResult {
 
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
   private ImmutableSet<String> starlarkOptionsAllowingMultiple = ImmutableSet.of();
-  // scopes for starlark options
-  private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
-  private ImmutableSortedMap<String, Object> onLeaveScopeValues = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
@@ -286,16 +273,6 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public ImmutableSortedMap<String, Object> getStarlarkOptions() {
     return starlarkOptions;
-  }
-
-  @Override
-  public ImmutableMap<String, String> getScopesAttributes() {
-    return scopesAttributes;
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-    return onLeaveScopeValues;
   }
 
   @Override
@@ -345,14 +322,6 @@ public class OptionsParser implements OptionsParsingResult {
     this.starlarkOptionsAllowingMultiple = ImmutableSet.copyOf(starlarkOptionsAllowingMultiple);
   }
 
-  public void setScopesAttributes(Map<String, String> scopesAttributes) {
-    this.scopesAttributes = ImmutableSortedMap.copyOf(scopesAttributes);
-  }
-
-  public void setOnLeaveScopeValues(Map<String, Object> onLeaveScopeValues) {
-    this.onLeaveScopeValues = ImmutableSortedMap.copyOf(onLeaveScopeValues);
-  }
-
   public void parseAndExitUponError(String[] args) {
     parseAndExitUponError(OptionPriority.PriorityCategory.COMMAND_LINE, "unknown", args);
   }
@@ -367,8 +336,7 @@ public class OptionsParser implements OptionsParsingResult {
       OptionPriority.PriorityCategory priority, String source, String[] args) {
     for (String arg : args) {
       if (arg.equals("--help")) {
-        System.out.println(
-            describeOptionsWithDeprecatedCategories(ImmutableMap.of(), HelpVerbosity.LONG));
+        System.out.println(describeOptions(HelpVerbosity.LONG));
 
         System.exit(0);
       }
@@ -486,54 +454,6 @@ public class OptionsParser implements OptionsParsingResult {
       }
     }
     return sortedCategoriesToOptions;
-  }
-
-  /**
-   * Returns a description of all the options this parser can digest. In addition to {@link Option}
-   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
-   * intuitive short description for the options. Options of the same category (see {@link
-   * Option#category}) will be grouped together.
-   *
-   * @param categoryDescriptions a mapping from category names to category descriptions.
-   *     Descriptions are optional; if omitted, a string based on the category name will be used.
-   * @param helpVerbosity if {@code long}, the options will be described verbosely, including their
-   *     types, defaults and descriptions. If {@code medium}, the descriptions are omitted, and if
-   *     {@code short}, the options are just enumerated.
-   */
-  @Deprecated
-  public String describeOptionsWithDeprecatedCategories(
-      Map<String, String> categoryDescriptions, HelpVerbosity helpVerbosity) {
-    OptionsData data = impl.getOptionsData();
-    StringBuilder desc = new StringBuilder();
-    if (!data.getOptionsClasses().isEmpty()) {
-      List<OptionDefinition> allFields = new ArrayList<>();
-      for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
-        allFields.addAll(OptionsData.getAllOptionDefinitionsForClass(optionsClass));
-      }
-      Collections.sort(allFields, OptionDefinition.BY_CATEGORY);
-      String prevCategory = null;
-
-      for (OptionDefinition optionDefinition : allFields) {
-        String category = optionDefinition.getOptionCategory();
-        if (!category.equals(prevCategory)
-            && optionDefinition.getDocumentationCategory()
-                != OptionDocumentationCategory.UNDOCUMENTED) {
-          String description = categoryDescriptions.get(category);
-          if (description == null) {
-            description = "Options category '" + category + "'";
-          }
-          desc.append("\n").append(description).append(":\n");
-          prevCategory = category;
-        }
-
-        if (optionDefinition.getDocumentationCategory()
-            != OptionDocumentationCategory.UNDOCUMENTED) {
-          OptionsUsage.getUsage(
-              optionDefinition, desc, helpVerbosity, impl.getOptionsData(), false);
-        }
-      }
-    }
-    return desc.toString().trim();
   }
 
   /**

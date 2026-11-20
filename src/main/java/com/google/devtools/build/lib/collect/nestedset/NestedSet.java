@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MapMaker;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.ByteString;
-import java.lang.ref.WeakReference;
 import java.time.Duration;
 import java.util.AbstractCollection;
 import java.util.Arrays;
@@ -48,6 +48,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -77,13 +78,10 @@ import javax.annotation.Nullable;
  *
  * <p>The implementation has been highly optimized as it is crucial to Blaze's performance.
  *
- * <p>To optimize memory usage, the implementation uses two different subclasses depending on the
- * depth of the set. "Flat" sets ({@code depth <= 2}, containing no transitive nested sets) are
- * represented by a subclass that omits the {@code cached} list representation field. Since flat
- * sets are cheap to flatten and constitute a significant fraction of all instances, this saves
- * significant memory by avoiding the overhead of the {@code WeakReference} cache field for these
- * simple sets. "Nested" sets ({@code depth > 2}) use a subclass that retains the {@code cached}
- * field to avoid re-flattening expensive deep DAGs.
+ * <p>The implementation uses two different subclasses depending on the depth of the set. "Flat"
+ * sets ({@code depth <= 2}, containing no transitive nested sets) are cheap to flatten and are
+ * never cached. "Nested" sets ({@code depth > 2}) cache their flattened list representation in a
+ * shared weak cache to avoid re-flattening expensive deep DAGs.
  *
  * @see NestedSetBuilder
  */
@@ -100,22 +98,24 @@ public abstract sealed class NestedSet<E> {
 
   /**
    * Constructs a NestedSet that is currently being deserialized. The provided future, when
-   * complete, gives the contents of the NestedSet.
+   * complete, gives the contents of the NestedSet. The set has no owner.
    */
   static <E> NestedSet<E> withFuture(
       Order order, int depth, ListenableFuture<Object[]> deserializationFuture) {
-    return new Nested<>(order, depth, deserializationFuture);
+    return new Nested<>(order, depth, deserializationFuture, /* owner= */ null, /* index= */ 0);
   }
 
+  /** Constructs a deserialized NestedSet with the owner and index it was serialized with. */
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  static <E> NestedSet<E> forDeserialization(Order order, int approxDepth, Object children) {
+  static <E> NestedSet<E> forDeserialization(
+      Order order, int approxDepth, Object children, @Nullable Object owner, int index) {
     Preconditions.checkState(!(children instanceof ListenableFuture), children);
     // Deserialization does it own interning, so we don't need to intern here.
     //
     // A future improvement might be to unify deserialization's interning with NestedSetInterner
     // (used by NestedSetBuilder).
-    return create(order, approxDepth, children);
+    return instantiate(order, approxDepth, children, isNested(children), owner, index);
   }
 
   /**
@@ -129,6 +129,10 @@ public abstract sealed class NestedSet<E> {
    * overapproximate the true depth.
    */
   private final int depthAndOrder;
+
+  @Nullable private final Object owner;
+
+  private final int index;
 
   /**
    * Contains the "direct" elements and "transitive" nested sets.
@@ -150,14 +154,16 @@ public abstract sealed class NestedSet<E> {
   final Object children;
 
   @SuppressWarnings("EnumOrdinal") // Used to pack order and depth into a single int field.
-  NestedSet(Order order, int depth, Object children) {
+  NestedSet(Order order, int depth, Object children, @Nullable Object owner, int index) {
     this.depthAndOrder = (depth << 2) | order.ordinal();
     this.children = children;
+    this.owner = owner;
+    this.index = index;
   }
 
   /** Constructs an empty NestedSet. Should only be called by Order's class initializer. */
   static <E> NestedSet<E> empty(Order order) {
-    return new Flat<>(order, 0, EMPTY_CHILDREN);
+    return new Flat<>(order, 0, EMPTY_CHILDREN, /* owner= */ null, /* index= */ 0);
   }
 
   private static boolean isNested(Object children) {
@@ -168,17 +174,27 @@ public abstract sealed class NestedSet<E> {
     };
   }
 
+  /** Creates a set without an owner, which takes no index. */
+  static <E> NestedSet<E> createUnowned(Order order, int depth, Object children) {
+    return instantiate(
+        order, depth, children, isNested(children), /* owner= */ null, /* index= */ 0);
+  }
+
   static <E> NestedSet<E> create(Order order, int depth, Object children) {
-    return isNested(children)
-        ? new Nested<>(order, depth, children)
-        : new Flat<>(order, depth, children);
+    return create(order, depth, children, NestedSetOwnerScope.current());
+  }
+
+  static <E> NestedSet<E> create(
+      Order order, int depth, Object children, @Nullable NestedSetOwnerScope scope) {
+    return instantiateNew(order, depth, children, isNested(children), scope);
   }
 
   static <E> NestedSet<E> create(
       Order order,
       Set<E> direct,
       Collection<NestedSet<E>> transitive,
-      InterruptStrategy interruptStrategy)
+      InterruptStrategy interruptStrategy,
+      @Nullable NestedSetOwnerScope scope)
       throws InterruptedException {
     // The iteration order of these collections is the order in which we add the items.
     Collection<E> directOrder = direct;
@@ -196,8 +212,13 @@ public abstract sealed class NestedSet<E> {
     }
 
     // Remember children we extracted from one-element subsets. Otherwise we can end up with two of
-    // the same child, which is a problem for the fast path in toList().
-    Set<E> alreadyInserted = ImmutableSet.of();
+    // the same child, which is a problem for the fast path in toList(). There are usually only a
+    // few of them, so they are deduplicated by a linear scan over hoistedArray[0, hoistedCount) to
+    // avoid allocating a hash set. Once there are more than MAX_LINEAR_SCAN_HOISTED of them, they
+    // are moved to hoistedSet instead.
+    Object[] hoistedArray = null;
+    int hoistedCount = 0;
+    CompactHashSet<E> hoistedSet = null;
     // The candidate array of children.
     Object[] children = new Object[direct.size() + transitive.size()];
     int approxDepth = 0;
@@ -213,14 +234,12 @@ public abstract sealed class NestedSet<E> {
           if (member instanceof ByteString) {
             throw new IllegalArgumentException("cannot store ByteString in NestedSet");
           }
-          if (!alreadyInserted.contains(member)) {
+          if (!isHoisted(member, hoistedArray, hoistedCount, hoistedSet)) {
             children[n++] = member;
             approxDepth = Math.max(approxDepth, 2);
           }
         }
-        alreadyInserted = direct;
       } else if ((pass == 1) == preorder && !transitive.isEmpty()) {
-        CompactHashSet<E> hoisted = null;
         for (NestedSet<E> subset : transitive) {
           approxDepth = Math.max(approxDepth, 1 + subset.getApproxDepth());
           // If this is a deserialization future, this call blocks.
@@ -231,18 +250,31 @@ public abstract sealed class NestedSet<E> {
             }
             children[n++] = a;
             shallow = false;
-          } else {
-            if (!alreadyInserted.contains(c)) {
-              if (hoisted == null) {
-                hoisted = CompactHashSet.create();
-              }
-              if (hoisted.add((E) c)) {
-                children[n++] = c;
-              }
+            continue;
+          }
+          if (preorder && direct.contains(c)) {
+            continue;
+          }
+          if (isHoisted(c, hoistedArray, hoistedCount, hoistedSet)) {
+            continue;
+          }
+          children[n++] = c;
+          if (hoistedSet != null) {
+            hoistedSet.add((E) c);
+          } else if (hoistedCount < MAX_LINEAR_SCAN_HOISTED) {
+            if (hoistedArray == null) {
+              hoistedArray = new Object[Math.min(transitive.size(), MAX_LINEAR_SCAN_HOISTED)];
             }
+            hoistedArray[hoistedCount++] = c;
+          } else {
+            hoistedSet = CompactHashSet.createWithExpectedSize(2 * MAX_LINEAR_SCAN_HOISTED);
+            for (int i = 0; i < hoistedCount; i++) {
+              hoistedSet.add((E) hoistedArray[i]);
+            }
+            hoistedSet.add((E) c);
+            hoistedArray = null;
           }
         }
-        alreadyInserted = hoisted == null ? ImmutableSet.of() : hoisted;
       }
     }
 
@@ -263,9 +295,47 @@ public abstract sealed class NestedSet<E> {
       finalChildren = NestedSetInterner.intern(children);
     }
 
-    return shallow
-        ? new Flat<>(order, approxDepth, finalChildren)
-        : new Nested<>(order, approxDepth, finalChildren);
+    return instantiateNew(order, approxDepth, finalChildren, !shallow, scope);
+  }
+
+  /**
+   * Instantiates a new set. If it is non-empty and {@code scope} is non-null, the set is owned by
+   * the scope's owner and takes the scope's next index. Empty sets and sets created without a scope
+   * have no owner.
+   */
+  @SuppressWarnings("ReferenceEquality") // EMPTY_CHILDREN is a sentinel compared by identity.
+  private static <E> NestedSet<E> instantiateNew(
+      Order order,
+      int depth,
+      Object children,
+      boolean nested,
+      @Nullable NestedSetOwnerScope scope) {
+    if (children != EMPTY_CHILDREN && scope != null) {
+      return instantiate(order, depth, children, nested, scope.getOwner(), scope.nextIndex());
+    }
+    return instantiate(order, depth, children, nested, /* owner= */ null, /* index= */ 0);
+  }
+
+  private static <E> NestedSet<E> instantiate(
+      Order order, int depth, Object children, boolean nested, @Nullable Object owner, int index) {
+    return nested
+        ? new Nested<>(order, depth, children, owner, index)
+        : new Flat<>(order, depth, children, owner, index);
+  }
+
+  /**
+   * Returns the owner of the {@link NestedSetOwnerScope} that created this set (e.g. the key of a
+   * configured target, aspect, merged aspects, or {@code .bzl} file), or {@code null} if it was
+   * created outside a scope.
+   */
+  @Nullable
+  public final Object getOwner() {
+    return owner;
+  }
+
+  /** Returns this set's index among the sets of its owner, or 0 if it has no owner. */
+  public final int getIndex() {
+    return index;
   }
 
   private static boolean hasTransitiveMember(Object[] children) {
@@ -278,11 +348,36 @@ public abstract sealed class NestedSet<E> {
   }
 
   /**
+   * Maximum number of leaves hoisted from singleton transitive members in {@link #create(Order,
+   * Set, Collection, InterruptStrategy, NestedSetOwnerScope)} that are deduplicated by a linear
+   * scan rather than by a hash set.
+   */
+  private static final int MAX_LINEAR_SCAN_HOISTED = 8;
+
+  /**
+   * Returns whether {@code x} is contained in {@code hoistedSet} if it is non-null, or else in
+   * {@code hoistedArray[0, hoistedCount)}.
+   */
+  private static boolean isHoisted(
+      Object x, @Nullable Object[] hoistedArray, int hoistedCount, @Nullable Set<?> hoistedSet) {
+    if (hoistedSet != null) {
+      return hoistedSet.contains(x);
+    }
+    for (int i = 0; i < hoistedCount; i++) {
+      if (x.equals(hoistedArray[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Clears the cached list representation to free up memory when no other traversal of the
    * NestedSet is expected.
    *
-   * <p>Although the cached representation is stored as a {@link WeakReference}, eagerly clearing it
-   * helps the garbage collector, plus it also frees the {@link WeakReference} itself.
+   * <p>Although the cached representation is only weakly referenced, eagerly clearing it helps the
+   * garbage collector. The cache is shared by all sets with the same underlying graph node, so this
+   * also clears it for them.
    */
   public abstract void clearCachedListRepresentation();
 
@@ -712,7 +807,8 @@ public abstract sealed class NestedSet<E> {
     // Recursively split pieces. (The recursion affects only the root; it
     // does not traverse into successors.) In practice, maxDegree is large
     // enough that the recursion rarely does any work.
-    return NestedSet.<E>create(getOrder(), depth, pieces).splitIfExceedsMaximumSize(maxDegree);
+    return NestedSet.<E>createUnowned(getOrder(), depth, pieces)
+        .splitIfExceedsMaximumSize(maxDegree);
   }
 
   /** Returns the list of this node's successors that are themselves non-leaf nodes. */
@@ -725,7 +821,7 @@ public abstract sealed class NestedSet<E> {
     for (Object c : array) {
       if (c instanceof Object[]) {
         int depth = getApproxDepth() - 1; // possible overapproximation
-        res.add(NestedSet.<E>create(getOrder(), depth, c));
+        res.add(NestedSet.<E>createUnowned(getOrder(), depth, c));
       }
     }
     return res.build();
@@ -791,10 +887,39 @@ public abstract sealed class NestedSet<E> {
     }
   }
 
+  /**
+   * Sets with an owner (other than {@link NestedSetOwnerScope#NO_IDENTITY_OWNER}) are equal if they
+   * have the same owner and index, so that a deserialized set equals the locally analyzed set it is
+   * a copy of. Sets without an owner (or with {@link NestedSetOwnerScope#NO_IDENTITY_OWNER}) use
+   * identity equality. Contents are never compared, which would be too expensive.
+   */
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    // Comparing the order too is cheap, and keeps sets apart even if they ever get the same owner
+    // and index by mistake. The depth isn't compared: equal copies can have different approximate
+    // depths, e.g. when only one of them was built from interned children.
+    return other instanceof NestedSet<?> that
+        && owner != null
+        && owner != NestedSetOwnerScope.NO_IDENTITY_OWNER
+        && index == that.index
+        && getOrder() == that.getOrder()
+        && owner.equals(that.owner);
+  }
+
+  @Override
+  public int hashCode() {
+    return owner == null || owner == NestedSetOwnerScope.NO_IDENTITY_OWNER
+        ? System.identityHashCode(this)
+        : 31 * owner.hashCode() + index;
+  }
+
   /** Implementation for {@code depth <= 2}, when no caching is necessary. */
   private static final class Flat<E> extends NestedSet<E> {
-    Flat(Order order, int depth, Object children) {
-      super(order, depth, children);
+    Flat(Order order, int depth, Object children, @Nullable Object owner, int index) {
+      super(order, depth, children, owner, index);
     }
 
     @Override
@@ -815,33 +940,33 @@ public abstract sealed class NestedSet<E> {
   /** Implementation for {@code depth > 2} that caches its flattened list representation. */
   private static final class Nested<E> extends NestedSet<E> {
 
-    /** Initial value of {@link #cached} indicating that a traversal is necessary. */
-    @SuppressWarnings("rawtypes") // Safe to use as WeakReference<ImmutableList<E>> since it's null.
-    private static final WeakReference EMPTY_WEAK_REF = new WeakReference<>(null);
-
     /**
-     * A cache of the flattened list representation of this set.
+     * Flattened list representations, keyed by the identity of the (deserialized) children array.
      *
-     * <p>This field is initialized to {@link #EMPTY_WEAK_REF} to indicate that a traversal is
-     * necessary.
+     * <p>Most {@code Nested} instances are never flattened, so a shared map is cheaper than a
+     * per-instance field: without the field, a {@code Nested} takes 24 instead of 32 bytes with
+     * compact object headers. Instances sharing a children array also share the flattened list.
+     * This is safe because {@link #expand} does not depend on the order; {@link Order#LINK_ORDER}
+     * is applied by the caller.
      *
-     * <p>Using weak references is preferable to soft references because {@link
+     * <p>Keys are weak (and compared by identity), so the map does not retain the children. Values
+     * are weak rather than soft because {@link
      * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
      * soft references are collected. See b/322474776.
-     *
-     * <p>This field is {@code volatile} to support double-checked locking in {@link
-     * #expandWithCaching}.
      */
-    private transient volatile WeakReference<ImmutableList<E>> cached;
+    private static final ConcurrentMap<Object[], ImmutableList<?>> flattenedLists =
+        new MapMaker().weakKeys().weakValues().makeMap();
 
-    Nested(Order order, int depth, Object children) {
-      super(order, depth, children);
-      this.cached = EMPTY_WEAK_REF;
+    Nested(Order order, int depth, Object children, @Nullable Object owner, int index) {
+      super(order, depth, children, owner, index);
     }
 
     @Override
     public void clearCachedListRepresentation() {
-      this.cached = EMPTY_WEAK_REF;
+      // Not yet deserialized means not yet flattened.
+      if (isReady() && getChildren() instanceof Object[] array) {
+        flattenedLists.remove(array);
+      }
     }
 
     @Override
@@ -851,21 +976,21 @@ public abstract sealed class NestedSet<E> {
 
     @Override
     ImmutableList<E> expandWithCaching(Object[] children) {
-      WeakReference<ImmutableList<E>> localCached = this.cached;
-
-      ImmutableList<E> result = localCached.get();
+      ImmutableList<E> result = (ImmutableList<E>) flattenedLists.get(children);
       if (result != null) {
         return result;
       }
 
-      synchronized (this) {
-        // Read the field again under a lock.
-        result = this.cached.get();
-        if (result != null) {
-          return result;
+      // Double-checked locking on the children array, so that each array is expanded at most once
+      // at
+      // a time without holding a lock shared with unrelated keys. The array is private to
+      // NestedSet, so no other code synchronizes on it.
+      synchronized (children) {
+        result = (ImmutableList<E>) flattenedLists.get(children);
+        if (result == null) {
+          result = expand(children);
+          flattenedLists.put(children, result);
         }
-        result = expand(children);
-        this.cached = new WeakReference<>(result);
       }
       return result;
     }

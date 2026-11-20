@@ -156,6 +156,32 @@ public final class OptionsUtils {
     }
   }
 
+  /**
+   * Converter from String to PathFragment requiring the provided path to be a relative path without
+   * uplevel references ('..').
+   */
+  public static class WorkspacePathFragmentConverter extends Converter.Contextless<PathFragment> {
+
+    @Override
+    public PathFragment convert(String input) throws OptionsParsingException {
+      PathFragment parsed = convertOptionsPathFragment(checkNotNull(input));
+      if (parsed.isAbsolute()) {
+        throw new OptionsParsingException(
+            String.format("Expected relative path but got '%s'.", input));
+      }
+      if (parsed.containsUplevelReferences()) {
+        throw new OptionsParsingException(
+            String.format("Expected path without uplevel references ('..') but got '%s'.", input));
+      }
+      return parsed;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a workspace-relative path";
+    }
+  }
+
   /** Converts from a colon-separated list of strings into a list of PathFragment instances. */
   public static class PathFragmentListConverter
       extends Converter.Contextless<ImmutableList<PathFragment>> {

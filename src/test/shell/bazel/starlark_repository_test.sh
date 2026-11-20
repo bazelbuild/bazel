@@ -571,37 +571,6 @@ function environ_invalidation_test_template() {
   assert_equals 6 $(cat "${execution_file}")
 }
 
-function environ_invalidation_action_env_test_template() {
-  local startup_flag="${1-}"
-  local command_flag="--noincompatible_repo_env_ignores_action_env"
-  setup_starlark_repository
-
-  # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env=K=V will cause all repositories to re-run).
-  local execution_file="$(setup_invalidation_test)"
-
-  # Set to FOO=BAZ BAR=FOO
-  FOO=BAZ BAR=FOO bazel ${startup_flag} build "${command_flag}" @foo//:bar >& $TEST_log \
-      || fail "Failed to build"
-  expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
-  assert_equals 1 $(cat "${execution_file}")
-
-  # Test with changing using --action_env
-  bazel ${startup_flag} build "${command_flag}" \
-      --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
-      @foo//:bar >& $TEST_log || fail "Failed to build"
-  assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build "${command_flag}" \
-      --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
-      @foo//:bar >& $TEST_log || fail "Failed to build"
-  assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build "${command_flag}" \
-      --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
-      @foo//:bar >& $TEST_log || fail "Failed to build"
-  expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
-  assert_equals 2 $(cat "${execution_file}")
-}
-
 function test_starlark_repository_environ_invalidation() {
   environ_invalidation_test_template
 }
@@ -609,14 +578,6 @@ function test_starlark_repository_environ_invalidation() {
 # Same test as previous but with server restart between each invocation
 function test_starlark_repository_environ_invalidation_batch() {
   environ_invalidation_test_template --batch
-}
-
-function test_starlark_repository_environ_invalidation_action_env() {
-  environ_invalidation_action_env_test_template
-}
-
-function test_starlark_repository_environ_invalidation_action_env_batch() {
-  environ_invalidation_action_env_test_template --batch
 }
 
 # Regression test for the repository environment being a single whole-map Skyframe
@@ -2497,6 +2458,81 @@ EOF
   expect_log "I see: @@bar+//:data"
 }
 
+function test_repo_mapping_change_in_rule_impl_from_other_module() {
+  # same as above, but the repo rule is defined in a module whose repo mapping
+  # changes while the main repo mapping stays the same
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("@foo//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo")
+local_path_override(module_name="foo", path="foo")
+local_path_override(module_name="bar", path="bar")
+local_path_override(module_name="baz", path="baz")
+EOF
+  touch BUILD
+  mkdir foo
+  touch foo/BUILD
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+bazel_dep(name="bar", repo_name="data")
+bazel_dep(name="baz")
+EOF
+  cat > foo/r.bzl <<EOF
+def _r(rctx):
+  print("I see: " + str(Label("@data")))
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+  mkdir bar
+  cat > bar/MODULE.bazel <<EOF
+module(name="bar")
+EOF
+  mkdir baz
+  cat > baz/MODULE.bazel <<EOF
+module(name="baz")
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@bar+//:data"
+
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+bazel_dep(name="bar")
+bazel_dep(name="baz", repo_name="data")
+EOF
+  # for the repo `r`, nothing except the repo mapping of @foo has changed.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@baz+//:data"
+}
+
+function test_local_repo_not_refetched_on_unrelated_change() {
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r", value = "unchanged")
+r(name = "s", value = "old")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  print("Fetching " + rctx.attr.value)
+  rctx.file("BUILD", "filegroup(name='f')")
+r=repository_rule(_r, attrs={"value": attr.string()}, local=True)
+EOF
+
+  bazel build @r//:f @s//:f >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "Fetching unchanged"
+  expect_log "Fetching old"
+
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r", value = "unchanged")
+r(name = "s", value = "new")
+EOF
+  bazel build @r//:f @s//:f >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "Fetching unchanged"
+  expect_log "Fetching new"
+}
+
 function test_file_watching_inside_working_dir() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it.
@@ -2665,49 +2701,6 @@ EOF
   expect_not_log "I see:"
 }
 
-function test_no_incompatible_no_implicit_watch_label() {
-  # when reading a file through a label with watch="no", we do watch it.
-  local outside_dir="${TEST_TMPDIR}/outside_dir"
-  mkdir -p "${outside_dir}"
-  echo nothing > ${outside_dir}/data.txt
-
-  cat > $(setup_module_dot_bazel) <<EOF
-foo = use_repo_rule("//:r.bzl", "foo")
-foo(name = "foo")
-bar = use_repo_rule("//:r.bzl", "bar")
-bar(name = "bar", data = "fire")
-EOF
-  touch BUILD
-  cat > r.bzl <<EOF
-def _foo(rctx):
-  rctx.file("BUILD", "filegroup(name='foo')")
-  # Resolve both through rctx.path and directly.
-  label = Label("@bar//subpkg:data.txt")
-  print("(direct) I see: " + rctx.read(label, watch="no"))
-foo=repository_rule(_foo)
-def _bar(rctx):
-  rctx.file("subpkg/BUILD")
-  rctx.file("subpkg/data.txt", rctx.attr.data)
-bar=repository_rule(_bar, attrs={"data":attr.string()})
-EOF
-
-  bazel build --noincompatible_no_implicit_watch_label @foo >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "(direct) I see: fire"
-
-  # Running Bazel again shouldn't cause a refetch.
-  bazel build --noincompatible_no_implicit_watch_label @foo >& $TEST_log || fail "expected bazel to succeed"
-  expect_not_log "I see:"
-
-  # Changing the file should cause a refetch.
-  cat > MODULE.bazel <<EOF
-foo = use_repo_rule("//:r.bzl", "foo")
-foo(name = "foo")
-bar = use_repo_rule("//:r.bzl", "bar")
-bar(name = "bar", data = "nothing")
-EOF
-  bazel build --noincompatible_no_implicit_watch_label @foo >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see:"
-}
 
 function test_bad_marker_file_ignored() {
   # when reading a file in another repo, we should watch it.
@@ -3180,6 +3173,65 @@ EOF
   expect_log "I see: a directory"
 }
 
+function test_copy_directory() {
+  local outside_dir=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  mkdir -p ${outside_dir}/tree/sub
+  echo one > ${outside_dir}/tree/sub/data.txt
+  echo '#!/bin/sh' > ${outside_dir}/tree/tool.sh
+  chmod +x ${outside_dir}/tree/tool.sh
+  echo linked > ${outside_dir}/linked.txt
+  ln -s ../linked.txt ${outside_dir}/tree/link.txt
+  ln -s sub ${outside_dir}/tree/sub_link
+
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r')")
+  rctx.file("copy/sub/kept.txt", "kept")
+  rctx.copy("${outside_dir}/tree", "copy", executable = False)
+  rctx.copy("${outside_dir}/tree/tool.sh", "copy/tool.sh")
+  print("I see: " + rctx.read("copy/sub/data.txt").strip())
+r=repository_rule(_r)
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: one"
+  local repo_dir="$(bazel info output_base)/external/+r+r"
+  assert_equals "kept" "$(cat ${repo_dir}/copy/sub/kept.txt)"
+  assert_equals "linked" "$(cat ${repo_dir}/copy/link.txt)"
+  assert_equals "one" "$(cat ${repo_dir}/copy/sub_link/data.txt)"
+  [[ ! -L ${repo_dir}/copy/link.txt ]] || fail "expected link.txt to be a copy"
+  [[ ! -L ${repo_dir}/copy/sub_link ]] || fail "expected sub_link to be a copy"
+  if ! is_windows; then
+    [[ -x ${repo_dir}/copy/tool.sh ]] || fail "expected tool.sh to be executable"
+    [[ ! -x ${repo_dir}/copy/sub/data.txt ]] \
+      || fail "expected data.txt to not be executable"
+  fi
+
+  # the copied directory tree is watched by default.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+
+  echo two > ${outside_dir}/tree/sub/data.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: two"
+
+  if is_windows; then
+    # The symlinks created above may be copies.
+    return 0
+  fi
+
+  # the targets of symlinks are also watched.
+  echo relinked > ${outside_dir}/linked.txt
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: two"
+  assert_equals "relinked" "$(cat ${repo_dir}/copy/link.txt)"
+}
+
 # Documents the current behavior when a directory whose entries are recorded
 # as a repo or module extension input becomes non-readable between builds: the
 # build fails. This is not necessarily the desired behavior.
@@ -3386,94 +3438,6 @@ EOF
   CLIENT_ENV_PRESENT=value1 CLIENT_ENV_REMOVED=value2 \
    bazel build \
     --repo_env=REPO_ENV_PRESENT=value3 --repo_env=REPO_ENV_REMOVED=value4 \
-    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
-}
-
-function test_execute_environment_repo_env_ignores_action_env_off() {
-  cat >> $(setup_module_dot_bazel)  <<'EOF'
-my_repo = use_repo_rule("//:repo.bzl", "my_repo")
-my_repo(name="repo")
-EOF
-  touch BUILD
-  cat > repo.bzl <<'EOF'
-def _impl(ctx):
-  st = ctx.execute(
-    ["env"],
-  )
-  if st.return_code:
-    fail("Command did not succeed")
-  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
-  if vars.get("ACTION_ENV_PRESENT") != "value1":
-    fail("ACTION_ENV_PRESENT has wrong value: " + vars.get("ACTION_ENV_PRESENT"))
-  ctx.file("BUILD", "exports_files(['data.txt'])")
-my_repo = repository_rule(_impl)
-EOF
-
-  bazel build \
-    --noincompatible_repo_env_ignores_action_env \
-    --action_env=ACTION_ENV_PRESENT=value1 \
-    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
-}
-
-function test_execute_environment_repo_env_ignores_action_env_on() {
-  cat >> $(setup_module_dot_bazel)  <<'EOF'
-my_repo = use_repo_rule("//:repo.bzl", "my_repo")
-my_repo(name="repo")
-EOF
-  touch BUILD
-  cat > repo.bzl <<'EOF'
-def _impl(ctx):
-  st = ctx.execute(
-    ["env"],
-  )
-  if st.return_code:
-    fail("Command did not succeed")
-  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
-  if "ACTION_ENV_REMOVED" in vars:
-    fail("ACTION_ENV_REMOVED should not be in the environment")
-  ctx.file("BUILD", "exports_files(['data.txt'])")
-my_repo = repository_rule(_impl)
-EOF
-
-  bazel build \
-    --incompatible_repo_env_ignores_action_env \
-    --action_env=ACTION_ENV_REMOVED=value1 \
-    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
-}
-
-function test_execute_environment_strict_vars() {
-  cat >> $(setup_module_dot_bazel)  <<'EOF'
-my_repo = use_repo_rule("//:repo.bzl", "my_repo")
-my_repo(name="repo")
-EOF
-  touch BUILD
-  cat > repo.bzl <<'EOF'
-def _impl(ctx):
-  st = ctx.execute(
-    ["env"],
-  )
-  if st.return_code:
-    fail("Command did not succeed")
-  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
-  if vars.get("CLIENT_ENV_PRESENT") != "value1":
-    fail("CLIENT_ENV_PRESENT has wrong value: " + vars.get("CLIENT_ENV_PRESENT"))
-  if "CLIENT_ENV_REMOVED" in vars:
-    fail("CLIENT_ENV_REMOVED should not be in the environment")
-  if vars.get("REPO_ENV_PRESENT") != "value3":
-    fail("REPO_ENV_PRESENT has wrong value: " + vars.get("REPO_ENV_PRESENT"))
-  if "PATH" not in vars:
-    fail("PATH should be in the environment")
-  if ctx.os.name.startswith("windows") and "PATHEXT" not in vars:
-    fail("PATHEXT should be in the environment (on Windows)")
-  ctx.file("BUILD", "exports_files(['data.txt'])")
-my_repo = repository_rule(_impl)
-EOF
-
-  CLIENT_ENV_PRESENT=value1 CLIENT_ENV_REMOVED=value2 PATHEXT=".COM;.EXE;.BAT;.CMD;"\
-  bazel build \
-    --experimental_strict_repo_env \
-    --repo_env=CLIENT_ENV_PRESENT \
-    --repo_env=REPO_ENV_PRESENT=value3 \
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
@@ -3986,6 +3950,40 @@ EOF
   assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
 }
 
+function test_download_non_ascii_file_url() {
+  mkdir -p "${TEST_TMPDIR}/dïr_€"
+  echo "content" > "${TEST_TMPDIR}/dïr_€/fïlé_€.txt"
+  if is_windows; then
+    local base_url="file:///$(cygpath -m "${TEST_TMPDIR}")"
+  else
+    local base_url="file://${TEST_TMPDIR}"
+  fi
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.download("${base_url}/dïr_€/fïlé_€.txt", "raw.txt")
+  repository_ctx.download(
+    "${base_url}/d%C3%AFr_%E2%82%AC/f%C3%AFl%C3%A9_%E2%82%AC.txt",
+    "encoded.txt",
+  )
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "content" "$output_base/external/+repo+foo/raw.txt"
+  assert_contains "content" "$output_base/external/+repo+foo/encoded.txt"
+}
+
 function test_read_roundtrip_utf8() {
   cat > $(setup_module_dot_bazel) <<EOF
 repo = use_repo_rule('//:test.bzl', 'repo')
@@ -4103,20 +4101,17 @@ with zipfile.ZipFile('non_readable.zip', 'w') as zf:
 function test_extract_non_readable_file_ar() {
   local archive_ar="${TEST_TMPDIR}/non_readable.ar"
 
-  # Create a valid AR file, then patch the permission field to 0000
-  pushd "${TEST_TMPDIR}"
-  echo "secret ar content" > non_readable.txt
-  ar rc non_readable.ar non_readable.txt
-  # Patch the mode field (bytes 40-47 after the 8-byte magic) to "0       "
+  # Write the AR file directly. Do not use the system "ar": on macOS with
+  # Xcode 26, "ar" runs ranlib, which drops members that are not Mach-O files.
   python3 -c "
-with open('non_readable.ar', 'r+b') as f:
-    # AR magic is 8 bytes, then header starts
-    # Header format: filename(16) + mtime(12) + owner(6) + group(6) + mode(8) + size(10) + magic(2)
-    # Mode is at offset 8 + 16 + 12 + 6 + 6 = 48
-    f.seek(48)
-    f.write(b'0       ')  # 8 bytes for mode 0000 in octal
+data = b'secret ar content\\n'
+# Header: name(16) mtime(12) uid(6) gid(6) mode(8, octal) size(10) magic(2).
+header = (b'non_readable.txt'.ljust(16) + b'0'.ljust(12) + b'0'.ljust(6) +
+          b'0'.ljust(6) + b'0'.ljust(8) + str(len(data)).encode().ljust(10) +
+          b'\\x60\\n')
+with open('${archive_ar}', 'wb') as f:
+    f.write(b'!<arch>\\n' + header + data + b'\\n' * (len(data) % 2))
 "
-  popd
 
   _run_extract_test "${archive_ar}" "non_readable.txt" "secret ar content"
 }

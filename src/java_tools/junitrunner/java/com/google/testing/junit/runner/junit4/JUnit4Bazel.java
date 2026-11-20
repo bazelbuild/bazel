@@ -14,7 +14,6 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
 import com.google.testing.junit.runner.internal.junit4.MemoizingRequest;
 import com.google.testing.junit.runner.model.AntXmlResultWriter;

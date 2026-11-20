@@ -30,9 +30,11 @@
 #include "absl/algorithm/container.h"
 #include "absl/functional/function_ref.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -117,12 +119,11 @@ RcFile::ParseError RcFile::ParseFile(
   canonical_rcfile_paths_.push_back(canonical_filename);
 
   // A '\' at the end of a line continues the line.
-  blaze_util::Replace("\\\r\n", "", &contents);
-  blaze_util::Replace("\\\n", "", &contents);
+  contents = absl::StrReplaceAll(contents, {{"\\\r\n", ""}, {"\\\n", ""}});
 
   std::vector<std::string> lines = absl::StrSplit(contents, '\n');
   for (std::string& line : lines) {
-    blaze_util::StripWhitespace(&line);
+    absl::StripAsciiWhitespace(&line);
 
     // Check for an empty line.
     if (line.empty()) continue;
@@ -272,18 +273,6 @@ RcFile::ParseError RcFile::ParseFile(
   }
 
   return ParseError::NONE;
-}
-
-RcFile::ParseError RcFile::ParseFile(
-    const std::string& filename, const std::string& workspace,
-    const WorkspaceLayout& workspace_layout, ReadFileFn read_file,
-    CanonicalizePathFn canonicalize_path,
-    std::vector<std::string>& import_stack, std::string* error_text) {
-  return ParseFile(filename, workspace, workspace_layout, /*build_label=*/"",
-                   /*sem_ver=*/std::nullopt, read_file, canonicalize_path,
-                   import_stack, error_text,
-                   /*max_import_depth=*/RcFile::MaxImportDepth,
-                   /*current_depth=*/0);
 }
 
 bool RcFile::ReadFileDefault(const std::string& filename, std::string* contents,

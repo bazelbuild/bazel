@@ -138,14 +138,15 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   static ActionOwner getActionOwner(
       ActionConstructionContext actionConstructionContext, String cppToolchainType) {
-    ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
-      actionOwner =
-          actionConstructionContext.getActionOwner(
-              Label.parseCanonicalUnchecked(cppToolchainType).toString());
+      String execGroup =
+          ruleContext.getAutomaticExecGroup(Label.parseCanonicalUnchecked(cppToolchainType));
+      if (execGroup != null) {
+        return ruleContext.getActionOwner(execGroup);
+      }
     }
-    return actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
+    return actionConstructionContext.getActionOwner();
   }
 
   @CanIgnoreReturnValue
@@ -207,12 +208,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       return CppActionNames.CPP_MODULE_COMPILE;
     } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
       // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
-      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-        return CppActionNames.CPP_HEADER_PARSING;
-      }
-      // CcCommon.collectCAndCppSources() ensures we do not add headers to
-      // the compilation artifacts unless 'parse_headers' is set.
-      throw new IllegalStateException();
+      return CppActionNames.CPP_HEADER_PARSING;
     } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {
       return CppActionNames.C_COMPILE;
     } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
@@ -356,6 +352,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         needsIncludeValidation,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
+        ccToolchain.getGrepIncludesExecutionPlatform(),
         additionalOutputs,
         moduleFiles,
         modmapInputFile);

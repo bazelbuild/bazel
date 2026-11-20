@@ -468,46 +468,54 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             waitTimeInMs);
     storedEventHandler.post(profilerStartedEvent);
 
-    // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
-    boolean success = false;
-    if (!commonOptions.getStarlarkCpuProfile().isEmpty()) {
-      OutputStream out;
-      try {
-        InstrumentationOutput starlarkCpuProfile =
-            runtime
-                .getInstrumentationOutputFactory()
-                .createInstrumentationOutput(
-                    /* name= */ "starlarkCpuProfile",
-                    PathFragment.create(commonOptions.getStarlarkCpuProfile()),
-                    DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
-                    env,
-                    storedEventHandler,
-                    /* append= */ null,
-                    /* internal= */ null);
-        out = starlarkCpuProfile.createOutputStream();
-      } catch (IOException ex) {
-        String message = "Starlark CPU profiler: " + ex.getMessage();
-        outErr.printErrLn(message);
-        return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
-      }
-      try {
-        success = Starlark.startCpuProfile(out, Duration.ofMillis(10));
-      } catch (IllegalStateException ex) { // e.g. SIGPROF in use
-        String message = Strings.nullToEmpty(ex.getMessage());
-        outErr.printErrLn(message);
-        return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
-      }
-    }
-
     BlazeCommandResult result =
         createDetailedCommandResult(
             "Unknown command failure", FailureDetails.Command.Code.COMMAND_FAILURE_UNKNOWN);
-    boolean needToCallAfterCommand = true;
+    boolean needToCallAfterCommand = false;
+    boolean starlarkCpuProfileStarted = false;
     Reporter reporter = env.getReporter();
     OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher();
     try {
+      // Keep profiling setup inside the cleanup scope, including initialization failures.
+      if (!commonOptions.getStarlarkCpuProfile().isEmpty()) {
+        OutputStream out;
+        try {
+          InstrumentationOutput starlarkCpuProfile =
+              runtime
+                  .getInstrumentationOutputFactory()
+                  .createInstrumentationOutput(
+                      /* name= */ "starlarkCpuProfile",
+                      PathFragment.create(commonOptions.getStarlarkCpuProfile()),
+                      DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
+                      env,
+                      storedEventHandler,
+                      /* append= */ null,
+                      /* internal= */ null);
+          out = starlarkCpuProfile.createOutputStream();
+        } catch (IOException ex) {
+          String message = "Starlark CPU profiler: " + ex.getMessage();
+          outErr.printErrLn(message);
+          result =
+              createDetailedCommandResult(
+                  message,
+                  FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
+          return result;
+        }
+        try {
+          starlarkCpuProfileStarted =
+              Starlark.startCpuProfile(out, Duration.ofMillis(10), /* utf8ByteStrings= */ true);
+        } catch (IllegalStateException ex) { // e.g. SIGPROF in use
+          String message = Strings.nullToEmpty(ex.getMessage());
+          outErr.printErrLn(message);
+          result =
+              createDetailedCommandResult(
+                  message,
+                  FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
+          return result;
+        }
+      }
+
+      needToCallAfterCommand = true;
       // Both the call to env.decideKeepIncrementalState() and module.beforeCommand() may emit
       // events, but the reporter isn't setup yet. Use a stored event handler to catch those events.
       reporter.addHandler(storedEventHandler);
@@ -572,12 +580,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.getVerbosity());
 
-        boolean newStatsSummary =
-            options.getOptions(ExecutionOptions.class) != null
-                && options.getOptions(ExecutionOptions.class).getStatsSummary();
         UiEventHandler handler =
-            createEventHandler(
-                outErr, eventHandlerOptions, quiet, env, newStatsSummary, terminalSizeMonitor);
+            createEventHandler(outErr, eventHandlerOptions, quiet, env, terminalSizeMonitor);
         env.setUiEventHandler(handler);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
@@ -587,12 +591,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
               createEventHandler(
-                  colorfulOutErr,
-                  eventHandlerOptions,
-                  quiet,
-                  env,
-                  newStatsSummary,
-                  terminalSizeMonitor);
+                  colorfulOutErr, eventHandlerOptions, quiet, env, terminalSizeMonitor);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -670,7 +669,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      if (env.getCommand().buildPhase().analyzes()) {
+      if (command.needsMainRepoMapping(env, options)) {
         try {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {
@@ -752,19 +751,19 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
           return result;
         }
-      }
 
-      // Parse starlark options.
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
-        earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
-      }
-      if (!earlyExitCode.isSuccess()) {
-        reporter.post(
-            new NoBuildEvent(
-                commandName, firstContactTime, false, true, env.getCommandId().toString()));
-        result = BlazeCommandResult.detailedExitCode(earlyExitCode);
-        return result;
+        // Parse starlark options.
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.BZLMOD, "parse starlark options")) {
+          earlyExitCode = optionHandler.parseStarlarkOptions(env, args);
+        }
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
       }
       options = optionHandler.getOptionsResult();
 
@@ -827,7 +826,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Finalize the Starlark CPU profile.
-      if (!commonOptions.getStarlarkCpuProfile().isEmpty() && success) {
+      if (starlarkCpuProfileStarted) {
+        starlarkCpuProfileStarted = false;
         try {
           Starlark.stopCpuProfile();
         } catch (IOException ex) {
@@ -862,6 +862,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       result = BlazeCommandResult.createShutdown(crash);
       return result;
     } finally {
+      runtime.stopForcedGcExecutor();
+      if (starlarkCpuProfileStarted) {
+        try {
+          Starlark.stopCpuProfile();
+        } catch (IOException e) {
+          reporter.handle(Event.error("Starlark CPU profiler: " + e.getMessage()));
+        }
+      }
       try {
         // Profiler might still be running when an exception is thrown before BuildCompleteEvent is
         // emitted or BlazeModule#completeCommand() is called. So we still need to try to stop the
@@ -1030,7 +1038,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       UiOptions eventOptions,
       boolean quiet,
       CommandEnvironment env,
-      boolean newStatsSummary,
       TerminalSizeMonitor terminalSizeMonitor) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
@@ -1042,7 +1049,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getEventBus(),
         workspacePathFragment,
         env.withMergedAnalysisAndExecutionSourceOfTruth(),
-        newStatsSummary,
         terminalSizeMonitor);
   }
 

@@ -27,18 +27,23 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -311,6 +316,17 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
     assertContainsEvent("string literal contains non-ASCII character");
+  }
+
+  @Test
+  public void topLevelDepset_isOwnedByTheFilesKey() throws Exception {
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.bzl", "d = depset(['a'])");
+
+    SkyKey skyKey = key("//pkg:ext.bzl");
+    Depset depset = (Depset) get(skyKey).get(skyKey).getModule().getGlobals().get("d");
+
+    assertThat(depset.getSet().getOwner()).isEqualTo(skyKey);
   }
 
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {
@@ -1119,7 +1135,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testErrorReadingOtherBzlFileIsPersistentFromPerspectiveOfParent() throws Exception {
+  public void testErrorReadingOtherBzlFileIsTransientFromPerspectiveOfParent() throws Exception {
     CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
     scratch.file("a/BUILD");
     scratch.file("a/a1.bzl", "load('//a:a2.bzl', 'a2')");
@@ -1129,7 +1145,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
-    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isTransient();
   }
 
   @Test
@@ -1146,12 +1162,102 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTypeTagger_notRunByDefault() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_type_syntax");
+  public void testSymlinkCycleInBzlFileHasSymlinkCycleCode() throws Exception {
+    scratch.file("a/BUILD");
+    Path bzlPath = scratch.resolve("/workspace/a/a1.bzl");
+    FileSystemUtils.ensureSymbolicLink(bzlPath, PathFragment.create("a1.bzl"));
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    FailureDetail failureDetail =
+        ((BzlLoadFailedException) result.getError(key).getException())
+            .getDetailedExitCode()
+            .getFailureDetail();
+    assertThat(failureDetail.getMessage()).contains("Symlink cycle");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
+  }
+
+  @Test
+  public void testPermissionDeniedReadingBzlFileIsPersistentUserError() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    fs.unreadablePath = scratch.file("a/a1.bzl", "doesntmatter");
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+    FailureDetail failureDetail =
+        ((BzlLoadFailedException) result.getError(key).getException())
+            .getDetailedExitCode()
+            .getFailureDetail();
+    assertThat(failureDetail.getMessage()).contains("Permission denied");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+  }
+
+  @Test
+  public void testPermissionDeniedReadingOtherBzlFileIsPersistentUserError() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("a/BUILD");
+    scratch.file("a/a1.bzl", "load('//a:a2.bzl', 'a2')");
+    fs.unreadablePath = scratch.file("a/a2.bzl", "doesntmatter");
+    reporter.removeHandler(failFastHandler);
+
+    SkyKey key = key("//a:a1.bzl");
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(key).isNotTransient();
+    FailureDetail failureDetail =
+        ((BzlLoadFailedException) result.getError(key).getException())
+            .getDetailedExitCode()
+            .getFailureDetail();
+    assertThat(failureDetail.getMessage()).contains("Permission denied");
+    assertThat(failureDetail.getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+  }
+
+  @Test
+  public void testTypeTagger_detectsErrors_byDefault() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
-
     SkyKey key = key("//a:foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("name 'NoSuchType' is not defined");
+  }
+
+  @Test
+  public void testTypeTagger_detectsErrors_ifDynamicTypeCheckingEnabled() throws Exception {
+    setBuildLanguageOptions(
+        "--noexperimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+    reporter.removeHandler(failFastHandler);
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+    assertContainsEvent("name 'NoSuchType' is not defined");
+  }
+
+  @Test
+  public void testTypeTagger_notRun_ifTypeCheckingDisabled() throws Exception {
+    setBuildLanguageOptions("--noexperimental_starlark_static_type_checking");
+    scratch.file("a/BUILD");
+    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
+    SkyKey key = key("//a:foo.bzl");
+
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
@@ -1159,37 +1265,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTypeTagger_detectsErrors_ifDynamicTypeCheckingEnabled() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
-    scratch.file("a/BUILD");
-    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
-    SkyKey key = key("//a:foo.bzl");
-    reporter.removeHandler(failFastHandler);
-
-    SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
-    assertContainsEvent("name 'NoSuchType' is not defined");
-  }
-
-  @Test
-  public void testTypeTagger_detectsErrors_ifStaticTypeCheckingEnabled() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
-    scratch.file("a/BUILD");
-    scratch.file("a/foo.bzl", "x: NoSuchType = [1, 2, 3]");
-    SkyKey key = key("//a:foo.bzl");
-    reporter.removeHandler(failFastHandler);
-
-    SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
-    assertContainsEvent("name 'NoSuchType' is not defined");
-  }
-
-  @Test
   public void testStaticTypeChecker_basicUsage() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int]|list[str] = [1, 2, 3]");
     SkyKey key = key("//a:foo.bzl");
@@ -1204,8 +1280,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticTypeChecker_transitiveDeps() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int] | list[str] = [1, 2, 3]");
     scratch.file(
@@ -1223,9 +1297,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStaticTypeChecker_notRunByDefault() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+  public void testStaticTypeChecker_notRun_ifDisabledByFlag() throws Exception {
+    setBuildLanguageOptions("--noexperimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int] = ['a', 'b', 'c']");
 
@@ -1238,8 +1311,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticTypeChecker_detectsErrors() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_static_type_checking");
     scratch.file("a/BUILD");
     scratch.file("a/foo.bzl", "x: list[int] = ['a', 'b', 'c']");
     reporter.removeHandler(failFastHandler);
@@ -1253,7 +1324,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   @Test
   public void testDynamicTypeChecker_detectsErrors() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_starlark_type_syntax", "--experimental_starlark_dynamic_type_checking");
+        "--noexperimental_starlark_static_type_checking",
+        "--experimental_starlark_dynamic_type_checking");
     scratch.file("a/BUILD");
     scratch.file(
         "a/foo.bzl",
@@ -1352,6 +1424,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     @Nullable private Path badPathForStat;
     @Nullable private Path badPathForRead;
+    @Nullable private Path unreadablePath;
     @Nullable private volatile Path pathToBlockOnStat;
     private final CountDownLatch blockedStatReached = new CountDownLatch(1);
     private final CountDownLatch blockedStatMayProceed = new CountDownLatch(1);
@@ -1382,6 +1455,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     public synchronized InputStream getInputStream(PathFragment path) throws IOException {
       if (badPathForRead != null && badPathForRead.asFragment().equals(path)) {
         throw new IOException("bad");
+      }
+      if (unreadablePath != null && unreadablePath.asFragment().equals(path)) {
+        throw new FileAccessException(path + " (Permission denied)");
       }
       return super.getInputStream(path);
     }

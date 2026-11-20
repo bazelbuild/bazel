@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auth.Credentials;
@@ -110,13 +109,15 @@ public class UrlRewriter {
   /**
    * Obtain a new {@code UrlRewriter} configured with the specified config file.
    *
+   * @param workspaceRoot workspace in which repositories are fetched, or null outside a workspace
    * @param configPaths Paths to the config file to use. May be null.
    */
   public static UrlRewriter getDownloaderUrlRewriter(
-      Path workspaceRoot, @Nullable List<PathFragment> configPaths)
+      @Nullable Path workspaceRoot, @Nullable List<PathFragment> configPaths)
       throws IOException, UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
-    if (configPaths == null
+    if (workspaceRoot == null
+        || configPaths == null
         || configPaths.isEmpty()
         || configPaths.stream().anyMatch(PathFragment::isEmpty)) {
       return new UrlRewriter(ImmutableList.of(""), ImmutableList.of(new StringReader("")));
@@ -203,7 +204,7 @@ public class UrlRewriter {
 
       String userInfo = url.url().getUserInfo();
       if (userInfo != null) {
-        String token = "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
+        String token = "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(UTF_8));
         updatedAuthHeaders.put(
             url.url(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
       } else if (netrcCreds != null) {
@@ -284,11 +285,30 @@ public class UrlRewriter {
 
   private static boolean isMatchingHostName(URI url, String host) {
     String urlHost = url.getHost();
-    return urlHost != null && (host.equals(urlHost) || urlHost.endsWith("." + host));
+    if (urlHost == null) {
+      return false;
+    }
+    String lowerUrlHost = Ascii.toLowerCase(urlHost);
+    return host.equals(lowerUrlHost) || lowerUrlHost.endsWith("." + host);
   }
 
   private ImmutableList<RewrittenURL> applyRewriteRules(URI url) {
     String withoutScheme = url.toString().substring(url.getScheme().length() + 3);
+    String host = url.getHost();
+    if (host != null) {
+      String lowerHost = Ascii.toLowerCase(host);
+      if (!host.equals(lowerHost)) {
+        // Splice the lowercased host into withoutScheme (after any "userInfo@") while leaving the
+        // raw port, path, query, and fragment untouched.
+        String userInfo = url.getRawUserInfo();
+        int hostStart = userInfo == null ? 0 : userInfo.length() + 1;
+        int hostEnd = hostStart + host.length();
+        if (withoutScheme.regionMatches(hostStart, host, 0, host.length())) {
+          withoutScheme =
+              withoutScheme.substring(0, hostStart) + lowerHost + withoutScheme.substring(hostEnd);
+        }
+      }
+    }
 
     ImmutableSet.Builder<String> rewrittenUrls = ImmutableSet.builder();
 
@@ -347,10 +367,10 @@ public class UrlRewriter {
   private static URI prefixWithProtocol(String url, String protocol) {
     for (String schemaPrefix : REWRITABLE_SCHEMES) {
       if (url.startsWith(schemaPrefix + "://")) {
-        return URI.create(url);
+        return HttpUtils.toAsciiUri(URI.create(url));
       }
     }
-    return URI.create(protocol + "://" + url);
+    return HttpUtils.toAsciiUri(URI.create(protocol + "://" + url));
   }
 
   /**

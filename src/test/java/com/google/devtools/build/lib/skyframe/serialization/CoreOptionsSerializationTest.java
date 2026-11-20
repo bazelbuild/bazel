@@ -78,8 +78,7 @@ public class CoreOptionsSerializationTest {
             FakeDirectories.BLAZE_DIRECTORIES,
             new ConfiguredRuleClassProvider.Builder()
                 .setToolsRepository(RepositoryName.createUnvalidated("bazel_tools"))
-                .build(),
-            "root"));
+                .build()));
     ObjectCodecRegistry registry = registryBuilder.build();
 
     // Inject the reader options.

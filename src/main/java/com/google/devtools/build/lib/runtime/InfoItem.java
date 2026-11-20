@@ -58,6 +58,27 @@ public abstract class InfoItem {
   }
 
   /**
+   * Returns true if this info item requires running within a workspace.
+   *
+   * <p>Info items that return true will be omitted when "blaze info" is called without arguments
+   * outside of a workspace, and will cause an error when explicitly requested outside of a
+   * workspace.
+   */
+  public boolean requiresWorkspace() {
+    return false;
+  }
+
+  /**
+   * Returns true if this info item calls the configuration supplier passed to {@link #get}.
+   *
+   * <p>Options are only parsed with the main repository mapping if a requested info item needs the
+   * configuration, see {@link BlazeCommand#needsMainRepoMapping}.
+   */
+  public boolean needsConfiguration() {
+    return false;
+  }
+
+  /**
    * Whether the key is printed when "blaze info" is invoked without arguments.
    *
    * <p>This is usually true for info keys that take multiple lines, thus, cannot really be included

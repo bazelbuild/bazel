@@ -50,21 +50,19 @@ filegroup(
         "//third_party/java/java_diff_utils:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jimfs:srcs",
         "//third_party/java/jmh:srcs",
         "//third_party/java/jol:srcs",
+        "//third_party/java/jspecify_annotations:srcs",
         "//third_party/java/jsr250_annotations:srcs",
         "//third_party/java/jsr305_annotations:srcs",
-        "//third_party/java/jsr330_inject:srcs",
         "//third_party/java/junit:srcs",
         "//third_party/java/mockito:srcs",
         "//third_party/java/netty4:srcs",
-        "//third_party/java/netty_tcnative:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/java/protobuf:srcs",
         "//third_party/java/protobuf/util:srcs",
+        "//third_party/java/roaringbitmap:srcs",
         "//third_party/java/rxjava3:srcs",
-        "//third_party/java/snakeyaml:srcs",
         "//third_party/java/testparameterinjector:srcs",
         "//third_party/java/truth:srcs",
         "//third_party/java/truth/extensions:srcs",
@@ -73,8 +71,6 @@ filegroup(
         "//third_party/java/zstd_jni:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/py/abseil:srcs",
-        "//third_party/py/frozendict:srcs",
     ],
 )
 
@@ -109,19 +105,6 @@ alias(
 alias(
     name = "apache_velocity",
     actual = "@maven//:org_apache_velocity_velocity",
-)
-
-java_library(
-    name = "api_client",
-    exports = [
-        "@maven//:com_google_api_client_google_api_client",
-        "@maven//:com_google_api_client_google_api_client_gson",
-        "@maven//:com_google_http_client_google_http_client",
-        "@maven//:com_google_http_client_google_http_client_gson",
-    ],
-    runtime_deps = [
-        ":gson",
-    ],
 )
 
 exports_files(
@@ -176,8 +159,9 @@ java_library(
         "@maven//:com_google_auth_google_auth_library_oauth2_http",
     ],
     runtime_deps = [
-        ":api_client",
         ":guava",
+        "@maven//:com_google_http_client_google_http_client",
+        "@maven//:com_google_http_client_google_http_client_gson",
     ],
 )
 
@@ -333,13 +317,13 @@ java_library(
     name = "async_profiler_native",
     resource_strip_prefix = select({
         "//src/conditions:darwin": get_repo_root("async_profiler_macos"),
-        "//src/conditions:linux_arm": get_repo_root("async_profiler_linux_arm64"),
+        "//src/conditions:linux_aarch64": get_repo_root("async_profiler_linux_arm64"),
         "//src/conditions:linux_x86_64": get_repo_root("async_profiler_linux_x64"),
         "//conditions:default": None,
     }),
     resources = select({
         "//src/conditions:darwin": ["@async_profiler_macos//:libasyncProfiler"],
-        "//src/conditions:linux_arm": ["@async_profiler_linux_arm64//:libasyncProfiler"],
+        "//src/conditions:linux_aarch64": ["@async_profiler_linux_arm64//:libasyncProfiler"],
         "//src/conditions:linux_x86_64": ["@async_profiler_linux_x64//:libasyncProfiler"],
         "//conditions:default": [],
     }),
@@ -417,11 +401,6 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-alias(
-    name = "pcollections",
-    actual = "@maven//:org_pcollections_pcollections",
-)
-
 # For bootstrapping JavaBuilder
 filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
@@ -496,11 +475,6 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-alias(
-    name = "javax_activation",
-    actual = "@maven//:javax_activation_javax_activation_api",
-)
-
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
 java_library(
@@ -532,54 +506,13 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-alias(
-    name = "jsr330_inject",
-    actual = "@maven//:javax_inject_javax_inject",
-)
-
-UNNECESSARY_DYNAMIC_LIBRARIES = select({
-    "//src/conditions:windows": "*.so *.jnilib",
-    "//src/conditions:darwin": "*.so *.dll *.pyd",
-    "//src/conditions:linux_x86_64": "*.jnilib *.dll *.pyd",
-    "//src/conditions:linux_s390x": "*.jnilib *.dll *.pyd",
-    # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
-    "//src/conditions:arm": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:linux_ppc": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:freebsd": "*.so *.jnilib *.dll *.pyd",
-    "//src/conditions:openbsd": "*.so *.jnilib *.dll *.pyd",
-    # Default is to play it safe -- better have a big binary than a slow binary
-    #   The empty string means nothing is to be removed from the library;
-    #   the rule command tests for the empty string explictly to avoid
-    #   zip erroring when it finds nothing to remove.
-    "//conditions:default": "",
-})
-
-# Remove native libraries that are for a platform different from the one we are
-# building Bazel for.
-genrule(
-    name = "filter_netty_dynamic_libs",
-    srcs = select({
-        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_aarch_64_file"],
-        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_x86_64_file"],
-        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_aarch_64_file"],
-        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file"],
-        "//src/conditions:windows": ["@maven//:io_netty_netty_tcnative_boringssl_static_windows_x86_64_file"],
-        "//conditions:default": [],
-    }),
-    outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
-    cmd = "cp $< $@ && " +
-          # Make sure we can write the output file, even if the input isn't writable.
-          "chmod +w $@ && " +
-          "zip -qd $@ */license/* " + UNNECESSARY_DYNAMIC_LIBRARIES,
-)
-
 distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
     jars = [
         "@maven//:io_netty_netty_buffer_file",
-        "@maven//:io_netty_netty_codec_file",
+        "@maven//:io_netty_netty_codec_base_file",
+        "@maven//:io_netty_netty_codec_compression_file",
         "@maven//:io_netty_netty_codec_http2_file",
         "@maven//:io_netty_netty_codec_http_file",
         "@maven//:io_netty_netty_common_file",
@@ -603,21 +536,6 @@ distrib_java_import(
     }) + select({
         "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_epoll_linux_aarch_64_file"],
         "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_epoll_linux_x86_64_file"],
-        "//conditions:default": [],
-    }),
-)
-
-distrib_java_import(
-    name = "netty_tcnative",
-    enable_distributions = ["debian"],
-    jars = [
-        "@maven//:io_netty_netty_tcnative_classes_file",
-    ] + select({
-        "//src/conditions:darwin_arm64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:darwin_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:linux_aarch64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:linux_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
-        "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//conditions:default": [],
     }),
 )
@@ -651,12 +569,6 @@ java_library(
 )
 
 alias(
-    name = "jimfs",
-    testonly = 1,
-    actual = "@maven//:com_google_jimfs_jimfs",
-)
-
-alias(
     name = "mockito",
     testonly = 1,
     actual = "@maven//:org_mockito_mockito_core",
@@ -676,7 +588,6 @@ java_library(
     name = "truth",
     testonly = 1,
     exports = [
-        "@maven//:com_google_truth_extensions_truth_java8_extension",
         "@maven//:com_google_truth_extensions_truth_proto_extension",
         "@maven//:com_google_truth_truth",
     ],

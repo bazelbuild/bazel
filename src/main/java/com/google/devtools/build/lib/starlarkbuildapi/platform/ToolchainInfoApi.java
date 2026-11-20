@@ -22,6 +22,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.StarlarkType;
 
 /** Info object representing data about a specific toolchain. */
 @StarlarkBuiltin(
@@ -38,6 +39,10 @@ public interface ToolchainInfoApi extends StructApi {
   /** Provider for {@link ToolchainInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(ToolchainInfoApi.Provider.class, ToolchainInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "ToolchainInfo",

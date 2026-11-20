@@ -17,7 +17,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -35,11 +37,13 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.NodeEntry;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
@@ -82,6 +86,45 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "native_default_value")
     public abstract String getExistingFlag();
+
+    @Option(
+        name = "null_flag",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public abstract String getNullFlag();
+
+    @Option(
+        name = "map_flag",
+        converter = StringMapConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
+    public abstract Map<String, String> getMapFlag();
+
+    /** Simple comma-separated {@code k=v} map converter for tests. */
+    public static class StringMapConverter extends Converter.Contextless<Map<String, String>> {
+      @Override
+      public Map<String, String> convert(String input) throws OptionsParsingException {
+        if (input.isEmpty()) {
+          return ImmutableMap.of();
+        }
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (String entry : Splitter.on(',').split(input)) {
+          int eq = entry.indexOf('=');
+          if (eq < 0) {
+            throw new OptionsParsingException("Expected k=v, got: " + entry);
+          }
+          builder.put(entry.substring(0, eq), entry.substring(eq + 1));
+        }
+        return builder.buildOrThrow();
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "comma-separated k=v pairs";
+      }
+    }
   }
 
   /** Test fragment. */
@@ -455,6 +498,28 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     assertContainsEvent(
         "transition outputs [//command_line_option:non_configurable_option] cannot be changed: they"
             + " are non-configurable");
+  }
+
+  @Test
+  public void disableTransitionsOn_doesNotApplyToExecTransition() throws Exception {
+    // The builtin exec transition reads and propagates these. If the flag applied to it, every
+    // target with a cfg="exec" dependency would fail to analyze.
+    setBuildLanguageOptions(
+        "--incompatible_disable_transitions_on=experimental_exec_config,shell_executable,"
+            + "existing_flag");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx): pass",
+        "my_rule = rule(implementation = _impl, attrs = {'dep': attr.label(cfg = 'exec')})",
+        "simple = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule', 'simple')",
+        "simple(name = 'dep')",
+        "my_rule(name = 'gen', dep = ':dep')");
+
+    assertThat(getConfiguredTarget("//test:gen")).isNotNull();
+    assertNoEvents();
   }
 
   @Test
@@ -1107,5 +1172,171 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
                     && ctKey.getLabel().toString().equals(label))
         .map(e -> ((ConfiguredTargetValue) e.getValue()).getConfiguredTarget())
         .collect(toImmutableList());
+  }
+
+  @Test
+  public void disableTransitionsOn_blocksPlatformDefinition() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        platform(
+            name = "my_platform",
+            flags = ["--disallowed_option=bar"],
+        )
+        """);
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=disallowed_option");
+    Exception expected =
+        assertThrows(Exception.class, () -> useConfiguration("--platforms=//test:my_platform"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot set --disallowed_option in a platform or platform mapping");
+  }
+
+  @Test
+  public void disableTransitionsOn_blocksPlatformMapping() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        platform(
+            name = "my_platform",
+        )
+        """);
+    scratch.file(
+        "my_mapping",
+        """
+        platforms:
+          //test:my_platform
+            --disallowed_option=bar
+        """);
+    setBuildLanguageOptions("--incompatible_disable_transitions_on=disallowed_option");
+    Exception expected =
+        assertThrows(
+            Exception.class,
+            () ->
+                useConfiguration(
+                    "--platform_mappings=my_mapping", "--platforms=//test:my_platform"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot set --disallowed_option in a platform or platform mapping");
+  }
+
+  @Test
+  public void testTransitionWithValueNoneSetDefaultValue() throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _my_transition_impl(settings, attr):
+            return {
+                "//command_line_option:existing_flag": None,
+                "//command_line_option:null_flag": None,
+                "//command_line_option:disallowed_option": "irrelevant",
+            }
+
+        my_transition = transition(
+            implementation = _my_transition_impl,
+            inputs = [],
+            outputs = [
+                "//command_line_option:existing_flag",
+                "//command_line_option:null_flag",
+                "//command_line_option:disallowed_option",
+            ],
+        )
+
+        def _rule_impl(ctx):
+            return []
+
+        simple_rule = rule(
+            implementation = _rule_impl,
+        )
+
+        transition_rule = rule(
+            implementation = _rule_impl,
+            cfg = my_transition,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "simple_rule", "transition_rule")
+
+        simple_rule(
+            name = "simple",
+        )
+
+        transition_rule(
+            name = "with_transition",
+        )
+        """);
+
+    useConfiguration("--existing_flag=not_the_default_value", "--null_flag=not_null");
+
+    DummyTestOptions simpleOptions =
+        getConfiguration(getConfiguredTarget("//test:simple"))
+            .getOptions()
+            .get(DummyTestOptions.class);
+    assertThat(simpleOptions.getNullFlag()).isEqualTo("not_null");
+    assertThat(simpleOptions.getExistingFlag()).isEqualTo("not_the_default_value");
+    assertThat(simpleOptions.getDisallowedOption()).isEqualTo("default");
+
+    DummyTestOptions transitionedOptions =
+        getConfiguration(getConfiguredTarget("//test:with_transition"))
+            .getOptions()
+            .get(DummyTestOptions.class);
+    assertThat(transitionedOptions.getNullFlag()).isNull();
+    assertThat(transitionedOptions.getExistingFlag()).isEqualTo("native_default_value");
+    assertThat(transitionedOptions.getDisallowedOption()).isEqualTo("irrelevant");
+  }
+
+  @Test
+  public void testMapTypedNativeOption_convertedToImmutableMapWithConsistentChecksum()
+      throws Exception {
+    writeAllowlistFile(scratch);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _my_transition_impl(settings, attr):
+            return {
+                # Include a non-Dict output so Bazel parses this as a patch transition rather than
+                # a dict-of-dicts split transition.
+                "//command_line_option:existing_flag": "native_default_value",
+                "//command_line_option:map_flag": {"a": "1", "b": "2"},
+            }
+
+        my_transition = transition(
+            implementation = _my_transition_impl,
+            inputs = [],
+            outputs = [
+                "//command_line_option:existing_flag",
+                "//command_line_option:map_flag",
+            ],
+        )
+
+        def _rule_impl(ctx):
+            return []
+
+        simple_rule = rule(implementation = _rule_impl)
+        transition_rule = rule(implementation = _rule_impl, cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "simple_rule", "transition_rule")
+
+        simple_rule(name = "simple")
+        transition_rule(name = "with_transition")
+        """);
+
+    useConfiguration("--map_flag=a=1,b=2");
+    BuildOptions cliOptions = getConfiguration(getConfiguredTarget("//test:simple")).getOptions();
+
+    useConfiguration();
+    BuildOptions transitionedOptions =
+        getConfiguration(getConfiguredTarget("//test:with_transition")).getOptions();
+
+    Map<String, String> mapFlag = transitionedOptions.get(DummyTestOptions.class).getMapFlag();
+    assertThat(mapFlag).isInstanceOf(ImmutableMap.class);
+    assertThat(mapFlag).containsExactly("a", "1", "b", "2").inOrder();
+    assertThat(transitionedOptions.checksum()).isEqualTo(cliOptions.checksum());
   }
 }

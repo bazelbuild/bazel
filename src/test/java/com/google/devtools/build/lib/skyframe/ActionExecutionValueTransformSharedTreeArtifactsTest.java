@@ -23,8 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -69,12 +68,12 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   @Test
   public void transformForSharedAction_createsCopyOfEmptyTreeArtifact() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("dir", KEY_1);
+    TreeArtifact tree = createTreeArtifact("dir", KEY_1);
     TreeArtifactValue value = createTreeArtifactValue(tree);
     ActionExecutionValue actionExecutionValue =
         createActionExecutionValue(ImmutableMap.of(tree, value));
 
-    SpecialArtifact tree2 = createTreeArtifact("dir", KEY_2);
+    TreeArtifact tree2 = createTreeArtifact("dir", KEY_2);
     ActionExecutionValue transformedValue =
         actionExecutionValue.transformForSharedAction(new NullAction(tree2));
 
@@ -85,12 +84,12 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   @Test
   public void transformForSharedAction_createsCopyOfTreeArtifact() throws Exception {
-    SpecialArtifact tree = createTreeArtifact("dir", KEY_1);
+    TreeArtifact tree = createTreeArtifact("dir", KEY_1);
     TreeArtifactValue value = createTreeArtifactValue(tree, "file1", "file2");
     ActionExecutionValue actionExecutionValue =
         createActionExecutionValue(ImmutableMap.of(tree, value));
 
-    SpecialArtifact tree2 = createTreeArtifact("dir", KEY_2);
+    TreeArtifact tree2 = createTreeArtifact("dir", KEY_2);
     ActionExecutionValue transformedValue =
         actionExecutionValue.transformForSharedAction(new NullAction(tree2));
 
@@ -101,15 +100,15 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   @Test
   public void transformForSharedAction_createsCopyOfMultipleTreeArtifacts() throws Exception {
-    SpecialArtifact tree1 = createTreeArtifact("dir1", KEY_1);
-    SpecialArtifact tree2 = createTreeArtifact("dir2", KEY_1);
+    TreeArtifact tree1 = createTreeArtifact("dir1", KEY_1);
+    TreeArtifact tree2 = createTreeArtifact("dir2", KEY_1);
     TreeArtifactValue value1 = createTreeArtifactValue(tree1, "file1");
     TreeArtifactValue value2 = createTreeArtifactValue(tree2, "file2", "file3");
     ActionExecutionValue actionExecutionValue =
         createActionExecutionValue(ImmutableMap.of(tree1, value1, tree2, value2));
 
-    SpecialArtifact sharedTree1 = createTreeArtifact("dir1", KEY_2);
-    SpecialArtifact sharedTree2 = createTreeArtifact("dir2", KEY_2);
+    TreeArtifact sharedTree1 = createTreeArtifact("dir1", KEY_2);
+    TreeArtifact sharedTree2 = createTreeArtifact("dir2", KEY_2);
     ActionExecutionValue transformedValue =
         actionExecutionValue.transformForSharedAction(new NullAction(sharedTree1, sharedTree2));
 
@@ -127,13 +126,13 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
     DerivedArtifact file = createFileArtifact("file", KEY_1);
     createFile(file.getPath());
     FileArtifactValue fileValue = FileArtifactValue.createForTesting(file);
-    SpecialArtifact tree = createTreeArtifact("dir", KEY_1);
+    TreeArtifact tree = createTreeArtifact("dir", KEY_1);
     TreeArtifactValue treeValue = createTreeArtifactValue(tree, "file1", "file2");
     ActionExecutionValue actionExecutionValue =
         createActionExecutionValue(
             ImmutableMap.of(file, fileValue), ImmutableMap.of(tree, treeValue));
 
-    SpecialArtifact sharedTree = createTreeArtifact("dir", KEY_2);
+    TreeArtifact sharedTree = createTreeArtifact("dir", KEY_2);
     DerivedArtifact sharedFile = createFileArtifact("file", KEY_2);
     ActionExecutionValue transformedValue =
         actionExecutionValue.transformForSharedAction(new NullAction(sharedFile, sharedTree));
@@ -150,9 +149,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
    * parent for all of the included artifacts and otherwise the same artifacts as the original one.
    */
   private void assertEqualsWithNewParent(
-      TreeArtifactValue originalValue,
-      SpecialArtifact expectedTree,
-      TreeArtifactValue actualValue) {
+      TreeArtifactValue originalValue, TreeArtifact expectedTree, TreeArtifactValue actualValue) {
     assertThat(actualValue.getDigest()).isEqualTo(originalValue.getDigest());
     assertThat(actualValue.getMetadata()).isEqualTo(originalValue.getMetadata());
     assertThat(actualValue.getChildPaths()).isEqualTo(originalValue.getChildPaths());
@@ -196,7 +193,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
   private static void assertEqualsWithNewParent(
       ArchivedRepresentation expectedRepresentation,
-      SpecialArtifact expectedTree,
+      TreeArtifact expectedTree,
       ArchivedRepresentation actualRepresentation) {
     assertThat(actualRepresentation.archivedTreeFileArtifact().getParent()).isEqualTo(expectedTree);
     assertThat(actualRepresentation.archivedTreeFileArtifact().getGeneratingActionKey())
@@ -214,7 +211,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   }
 
   private TreeArtifactValue createTreeArtifactValue(
-      SpecialArtifact treeArtifact, String... parentRelativePaths) throws IOException {
+      TreeArtifact treeArtifact, String... parentRelativePaths) throws IOException {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(treeArtifact);
 
     for (String parentRelativePath : parentRelativePaths) {
@@ -239,13 +236,9 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
         derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
   }
 
-  private SpecialArtifact createTreeArtifact(String relativePath, ActionLookupKey owner) {
-    SpecialArtifact treeArtifact =
-        SpecialArtifact.create(
-            derivedRoot,
-            DERIVED_PATH_PREFIX.getRelative(relativePath),
-            owner,
-            SpecialArtifactType.TREE);
+  private TreeArtifact createTreeArtifact(String relativePath, ActionLookupKey owner) {
+    TreeArtifact treeArtifact =
+        TreeArtifact.create(derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
     treeArtifact.setGeneratingActionKey(ActionLookupData.create(owner, 0));
     return treeArtifact;
   }

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -220,11 +219,8 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     assertThat(eventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
     assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
 
-    assertThat(directories.getOutputPath(WORKSPACE_NAME).getRelative("build-info.txt").isFile())
-        .isTrue();
-    assertThat(
-            directories.getOutputPath(WORKSPACE_NAME).getRelative("build-changelist.txt").isFile())
-        .isTrue();
+    assertThat(directories.getOutputPath().getRelative("build-info.txt").isFile()).isTrue();
+    assertThat(directories.getOutputPath().getRelative("build-changelist.txt").isFile()).isTrue();
   }
 
   @Test
@@ -256,11 +252,8 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     assertSingleOutputBuilt("//foo:foo");
     assertSingleOutputBuilt("//foo:bar");
 
-    assertThat(directories.getOutputPath(WORKSPACE_NAME).getRelative("build-info.txt").isFile())
-        .isTrue();
-    assertThat(
-        directories.getOutputPath(WORKSPACE_NAME).getRelative("build-changelist.txt").isFile())
-        .isTrue();
+    assertThat(directories.getOutputPath().getRelative("build-info.txt").isFile()).isTrue();
+    assertThat(directories.getOutputPath().getRelative("build-changelist.txt").isFile()).isTrue();
   }
 
   @Test
@@ -630,7 +623,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void symlinksPlanted() throws Exception {
-    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    Path execroot = directories.getExecRoot();
     writeMyRuleBzl();
     Path fooDir =
         write(
@@ -660,7 +653,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void symlinksPlantedExceptProductNamePrefixAndIgnoredPaths() throws Exception {
     String productName = getRuntime().getProductName();
-    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    Path execroot = directories.getExecRoot();
     writeMyRuleBzl();
     Path fooDir =
         write(
@@ -695,7 +688,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void symlinksReplantedEachBuild() throws Exception {
-    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    Path execroot = directories.getExecRoot();
     writeMyRuleBzl();
     Path fooDir =
         write(
@@ -964,41 +957,6 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         """);
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//a:d"));
     events.assertContainsError("cycle in dependency graph");
-  }
-
-  @Test
-  public void analysisOverlapPercentageSanityCheck_success() throws Exception {
-    writeMyRuleBzl();
-    write(
-        "foo/BUILD",
-        """
-        load("//foo:my_rule.bzl", "my_rule")
-
-        my_rule(
-            name = "bar",
-            srcs = ["bar.in"],
-        )
-
-        my_rule(
-            name = "foo",
-            srcs = ["foo.in"],
-        )
-        """);
-    write("foo/foo.in");
-    write("foo/bar.in");
-
-    addOptions("--experimental_skymeld_analysis_overlap_percentage=5");
-    BuildResult result = buildTarget("//foo:foo", "//foo:bar");
-
-    assertThat(result.getSuccess()).isTrue();
-    assertSingleOutputBuilt("//foo:foo");
-    assertSingleOutputBuilt("//foo:bar");
-
-    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo", "//foo:bar");
-    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo", "//foo:bar");
-
-    assertThat(eventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
-    assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
   }
 
   // Regression test for b/277783687.

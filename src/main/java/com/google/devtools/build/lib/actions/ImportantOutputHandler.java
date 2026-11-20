@@ -137,6 +137,10 @@ public interface ImportantOutputHandler extends ActionContext {
   void processTooLargeStdoutErr(Path stdoutErr)
       throws ImportantOutputException, InterruptedException;
 
+  /** Informs this handler of outputs from two executions of the same spawn whose outputs differ */
+  void processNonDeterministicOutputs(Collection<Path> outputs)
+      throws ImportantOutputException, InterruptedException;
+
   /** Represents artifacts that need to be regenerated via action rewinding. */
   record LostArtifacts(ImmutableSetMultimap<String, ActionInput> byDigest) {
 
@@ -161,6 +165,15 @@ public interface ImportantOutputHandler extends ActionContext {
 
   /** Informs this handler of a param file that was materialized prior to action execution. */
   default void processParamFile(ParamFileActionInput paramFile) throws ImportantOutputException {}
+
+  /**
+   * Informs this handler that a spawn was executed.
+   *
+   * <p>Unlike a {@link com.google.common.eventbus.Subscribe subscription} to {@link
+   * SpawnExecutedEvent}, this is called for every executed spawn, even when the event is suppressed
+   * (e.g. for rewound actions).
+   */
+  default void spawnExecuted(SpawnExecutedEvent event) {}
 
   /** Represents an exception encountered during processing of important outputs. */
   final class ImportantOutputException extends Exception implements DetailedException {

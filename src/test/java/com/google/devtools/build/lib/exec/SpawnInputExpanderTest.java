@@ -14,15 +14,15 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.MAIN_REPO_DIR_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -69,7 +70,7 @@ public final class SpawnInputExpanderTest {
         ActionsTestUtil.createArtifact(
             ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
             fs.getPath("/root/dir/file"));
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(artifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -77,13 +78,14 @@ public final class SpawnInputExpanderTest {
         runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
 
     assertThat(inputMap)
-        .containsExactly(PathFragment.create("runfiles/workspace/dir/file"), artifact);
+        .containsExactly(
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/dir/file"), artifact);
   }
 
   @Test
   public void testRunfilesWithFileset() throws Exception {
     Artifact fileset = createFilesetArtifact("foo/biz/fs_out");
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(fileset).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(fileset).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
     FilesetOutputSymlink link = filesetSymlink("zizz", "xyz/zizz");
@@ -97,7 +99,8 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("runfiles/workspace/foo/biz/fs_out/zizz"), link.target());
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/foo/biz/fs_out/zizz"),
+            link.target());
   }
 
   @Test
@@ -106,14 +109,15 @@ public final class SpawnInputExpanderTest {
         ActionsTestUtil.createArtifact(
             ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
             fs.getPath("/root/dir/file"));
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(artifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
     assertThat(inputMap)
-        .containsExactly(PathFragment.create("runfiles/workspace/dir/file"), artifact);
+        .containsExactly(
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/dir/file"), artifact);
   }
 
   @Test
@@ -127,7 +131,7 @@ public final class SpawnInputExpanderTest {
             ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
             fs.getPath("/root/dir/baz"));
     Runfiles runfiles =
-        new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
+        new Runfiles.Builder().addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -135,8 +139,8 @@ public final class SpawnInputExpanderTest {
         runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("runfiles/workspace/dir/file"), artifact1,
-            PathFragment.create("runfiles/workspace/dir/baz"), artifact2);
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/dir/file"), artifact1,
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/dir/baz"), artifact2);
   }
 
   @Test
@@ -150,7 +154,7 @@ public final class SpawnInputExpanderTest {
             ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
             fs.getPath("/root/dir/baz"));
     Runfiles runfiles =
-        new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
+        new Runfiles.Builder().addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
@@ -163,9 +167,9 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("bazel-out/bin/foo.runfiles/workspace/dir/file"),
+            PathFragment.create("bazel-out/bin/foo.runfiles/" + MAIN_REPO_DIR_NAME + "/dir/file"),
             artifact1,
-            PathFragment.create("bazel-out/bin/foo.runfiles/workspace/dir/baz"),
+            PathFragment.create("bazel-out/bin/foo.runfiles/" + MAIN_REPO_DIR_NAME + "/dir/baz"),
             artifact2);
   }
 
@@ -176,9 +180,7 @@ public final class SpawnInputExpanderTest {
             ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
             fs.getPath("/root/dir/file"));
     Runfiles runfiles =
-        new Runfiles.Builder("workspace")
-            .addSymlink(PathFragment.create("symlink"), artifact)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("symlink"), artifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -186,7 +188,8 @@ public final class SpawnInputExpanderTest {
         runfilesTree, inputMap, new FakeActionInputFileCache(), PathMapper.NOOP);
 
     assertThat(inputMap)
-        .containsExactly(PathFragment.create("runfiles/workspace/symlink"), artifact);
+        .containsExactly(
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/symlink"), artifact);
   }
 
   @Test
@@ -196,9 +199,7 @@ public final class SpawnInputExpanderTest {
             ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
             fs.getPath("/root/dir/file"));
     Runfiles runfiles =
-        new Runfiles.Builder("workspace")
-            .addRootSymlink(PathFragment.create("symlink"), artifact)
-            .build();
+        new Runfiles.Builder().addRootSymlink(PathFragment.create("symlink"), artifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -211,13 +212,13 @@ public final class SpawnInputExpanderTest {
             artifact,
             // If there's no other entry, Runfiles adds an empty file in the workspace to make sure
             // the directory gets created.
-            PathFragment.create("runfiles/workspace/.runfile"),
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/.runfile"),
             VirtualActionInput.EMPTY_MARKER);
   }
 
   @Test
   public void testRunfilesWithTreeArtifacts() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -232,7 +233,7 @@ public final class SpawnInputExpanderTest {
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putTreeArtifact(treeArtifact, treeArtifactValue);
 
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(treeArtifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -241,13 +242,13 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("runfiles/workspace/treeArtifact/file1"), file1,
-            PathFragment.create("runfiles/workspace/treeArtifact/file2"), file2);
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/treeArtifact/file1"), file1,
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/treeArtifact/file2"), file2);
   }
 
   @Test
   public void testRunfilesWithTreeArtifacts_pathMapped() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -262,7 +263,7 @@ public final class SpawnInputExpanderTest {
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putTreeArtifact(treeArtifact, treeArtifactValue);
 
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(treeArtifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
@@ -276,7 +277,7 @@ public final class SpawnInputExpanderTest {
           String runfilesPathHash =
               DigestHashFunction.SHA256
                   .getHashFunction()
-                  .hashString(runfilesPath.getPathString(), UTF_8)
+                  .hashBytes(StringUnsafe.getInternalStringBytes(runfilesPath.getPathString()))
                   .toString();
           return execPath
               .subFragment(0, 1)
@@ -289,15 +290,21 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("bazel-out/2c26b46b/bin/foo.runfiles/workspace/treeArtifact/file1"),
+            PathFragment.create(
+                "bazel-out/2c26b46b/bin/foo.runfiles/"
+                    + MAIN_REPO_DIR_NAME
+                    + "/treeArtifact/file1"),
             file1,
-            PathFragment.create("bazel-out/2c26b46b/bin/foo.runfiles/workspace/treeArtifact/file2"),
+            PathFragment.create(
+                "bazel-out/2c26b46b/bin/foo.runfiles/"
+                    + MAIN_REPO_DIR_NAME
+                    + "/treeArtifact/file2"),
             file2);
   }
 
   @Test
   public void testRunfilesWithArchivedTreeArtifacts() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(treeArtifact);
     TreeArtifactValue treeArtifactValue =
         TreeArtifactValue.newBuilder(treeArtifact)
@@ -307,7 +314,7 @@ public final class SpawnInputExpanderTest {
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putTreeArtifact(treeArtifact, treeArtifactValue);
 
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
+    Runfiles runfiles = new Runfiles.Builder().addArtifact(treeArtifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -317,12 +324,13 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("runfiles/workspace/treeArtifact"), archivedTreeArtifact);
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/treeArtifact"),
+            archivedTreeArtifact);
   }
 
   @Test
   public void testRunfilesWithTreeArtifactsInSymlinks() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -337,9 +345,7 @@ public final class SpawnInputExpanderTest {
     fakeActionInputFileCache.putTreeArtifact(treeArtifact, treeArtifactValue);
 
     Runfiles runfiles =
-        new Runfiles.Builder("workspace")
-            .addSymlink(PathFragment.create("symlink"), treeArtifact)
-            .build();
+        new Runfiles.Builder().addSymlink(PathFragment.create("symlink"), treeArtifact).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -348,13 +354,13 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("runfiles/workspace/symlink/file1"), file1,
-            PathFragment.create("runfiles/workspace/symlink/file2"), file2);
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/symlink/file1"), file1,
+            PathFragment.create("runfiles/" + MAIN_REPO_DIR_NAME + "/symlink/file2"), file2);
   }
 
   @Test
   public void testTreeArtifactsInInputs() throws Exception {
-    SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
+    TreeArtifact treeArtifact = createTreeArtifact("treeArtifact");
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
@@ -378,28 +384,33 @@ public final class SpawnInputExpanderTest {
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file2"), file2);
   }
 
-  private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
-    SpecialArtifact treeArtifact = createSpecialArtifact(relPath, SpecialArtifactType.TREE);
+  private TreeArtifact createTreeArtifact(String relPath) throws IOException {
+    ArtifactRoot derivedRoot = createDerivedRoot(relPath);
+    Path outputPath = execRoot.getRelative("out").getRelative(relPath);
+    TreeArtifact treeArtifact =
+        TreeArtifact.create(
+            derivedRoot,
+            derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
     treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     return treeArtifact;
   }
 
-  private SpecialArtifact createFilesetArtifact(String relPath) throws IOException {
-    return createSpecialArtifact(relPath, SpecialArtifactType.FILESET);
+  private FilesetArtifact createFilesetArtifact(String relPath) throws IOException {
+    ArtifactRoot derivedRoot = createDerivedRoot(relPath);
+    Path outputPath = execRoot.getRelative("out").getRelative(relPath);
+    return FilesetArtifact.create(
+        derivedRoot,
+        derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
+        ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
-  private SpecialArtifact createSpecialArtifact(String relPath, SpecialArtifactType type)
-      throws IOException {
+  private ArtifactRoot createDerivedRoot(String relPath) throws IOException {
     String outputSegment = "out";
     Path outputDir = execRoot.getRelative(outputSegment);
     Path outputPath = outputDir.getRelative(relPath);
     outputPath.createDirectoryAndParents();
-    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outputSegment);
-    return SpecialArtifact.create(
-        derivedRoot,
-        derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        type);
+    return ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outputSegment);
   }
 
   @Test
@@ -438,11 +449,8 @@ public final class SpawnInputExpanderTest {
         FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
   }
 
-  private SpecialArtifact createFileset(String execPath) {
-    return SpecialArtifact.create(
-        rootDir,
-        PathFragment.create(execPath),
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        SpecialArtifactType.FILESET);
+  private FilesetArtifact createFileset(String execPath) {
+    return FilesetArtifact.create(
+        rootDir, PathFragment.create(execPath), ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 }

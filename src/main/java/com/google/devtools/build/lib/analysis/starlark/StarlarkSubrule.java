@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -55,7 +56,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
@@ -104,6 +104,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkSubruleApi {
     } else {
       return "unexported subrule";
     }
+  }
+
+  @Override
+  @Nullable
+  public Label getExtensionLabel() {
+    return extensionLabel;
   }
 
   @Override
@@ -291,8 +297,9 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkSubruleApi {
     return toolchains.build();
   }
 
-  private static ImmutableSet<StarlarkSubrule> getTransitiveSubrules(
-      ImmutableCollection<? extends StarlarkSubruleApi> subrules) {
+  /** Returns the transitive subrule closure */
+  public static ImmutableSet<StarlarkSubrule> getTransitiveSubrules(
+      Collection<? extends StarlarkSubruleApi> subrules) {
     ImmutableSet.Builder<StarlarkSubrule> uniqueSubrules = ImmutableSet.builder();
     for (StarlarkSubruleApi subruleApi : subrules) {
       if (subruleApi instanceof StarlarkSubrule subrule) {
@@ -312,6 +319,16 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkSubruleApi {
       }
     }
     return Optional.empty();
+  }
+
+  /** Returns if the given rule attribute is defined by this subrule */
+  public boolean hasAttr(String ruleAttrName) {
+    for (SubruleAttribute attr : attributes) {
+      if (ruleAttrName.equals(attr.ruleAttrName)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

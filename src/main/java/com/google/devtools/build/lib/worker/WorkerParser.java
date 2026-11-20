@@ -57,11 +57,6 @@ public class WorkerParser {
    */
   private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
-  /**
-   * Legacy pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes.
-   */
-  private static final Pattern LEGACY_FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
-
   /** The global execRoot. */
   private final Path execRoot;
 
@@ -199,10 +194,6 @@ public class WorkerParser {
     return FLAG_FILE_PATTERN.matcher(arg).matches() && !arg.startsWith("@@");
   }
 
-  private static boolean isLegacyFlagFileArg(String arg) {
-    return LEGACY_FLAG_FILE_PATTERN.matcher(arg).matches();
-  }
-
   /**
    * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
    * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
@@ -230,7 +221,7 @@ public class WorkerParser {
       }
     } else {
       for (String arg : args) {
-        if (isLegacyFlagFileArg(arg)) {
+        if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
           flagFiles.add(arg);
         } else {
           workerArgs.add(arg);

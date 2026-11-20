@@ -15,7 +15,6 @@ package com.google.devtools.common.options.processor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -286,7 +285,11 @@ public final class OptionsClassProcessor extends AbstractProcessor {
 
               @Override
               public final int hashCode() {
-                return %2$s.class.hashCode() + Options.toMap(this).hashCode();
+                int result = %2$s.class.hashCode();
+                for (OptionDefinition def : OptionDefinition.getOptionDefinitions(getOptionsClass())) {
+                  result = 31 * result + Objects.hashCode(def.getValue(this));
+                }
+                return result;
               }
             """,
             packageName, implClassName, typeElement.getQualifiedName());
@@ -305,8 +308,13 @@ public final class OptionsClassProcessor extends AbstractProcessor {
                 }
 
                 %4$s
+                // Setting the identical value doesn't need to be reported as a change.
+                @SuppressWarnings({"ReferenceEquality", "OptionalEquality", "StringEquality"})
                 public void set%3$s(%1$s %2$s) {
-                  this.%2$s = %2$s;
+                  if (this.%2$s != %2$s) {
+                    this.%2$s = %2$s;
+                    onOptionChanged();
+                  }
                 }
               """,
               option.fieldType,
@@ -341,7 +349,6 @@ public final class OptionsClassProcessor extends AbstractProcessor {
     }
 
     checkOptionName(method);
-    checkOldCategoriesAreNotUsed(method);
     checkExpansionOptions(method);
     checkConverter(method);
     checkEffectTagRationality(method);
@@ -411,21 +418,6 @@ public final class OptionsClassProcessor extends AbstractProcessor {
               tag);
         }
       }
-    }
-  }
-
-  private static final ImmutableSet<String> DEPRECATED_CATEGORIES =
-      ImmutableSet.of("undocumented", "hidden", "internal");
-
-  private void checkOldCategoriesAreNotUsed(ExecutableElement method)
-      throws OptionProcessorException {
-    Option annotation = method.getAnnotation(Option.class);
-    if (DEPRECATED_CATEGORIES.contains(annotation.category())) {
-      throw new OptionProcessorException(
-          method,
-          "Documentation level is no longer read from the option category. Category \""
-              + annotation.category()
-              + "\" is disallowed, see OptionMetadataTags for the relevant tags.");
     }
   }
 

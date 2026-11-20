@@ -15,8 +15,7 @@
 package com.google.testing.junit.runner.util;
 
 import com.google.testing.junit.runner.util.TestPropertyExporter.Callback;
-
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * JUnit runner integration code for test properties. Most code should not

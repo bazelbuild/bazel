@@ -189,11 +189,11 @@ public abstract class Type<T> {
   public abstract T getDefaultValue();
 
   /**
-   * Function accepting a (potentially null) {@link Label} and a (potentially null) {@link
-   * Attribute} provided as context. Used by {@link #visitLabels}.
+   * Function accepting a non-null {@link Label} and a (potentially null) {@link Attribute} provided
+   * as context. Used by {@link #visitLabels}.
    */
   public interface LabelVisitor {
-    void visit(@Nullable Label label, @Nullable Attribute context);
+    void visit(Label label, @Nullable Attribute context);
   }
 
   /**

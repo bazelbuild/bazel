@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
@@ -26,12 +25,10 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLe
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -44,7 +41,6 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   private final Future<? extends AnalysisCacheInvalidator> analysisCacheInvalidator;
 
   private final Collection<Label> topLevelTargets;
-  private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
 
   private final ExtendedEventHandler eventHandler;
 
@@ -53,6 +49,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   private boolean bailedOut;
 
   private final boolean minimizeMemory;
+  private final boolean keepGoing;
 
   private final SettablePlatformConfigurationProvider platformConfigurationProvider;
 
@@ -74,8 +71,8 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.analysisCacheClient = null;
     this.analysisCacheInvalidator = null;
     this.topLevelTargets = ImmutableList.of();
-    this.activeDirectoriesMatcher = Optional.empty();
     this.minimizeMemory = false;
+    this.keepGoing = false;
     this.eventHandler = null;
     this.skycacheMetadataParams = null;
     this.platformConfigurationProvider = null;
@@ -88,15 +85,36 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       Future<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       Future<? extends AnalysisCacheInvalidator> analysisCacheInvalidator,
       Collection<Label> topLevelTargets,
-      Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
       boolean minimizeMemory,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
+    this(
+        mode,
+        eventHandler,
+        skycacheMetadataParams,
+        analysisCacheClient,
+        analysisCacheInvalidator,
+        topLevelTargets,
+        minimizeMemory,
+        /* keepGoing= */ false,
+        platformConfigurationProvider);
+  }
+
+  RemoteAnalysisCacheManager(
+      RemoteAnalysisCacheMode mode,
+      ExtendedEventHandler eventHandler,
+      SkycacheMetadataParams skycacheMetadataParams,
+      Future<? extends RemoteAnalysisCacheClient> analysisCacheClient,
+      Future<? extends AnalysisCacheInvalidator> analysisCacheInvalidator,
+      Collection<Label> topLevelTargets,
+      boolean minimizeMemory,
+      boolean keepGoing,
       SettablePlatformConfigurationProvider platformConfigurationProvider) {
     this.mode = mode;
     this.analysisCacheClient = analysisCacheClient;
     this.analysisCacheInvalidator = analysisCacheInvalidator;
     this.topLevelTargets = topLevelTargets;
-    this.activeDirectoriesMatcher = activeDirectoriesMatcher;
     this.minimizeMemory = minimizeMemory;
+    this.keepGoing = keepGoing;
     this.eventHandler = eventHandler;
     this.skycacheMetadataParams = skycacheMetadataParams;
     this.platformConfigurationProvider = platformConfigurationProvider;
@@ -142,17 +160,18 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
           // Possible version skew: the old LC doesn't know about the new enum value.
           matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
         }
-        Event event =
-            switch (matchStatus) {
-              case MATCH_STATUS_MATCH -> Event.info("Skycache: " + result.statusMessage());
-              default -> {
-                bailedOut = true;
-                yield Event.warn("Skycache: " + result.statusMessage());
-              }
-            };
-        eventHandler.handle(event);
+        if (matchStatus != TopLevelTargetsMatchStatus.MATCH_STATUS_MATCH) {
+          bailedOut = true;
+        }
+        eventHandler.post(
+            new SkycacheMetadataQueryResultEvent(matchStatus, result.statusMessage()));
       } catch (ExecutionException | TimeoutException e) {
-        eventHandler.handle(Event.warn("Skycache: Error with metadata store: " + e.getMessage()));
+        bailedOut = true;
+        eventHandler.handle(
+            Event.warn(
+                "Skycache: Error with metadata store: "
+                    + e.getMessage()
+                    + ". Bailing out to local evaluation."));
       }
     }
   }
@@ -189,8 +208,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   @Override
   public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
     checkEnabled();
-    FrontierSerializer.computeSelectionAndMinimizeMemory(
-        graph, topLevelTargets, activeDirectoriesMatcher);
+    FrontierSerializer.computeSelectionAndMinimizeMemory(graph, topLevelTargets, keepGoing);
   }
 
   @Override

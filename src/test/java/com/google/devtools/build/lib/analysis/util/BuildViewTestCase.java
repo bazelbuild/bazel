@@ -44,8 +44,12 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
+import com.google.devtools.build.lib.actions.Artifact.RunfilesArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.UnresolvedSymlinkArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -109,6 +113,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -144,6 +149,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -311,7 +317,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -467,8 +473,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
-  protected BuildOptions createBuildOptions(String... args)
-      throws OptionsParsingException, InvalidConfigurationException {
+  protected BuildOptions createBuildOptions(String... args) throws InvalidConfigurationException {
     ImmutableList<String> allArgs = ImmutableList.copyOf(args);
     return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }
@@ -914,11 +919,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return args.build();
   }
 
+  @Nullable
+  protected CommandLines getCommandLines(Action action) {
+    return switch (action) {
+      case SpawnAction spawnAction -> spawnAction.getCommandLines();
+      case JavaCompileAction javaCompileAction -> javaCompileAction.getCommandLines();
+      case null, default -> null;
+    };
+  }
+
   /** Locates the first parameter file used by the action and returns its command line. */
   @Nullable
   protected final CommandLine paramFileCommandLineForAction(Action action) {
-    if (action instanceof SpawnAction spawnAction) {
-      CommandLines commandLines = spawnAction.getCommandLines();
+    CommandLines commandLines = getCommandLines(action);
+    if (commandLines != null) {
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           return pair.commandLine;
@@ -953,8 +967,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
       throws CommandLineExpansionException, InterruptedException, IOException {
-    if (action instanceof SpawnAction spawnAction) {
-      CommandLines commandLines = spawnAction.getCommandLines();
+    CommandLines commandLines = getCommandLines(action);
+    if (commandLines != null) {
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -971,7 +985,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected ParameterFileWriteAction paramFileWriteActionForAction(Action action) {
     for (Artifact input : action.getInputs().toList()) {
-      if (!(input instanceof SpecialArtifact)) {
+      if (!(input instanceof TreeArtifact)) {
         Action generatingAction = getGeneratingAction(input);
         if (generatingAction instanceof ParameterFileWriteAction parameterFileWriteAction) {
           return parameterFileWriteAction;
@@ -1712,7 +1726,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Path getOutputPath() {
-    return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
+    return directories.getOutputPath();
   }
 
   protected String getRelativeOutputPath() {
@@ -2140,7 +2154,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 com.google.devtools.build.runfiles.Runfiles.preload()
                     .withSourceRepository("")
                     .rlocation(
-                        TestConstants.WORKSPACE_NAME
+                        LabelConstants.MAIN_REPO_DIR_NAME
                             + "/"
                             + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
   }
@@ -2159,22 +2173,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public ConstantMetadataArtifact getConstantMetadataArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public RunfilesArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public TreeArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public UnresolvedSymlinkArtifact getSymlinkArtifact(
+        PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
@@ -2209,7 +2225,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    public FilesetArtifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
 
@@ -2404,7 +2420,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   public Path getExecRoot() {
-    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
+    return directories.getExecRoot();
   }
 
   /** Returns true iff commandLine contains the option --flagName followed by arg. */

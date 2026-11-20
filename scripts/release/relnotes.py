@@ -94,9 +94,9 @@ def get_relnotes_between(base, head, is_patch_release):
   return relnotes
 
 
-def get_label(issue_id):
-  """Get team-X label added to issue."""
-  auth = (
+def get_github_token():
+  """Fetches the GitHub API token from GCP Secret Manager."""
+  return (
       subprocess.check_output([
           "gcloud",
           "secrets",
@@ -110,29 +110,83 @@ def get_label(issue_id):
       .strip()
       .split("\n")[0]
   )
+
+
+def get_label(issue_id, auth=None):
+  """Get team-X label added to issue."""
+  if auth is None:
+    auth = get_github_token()
   headers = {
       "Authorization": "Bearer " + auth,
       "Accept": "application/vnd.github+json",
   }
-  response = requests.get(
-      "https://api.github.com/repos/bazelbuild/bazel/issues/"
-      + issue_id + "/labels", headers=headers,
+  url = (
+      f"https://api.github.com/repos/bazelbuild/bazel/issues/{issue_id}/labels"
   )
-  for item in response.json():
-    for key, value in item.items():
-      if key == "name" and "team-" in value:
+  try:
+    response = requests.get(url, headers=headers, timeout=30)
+  except requests.RequestException as e:
+    print(
+        f"Warning: Failed to fetch labels for #{issue_id}: {e}",
+        file=sys.stderr,
+    )
+    return None
+
+  # GitHub's REST API returns a JSON array (`list` of label dicts) on HTTP 200,
+  # but returns a JSON error object (`dict`, e.g. `{"message": ...}`) on non-2xx
+  # responses. For instance, HTTP 404 is returned for unknown or external-repo
+  # PR numbers, and HTTP 422 ("Could not resolve to a node with the global id
+  # of 'PR_...'") is returned when a PR author's GitHub account has been
+  # deleted or suspended. Iterating directly over that error dict yields its
+  # string keys and raises `AttributeError`, so check `response.ok` first and
+  # return `None` to fall back to the "General" category.
+  if not response.ok:
+    print(
+        f"Warning: GitHub API returned HTTP {response.status_code} for"
+        f" #{issue_id}; falling back to 'General' category.",
+        file=sys.stderr,
+    )
+    return None
+
+  try:
+    labels = response.json()
+  except ValueError as e:
+    print(
+        f"Warning: Invalid JSON in labels response for #{issue_id}: {e}",
+        file=sys.stderr,
+    )
+    return None
+
+  if not isinstance(labels, list):
+    return None
+
+  for item in labels:
+    if isinstance(item, dict):
+      value = item.get("name", "")
+      if "team-" in value:
         return value.strip()
   return None
 
 
-def get_categorized_relnotes(filtered_notes):
+def get_categorized_relnotes(filtered_notes, auth=None):
   """Sort release notes by category."""
   categorized_relnotes = {}
   for relnote in filtered_notes:
-    issue_id = re.search(r"\(\#[0-9]+\)$", relnote.strip().split()[-1])
+    parts = relnote.strip().split()
+    if not parts:
+      continue
+    # Safely access the last element now that we know 'parts' is not empty
+    issue_id = re.search(r"\(\#[0-9]+\)$", parts[-1])
+
     category = None
     if issue_id:
-      category = get_label(re.sub(r"\(|\#|\)", "", issue_id.group(0).strip()))
+      # Fetch the GitHub token once lazily on the first issue lookup rather than
+      # spawning a `gcloud` subprocess inside `get_label` for every issue.
+      if auth is None:
+        auth = get_github_token()
+      category = get_label(
+          re.sub(r"\(|\#|\)", "", issue_id.group(0).strip()), auth=auth
+      )
 
     if category is None:
       category = "General"
@@ -170,6 +224,26 @@ def get_external_authors_between(base, head):
   return ", ".join(sorted(authors.union(coauthors), key=str.casefold))
 
 
+def parse_version(tag):
+  """Parses a version string into a tuple of ints for semantic comparison."""
+  match = re.search(r"^v?(\d+(?:\.\d+)*)", tag)
+  if match:
+    return tuple(int(x) for x in match.group(1).split("."))
+  return ()
+
+
+def is_rolling_release(release_name):
+  """Returns True if `release_name` is a rolling pre-release (or RC of one)."""
+  # Matches the `is_rolling_release` pattern in `common.sh`, e.g.
+  # "11.0.0-pre.20261022.3", "11.0.0-pre.20261022.3.1", or "...rc1".
+  return bool(
+      re.match(
+          r"^\d+\.\d+\.\d+-pre\.\d{8}\.\d+(?:\.\d+)?(?:rc[\d.]+)?$",
+          release_name,
+      )
+  )
+
+
 def get_filtered_notes(base, previous_release, is_patch_release):
   # Generate notes for all commits from last branch cut to HEAD, but filter out
   # any identical notes from the previous release branch.
@@ -191,23 +265,40 @@ if __name__ == "__main__":
   current_release = git("rev-parse", "--abbrev-ref", "HEAD")[0]
 
   if current_release.startswith("release-"):
-    current_release = re.sub(r"rc\d", "", current_release[len("release-"):])
+    current_release = re.sub(r"rc\d+", "", current_release[len("release-") :])
   else:
     try:
       current_release = git("describe", "--tags")[0]
-    except Exception:  # pylint: disable=broad-exception-caught
-      print("Error: Not a release branch.")
+    except subprocess.CalledProcessError:
+      print("Error: Not a release branch.", file=sys.stderr)
       sys.exit(1)
+
+  # Rolling releases (`X.Y.Z-pre.YYYYMMDD.N`) do not announce categorized
+  # release notes via `relnotes.py` (consistent with `relnotes.sh`, which only
+  # invokes `relnotes.py` when `is_rolling_release` is false). Exiting early
+  # also avoids misclassifying a rolling pre-release as a patch release below
+  # (`not current_release.endswith(".0")`) and querying GitHub labels for every
+  # commit title since the previous full release tag.
+  if is_rolling_release(current_release):
+    print(
+        "Skipping release notes generation for rolling release"
+        f" {current_release}."
+    )
+    sys.exit(0)
 
   is_patch = not current_release.endswith(".0")
 
-  tags = [tag for tag in git("tag", "--sort=refname") if "pre" not in tag]
+  tags = [
+      tag
+      for tag in git("tag", "--sort=version:refname")
+      if "pre" not in tag and "rc" not in tag
+  ]
 
   # Get the baseline for RCs (before release tag is created)
   if current_release not in tags:
     tags.append(current_release)
 
-  tags.sort()
+  tags.sort(key=parse_version)
   last_release = tags[tags.index(current_release) - 1]
 
   # Assuming HEAD is on the current (to-be-released) release, find the merge

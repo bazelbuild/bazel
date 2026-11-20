@@ -51,6 +51,12 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
                           .value(Label.parseCanonicalUnchecked("//default:value"))
                           .allowedFileTypes()));
 
+  private static final MockRule RULE_WITH_NO_DEFAULT =
+      () ->
+          MockRule.define(
+              "rule_with_no_default",
+              (builder, env) -> builder.add(attr("attribute", BuildType.LABEL).allowedFileTypes()));
+
   private static final MockRule RULE_WITH_COMPUTED_DEFAULT =
       () ->
           MockRule.define(
@@ -88,6 +94,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(RULE_WITH_DEFAULT)
+            .addRuleDefinition(RULE_WITH_NO_DEFAULT)
             .addRuleDefinition(RULE_WITH_COMPUTED_DEFAULT);
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
@@ -348,6 +355,26 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         .containsExactly(
             Label.parseCanonicalUnchecked("//default:value"),
             Label.parseCanonicalUnchecked("//conditions:a"));
+  }
+
+  @Test
+  public void testGetReachableLabelsWithDefaultValues_noDefaultValue() throws Exception {
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            """
+            rule_with_no_default(
+                name = "myrule",
+                attribute = select({
+                    "//conditions:a": None,
+                }),
+            )
+            """);
+
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    assertThat(mapper.getReachableLabels("attribute", true))
+        .containsExactly(Label.parseCanonicalUnchecked("//conditions:a"));
   }
 
   @Test

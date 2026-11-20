@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackingProgressReceiver {
 
   protected final EvaluationProgressReceiver progressReceiver;
-  private final Set<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
+  private Set<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> inflightKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> unsuccessfullyRewoundKeys = Sets.newConcurrentHashSet();
 
@@ -143,6 +143,11 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   @Override
+  public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+    progressReceiver.committing(skyKey, value, directDeps);
+  }
+
+  @Override
   public void evaluated(
       SkyKey skyKey,
       EvaluationState state,
@@ -207,6 +212,10 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     return keys;
   }
 
+  final boolean isRewinding(SkyKey skyKey) {
+    return unsuccessfullyRewoundKeys.contains(skyKey);
+  }
+
   /**
    * Returns the set of all dirty keys that have not been enqueued. This is useful for garbage
    * collection, where we would not want to remove dirty nodes that are needed for evaluation (in
@@ -214,6 +223,13 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
    */
   final ImmutableSet<SkyKey> getUnenqueuedDirtyKeys() {
     return ImmutableSet.copyOf(dirtyKeys);
+  }
+
+  /** Transfers dirty keys to the evaluator at a quiescent deletion boundary. */
+  final Set<SkyKey> getAndClearUnenqueuedDirtyKeys() {
+    Set<SkyKey> keys = dirtyKeys;
+    dirtyKeys = Sets.newConcurrentHashSet();
+    return keys;
   }
 
   private void addToDirtySet(SkyKey skyKey, DirtyType dirtyType) {

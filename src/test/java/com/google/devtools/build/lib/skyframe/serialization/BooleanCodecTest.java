@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skyframe.serialization.testutils.ObjectCodecTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,10 +24,6 @@ public class BooleanCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    ObjectCodecTester.newBuilder(new BooleanCodec())
-        // No error checking, accepts any data.
-        .skipBadDataTest()
-        .addSubjects(true, false)
-        .buildAndRunTests();
+    new SerializationTester(true, false).runTests();
   }
 }

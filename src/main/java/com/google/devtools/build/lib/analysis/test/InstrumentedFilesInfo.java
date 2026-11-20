@@ -140,7 +140,8 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   }
 
   /** Provider implementation for {@link InstrumentedFilesInfo}. */
-  public static class InstrumentedFilesProvider extends BuiltinProvider<InstrumentedFilesInfo> {
+  public static class InstrumentedFilesProvider
+      extends BuiltinProvider.NonCallable<InstrumentedFilesInfo> {
 
     public InstrumentedFilesProvider() {
       super("InstrumentedFilesInfo", InstrumentedFilesInfo.class);

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <jni.h>
 #include <notify.h>
 #include <notify_keys.h>
 
@@ -26,18 +27,35 @@ const char *kNotifyVFSVeryLowDiskSpace = "com.apple.system.verylowdiskspace";
 
 namespace blaze_jni {
 
-void portable_start_disk_space_monitoring() {
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/platform/SystemDiskSpaceEvent.java
+enum DiskSpaceLevel {
+  DiskSpaceLevelLow = 0,
+  DiskSpaceLevelVeryLow = 1,
+};
+
+static jobject g_disk_space_callback = nullptr;
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerDiskSpaceNative(
+    JNIEnv* env, jobject, jobject callback) {
+  if (!blaze_jni::RegisterIntConsumerCallback(
+          env, callback, &g_disk_space_callback, "disk space")) {
+    return;
+  }
   // We install a test notification as well that can be used for testing.
   static dispatch_once_t once_token;
   dispatch_once(&once_token, ^{
     dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
     notify_handler_t lowHandler = (^(int token) {
       BAZEL_LOG(USER) << "disk space low anomaly";
-      disk_space_callback(DiskSpaceLevelLow);
+      blaze_jni::PerformIntegerValueCallback(g_disk_space_callback,
+                                             DiskSpaceLevelLow);
     });
     notify_handler_t veryLowHandler = (^(int token) {
       BAZEL_LOG(USER) << "disk space very low anomaly";
-      disk_space_callback(DiskSpaceLevelVeryLow);
+      blaze_jni::PerformIntegerValueCallback(g_disk_space_callback,
+                                             DiskSpaceLevelVeryLow);
     });
     int notifyToken;
     int status = notify_register_dispatch(kNotifyVFSLowDiskSpace,

@@ -845,7 +845,8 @@ public abstract class RemoteActionFileSystemTestBase {
     var actionFs = createActionFileSystem();
     var path = getOutputPath("file");
 
-    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).getLastModifiedTime());
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.getPath(path).getLastModifiedTimeNanos());
   }
 
   @Test
@@ -854,9 +855,10 @@ public abstract class RemoteActionFileSystemTestBase {
     var path = getOutputPath("file");
     injectRemoteFile(actionFs, path, "remote-content");
 
-    var mtime = actionFs.getPath(path).getLastModifiedTime();
+    var mtime = actionFs.getPath(path).getLastModifiedTimeNanos();
 
-    assertThat(mtime).isEqualTo(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime());
+    assertThat(mtime)
+        .isEqualTo(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos());
   }
 
   @Test
@@ -865,9 +867,10 @@ public abstract class RemoteActionFileSystemTestBase {
     var path = getOutputPath("file");
     writeLocalFile(actionFs, path, "local-content");
 
-    var mtime = actionFs.getPath(path).getLastModifiedTime();
+    var mtime = actionFs.getPath(path).getLastModifiedTimeNanos();
 
-    assertThat(mtime).isEqualTo(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTime());
+    assertThat(mtime)
+        .isEqualTo(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos());
   }
 
   @Test
@@ -877,9 +880,10 @@ public abstract class RemoteActionFileSystemTestBase {
     injectRemoteFile(actionFs, path, "remote-content");
     writeLocalFile(actionFs, path, "local-content");
 
-    var mtime = actionFs.getPath(path).getLastModifiedTime();
+    var mtime = actionFs.getPath(path).getLastModifiedTimeNanos();
 
-    assertThat(mtime).isEqualTo(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime());
+    assertThat(mtime)
+        .isEqualTo(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos());
   }
 
   @Test
@@ -887,7 +891,8 @@ public abstract class RemoteActionFileSystemTestBase {
     var actionFs = createActionFileSystem();
     var path = getOutputPath("file");
 
-    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).setLastModifiedTime(0));
+    assertThrows(
+        FileNotFoundException.class, () -> actionFs.getPath(path).setLastModifiedTimeNanos(0));
   }
 
   @Test
@@ -895,11 +900,11 @@ public abstract class RemoteActionFileSystemTestBase {
     var actionFs = createActionFileSystem();
     var path = getOutputPath("file");
     injectRemoteFile(actionFs, path, "remote-content");
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isNotEqualTo(0);
 
-    actionFs.getPath(path).setLastModifiedTime(0);
+    actionFs.getPath(path).setLastModifiedTimeNanos(0);
 
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(0);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(0);
   }
 
   @Test
@@ -907,11 +912,11 @@ public abstract class RemoteActionFileSystemTestBase {
     var actionFs = createActionFileSystem();
     var path = getOutputPath("file");
     writeLocalFile(actionFs, path, "local-content");
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isNotEqualTo(0);
 
-    actionFs.getPath(path).setLastModifiedTime(0);
+    actionFs.getPath(path).setLastModifiedTimeNanos(0);
 
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(0);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(0);
   }
 
   @Test
@@ -920,12 +925,14 @@ public abstract class RemoteActionFileSystemTestBase {
     var path = getOutputPath("file");
     injectRemoteFile(actionFs, path, "remote-content");
     writeLocalFile(actionFs, path, "local-content");
-    assertThat(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTime()).isNotEqualTo(0);
-    assertThat(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos())
+        .isNotEqualTo(0);
+    assertThat(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos())
+        .isNotEqualTo(0);
 
-    actionFs.getPath(path).setLastModifiedTime(0);
+    actionFs.getPath(path).setLastModifiedTimeNanos(0);
 
-    assertThat(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTime()).isEqualTo(0);
-    assertThat(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime()).isEqualTo(0);
+    assertThat(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos()).isEqualTo(0);
+    assertThat(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTimeNanos()).isEqualTo(0);
   }
 }

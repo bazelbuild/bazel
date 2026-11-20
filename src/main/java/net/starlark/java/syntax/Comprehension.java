@@ -124,7 +124,7 @@ public final class Comprehension extends Expression {
       Node body,
       ImmutableList<Clause> clauses,
       int rbracketOffset) {
-    super(locs, Kind.COMPREHENSION);
+    super(locs);
     this.isDict = isDict;
     this.lbracketOffset = lbracketOffset;
     this.body = body;

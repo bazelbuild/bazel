@@ -72,7 +72,7 @@ public abstract class SettableFutureKeyedValue<T extends SettableFutureKeyedValu
   private boolean owned = false;
 
   /** See comment at {@link #verifyComplete}. */
-  private boolean isSet = false;
+  private boolean isCompletedWithFuture = false;
 
   /**
    * Creates the future.
@@ -112,7 +112,6 @@ public abstract class SettableFutureKeyedValue<T extends SettableFutureKeyedValu
   public final V completeWith(V value) {
     checkState(set(value), "already set %s", this);
     consumer.accept(key, value);
-    isSet = true;
     return value;
   }
 
@@ -126,7 +125,7 @@ public abstract class SettableFutureKeyedValue<T extends SettableFutureKeyedValu
   public final T completeWith(ListenableFuture<V> future) {
     checkState(setFuture(future), "already set %s", this);
     Futures.addCallback(future, this, directExecutor());
-    isSet = true;
+    isCompletedWithFuture = true;
     @SuppressWarnings("unchecked")
     var result = (T) this;
     return result;
@@ -134,10 +133,7 @@ public abstract class SettableFutureKeyedValue<T extends SettableFutureKeyedValu
 
   /** Completes this future with an exception. */
   public final T failWith(Throwable e) {
-    // The return value could be false if there are multiple errors.
-    if (setException(e)) {
-      isSet = true;
-    }
+    setException(e);
     @SuppressWarnings("unchecked")
     var result = (T) this;
     return result;
@@ -154,13 +150,26 @@ public abstract class SettableFutureKeyedValue<T extends SettableFutureKeyedValu
    * with another future that is still in progress.
    */
   public final void verifyComplete() {
-    if (!isSet) {
-      checkState(
-          setException(
-              new IllegalStateException(
-                  "future was unexpectedly unset for " + key + ", look for unchecked exceptions")),
-          this);
+    // 1. Fast path: If the future is completed (value, exception, or cancellation),
+    // AbstractFuture is the source of truth. Zero allocations, zero exceptions.
+    if (isDone()) {
+      return;
     }
+    // 2. In-flight delegate: If completeWith(ListenableFuture) was called with a future
+    // that hasn't completed yet, isCompletedWithFuture was set on this owning thread right before
+    // finally.
+    if (isCompletedWithFuture) {
+      return;
+    }
+    // 3. Error path only: The future was truly never set, delegated, or cancelled.
+    // If a cancellation lands concurrently between isDone() and setException(), setException()
+    // will return false. Checking isCancelled() handles this race.
+    boolean wasSetOrCancelled =
+        setException(
+                new IllegalStateException(
+                    "future was unexpectedly unset for " + key + ", look for unchecked exceptions"))
+            || isCancelled();
+    checkState(wasSetOrCancelled, this);
   }
 
   /**

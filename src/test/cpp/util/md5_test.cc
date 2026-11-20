@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "src/main/cpp/util/md5.h"
 
+#include <cstring>
 #include <iterator>
 
 #include "googletest/include/gtest/gtest.h"

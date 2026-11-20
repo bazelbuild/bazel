@@ -133,10 +133,6 @@ public abstract class AbstractQueryTest<T> {
 
   protected abstract QueryHelper<T> createQueryHelper();
 
-  /**
-   * Used to disable configurable attribute queries on DepServerQueryEnvironment, which doesn't
-   * support them.
-   */
   protected boolean testConfigurableAttributes() {
     return true;
   }
@@ -2720,7 +2716,7 @@ public abstract class AbstractQueryTest<T> {
         label_flag(name = 'myflag', build_setting_default = ':thief')
         """);
 
-    assertThat(evalToString("deps(//donut:myflag, 1)" + getDependencyCorrectionWithGen()))
+    assertThat(evalToString("deps(//donut:myflag, 1)" + getDependencyCorrection()))
         .isEqualTo("//donut:myflag //donut:thief");
   }
 
@@ -2734,7 +2730,7 @@ public abstract class AbstractQueryTest<T> {
         label_setting(name = 'mysetting', build_setting_default = ':thief')
         """);
 
-    assertThat(evalToString("deps(//donut:mysetting, 1)" + getDependencyCorrectionWithGen()))
+    assertThat(evalToString("deps(//donut:mysetting, 1)" + getDependencyCorrection()))
         .isEqualTo("//donut:mysetting //donut:thief");
   }
 

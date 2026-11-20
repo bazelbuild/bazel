@@ -31,7 +31,6 @@ java_library(
     srcs = ["RepositoryFunctionException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/repository:external_package_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
@@ -104,7 +103,7 @@ java_library(
         ":repo_definition",
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:serialization",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
@@ -183,6 +182,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],
 )

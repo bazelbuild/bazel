@@ -15,14 +15,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -73,10 +74,35 @@ public abstract class InterimModule extends ModuleBase {
    * NonRegistryOverride}.
    */
   @Nullable
-  public abstract Registry getRegistry();
+  public abstract String getRegistryUrl();
 
   /** Returns a {@link Builder} that starts out with the same fields as this object. */
   abstract Builder toBuilder();
+
+  // Also compares the order of deps, which ImmutableMap#equals ignores, since it determines the BFS
+  // order of the dep graph. Must be updated when adding a property to this class or ModuleBase.
+  @Override
+  public final boolean equals(Object o) {
+    return o instanceof InterimModule that
+        && getName().equals(that.getName())
+        && getVersion().equals(that.getVersion())
+        && getKey().equals(that.getKey())
+        && getRepoName().equals(that.getRepoName())
+        && getExecutionPlatformsToRegister().equals(that.getExecutionPlatformsToRegister())
+        && getToolchainsToRegister().equals(that.getToolchainsToRegister())
+        && getExtensionUsages().equals(that.getExtensionUsages())
+        && getFlagAliases().equals(that.getFlagAliases())
+        && getBazelCompatibility().equals(that.getBazelCompatibility())
+        && Iterables.elementsEqual(getDeps().entrySet(), that.getDeps().entrySet())
+        && getOriginalDeps().equals(that.getOriginalDeps())
+        && getNodepDeps().equals(that.getNodepDeps())
+        && Objects.equals(getRegistryUrl(), that.getRegistryUrl());
+  }
+
+  @Override
+  public final int hashCode() {
+    return Objects.hash(getKey(), getDeps());
+  }
 
   /** Returns a new, empty {@link Builder}. */
   public static Builder builder() {
@@ -108,7 +134,6 @@ public abstract class InterimModule extends ModuleBase {
 
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
-
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
@@ -160,7 +185,7 @@ public abstract class InterimModule extends ModuleBase {
 
     public abstract Builder setNodepDeps(ImmutableList<ModuleKey> value);
 
-    public abstract Builder setRegistry(Registry value);
+    public abstract Builder setRegistryUrl(@Nullable String value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
 
@@ -179,6 +204,11 @@ public abstract class InterimModule extends ModuleBase {
     abstract Version getVersion();
 
     abstract Optional<String> getRepoName();
+
+    /** Returns repo_name if set, otherwise the module's name. */
+    public String getRepoNameOrName() {
+      return getRepoName().orElse(getName());
+    }
 
     abstract InterimModule autoBuild();
 

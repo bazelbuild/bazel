@@ -18,18 +18,35 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -39,12 +56,18 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.Lo
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Optional;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,6 +81,7 @@ import org.mockito.junit.MockitoRule;
 public final class AnalysisCacheInvalidatorTest {
 
   private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+  private static final String UNTRIMMED_CHECKSUM = "untrimmed_checksum";
 
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
   @Mock private RemoteAnalysisCacheClient mockAnalysisCacheClient;
@@ -80,6 +104,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -88,7 +113,9 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 ImmutableSet::of,
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
         .isEmpty();
   }
 
@@ -114,6 +141,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -122,7 +150,9 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 () -> ImmutableSet.of(key),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
         .isEmpty();
   }
 
@@ -147,6 +177,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -155,7 +186,9 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 () -> ImmutableSet.of(key),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
         .containsExactly(key);
   }
 
@@ -190,6 +223,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -198,7 +232,9 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 () -> ImmutableSet.of(hitKey, missKey),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
         .containsExactly(missKey);
   }
 
@@ -233,6 +269,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             currentVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -241,7 +278,7 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 () -> ImmutableSet.of(key1, key2),
                 new RemoteAnalysisCachingServerState(
-                    previousVersion, new SnapshotClientId("for_testing", 2))))
+                    previousVersion, new SnapshotClientId("for_testing", 2), UNTRIMMED_CHECKSUM)))
         .containsExactly(key1, key2);
 
     // No RPCs should be sent.
@@ -279,6 +316,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             currentVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -287,7 +325,7 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 () -> ImmutableSet.of(key1, key2),
                 new RemoteAnalysisCachingServerState(
-                    previousVersion, new SnapshotClientId("for_testing", 2))))
+                    previousVersion, new SnapshotClientId("for_testing", 2), UNTRIMMED_CHECKSUM)))
         .containsExactly(key1, key2);
 
     // No RPCs should be sent.
@@ -352,6 +390,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             testCase.currentClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -359,7 +398,8 @@ public final class AnalysisCacheInvalidatorTest {
     ImmutableSet<SkyKey> keysToInvalidate =
         invalidator.lookupKeysToInvalidate(
             () -> ImmutableSet.of(key),
-            new RemoteAnalysisCachingServerState(frontierNodeVersion, testCase.previousClientId));
+            new RemoteAnalysisCachingServerState(
+                frontierNodeVersion, testCase.previousClientId, UNTRIMMED_CHECKSUM));
 
     if (testCase.expectedInvalidated) {
       assertThat(keysToInvalidate).containsExactly(key);
@@ -386,6 +426,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -394,9 +435,12 @@ public final class AnalysisCacheInvalidatorTest {
             invalidator.lookupKeysToInvalidate(
                 () -> ImmutableSet.of(key),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
         .containsExactly(key);
 
+    assertThat(neverCompletes.isCancelled()).isTrue();
     verify(mockEventListener)
         .setInvalidationLookupMetrics(
             ArgumentMatchers.argThat(
@@ -436,6 +480,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -444,7 +489,7 @@ public final class AnalysisCacheInvalidatorTest {
         invalidator.lookupKeysToInvalidate(
             () -> ImmutableSet.of(key1, key2),
             new RemoteAnalysisCachingServerState(
-                frontierNodeVersion, new SnapshotClientId("for_testing", 2)));
+                frontierNodeVersion, new SnapshotClientId("for_testing", 2), UNTRIMMED_CHECKSUM));
 
     verify(mockEventListener)
         .setInvalidationLookupMetrics(
@@ -484,6 +529,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -492,7 +538,7 @@ public final class AnalysisCacheInvalidatorTest {
         invalidator.lookupKeysToInvalidate(
             () -> ImmutableSet.of(hitKey, missKey),
             new RemoteAnalysisCachingServerState(
-                frontierNodeVersion, new SnapshotClientId("for_testing", 2)));
+                frontierNodeVersion, new SnapshotClientId("for_testing", 2), UNTRIMMED_CHECKSUM));
 
     verify(mockEventListener)
         .setInvalidationLookupMetrics(
@@ -531,6 +577,7 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
@@ -539,7 +586,7 @@ public final class AnalysisCacheInvalidatorTest {
         invalidator.lookupKeysToInvalidate(
             () -> ImmutableSet.of(key1, key2),
             new RemoteAnalysisCachingServerState(
-                frontierNodeVersion, new SnapshotClientId("for_testing", 2)));
+                frontierNodeVersion, new SnapshotClientId("for_testing", 2), UNTRIMMED_CHECKSUM));
 
     verify(mockEventListener)
         .setInvalidationLookupMetrics(
@@ -553,13 +600,20 @@ public final class AnalysisCacheInvalidatorTest {
   @Test
   public void lookupKeysToInvalidate_executionException_returnsAllKeysAndRecordsError()
       throws Exception {
-    TrivialKey key = new TrivialKey("error_key");
-    PackedFingerprint fingerprint =
+    TrivialKey errorKey = new TrivialKey("error_key");
+    TrivialKey pendingKey = new TrivialKey("pending_key");
+    PackedFingerprint errorFingerprint =
         FingerprintValueService.computeFingerprint(
-            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, errorKey, frontierNodeVersion);
+    PackedFingerprint pendingFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, pendingKey, frontierNodeVersion);
 
-    when(mockAnalysisCacheClient.lookup(fingerprint.toBytes()))
+    SettableFuture<LookupResult> pendingLookupFuture = SettableFuture.create();
+    when(mockAnalysisCacheClient.lookup(errorFingerprint.toBytes()))
         .thenReturn(immediateFailedFuture(new RuntimeException("injected failure")));
+    when(mockAnalysisCacheClient.lookup(pendingFingerprint.toBytes()))
+        .thenReturn(pendingLookupFuture);
 
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
@@ -569,32 +623,391 @@ public final class AnalysisCacheInvalidatorTest {
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
+            UNTRIMMED_CHECKSUM,
             mockEventHandler,
             mockEventListener,
             safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
-                () -> ImmutableSet.of(key),
+                () -> ImmutableSet.of(errorKey, pendingKey),
                 new RemoteAnalysisCachingServerState(
-                    frontierNodeVersion, new SnapshotClientId("for_testing", 2))))
-        .containsExactly(key);
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
+        .containsExactly(errorKey, pendingKey);
 
+    assertThat(pendingLookupFuture.isCancelled()).isTrue();
     verify(mockEventListener)
         .setInvalidationLookupMetrics(
             ArgumentMatchers.argThat(
                 metrics ->
                     metrics.getStatus() == InvalidationLookupMetrics.Status.ERROR
-                        && metrics.getNumKeys() == 1
-                        && metrics.getNumInvalidatedKeys() == 1));
+                        && metrics.getNumKeys() == 2
+                        && metrics.getNumInvalidatedKeys() == 2));
+  }
+
+  @Test
+  public void lookupKeysToInvalidate_interruptedWhileWaitingForResponses_cancelsPendingLookups()
+      throws Exception {
+    TrivialKey pendingKey = new TrivialKey("interrupted_key");
+    PackedFingerprint pendingFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, pendingKey, frontierNodeVersion);
+
+    SettableFuture<LookupResult> pendingLookupFuture = SettableFuture.create();
+    when(mockAnalysisCacheClient.lookup(pendingFingerprint.toBytes()))
+        .thenAnswer(
+            invocation -> {
+              Thread.currentThread().interrupt();
+              return pendingLookupFuture;
+            });
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            UNTRIMMED_CHECKSUM,
+            mockEventHandler,
+            mockEventListener,
+            safeDirectExecutor());
+
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            invalidator.lookupKeysToInvalidate(
+                () -> ImmutableSet.of(pendingKey),
+                new RemoteAnalysisCachingServerState(
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)));
+
+    assertThat(pendingLookupFuture.isCancelled()).isTrue();
+  }
+
+  @Test
+  public void
+      lookupKeysToInvalidate_rejectedBatchSubmission_cancelsSubmittedLookupsAndRecordsError()
+          throws Exception {
+    TrivialKey pendingKey = new TrivialKey("pending_key_before_rejection");
+    TrivialKey rejectedKey = new TrivialKey("rejected_batch_key");
+    PackedFingerprint pendingFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, pendingKey, frontierNodeVersion);
+
+    SettableFuture<LookupResult> pendingLookupFuture = SettableFuture.create();
+    when(mockAnalysisCacheClient.lookup(pendingFingerprint.toBytes()))
+        .thenReturn(pendingLookupFuture);
+
+    AtomicInteger batchIndex = new AtomicInteger();
+    SafeExecutor rejectingSecondBatchExecutor = mock(SafeExecutor.class);
+    doAnswer(
+            invocation -> {
+              RejectionHandlingRunnable task = invocation.getArgument(0);
+              if (batchIndex.getAndIncrement() == 0) {
+                task.run();
+              } else {
+                task.handleRejection(new RejectedExecutionException("rejected batch"));
+              }
+              return null;
+            })
+        .when(rejectingSecondBatchExecutor)
+        .execute(any());
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            UNTRIMMED_CHECKSUM,
+            mockEventHandler,
+            mockEventListener,
+            rejectingSecondBatchExecutor);
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                () -> ImmutableSet.of(pendingKey, rejectedKey),
+                new RemoteAnalysisCachingServerState(
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
+        .containsExactly(pendingKey, rejectedKey);
+
+    assertThat(pendingLookupFuture.isCancelled()).isTrue();
+    verify(mockEventListener)
+        .setInvalidationLookupMetrics(
+            ArgumentMatchers.argThat(
+                metrics ->
+                    metrics.getStatus() == InvalidationLookupMetrics.Status.ERROR
+                        && metrics.getNumKeys() == 2
+                        && metrics.getNumInvalidatedKeys() == 2));
+  }
+
+  @Test
+  public void
+      lookupKeysToInvalidate_uncheckedExceptionDuringLookupSubmission_cancelsSubmittedLookups()
+          throws Exception {
+    TrivialKey pendingKey = new TrivialKey("pending_key_before_throw");
+    TrivialKey throwingKey = new TrivialKey("throwing_key");
+    PackedFingerprint pendingFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, pendingKey, frontierNodeVersion);
+    PackedFingerprint throwingFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            objectCodecs,
+            throwingKey,
+            frontierNodeVersion);
+
+    SettableFuture<LookupResult> pendingLookupFuture = SettableFuture.create();
+    when(mockAnalysisCacheClient.lookup(pendingFingerprint.toBytes()))
+        .thenReturn(pendingLookupFuture);
+    when(mockAnalysisCacheClient.lookup(throwingFingerprint.toBytes()))
+        .thenThrow(new RuntimeException("lookup submission failed"));
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            UNTRIMMED_CHECKSUM,
+            mockEventHandler,
+            mockEventListener,
+            safeDirectExecutor());
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                () -> ImmutableSet.of(pendingKey, throwingKey),
+                new RemoteAnalysisCachingServerState(
+                    frontierNodeVersion,
+                    new SnapshotClientId("for_testing", 2),
+                    UNTRIMMED_CHECKSUM)))
+        .containsExactly(pendingKey, throwingKey);
+
+    assertThat(pendingLookupFuture.isCancelled()).isTrue();
+    verify(mockEventListener)
+        .setInvalidationLookupMetrics(
+            ArgumentMatchers.argThat(
+                metrics ->
+                    metrics.getStatus() == InvalidationLookupMetrics.Status.ERROR
+                        && metrics.getNumKeys() == 2
+                        && metrics.getNumInvalidatedKeys() == 2));
+  }
+
+  @Test
+  public void
+      lookupKeysToInvalidate_differentUntrimmedConfigurationChecksum_invalidatesUntrimmedKeysOnly()
+          throws Exception {
+    ConfiguredTargetKey untrimmedKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:untrimmed_test"))
+            .setConfigurationKey(
+                BuildConfigurationKey.create(BuildOptions.of(ImmutableList.of(TestOptions.class))))
+            .build();
+    ConfiguredTargetKey trimmedKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:trimmed_lib"))
+            .setConfigurationKey(BuildConfigurationKey.create(BuildOptions.of(ImmutableList.of())))
+            .build();
+    ConfiguredTargetKey unconfiguredKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:unconfigured"))
+            .build();
+    ActionLookupData untrimmedActionLookupData = ActionLookupData.create(untrimmedKey, 0);
+    ActionLookupData trimmedActionLookupData = ActionLookupData.create(trimmedKey, 0);
+    ArtifactRoot derivedRoot =
+        ArtifactRoot.asDerivedRoot(
+            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
+            RootType.OUTPUT,
+            "bazel-out");
+    DerivedArtifact untrimmedArtifact =
+        DerivedArtifact.create(
+            derivedRoot, PathFragment.create("bazel-out/k8-fastbuild/bin/untrimmed"), untrimmedKey);
+    DerivedArtifact trimmedArtifact =
+        DerivedArtifact.create(
+            derivedRoot, PathFragment.create("bazel-out/k8-fastbuild/bin/trimmed"), trimmedKey);
+    ActionLookupSummaryKey untrimmedSummaryKey = new TestActionLookupSummaryKey(untrimmedKey);
+    ActionLookupSummaryKey trimmedSummaryKey = new TestActionLookupSummaryKey(trimmedKey);
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            /* currentUntrimmedConfigurationChecksum= */ "untrimmed_v2",
+            mockEventHandler,
+            mockEventListener,
+            safeDirectExecutor());
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                () ->
+                    ImmutableSet.of(
+                        untrimmedKey,
+                        trimmedKey,
+                        unconfiguredKey,
+                        untrimmedActionLookupData,
+                        trimmedActionLookupData,
+                        untrimmedArtifact,
+                        trimmedArtifact,
+                        untrimmedSummaryKey,
+                        trimmedSummaryKey),
+                new RemoteAnalysisCachingServerState(
+                    frontierNodeVersion, baseClientId, "untrimmed_v1")))
+        .containsExactly(
+            untrimmedKey, untrimmedActionLookupData, untrimmedArtifact, untrimmedSummaryKey);
+    verify(mockAnalysisCacheClient, never()).lookup(any());
+  }
+
+  @Test
+  public void
+      lookupKeysToInvalidate_differentUntrimmedChecksumAndClientId_onlyUntrimmedKeys_skipsRemoteLookup()
+          throws Exception {
+    ConfiguredTargetKey untrimmedKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:untrimmed_test"))
+            .setConfigurationKey(
+                BuildConfigurationKey.create(BuildOptions.of(ImmutableList.of(TestOptions.class))))
+            .build();
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            /* currentUntrimmedConfigurationChecksum= */ "untrimmed_v2",
+            mockEventHandler,
+            mockEventListener,
+            safeDirectExecutor());
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                () -> ImmutableSet.of(untrimmedKey),
+                new RemoteAnalysisCachingServerState(
+                    frontierNodeVersion, new SnapshotClientId("for_testing", 2), "untrimmed_v1")))
+        .containsExactly(untrimmedKey);
+    verify(mockAnalysisCacheClient, never()).lookup(any());
+  }
+
+  @Test
+  public void
+      lookupKeysToInvalidate_differentUntrimmedChecksumAndClientId_unionsUntrimmedAndRemoteMisses()
+          throws Exception {
+    ConfiguredTargetKey untrimmedKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:untrimmed_test"))
+            .setConfigurationKey(
+                BuildConfigurationKey.create(BuildOptions.of(ImmutableList.of(TestOptions.class))))
+            .build();
+    TrivialKey hitKey = new TrivialKey("hit_trimmed");
+    TrivialKey missKey = new TrivialKey("miss_trimmed");
+
+    PackedFingerprint hitFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, hitKey, frontierNodeVersion);
+    PackedFingerprint missFingerprint =
+        FingerprintValueService.computeFingerprint(
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, missKey, frontierNodeVersion);
+
+    when(mockAnalysisCacheClient.lookup(hitFingerprint.toBytes()))
+        .thenReturn(
+            immediateFuture(
+                new LookupResultImpl(
+                    "some_value".getBytes(UTF_8), MissReason.MISS_REASON_UNSPECIFIED.getNumber())));
+    when(mockAnalysisCacheClient.lookup(missFingerprint.toBytes()))
+        .thenReturn(
+            immediateFuture(
+                new LookupResultImpl(new byte[0], MissReason.MISS_REASON_UNSPECIFIED.getNumber())));
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            /* currentUntrimmedConfigurationChecksum= */ "untrimmed_v2",
+            mockEventHandler,
+            mockEventListener,
+            safeDirectExecutor());
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                () -> ImmutableSet.of(untrimmedKey, hitKey, missKey),
+                new RemoteAnalysisCachingServerState(
+                    frontierNodeVersion, new SnapshotClientId("for_testing", 2), "untrimmed_v1")))
+        .containsExactly(untrimmedKey, missKey);
+  }
+
+  @Test
+  public void lookupKeysToInvalidate_differentUntrimmedChecksum_unexpectedKeyType_throws() {
+    SkyKey unexpectedKey = () -> SkyFunctionName.createHermetic("UNEXPECTED");
+
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            COMPRESSION_SERVICE,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            baseClientId,
+            /* currentUntrimmedConfigurationChecksum= */ "untrimmed_v2",
+            mockEventHandler,
+            mockEventListener,
+            safeDirectExecutor());
+    RemoteAnalysisCachingServerState serverState =
+        new RemoteAnalysisCachingServerState(frontierNodeVersion, baseClientId, "untrimmed_v1");
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            invalidator.lookupKeysToInvalidate(() -> ImmutableSet.of(unexpectedKey), serverState));
+  }
+
+  private record TestActionLookupSummaryKey(ActionLookupKey argument)
+      implements ActionLookupSummaryKey {
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.createHermetic("TEST_SUMMARY");
+    }
   }
 
   @AutoCodec
   @VisibleForSerialization
-  record TrivialKey(String text) implements SkyKey {
+  record TrivialKey(String text) implements ActionLookupKey {
     @Override
     public SkyFunctionName functionName() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public Label getLabel() {
+      return null;
+    }
+
+    @Override
+    @Nullable
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
     }
   }
 }

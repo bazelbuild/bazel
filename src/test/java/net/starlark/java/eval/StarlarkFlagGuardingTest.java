@@ -111,6 +111,56 @@ public final class StarlarkFlagGuardingTest {
         StarlarkInt a, boolean b, StarlarkInt c, StarlarkThread thread) {
       return "keywords_multiple_flags(" + a + ", " + b + ", " + c + ")";
     }
+
+    @StarlarkMethod(
+        name = "flag_enabled_param",
+        documented = false,
+        parameters = {
+          @Param(name = "a", positional = false, named = true),
+          @Param(
+              name = "b",
+              positional = false,
+              named = true,
+              enableOnlyWithFlag = INCOMPATIBLE_FLAG,
+              defaultValue = "False"),
+        },
+        useStarlarkThread = true)
+    public String flagEnabledParam(StarlarkInt a, boolean b, StarlarkThread thread) {
+      return "flag_enabled_param(" + a + ", " + b + ")";
+    }
+
+    @StarlarkMethod(
+        name = "flag_disabled_param",
+        documented = false,
+        parameters = {
+          @Param(name = "a", positional = false, named = true),
+          @Param(
+              name = "b",
+              positional = false,
+              named = true,
+              disableWithFlag = EXPERIMENTAL_FLAG,
+              defaultValue = "False"),
+        },
+        useStarlarkThread = true)
+    public String flagDisabledParam(StarlarkInt a, boolean b, StarlarkThread thread) {
+      return "flag_disabled_param(" + a + ", " + b + ")";
+    }
+
+    @StarlarkMethod(
+        name = "flag_enabled_method",
+        documented = false,
+        enableOnlyWithFlag = INCOMPATIBLE_FLAG)
+    public String flagEnabledMethod() {
+      return "flag_enabled_method()";
+    }
+
+    @StarlarkMethod(
+        name = "flag_disabled_method",
+        documented = false,
+        disableWithFlag = EXPERIMENTAL_FLAG)
+    public String flagDisabledMethod() {
+      return "flag_disabled_method()";
+    }
   }
 
   @Test
@@ -187,6 +237,69 @@ public final class StarlarkFlagGuardingTest {
     ev.new Scenario(ft)
         .update("mock", new Mock())
         .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
+  }
+
+  @Test
+  public void testNonExperimentalOrIncompatibleGuardedParam() throws Exception {
+    ev.new Scenario(FLAG2_TRUE)
+        .update("mock", new Mock())
+        .testEval("mock.flag_enabled_param(a=1, b=True)", "'flag_enabled_param(1, true)'");
+
+    ev.new Scenario(FLAG2_FALSE)
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "parameter 'b' is unavailable with the current flags. It may be enabled by setting"
+                + " --incompatible_flag",
+            "mock.flag_enabled_param(a=1, b=True)");
+
+    ev.new Scenario(FLAG1_FALSE)
+        .update("mock", new Mock())
+        .testEval("mock.flag_disabled_param(a=1, b=True)", "'flag_disabled_param(1, true)'");
+
+    ev.new Scenario(FLAG1_TRUE)
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "parameter 'b' is unavailable with the current flags. It may be enabled by setting"
+                + " --experimental_flag=false",
+            "mock.flag_disabled_param(a=1, b=True)");
+  }
+
+  @Test
+  public void testFlagGuardedMethods() throws Exception {
+    ev =
+        new EvaluationTestCase() {
+          @Override
+          protected void newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+            Starlark.addMethods(predeclared, new Mock());
+          }
+        };
+
+    // Methods on Starlark objects omit disabled methods from ClassDescriptor, failing getattr.
+    ev.new Scenario(FLAG2_TRUE)
+        .update("mock", new Mock())
+        .testEval("mock.flag_enabled_method()", "'flag_enabled_method()'");
+
+    ev.new Scenario(FLAG2_FALSE)
+        .update("mock", new Mock())
+        .testIfErrorContains(
+            "'Mock' value has no field or method 'flag_enabled_method'",
+            "mock.flag_enabled_method()");
+
+    ev.new Scenario(FLAG2_TRUE).testEval("flag_enabled_method()", "'flag_enabled_method()'");
+
+    ev.new Scenario(FLAG2_FALSE)
+        .testIfErrorContains(
+            "function flag_enabled_method() is unavailable with the current flags. It"
+                + " may be enabled by setting --incompatible_flag",
+            "flag_enabled_method()");
+
+    ev.new Scenario(FLAG1_FALSE).testEval("flag_disabled_method()", "'flag_disabled_method()'");
+
+    ev.new Scenario(FLAG1_TRUE)
+        .testIfErrorContains(
+            "function flag_disabled_method() is unavailable with the current flags. It"
+                + " may be enabled by setting --experimental_flag=false",
+            "flag_disabled_method()");
   }
 
   @Test

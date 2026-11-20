@@ -1,21 +1,22 @@
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-
 package(default_visibility = ["//visibility:public"])
+
+exports_files(
+    [
+        "BUILD.tools",
+        "build_defs.bzl",
+    ],
+    visibility = ["//src/test/py/bazel:__pkg__"],
+)
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/allowlists:srcs",
         "//tools/android:srcs",
-        "//tools/aquery_differ:srcs",
         "//tools/bash:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
-        "//tools/buildstamp:srcs",
-        "//tools/compliance:srcs",
-        "//tools/coverage:srcs",
         "//tools/cpp:srcs",
-        "//tools/ctexplain:srcs",
         "//tools/def_parser:srcs",
         "//tools/distributions:srcs",
         "//tools/genrule:srcs",
@@ -41,20 +42,16 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "build_defs.bzl",
-        "//tools/allowlists:srcs",
+        "//tools/allowlists:embedded_tools",
         "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
         "//tools/build_defs:embedded_tools",
-        "//tools/build_rules:embedded_tools_srcs",
-        "//tools/buildstamp:srcs",
-        "//tools/coverage:srcs",
         "//tools/cpp:embedded_tools",
         "//tools/def_parser:srcs",
         "//tools/genrule:srcs",
         "//tools/java:embedded_tools",
-        "//tools/jdk:package-srcs",
-        "//tools/jdk:srcs",
-        "//tools/launcher:srcs",
+        "//tools/jdk:embedded_tools",
+        "//tools/launcher:embedded_tools",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
         "//tools/proto:srcs",
@@ -80,12 +77,6 @@ filegroup(
         "//tools/osx:bzl_srcs",
         "//tools/python:bzl_srcs",
         "//tools/res:bzl_srcs",
-        "//tools/sh:bzl_srcs",
         "//tools/test:bzl_srcs",
     ],
-)
-
-sh_binary(
-    name = "upload_bazel_mirror",
-    srcs = ["upload_bazel_mirror.sh"],
 )

@@ -109,7 +109,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(packageLocator, directories, externalFilesHelper))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -147,8 +149,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
+    ModuleFileFunction.INJECTED_MODULES.set(differencer, ImmutableMap.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
+    RegistryFunction.WATCHED_REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.OFF);

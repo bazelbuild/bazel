@@ -105,8 +105,4 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
     return ((InMemoryGraph) delegate).getIfPresent(key);
   }
 
-  @Override
-  public void shrinkNodeMap() {
-    ((InMemoryGraph) delegate).shrinkNodeMap();
-  }
 }

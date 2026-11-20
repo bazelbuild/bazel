@@ -96,6 +96,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> pluginList;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final int experimentalTurbineCpuReservation;
+  private final boolean experimentalTurbineOutputRootRelativePath;
   private final boolean experimentalEnableJspecify;
   private final boolean disallowJavaImportExports;
 
@@ -150,6 +151,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.getExperimentalTurbineAnnotationProcessing();
     this.experimentalTurbineCpuReservation = javaOptions.getTurbineCpuReservation();
+    this.experimentalTurbineOutputRootRelativePath =
+        javaOptions.getExperimentalTurbineOutputRootRelativePath();
     this.experimentalEnableJspecify = javaOptions.getExperimentalEnableJspecify();
   }
 
@@ -225,6 +228,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   /** Which tool to use for fixing dependency errors. */
   public String getFixDepsTool() {
+    return fixDepsTool;
+  }
+
+  @Override
+  public String getFixDepsToolStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
     return fixDepsTool;
   }
 
@@ -311,6 +320,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return runLocalJavaOptimizations;
   }
 
+  @Override
+  public boolean runLocalJavaOptimizationsStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return runLocalJavaOptimizations;
+  }
+
   @StarlarkConfigurationField(
       name = "java_toolchain_bytecode_optimizer",
       documented = false,
@@ -389,11 +404,41 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalTurbineAnnotationProcessing;
   }
 
+  @Override
+  public boolean experimentalTurbineAnnotationProcessingStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return experimentalTurbineAnnotationProcessing;
+  }
+
   public int experimentalTurbineCpuReservation() {
     return experimentalTurbineCpuReservation;
   }
 
+  @Override
+  public int experimentalTurbineCpuReservationStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return experimentalTurbineCpuReservation;
+  }
+
+  public boolean experimentalTurbineOutputRootRelativePath() {
+    return experimentalTurbineOutputRootRelativePath;
+  }
+
+  @Override
+  public boolean experimentalTurbineOutputRootRelativePathStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return experimentalTurbineOutputRootRelativePath;
+  }
+
   public boolean experimentalEnableJspecify() {
+    return experimentalEnableJspecify;
+  }
+
+  @Override
+  public boolean experimentalEnableJspecifyStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
     return experimentalEnableJspecify;
   }
 

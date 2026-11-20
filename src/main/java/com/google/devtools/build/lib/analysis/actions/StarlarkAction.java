@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -73,8 +72,7 @@ public class StarlarkAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      String mnemonic) {
     super(
         owner,
         tools,
@@ -85,8 +83,7 @@ public class StarlarkAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        mnemonic,
-        outputPathsMode);
+        mnemonic);
   }
 
   /** Constructor for serialization. */
@@ -95,25 +92,10 @@ public class StarlarkAction extends SpawnAction {
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Object rawOutputs,
-      ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      ActionEnvironment env,
-      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
-    super(
-        owner,
-        tools,
-        inputs,
-        rawOutputs,
-        resourceSetOrBuilder,
-        commandLines,
-        env,
-        sortedExecutionInfo,
-        progressMessage,
-        mnemonic,
-        outputPathsMode);
+      SpawnAttributes attributes) {
+    super(owner, tools, inputs, rawOutputs, commandLines, progressMessage, attributes);
   }
 
   @VisibleForTesting
@@ -149,6 +131,7 @@ public class StarlarkAction extends SpawnAction {
 
     private Optional<Artifact> unusedInputsList = Optional.empty();
     private Optional<Action> shadowedAction = Optional.empty();
+    @Nullable private Artifact stdoutOutput = null;
 
     @CanIgnoreReturnValue
     public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
@@ -159,6 +142,16 @@ public class StarlarkAction extends SpawnAction {
     @CanIgnoreReturnValue
     public Builder setShadowedAction(Optional<Action> shadowedAction) {
       this.shadowedAction = shadowedAction;
+      return this;
+    }
+
+    /**
+     * Redirects the spawn's standard output into the given output artifact instead of reporting it
+     * as regular action output. The artifact must also be registered as an output of the action.
+     */
+    @CanIgnoreReturnValue
+    public Builder setStdoutOutput(Artifact stdoutOutput) {
+      this.stdoutOutput = stdoutOutput;
       return this;
     }
 
@@ -176,18 +169,7 @@ public class StarlarkAction extends SpawnAction {
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         String mnemonic) {
-      if (unusedInputsList.isPresent()) {
-        // Always download unused_inputs_list file from remote cache.
-        executionInfo =
-            ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
-                .putAll(executionInfo)
-                .put(
-                    ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                    unusedInputsList.get().getExecPathString())
-                .buildOrThrow();
-      }
-      OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
-      return unusedInputsList.isPresent() || shadowedAction.isPresent()
+      return unusedInputsList.isPresent() || shadowedAction.isPresent() || stdoutOutput != null
           ? new EnhancedStarlarkAction(
               owner,
               tools,
@@ -199,9 +181,9 @@ public class StarlarkAction extends SpawnAction {
               executionInfo,
               progressMessage,
               mnemonic,
-              outputPathsMode,
               unusedInputsList,
-              shadowedAction)
+              shadowedAction,
+              stdoutOutput)
           : new StarlarkAction(
               owner,
               tools,
@@ -212,12 +194,14 @@ public class StarlarkAction extends SpawnAction {
               env,
               executionInfo,
               progressMessage,
-              mnemonic,
-              outputPathsMode);
+              mnemonic);
     }
   }
 
-  /** A {@link StarlarkAction} with {@code unused_inputs_list} and/or a shadowed action present. */
+  /**
+   * A {@link StarlarkAction} with {@code unused_inputs_list}, a shadowed action, and/or a {@code
+   * stdout} output present.
+   */
   @AutoCodec
   @VisibleForSerialization
   static final class EnhancedStarlarkAction extends StarlarkAction {
@@ -232,6 +216,7 @@ public class StarlarkAction extends SpawnAction {
 
     private final Optional<Artifact> unusedInputsList;
     private final Optional<Action> shadowedAction;
+    @Nullable private final Artifact stdoutOutput;
     private boolean inputsDiscovered = false;
     private boolean prunedInputs = false;
 
@@ -246,9 +231,9 @@ public class StarlarkAction extends SpawnAction {
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         String mnemonic,
-        OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
-        Optional<Action> shadowedAction) {
+        Optional<Action> shadowedAction,
+        @Nullable Artifact stdoutOutput) {
       super(
           owner,
           tools,
@@ -261,8 +246,7 @@ public class StarlarkAction extends SpawnAction {
           env,
           executionInfo,
           progressMessage,
-          mnemonic,
-          outputPathsMode);
+          mnemonic);
       this.allStarlarkActionInputs = inputs;
       this.originalInputs = getInputs();
       this.mandatoryInputs =
@@ -271,6 +255,7 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.stdoutOutput = stdoutOutput;
     }
 
     @AutoCodec.Instantiator
@@ -280,15 +265,12 @@ public class StarlarkAction extends SpawnAction {
         NestedSet<Artifact> tools,
         NestedSet<Artifact> allStarlarkActionInputs,
         Object rawOutputs,
-        ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        ActionEnvironment environment,
-        ImmutableSortedMap<String, String> sortedExecutionInfo,
         CharSequence progressMessage,
-        String mnemonic,
-        OutputPathsMode outputPathsMode,
+        SpawnAttributes attributes,
         Optional<Artifact> unusedInputsList,
-        Optional<Action> shadowedAction) {
+        Optional<Action> shadowedAction,
+        @Nullable Artifact stdoutOutput) {
       super(
           owner,
           tools,
@@ -296,13 +278,9 @@ public class StarlarkAction extends SpawnAction {
               ? createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs)
               : allStarlarkActionInputs,
           rawOutputs,
-          resourceSetOrBuilder,
           commandLines,
-          environment,
-          sortedExecutionInfo,
           progressMessage,
-          mnemonic,
-          outputPathsMode);
+          attributes);
       this.allStarlarkActionInputs = allStarlarkActionInputs;
       this.originalInputs = getInputs();
       this.mandatoryInputs =
@@ -311,6 +289,27 @@ public class StarlarkAction extends SpawnAction {
               : null;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
+      this.stdoutOutput = stdoutOutput;
+    }
+
+    @Nullable
+    @Override
+    public Artifact getStdoutOutput() {
+      return stdoutOutput;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getExecutionInfo() {
+      if (unusedInputsList.isEmpty()) {
+        return super.getExecutionInfo();
+      }
+      // Always download unused_inputs_list file from remote cache. The extra entry is added to the
+      // map on demand rather than at action construction time because it defeats interning.
+      return mergeMaps(
+          getExecProperties(),
+          attributes.executionInfo(),
+          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+          unusedInputsList.get().getExecPathString());
     }
 
     @Override
@@ -447,7 +446,6 @@ public class StarlarkAction extends SpawnAction {
                   ISO_8859_1))) {
         String line;
         while ((line = br.readLine()) != null) {
-          line = line.trim();
           if (line.isEmpty()) {
             continue;
           }

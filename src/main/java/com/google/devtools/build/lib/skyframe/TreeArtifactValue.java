@@ -24,11 +24,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
@@ -82,6 +83,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * com.google.devtools.build.lib.actions.Artifact}. This way, we can use an {@link ActionInput} to
    * search {@link #childData}.
    */
+  // TODO(b/576581171): Investigate replacing ImmutableSortedMap with a sorted ImmutableMap to avoid
+  // comparators inconsistent with equals.
   @SerializationConstant @VisibleForSerialization
   static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
       Comparator.comparing(ActionInput::getExecPath);
@@ -105,14 +108,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * <p>The returned builder only supports adding children under this parent. To build multiple tree
    * artifacts at once, use {@link MultiBuilder}.
    */
-  public static Builder newBuilder(SpecialArtifact parent) {
+  public static Builder newBuilder(TreeArtifact parent) {
     return new Builder(parent);
   }
 
   /** Builder for constructing multiple instances of {@link TreeArtifactValue} at once. */
   public static final class MultiBuilder {
 
-    private final Map<SpecialArtifact, Builder> map = new HashMap<>();
+    private final Map<TreeArtifact, Builder> map = new HashMap<>();
 
     private MultiBuilder() {}
 
@@ -122,7 +125,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * @return {@code this} for convenience
      */
     @CanIgnoreReturnValue
-    public MultiBuilder addTree(SpecialArtifact tree) {
+    public MultiBuilder addTree(TreeArtifact tree) {
       map.computeIfAbsent(tree, Builder::new);
       return this;
     }
@@ -143,8 +146,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * Sets the archived representation and its metadata for the {@linkplain
      * ArchivedTreeArtifact#getParent parent} of the provided tree artifact.
      *
-     * <p>Setting an archived representation is only allowed once per {@linkplain SpecialArtifact
-     * tree artifact}.
+     * <p>Setting an archived representation is only allowed once per {@linkplain TreeArtifact tree
+     * artifact}.
      */
     @CanIgnoreReturnValue
     public MultiBuilder setArchivedRepresentation(
@@ -158,7 +161,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * For each unique parent seen by this builder, passes the aggregated metadata to the specified
      * {@link BiConsumer}.
      */
-    public void forEach(BiConsumer<SpecialArtifact, TreeArtifactValue> consumer) {
+    public void forEach(BiConsumer<TreeArtifact, TreeArtifactValue> consumer) {
       map.forEach((parent, builder) -> consumer.accept(parent, builder.build()));
     }
   }
@@ -405,8 +408,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return false;
     }
 
+    // childData compares its keys by exec path only, but the children of a tree artifact produced
+    // by an action template can change their generating actions without changing their paths.
     return Arrays.equals(digest, that.digest)
-        && childData.equals(that.childData)
+        && Iterables.elementsEqual(childData.entrySet(), that.childData.entrySet())
         && Objects.equals(archivedRepresentation, that.archivedRepresentation)
         && Objects.equals(resolvedPath, that.resolvedPath);
   }
@@ -620,11 +625,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         childDataBuilder();
     private ArchivedRepresentation archivedRepresentation;
     private PathFragment resolvedPath;
-    private final SpecialArtifact parent;
+    private final TreeArtifact parent;
 
-    Builder(SpecialArtifact parent) {
-      checkArgument(parent.isTreeArtifact(), "%s is not a tree artifact", parent);
-      this.parent = parent;
+    Builder(TreeArtifact parent) {
+      this.parent = checkNotNull(parent);
     }
 
     /**

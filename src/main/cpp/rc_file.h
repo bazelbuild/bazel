@@ -23,6 +23,7 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/functional/function_ref.h"
+#include "absl/strings/string_view.h"
 
 namespace blaze {
 
@@ -98,12 +99,6 @@ class RcFile {
       CanonicalizePathFn canonicalize_path,
       std::vector<std::string>& import_stack, std::string* error_text,
       int max_import_depth, int current_depth);
-
-  ParseError ParseFile(
-      const std::string& filename, const std::string& workspace,
-      const WorkspaceLayout& workspace_layout, ReadFileFn read_file,
-      CanonicalizePathFn canonicalize_path,
-      std::vector<std::string>& import_stack, std::string* error_text);
 
   // Full closure of rcfile paths imported from this file (including itself).
   // These are all canonical paths, created with blaze_util::MakeCanonical.

@@ -14,6 +14,8 @@
 
 """Rules that allows select() to differentiate between Apple OS versions."""
 
+load("@apple_support//xcode:providers.bzl", "XcodeVersionInfo")
+
 def _strip_version(version):
     """Strip trailing characters that aren't digits or '.' from version names.
 
@@ -64,7 +66,7 @@ _VERSION_PRECISION_COMPONENTS = {
 
 def _xcode_version_flag_impl(ctx):
     """A rule that allows select() to differentiate between Xcode versions."""
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
     xcode_version = xcode_config.xcode_version()
     precision = ctx.attr.precision
 
@@ -81,7 +83,7 @@ def _xcode_version_flag_impl(ctx):
 
 def _ios_sdk_version_flag_impl(ctx):
     """A rule that allows select() to select based on the iOS SDK version."""
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
 
     return config_common.FeatureFlagInfo(value = _strip_version(
         xcode_config.sdk_version_for_platform(
@@ -91,7 +93,7 @@ def _ios_sdk_version_flag_impl(ctx):
 
 def _tvos_sdk_version_flag_impl(ctx):
     """A rule that allows select() to select based on the tvOS SDK version."""
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
 
     return config_common.FeatureFlagInfo(value = _strip_version(
         xcode_config.sdk_version_for_platform(
@@ -101,7 +103,7 @@ def _tvos_sdk_version_flag_impl(ctx):
 
 def _visionos_sdk_version_flag_impl(ctx):
     """A rule that allows select() to select based on the visionOS SDK version."""
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
 
     return config_common.FeatureFlagInfo(value = _strip_version(
         xcode_config.sdk_version_for_platform(
@@ -111,7 +113,7 @@ def _visionos_sdk_version_flag_impl(ctx):
 
 def _watchos_sdk_version_flag_impl(ctx):
     """A rule that allows select() to select based on the watchOS SDK version."""
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
 
     return config_common.FeatureFlagInfo(value = _strip_version(
         xcode_config.sdk_version_for_platform(
@@ -121,7 +123,7 @@ def _watchos_sdk_version_flag_impl(ctx):
 
 def _macos_sdk_version_flag_impl(ctx):
     """A rule that allows select() to select based on the macOS SDK version."""
-    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
 
     return config_common.FeatureFlagInfo(value = _strip_version(
         xcode_config.sdk_version_for_platform(

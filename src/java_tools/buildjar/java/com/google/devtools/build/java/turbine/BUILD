@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("@rules_graalvm//graalvm:defs.bzl", "native_image")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":native_image.bzl", "native_image")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -78,8 +78,6 @@ native_image(
         "//conditions:default": "turbine_direct_graal",
     }),
     extra_args = [
-        # Opt into stricter behavior to squelch a warning on recent GraalVM versions.
-        "--strict-image-heap",
         # Workaround for https://github.com/oracle/graal/issues/4757.
         "-H:-UseContainerSupport",
         # A benchmark on Bazel itself shows a ~15% improvement in combined compile and header

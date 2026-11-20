@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.ActionTemplateOutputEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithMetadata;
@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFuncti
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRoot;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -100,20 +99,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private static class State implements SerializableSkyKeyComputeState {
-    @Nullable // initialized lazily
-    private RetrievalContext retrievalContext = null;
-
-    @Override
-    public RetrievalContext getRetrievalContext() {
-      if (retrievalContext == null) {
-        retrievalContext = new RetrievalContext();
-      }
-
-      return retrievalContext;
-    }
-  }
-
   public ArtifactFunction(
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
@@ -146,7 +131,8 @@ public final class ArtifactFunction implements SkyFunction {
     if (remoteCachingDependencies.mode().isRetrievalEnabled()
         && !remoteCachingDependencies.getSkycacheAnalysisOnly()
         && !actionExecutor.shouldSkipRetrieval(derivedArtifact.getGeneratingActionKey())) {
-      switch (retrieveRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
+      switch (retrieveRemoteSkyValue(
+          artifact, env, remoteCachingDependencies, SerializableSkyKeyComputeState::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
@@ -244,7 +230,7 @@ public final class ArtifactFunction implements SkyFunction {
 
     // Aggregate the metadata for individual TreeFileArtifacts into a TreeArtifactValue for the
     // parent TreeArtifact.
-    SpecialArtifact parent = (SpecialArtifact) artifactDependencies.artifact;
+    TreeArtifact parent = (TreeArtifact) artifactDependencies.artifact;
     TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
 
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {

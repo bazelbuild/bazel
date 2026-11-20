@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -47,7 +47,7 @@ public class TreeArtifactValueCodecTest extends BuildViewTestBase {
             skyframeExecutor.getBlazeDirectoriesForTesting().getOutputBase(),
             RootType.OUTPUT,
             PathFragment.create("bin"));
-    SpecialArtifact parent =
+    TreeArtifact parent =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             root, PathFragment.create("bin/tree"));
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");

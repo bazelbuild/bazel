@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.MAIN_REPO_DIR_NAME;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
-import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
@@ -25,8 +25,10 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -42,7 +44,6 @@ import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -154,7 +155,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                 .setInvocation(
                     Protos.ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName("SHA-256")
-                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
+                        .setWorkspaceRunfilesDirectory(MAIN_REPO_DIR_NAME)
                         .setId("00000000-0000-0000-0000-000000000000"))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
@@ -214,7 +215,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/data.txt")
                     .setDigest(getDigest("abc"))
                     .setIsTool(true))
@@ -230,7 +231,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
-                            + WORKSPACE_NAME
+                            + MAIN_REPO_DIR_NAME
                             + "/data.txt")
                     .setDigest(getDigest("abc"))
                     .setIsTool(true))
@@ -244,7 +245,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
   @Test
   public void testUnmaterializedEmptyTreeInput() throws Exception {
-    SpecialArtifact treeInput =
+    TreeArtifact treeInput =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
 
     // Deliberately don't create the directory: an empty tree artifact may not be materialized on
@@ -345,6 +346,45 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   }
 
   @Test
+  public void testExpandParamFiles(@TestParameter boolean expandParamFiles) throws Exception {
+    ParamFileActionInput paramFileInput =
+        new ParamFileActionInput(
+            PathFragment.create("foo.params"),
+            "@foo.params",
+            ImmutableList.of("a", "b", "c"),
+            ParameterFileType.UNQUOTED);
+
+    SpawnBuilder spawn =
+        new SpawnBuilder("cmd", "--opt", "@foo.params", "--last").withInputs(paramFileInput);
+
+    SpawnLogContext context =
+        createSpawnLogContext(
+            ImmutableMap.of(), /* logSpawnPredicate= */ s -> true, expandParamFiles);
+
+    context.logSpawn(
+        spawn.build(),
+        // ParamFileActionInputs appear in the input map but not in the metadata provider.
+        createInputMetadataProvider(),
+        createInputMap(paramFileInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    ImmutableList<String> expectedArgs =
+        expandParamFiles
+            ? ImmutableList.of("cmd", "--opt", "a", "b", "c", "--last")
+            : ImmutableList.of("cmd", "--opt", "@foo.params", "--last");
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .clearCommandArgs()
+            .addAllCommandArgs(expectedArgs)
+            // The param file is still logged as an input either way.
+            .addInputs(File.newBuilder().setPath("foo.params").setDigest(getDigest("a\nb\nc\n")))
+            .build());
+  }
+
+  @Test
   public void testStreaming() throws Exception {
     Artifact file = ActionsTestUtil.createArtifact(rootDir, "file");
     writeFile(file, "abc");
@@ -359,14 +399,14 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             out,
             "stream",
             execRoot.asFragment(),
-            TestConstants.WORKSPACE_NAME,
             Options.getDefaults(RemoteOptions.class),
             DigestHashFunction.SHA256,
             SyscallCache.NO_CACHE,
             new CompressionServiceImpl(),
             UUID.fromString("00000000-0000-0000-0000-000000000000"),
             storedEventHandler,
-            /* logSpawnPredicate= */ s -> true);
+            /* logSpawnPredicate= */ s -> true,
+            /* expandParamFiles= */ false);
 
     context.logSpawn(
         spawn.build(),
@@ -408,6 +448,15 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   SpawnLogContext createSpawnLogContext(
       ImmutableMap<String, String> platformProperties, Predicate<Spawn> logSpawnPredicate)
       throws IOException, InterruptedException {
+    return createSpawnLogContext(
+        platformProperties, logSpawnPredicate, /* expandParamFiles= */ false);
+  }
+
+  SpawnLogContext createSpawnLogContext(
+      ImmutableMap<String, String> platformProperties,
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
+      throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.setRemoteDefaultExecPropertiesField(platformProperties.entrySet().asList());
 
@@ -415,14 +464,14 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         new BufferedOutputStream(logPath.getOutputStream()),
         logPath.toString(),
         execRoot.asFragment(),
-        TestConstants.WORKSPACE_NAME,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE,
         new CompressionServiceImpl(),
         UUID.fromString("00000000-0000-0000-0000-000000000000"),
         storedEventHandler,
-        logSpawnPredicate);
+        logSpawnPredicate,
+        expandParamFiles);
   }
 
   @Override

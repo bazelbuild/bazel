@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
@@ -656,6 +658,124 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             testToolchainTypeLabel,
             Label.parseCanonicalUnchecked("//extra:extra_toolchain"),
             "mismatching target_settings: optimized");
+  }
+
+  @Test
+  public void testRegisteredToolchains_changedConstraintSettingDefault() throws Exception {
+    writeConstraintSettingWithDefault("a");
+    scratch.file(
+        "extra/BUILD",
+        """
+        load("//toolchain:toolchain_def.bzl", "test_toolchain")
+
+        toolchain(
+            name = "extra_toolchain",
+            target_compatible_with = ["//defaults:a"],
+            toolchain = ":extra_toolchain_impl",
+            toolchain_type = "//toolchain:test_toolchain",
+        )
+
+        test_toolchain(
+            name = "extra_toolchain_impl",
+            data = "extra",
+        )
+        """);
+    useConfiguration("--extra_toolchains=//extra:extra_toolchain");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(getTargetConstraintSettingDefault(result.get(toolchainsKey)))
+        .isEqualTo(Label.parseCanonicalUnchecked("//defaults:a"));
+
+    // Keep the configurations so that only the targets in the changed package are analyzed again.
+    writeConstraintSettingWithDefault("b");
+    invalidatePackages(/* alsoConfigs= */ false);
+
+    result = requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(getTargetConstraintSettingDefault(result.get(toolchainsKey)))
+        .isEqualTo(Label.parseCanonicalUnchecked("//defaults:b"));
+  }
+
+  private void writeConstraintSettingWithDefault(String defaultValue) throws Exception {
+    scratch.overwriteFile(
+        "defaults/BUILD",
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        constraint_setting(
+            name = "setting",
+            default_constraint_value = ":%s",
+        )
+
+        constraint_value(
+            name = "a",
+            constraint_setting = ":setting",
+        )
+
+        constraint_value(
+            name = "b",
+            constraint_setting = ":setting",
+        )
+        """
+            .formatted(defaultValue));
+  }
+
+  private static Label getTargetConstraintSettingDefault(RegisteredToolchainsValue toolchains) {
+    return getOnlyElement(getExtraToolchain(toolchains).targetConstraints().constraintSettings())
+        .defaultConstraintValue()
+        .label();
+  }
+
+  @Test
+  public void testRegisteredToolchains_changedUseTargetPlatformConstraints() throws Exception {
+    writeExtraToolchainUsingTargetPlatformConstraints(true);
+    useConfiguration("--extra_toolchains=//extra:extra_toolchain");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(getExtraToolchain(result.get(toolchainsKey)).hasTargetToExecConstraints()).isTrue();
+
+    // Keep the configurations so that only the targets in the changed package are analyzed again.
+    writeExtraToolchainUsingTargetPlatformConstraints(false);
+    invalidatePackages(/* alsoConfigs= */ false);
+
+    result = requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(getExtraToolchain(result.get(toolchainsKey)).hasTargetToExecConstraints()).isFalse();
+  }
+
+  private void writeExtraToolchainUsingTargetPlatformConstraints(boolean value) throws Exception {
+    scratch.overwriteFile(
+        "extra/BUILD",
+        """
+        load("//toolchain:toolchain_def.bzl", "test_toolchain")
+
+        toolchain(
+            name = "extra_toolchain",
+            toolchain = ":extra_toolchain_impl",
+            toolchain_type = "//toolchain:test_toolchain",
+            use_target_platform_constraints = %s,
+        )
+
+        test_toolchain(
+            name = "extra_toolchain_impl",
+            data = "extra",
+        )
+        """
+            .formatted(value ? "True" : "False"));
+  }
+
+  private static DeclaredToolchainInfo getExtraToolchain(RegisteredToolchainsValue toolchains) {
+    return toolchains.registeredToolchains().stream()
+        .filter(
+            info ->
+                info.targetLabel().equals(Label.parseCanonicalUnchecked("//extra:extra_toolchain")))
+        .collect(onlyElement());
   }
 
   @Test

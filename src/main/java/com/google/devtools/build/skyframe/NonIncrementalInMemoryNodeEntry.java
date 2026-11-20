@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.skyframe.NonIncrementalInMemoryNodeEntry.NonIncrementalBuildingState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -148,6 +149,11 @@ public class NonIncrementalInMemoryNodeEntry
       return null; // Tolerate concurrent requests to rewind.
     }
     if (getErrorInfo() != null) {
+      if (getValue() != null) {
+        BugReport.sendNonFatalBugReport(
+            new IllegalStateException(
+                "Skipped rewinding node that has both a value and an error: " + getKey()));
+      }
       return null; // Rewinding errors is no-op.
     }
     dirtyBuildingState = new RewoundNonIncrementalBuildingState(value);

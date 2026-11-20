@@ -543,7 +543,8 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    FileOutErr fileOutErr = new FileOutErr();
+    assertThat(fs.getPath("/out").createDirectory()).isTrue();
+    FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting context =
         new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ZERO);
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, context);
@@ -554,9 +555,12 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.getUserTimeInMs()).isEqualTo(0);
     assertThat(reply.getSystemTimeInMs()).isEqualTo(0);
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
+    assertThat(fileOutErr.errAsLatin1())
+        .isEqualTo(
+            "Action type Mnemonic is not allowed to run locally due to regex filter: none\n");
 
-    // TODO(ulfjack): Maybe we should only lock after checking?
-    assertThat(context.lockOutputFilesCalled).isTrue();
+    assertThat(context.prefetchCalled).isFalse();
+    assertThat(context.lockOutputFilesCalled).isFalse();
   }
 
   @Test

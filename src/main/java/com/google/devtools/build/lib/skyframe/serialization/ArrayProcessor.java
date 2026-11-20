@@ -82,8 +82,7 @@ public interface ArrayProcessor {
     return processor;
   }
 
-  // This method should be marked private, but that's not supported in Java 8.
-  static Class<?> resolveBaseArrayType(Class<?> arrayType) {
+  private static Class<?> resolveBaseArrayType(Class<?> arrayType) {
     Class<?> componentType = arrayType.getComponentType();
     if (componentType.isArray()) {
       return resolveBaseArrayType(componentType);

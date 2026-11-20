@@ -21,7 +21,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
 import java.util.LinkedHashMap;
@@ -110,7 +109,19 @@ public final class TypeTagger extends NodeVisitor {
   // Formats and reports an error at the specified location.
   @FormatMethod
   private void errorf(Location loc, String format, Object... args) {
-    typeTable.errors.add(new SyntaxError(loc, String.format(format, args)));
+    typeTable.addError(new SyntaxError(loc, String.format(format, args)));
+  }
+
+  // Formats and reports an error at the start of the specified node.
+  @FormatMethod
+  private void errorfOnlyInTypedCode(Node node, String format, Object... args) {
+    errorfOnlyInTypedCode(node.getStartLocation(), format, args);
+  }
+
+  // Formats and reports an error at the specified location.
+  @FormatMethod
+  private void errorfOnlyInTypedCode(Location loc, String format, Object... args) {
+    typeTable.addErrorRelevantOnlyInTypedCode(new SyntaxError(loc, String.format(format, args)));
   }
 
   private TypeTagger(TypeTable typeTable, Resolver.Module module, @Nullable Loader loader) {
@@ -183,10 +194,9 @@ public final class TypeTagger extends NodeVisitor {
 
   private TypeConstructor.Term extractTerm(
       Expression expr, ImmutableMap<Resolver.Binding, Integer> typeParams) {
-    switch (expr.kind()) {
-      case BINARY_OPERATOR -> {
+    switch (expr) {
+      case BinaryOperatorExpression binop -> {
         // Syntax sugar for union types, i.e. a|b == Union[a,b]
-        BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
         if (binop.getOperator() == TokenKind.PIPE) {
           TypeConstructor.Term x = extractTypeOrTermEvaluatingToType(binop.getX(), typeParams);
           TypeConstructor.Term y = extractTypeOrTermEvaluatingToType(binop.getY(), typeParams);
@@ -199,9 +209,7 @@ public final class TypeTagger extends NodeVisitor {
         errorf(expr, "binary operator '%s' is not supported", binop.getOperator());
         return Types.ANY;
       }
-      case TYPE_APPLICATION -> {
-        TypeApplication app = (TypeApplication) expr;
-
+      case TypeApplication app -> {
         TypeConstructor constructor = resolveTypeConstructor(app.getConstructor());
         if (constructor == null) {
           return Types.ANY;
@@ -221,8 +229,7 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
       }
-      case IDENTIFIER -> {
-        Identifier id = (Identifier) expr;
+      case Identifier id -> {
         Resolver.Binding binding = id.getBinding();
         if (typeParams.containsKey(binding)) {
           return new TypeConstructor.Term.TypeVariable(id, typeParams.get(binding));
@@ -238,11 +245,10 @@ public final class TypeTagger extends NodeVisitor {
           return Types.ANY;
         }
       }
-      case ELLIPSIS -> {
+      case Ellipsis _ -> {
         return TypeConstructor.Term.ELLIPSIS;
       }
-      case LIST_EXPR -> {
-        ListExpression listExpr = (ListExpression) expr;
+      case ListExpression listExpr -> {
         if (listExpr.isTuple()) {
           if (listExpr.getElements().isEmpty()) {
             return TypeConstructor.Term.EMPTY_TUPLE;
@@ -254,8 +260,7 @@ public final class TypeTagger extends NodeVisitor {
                   .collect(toImmutableList()));
         }
       }
-      case DICT_EXPR -> {
-        DictExpression dictExpr = (DictExpression) expr;
+      case DictExpression dictExpr -> {
         LinkedHashMap<String, TypeConstructor.Term> map = new LinkedHashMap<>();
         for (DictExpression.Entry entry : dictExpr.getEntries()) {
           if (entry.getKey() instanceof StringLiteral str) {
@@ -331,17 +336,20 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   private Types.GeneralCallableType createFunctionType(
-      ImmutableList<Parameter> parameters, @Nullable Expression returnTypeExpr) {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
-    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+      Resolver.Function resolvedFunction,
+      ImmutableList<Parameter> parameters,
+      @Nullable Expression returnTypeExpr) {
+    int numNonResidual = resolvedFunction.getNumNonResidualParameters();
+    ImmutableList<String> names = resolvedFunction.getParameterNames().subList(0, numNonResidual);
+    // Non-null only if there's at least one non-Any type non-residual parameter.
+    ImmutableList.Builder<StarlarkType> types = null;
 
     int nparams = parameters.size();
     int numPositionalParameters = 0;
+    int paramIndex = 0;
     Parameter.Star star = null;
     Parameter.StarStar starStar = null;
-    int i;
-    for (i = 0; i < nparams; i++) {
+    for (int i = 0; i < nparams; i++) {
       Parameter param = parameters.get(i);
       if (param instanceof Parameter.Star pstar) {
         star = pstar;
@@ -355,14 +363,21 @@ public final class TypeTagger extends NodeVisitor {
         numPositionalParameters++;
       }
 
-      String name = param.getName();
       Expression typeExpr = param.getType();
-
-      names.add(name);
-      types.add(typeExpr == null ? Types.ANY : extractType(typeExpr));
-      if (param instanceof Parameter.Mandatory) {
-        mandatoryParameters.add(name);
+      StarlarkType paramType = Types.ANY;
+      if (typeExpr != null) {
+        paramType = extractType(typeExpr);
+        if (!paramType.equals(Types.ANY) && types == null) {
+          types = ImmutableList.builderWithExpectedSize(numNonResidual);
+          for (int j = 0; j < paramIndex; j++) {
+            types.add(Types.ANY);
+          }
+        }
       }
+      if (types != null) {
+        types.add(paramType);
+      }
+      paramIndex++;
     }
 
     StarlarkType varargsType = null;
@@ -383,32 +398,76 @@ public final class TypeTagger extends NodeVisitor {
     }
 
     return Types.generalCallable(
-        names.build(),
-        types.build(),
+        names,
+        types == null ? null : types.build(),
         /* numPositionalOnlyParameters= */ 0,
         numPositionalParameters,
-        mandatoryParameters.build(),
+        Types.MandatoryParamIndices.fromParameters(resolvedFunction),
         varargsType,
         kwargsType,
         returnType);
   }
 
   /**
-   * Sets an identifier's type.
+   * Records an identifier's type in the type table.
    *
-   * <p>The {@code Binding} on the identifier must have already been set by the resolver.
-   * (Therefore, this method cannot be called for identifiers that are not symbols, like field names
-   * or call site keyword arguments.)
+   * <p>The identifier must be a binding occurrence, and its {@link Resolver.Binding} must have
+   * already been set by the resolver. (Therefore, this method cannot be called for identifiers that
+   * are not symbols, like field names or call site keyword arguments.)
    *
    * <p>Logs an error if the identifier is not the first binding occurrence of the {@code Binding}.
    * In this case, the type is not updated.
    *
-   * <p>Throws {@link IllegalArgumentException} if this is the first binding occurrence but somehow
-   * the type is already set.
+   * <p>For functions, use {@link #setAnnotatedFunctionType} or {@link #setUnannotatedFunctionType},
+   * which additionally will in addition associate the type with the {@link Resolver.Function}.
+   *
+   * @throws IllegalArgumentException if this is the first binding occurrence but somehow the type
+   *     is already set.
    */
-  private void setType(Node node, Identifier id, StarlarkType type) {
-    Resolver.Binding binding = id.getBinding();
-    checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
+  private void setIdentifierType(Node node, Identifier id, StarlarkType type) {
+    if (!errorIfTypeAlreadySet(node, id)) {
+      typeTable.setDeclaredType(id.getBinding(), type);
+    }
+  }
+
+  /**
+   * Variant of {@link #setIdentifierType} for the type of a function whose signature has type
+   * annotations.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the type is already set.
+   */
+  private void setAnnotatedFunctionType(DefStatement def, Types.GeneralCallableType type) {
+    Resolver.Function rfn = def.getResolvedFunction();
+    @Nullable StarlarkType prevType = typeTable.getAnnotatedFunctionType(rfn);
+    if (prevType != null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected type of resolved function %s to be null but was %s",
+              rfn.getName(), prevType.typeRepr()));
+    }
+    if (!errorIfTypeAlreadySet(def, def.getIdentifier())) {
+      typeTable.setAnnotatedFunctionType(def.getIdentifier().getBinding(), rfn, type);
+    }
+  }
+
+  /**
+   * Variant of {@link #setIdentifierType} for a function whose signature doesn't have type
+   * annotations. The {@code Callable} type of such a function is computed on demand.
+   */
+  private void setUnannotatedFunctionType(DefStatement def) {
+    if (!errorIfTypeAlreadySet(def, def.getIdentifier())) {
+      typeTable.setUnannotatedFunctionType(
+          def.getIdentifier().getBinding(), def.getResolvedFunction());
+    }
+  }
+
+  /**
+   * Returns true and logs an error if a previous occurrence of the given symbol has been associated
+   * with a type or a type constructor; otherwise, returns false.
+   */
+  private boolean errorIfTypeAlreadySet(Node node, Identifier id) {
+    Resolver.Binding binding =
+        checkNotNull(id.getBinding(), "no binding set on identifier '%s'", id.getName());
 
     if (binding.getFirst() != id) {
       if (node instanceof DefStatement) {
@@ -423,45 +482,27 @@ public final class TypeTagger extends NodeVisitor {
         //
         // When a violation occurs at a def statement, we use a more specific error message to avoid
         // confusing the user.
-        errorf(id, "function '%s' was previously declared", id.getName());
+        errorfOnlyInTypedCode(id, "function '%s' was previously declared", id.getName());
       } else {
-        errorf(id, "type annotation on '%s' may only appear at its declaration", id.getName());
+        errorfOnlyInTypedCode(
+            id, "type annotation on '%s' may only appear at its declaration", id.getName());
       }
       if (binding.isSyntactic()) {
-        errorf(binding.getFirst(), "'%s' previously declared here", id.getName());
+        errorfOnlyInTypedCode(binding.getFirst(), "'%s' previously declared here", id.getName());
       }
       errorIfTypeConstructor(node, id);
-      return;
+      // We don't have a usable type for this binding.
+      typeTable.clearDeclaredType(binding);
+      return true;
     }
 
-    @Nullable StarlarkType prevType = typeTable.getType(binding);
-    if (prevType != null) {
-      throw new IllegalArgumentException(
-          String.format("Expected type of binding %s to be null but was %s", binding, prevType));
-    }
-    typeTable.setDeclaredType(binding, type);
-  }
-
-  /**
-   * Sets a resolved function's type.
-   *
-   * <p>Throws {@link IllegalArgumentException} if the type is already set.
-   */
-  private static void setType(
-      Resolver.Function resolved, Types.GeneralCallableType type, TypeTable typeTable) {
-    checkNotNull(resolved);
-    @Nullable StarlarkType prevType = typeTable.getType(resolved);
-    if (prevType != null) {
+    if (typeTable.hasBindingType(binding)) {
       throw new IllegalArgumentException(
           String.format(
-              "Expected type of resolved function %s to be null but was %s",
-              resolved.getName(), prevType.typeRepr()));
+              "Expected type of binding %s to be null but was %s",
+              binding, typeTable.getType(binding)));
     }
-    typeTable.setType(resolved, type);
-  }
-
-  private void setType(Resolver.Function resolved, Types.GeneralCallableType type) {
-    setType(resolved, type, typeTable);
+    return false;
   }
 
   /**
@@ -495,8 +536,9 @@ public final class TypeTagger extends NodeVisitor {
       // redeclaration only within the same program (the same set of statements passed to
       // TypeTagger/TypeChecker); but redeclaration in a different program which happens to mutate
       // the same globals should be fine.
-      errorf(node, "type '%s' redeclared", id.getName());
-      errorf(id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
+      errorfOnlyInTypedCode(node, "type '%s' redeclared", id.getName());
+      errorfOnlyInTypedCode(
+          id.getBinding().getFirst(), "'%s' previously declared here", id.getName());
       return true;
     }
     return false;
@@ -528,7 +570,7 @@ public final class TypeTagger extends NodeVisitor {
     if (assignment.getType() != null) {
       setUsesTypeSyntax();
       StarlarkType type = extractType(assignment.getType());
-      setType(assignment, (Identifier) assignment.getLHS(), type);
+      setIdentifierType(assignment, (Identifier) assignment.getLHS(), type);
     }
 
     for (Identifier id : Identifier.boundIdentifiers(assignment.getLHS())) {
@@ -547,12 +589,13 @@ public final class TypeTagger extends NodeVisitor {
   public void visit(DefStatement def) {
     Resolver.Function resolvedFunction = def.getResolvedFunction();
     functionStack.push(resolvedFunction);
-    Types.GeneralCallableType type = createFunctionType(def.getParameters(), def.getReturnType());
-    setType(resolvedFunction, type);
-    setType(def, def.getIdentifier(), type);
-    // Parameter types handled by visit(Parameter).
-    if (def.getReturnType() != null || !def.getTypeParameters().isEmpty()) {
+    if (def.signatureHasTypeAnnotations()) {
+      Types.GeneralCallableType type =
+          createFunctionType(resolvedFunction, def.getParameters(), def.getReturnType());
+      setAnnotatedFunctionType(def, type);
       setUsesTypeSyntax();
+    } else {
+      setUnannotatedFunctionType(def);
     }
 
     super.visit(def);
@@ -574,7 +617,7 @@ public final class TypeTagger extends NodeVisitor {
           type = Types.dict(Types.STR, type);
         }
       }
-      setType(param, param.getIdentifier(), type);
+      setIdentifierType(param, param.getIdentifier(), type);
     }
 
     super.visit(param);
@@ -603,7 +646,13 @@ public final class TypeTagger extends NodeVisitor {
             SpellChecker.didYouMean(originalName, loadedModule.getExports()));
         continue;
       }
-      setType(load, binding.getLocalName(), loadedModule.getExportType(originalName));
+      @Nullable StarlarkType type = loadedModule.getExportType(originalName);
+      if (type != null) {
+        setIdentifierType(load, binding.getLocalName(), loadedModule.getExportType(originalName));
+      } else {
+        // Even if the export doesn't have a type, verify that the local name wasn't already typed.
+        errorIfTypeAlreadySet(load, binding.getLocalName());
+      }
       @Nullable
       TypeConstructor typeConstructor = loadedModule.getExportTypeConstructor(originalName);
       if (typeConstructor != null) {
@@ -630,14 +679,14 @@ public final class TypeTagger extends NodeVisitor {
           extractTypeOrTermEvaluatingToType(node.getDefinition(), typeParams);
       typeConstructor = new TypeConstructor.Composite(name, typeParams.size(), term);
     }
-    setType(node, node.getIdentifier(), Types.TYPE);
+    setIdentifierType(node, node.getIdentifier(), Types.TYPE);
     setTypeConstructor(node, node.getIdentifier(), typeConstructor);
   }
 
   @Override
   public void visit(VarStatement var) {
     StarlarkType type = extractType(var.getType());
-    setType(var, var.getIdentifier(), type);
+    setIdentifierType(var, var.getIdentifier(), type);
     setUsesTypeSyntax();
 
     // No need to descend into type expression child.
@@ -653,14 +702,7 @@ public final class TypeTagger extends NodeVisitor {
     super.visit(cast);
   }
 
-  @Override
-  public void visit(LambdaExpression lambda) {
-    Types.GeneralCallableType type =
-        createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
-    setType(lambda.getResolvedFunction(), type);
-
-    super.visit(lambda);
-  }
+  // No visit(LambdaExpression) override: lambda params don't have type annotations.
 
   // TODO: #27370 - Figure out the relationship between this visitor and identifiers introduced by
   // type alias statements. I don't think it's quite correct to say that `type A = B` is annotating

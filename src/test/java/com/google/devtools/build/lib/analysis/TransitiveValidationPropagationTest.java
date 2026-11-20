@@ -28,14 +28,15 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link OutputGroupInfo#VALIDATION_TRANSITIVE} output group */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class TransitiveValidationPropagationTest extends BuildViewTestCase {
 
   /** Fake native rule that outputs a single validation artifact */
@@ -183,5 +184,36 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
     assertThat(expected)
         .hasMessageThat()
         .contains("//foobar:foo_rule.bzl cannot access the _transitive_validation private API");
+  }
+
+  @Test
+  public void transitiveValidationChecksImplementationModule(
+      @TestParameter boolean allowlistedImplementation) throws Exception {
+    String implementationPackage = allowlistedImplementation ? "test/callback" : "other/callback";
+    String rulePackage = allowlistedImplementation ? "other/caller" : "test/caller";
+    scratch.file(implementationPackage + "/BUILD");
+    scratch.file(
+        implementationPackage + "/impl.bzl",
+        """
+        def impl(ctx):
+            return [OutputGroupInfo(_validation_transitive = depset())]
+        """);
+    scratch.file(
+        rulePackage + "/defs.bzl",
+        "load('//" + implementationPackage + ":impl.bzl', 'impl')",
+        "my_rule = rule(implementation = impl)");
+    scratch.file(
+        rulePackage + "/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'target')");
+
+    if (allowlistedImplementation) {
+      assertThat(getConfiguredTarget("//" + rulePackage + ":target")).isNotNull();
+    } else {
+      reporter.removeHandler(failFastHandler);
+      assertThat(getConfiguredTarget("//" + rulePackage + ":target")).isNull();
+      assertContainsEvent(
+          "//"
+              + implementationPackage
+              + ":impl.bzl cannot access the _transitive_validation private API");
+    }
   }
 }

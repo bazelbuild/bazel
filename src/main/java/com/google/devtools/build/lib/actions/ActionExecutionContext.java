@@ -87,11 +87,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public String getWorkspaceName() {
-      return wrapped.getWorkspaceName();
-    }
-
-    @Override
     public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
       return wrapped.getArtifactsAtCanonicalLocationsForLogging();
     }
@@ -237,7 +232,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final DiscoveredModulesPruner discoveredModulesPruner;
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
-  private final boolean fileSystemSupportsInputDiscovery;
   private final boolean bustCaches;
 
   private ActionExecutionContext(
@@ -256,7 +250,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics,
-      boolean fileSystemSupportsInputDiscovery,
       boolean bustCaches) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
@@ -276,7 +269,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         executor == null ? null : executor.getExecRoot());
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
-    this.fileSystemSupportsInputDiscovery = fileSystemSupportsInputDiscovery;
     this.bustCaches = bustCaches;
   }
 
@@ -311,7 +303,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        /* fileSystemSupportsInputDiscovery= */ false,
         /* bustCaches= */ false);
   }
 
@@ -347,7 +338,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        /* fileSystemSupportsInputDiscovery= */ false,
         bustCaches);
   }
 
@@ -365,8 +355,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscalls,
-      ThreadStateReceiver threadStateReceiverForMetrics,
-      boolean fileSystemSupportsInputDiscovery) {
+      ThreadStateReceiver threadStateReceiverForMetrics) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
@@ -383,7 +372,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery,
         /* bustCaches= */ false);
   }
 
@@ -419,10 +407,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable
   public FileSystem getActionFileSystem() {
     return actionFileSystem;
-  }
-
-  public boolean fileSystemSupportsInputDiscovery() {
-    return fileSystemSupportsInputDiscovery;
   }
 
   public boolean isRewindingEnabled() {
@@ -610,7 +594,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery,
         bustCaches);
   }
 
@@ -665,7 +648,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery,
         bustCaches);
   }
 

@@ -24,7 +24,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <jni.h>
 #include <stdlib.h>
 #include <string.h>
 #if defined(HAVE_EXTATTR)
@@ -36,6 +35,7 @@
 #include <sys/types.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <string>
 
 #include "src/main/native/unix_jni.h"
@@ -54,18 +54,17 @@ string ErrorMessage(int error_number) {
   return string(buf);
 }
 
-uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
-                               StatTimes t) {
+int64_t StatEpochNanoseconds(const portable_stat_struct& statbuf, StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atimespec.tv_sec * 1000L +
-             statbuf.st_atimespec.tv_nsec / 1000000;
+      return statbuf.st_atimespec.tv_sec * 1000000000L +
+             statbuf.st_atimespec.tv_nsec;
     case STAT_CTIME:
-      return statbuf.st_ctimespec.tv_sec * 1000L +
-             statbuf.st_ctimespec.tv_nsec / 1000000;
+      return statbuf.st_ctimespec.tv_sec * 1000000000L +
+             statbuf.st_ctimespec.tv_nsec;
     case STAT_MTIME:
-      return statbuf.st_mtimespec.tv_sec * 1000L +
-             statbuf.st_mtimespec.tv_nsec / 1000000;
+      return statbuf.st_mtimespec.tv_sec * 1000000000L +
+             statbuf.st_mtimespec.tv_nsec;
   }
 }
 
@@ -95,68 +94,6 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   *attr_not_found = true;
   return -1;
 #endif
-}
-
-int portable_push_disable_sleep() {
-  // Currently not supported.
-  // https://wiki.freebsd.org/SuspendResume
-  return -1;
-}
-
-int portable_pop_disable_sleep() {
-  // Currently not supported.
-  // https://wiki.freebsd.org/SuspendResume
-  return -1;
-}
-
-void portable_start_suspend_monitoring() {
-  // Currently not implemented.
-}
-
-void portable_start_thermal_monitoring() {
-  // Currently not implemented.
-}
-
-int portable_thermal_load() {
-  // Currently not implemented.
-  return 0;
-}
-
-void portable_start_system_load_advisory_monitoring() {
-  // Currently not implemented.
-}
-
-int portable_system_load_advisory() {
-  // Currently not implemented.
-  return 0;
-}
-
-void portable_start_memory_pressure_monitoring() {
-  // Currently not implemented.
-}
-
-MemoryPressureLevel portable_memory_pressure() {
-  // Currently not implemented.
-  return MemoryPressureLevelNormal;
-}
-
-void portable_start_disk_space_monitoring() {
-  // Currently not implemented.
-}
-
-void portable_start_cpu_speed_monitoring() {
-  // Currently not implemented.
-}
-
-int portable_cpu_speed() {
-  // Currently not implemented.
-  return -1;
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
-    JNIEnv* env, jclass clazz, jobject counters_map) {
-  // Currently not implemented.
 }
 
 }  // namespace blaze_jni
