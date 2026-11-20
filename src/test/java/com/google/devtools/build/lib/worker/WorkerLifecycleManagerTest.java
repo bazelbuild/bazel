@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.worker.WorkerTestUtils.createWorkerK
 import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
@@ -568,6 +569,144 @@ public final class WorkerLifecycleManagerTest {
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
     // Status is only set to killed after the last worker proxy is destroyed.
     assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+  }
+
+  @Test
+  public void evictIdleWorkers_doesNotEvictBeforeTimeout() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
+    Worker worker = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, worker);
+    WorkerProcessMetrics metrics = createWorkerMetric(worker, PROCESS_ID_1, 0);
+    metrics.onExecutionFinished(DEFAULT_INSTANT);
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerIdleTimeoutSecs(entryList("", 10));
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options, null);
+
+    ImmutableSet<Integer> evicted =
+        manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(9));
+
+    assertThat(evicted).isEmpty();
+    assertThat(workerPool.getIdleWorkers()).containsExactly(worker.getWorkerId());
+    assertThat(worker.getStatus().isValid()).isTrue();
+  }
+
+  @Test
+  public void evictIdleWorkers_evictsAtTimeoutWithoutShrinkingPool() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
+    Worker worker = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, worker);
+    WorkerProcessMetrics metrics = createWorkerMetric(worker, PROCESS_ID_1, 0);
+    metrics.onExecutionFinished(DEFAULT_INSTANT);
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerIdleTimeoutSecs(entryList("", 10));
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options, null);
+
+    ImmutableSet<Integer> evicted =
+        manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(10));
+
+    assertThat(evicted).containsExactly(worker.getWorkerId());
+    assertThat(worker.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_IDLE_TIMEOUT);
+    assertThat(workerPool.getMaxTotalPerKey(key)).isEqualTo(1);
+    Worker replacement = workerPool.borrowWorker(key);
+    assertThat(replacement.getWorkerId()).isNotEqualTo(worker.getWorkerId());
+  }
+
+  @Test
+  public void evictIdleWorkers_usesMnemonicOverride() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
+    Worker worker = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, worker);
+    WorkerProcessMetrics metrics = createWorkerMetric(worker, PROCESS_ID_1, 0);
+    metrics.onExecutionFinished(DEFAULT_INSTANT);
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerIdleTimeoutSecs(entryList("", 10, DUMMY_MNEMONIC, 20));
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options, null);
+
+    assertThat(manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(10)))
+        .isEmpty();
+    assertThat(manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(20)))
+        .containsExactly(worker.getWorkerId());
+  }
+
+  @Test
+  public void evictIdleWorkers_mnemonicZeroDisablesGlobalTimeout() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
+    Worker worker = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, worker);
+    WorkerProcessMetrics metrics = createWorkerMetric(worker, PROCESS_ID_1, 0);
+    metrics.onExecutionFinished(DEFAULT_INSTANT);
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerIdleTimeoutSecs(entryList("", 10, DUMMY_MNEMONIC, 0));
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options, null);
+
+    assertThat(
+            manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(100)))
+        .isEmpty();
+    assertThat(workerPool.getIdleWorkers()).containsExactly(worker.getWorkerId());
+  }
+
+  @Test
+  public void evictIdleWorkers_doesNotEvictMultiplexProcessWithActiveRequest() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
+    WorkerKey key =
+        createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
+    Worker worker1 = workerPool.borrowWorker(key);
+    Worker worker2 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, worker1);
+    WorkerProcessMetrics metrics =
+        createMultiplexWorkerMetric(ImmutableList.of(worker1, worker2), PROCESS_ID_1, 0);
+    metrics.onExecutionFinished(DEFAULT_INSTANT);
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerIdleTimeoutSecs(entryList("", 10));
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options, null);
+
+    assertThat(manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(20)))
+        .isEmpty();
+    // Even if a lifecycle sample becomes stale, the pool must not doom a shared process while one
+    // of its multiplex proxies is active.
+    assertThat(
+            workerPool.evictWorkers(
+                ImmutableSet.of(worker1.getWorkerId(), worker2.getWorkerId()),
+                Status.PENDING_KILL_DUE_TO_IDLE_TIMEOUT))
+        .isEmpty();
+    assertThat(worker1.getStatus().isValid()).isTrue();
+
+    workerPool.returnWorker(key, worker2);
+    assertThat(manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(20)))
+        .containsExactly(worker1.getWorkerId(), worker2.getWorkerId());
+  }
+
+  @Test
+  public void evictIdleWorkers_doesNotEvictBeforeFirstCompletedRequest() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
+    Worker worker = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, worker);
+    WorkerProcessMetrics metrics = createWorkerMetric(worker, PROCESS_ID_1, 0);
+    WorkerOptions options = Options.getDefaults(WorkerOptions.class);
+    options.setWorkerIdleTimeoutSecs(entryList("", 10));
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options, null);
+
+    assertThat(
+            manager.evictIdleWorkers(ImmutableList.of(metrics), DEFAULT_INSTANT.plusSeconds(100)))
+        .isEmpty();
+    assertThat(workerPool.getIdleWorkers()).containsExactly(worker.getWorkerId());
   }
 
   private static final Instant DEFAULT_INSTANT = BlazeClock.instance().now();

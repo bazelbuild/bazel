@@ -784,6 +784,44 @@ EOF
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
+function test_worker_idle_timeout() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world_1",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid"],
+)
+
+genrule(
+  name = "pause",
+  srcs = [":hello_world_1"],
+  outs = ["pause.txt"],
+  cmd = "sleep 2 && cp \$< \$@",
+)
+
+work(
+  name = "hello_world_2",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid"],
+  srcs = [":pause"],
+)
+EOF
+
+  bazel build \
+      --experimental_worker_idle_timeout_secs=1 \
+      --experimental_worker_metrics_poll_interval=200ms \
+      :hello_world_2 &> "$TEST_log" \
+    || fail "build failed"
+
+  worker_uuid_1=$(grep UUID "$BINS/hello_world_1.out" | cut -d' ' -f2)
+  worker_uuid_2=$(grep UUID "$BINS/hello_world_2.out" | cut -d' ' -f2)
+  assert_not_equals "$worker_uuid_1" "$worker_uuid_2"
+  expect_log "Evicted 1 workers after their idle timeout elapsed"
+}
+
 function test_total_worker_memory_limit_log_starting() {
   prepare_example_worker
   cat >>BUILD <<EOF
