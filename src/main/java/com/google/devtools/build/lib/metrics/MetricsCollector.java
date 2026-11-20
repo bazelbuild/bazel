@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.metrics;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
@@ -557,7 +558,7 @@ class MetricsCollector {
     long numActionsExecuted = actionStats.numActionsExecuted.get();
     ActionData.Builder builder =
         ActionData.newBuilder()
-            .setMnemonic(actionStats.mnemonic)
+            .setMnemonic(internalToUnicode(actionStats.mnemonic))
             .setActionsExecuted(numActionsExecuted)
             .setActionsCreated(actionStats.numActionsRegistered.get());
 
@@ -638,8 +639,8 @@ class MetricsCollector {
             a ->
                 builder.addRuleClass(
                     RuleClassCount.newBuilder()
-                        .setKey(a.getKey())
-                        .setRuleClass(a.getName())
+                        .setKey(internalToUnicode(a.getKey()))
+                        .setRuleClass(internalToUnicode(a.getName()))
                         .setCount(a.getCount())
                         .setActionCount(a.getActionCount())
                         .build()));
@@ -649,8 +650,8 @@ class MetricsCollector {
             a ->
                 builder.addAspect(
                     AspectCount.newBuilder()
-                        .setKey(a.getKey())
-                        .setAspectName(a.getName())
+                        .setKey(internalToUnicode(a.getKey()))
+                        .setAspectName(internalToUnicode(a.getName()))
                         .setCount(a.getCount())
                         .setActionCount(a.getActionCount())
                         .build()));
@@ -668,8 +669,8 @@ class MetricsCollector {
           var providerBuilder =
               providerStats
                   .addProvidersBuilder()
-                  .setName(provider.getName())
-                  .setLocation(printer.getLocationString(provider.getLocation()))
+                  .setName(internalToUnicode(provider.getName()))
+                  .setLocation(internalToUnicode(printer.getLocationString(provider.getLocation())))
                   .setCount(count);
           ImmutableMap<String, Integer> fields = provider.getFields();
           if (fields != null) {
@@ -811,7 +812,7 @@ class MetricsCollector {
 
     public WorkerPoolMetrics.WorkerPoolStats build() {
       return WorkerPoolMetrics.WorkerPoolStats.newBuilder()
-          .setMnemonic(mnemonic)
+          .setMnemonic(internalToUnicode(mnemonic))
           .setHash(hash)
           .setCreatedCount(createdCount)
           .setDestroyedCount(destroyedCount)
@@ -920,7 +921,7 @@ class MetricsCollector {
         RaceWinners raceWinners = branchWinners.get(raceIdentifier);
         builder.addRaceStatistics(
             DynamicExecutionMetrics.RaceStatistics.newBuilder()
-                .setMnemonic(raceIdentifier.mnemonic())
+                .setMnemonic(internalToUnicode(raceIdentifier.mnemonic()))
                 .setLocalRunner(raceIdentifier.localName())
                 .setRemoteRunner(raceIdentifier.remoteName())
                 .setLocalWins(raceWinners.getLocalWins())

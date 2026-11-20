@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -67,8 +69,8 @@ public final class BuildInfoEvent
     for (Map.Entry<String, String> entry : getBuildInfoMap().entrySet()) {
       status.addItem(
           BuildEventStreamProtos.WorkspaceStatus.Item.newBuilder()
-              .setKey(entry.getKey())
-              .setValue(entry.getValue())
+              .setKey(internalToUnicode(entry.getKey()))
+              .setValue(internalToUnicode(entry.getValue()))
               .build());
     }
     return GenericBuildEvent.protoChaining(this).setWorkspaceStatus(status.build()).build();

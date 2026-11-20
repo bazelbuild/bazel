@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Collection;
 import java.util.List;
 
@@ -73,7 +74,7 @@ public final class PatternExpandingError implements BuildEvent {
     BuildEventStreamProtos.Aborted failure =
         BuildEventStreamProtos.Aborted.newBuilder()
             .setReason(BuildEventStreamProtos.Aborted.AbortReason.LOADING_FAILURE)
-            .setDescription(message)
+            .setDescription(StringEncoding.internalToUnicodeLenient(message))
             .build();
     return GenericBuildEvent.protoChaining(this).setAborted(failure).build();
   }

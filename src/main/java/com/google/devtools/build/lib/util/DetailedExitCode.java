@@ -111,6 +111,17 @@ public class DetailedExitCode {
         "DetailedExitCode{exitCode=%s, failureDetail=%s}", exitCode, failureDetail);
   }
 
+  /**
+   * Returns {@code failureDetail} with its message reencoded from an internal to a Unicode string.
+   */
+  public static FailureDetail toUnicode(FailureDetail failureDetail) {
+    var message = failureDetail.getMessage();
+    var unicodeMessage = StringEncoding.internalToUnicodeLenient(message);
+    return unicodeMessage == message
+        ? failureDetail
+        : failureDetail.toBuilder().setMessage(unicodeMessage).build();
+  }
+
   /** Returns the numeric exit code associated with a {@link FailureDetail} message. */
   public static int getNumericExitCode(FailureDetail failureDetail) {
     MessageOrBuilder categoryMsg = getCategorySubmessage(failureDetail);
