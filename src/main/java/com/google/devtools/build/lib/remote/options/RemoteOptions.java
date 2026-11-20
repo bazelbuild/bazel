@@ -287,15 +287,17 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      converter = EmptyToNullStringConverter.class,
       help =
-          "Path to a gRPC service config JSON file for remote gRPC channels. This replaces the"
+          "Path to a gRPC service config JSON file for remote gRPC channels. Relative paths are"
+              + " relative to the current working directory; paths prefixed with %workspace%/ are"
+              + " relative to the workspace root. This replaces the"
               + " service config Bazel generates from --remote_timeout. Only a subset of the gRPC"
               + " service config JSON schema is supported: top-level methodConfig entries with"
               + " name objects containing service and optional method, plus timeout. Other service"
               + " config fields are rejected and may be supported in the future.")
   @Nullable
-  public abstract PathFragment getRemoteGrpcServiceConfig();
+  public abstract String getRemoteGrpcServiceConfig();
 
   @Option(
       name = "remote_grpc_download_idle_timeout",

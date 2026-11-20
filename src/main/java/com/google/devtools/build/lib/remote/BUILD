@@ -29,11 +29,13 @@ java_library(
     srcs = ["RemoteGrpcServiceConfig.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/google/bytestream:bytestream_grpc",
         "//third_party/java/gson",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
     ],

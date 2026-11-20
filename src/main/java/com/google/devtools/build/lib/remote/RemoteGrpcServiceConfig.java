@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -33,15 +33,18 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Builds Bazel's generated gRPC service config for remote services. */
 public final class RemoteGrpcServiceConfig {
+  private static final String WORKSPACE_PREFIX = "%workspace%";
   private static final Gson GSON = new Gson();
   private static final Type MAP_TYPE = new TypeToken<Map<String, ?>>() {}.getType();
   private static final ImmutableSet<String> SUPPORTED_TOP_LEVEL_FIELDS =
@@ -57,13 +60,25 @@ public final class RemoteGrpcServiceConfig {
     return create(options.getRemoteTimeout());
   }
 
-  public static ImmutableMap<String, ?> create(RemoteOptions options, Path workingDirectory)
-      throws IOException {
-    PathFragment serviceConfigPath = options.getRemoteGrpcServiceConfig();
+  public static ImmutableMap<String, ?> create(
+      RemoteOptions options, Path workingDirectory, @Nullable Path workspace) throws IOException {
+    String serviceConfigPath = options.getRemoteGrpcServiceConfig();
     if (serviceConfigPath == null) {
       return create(options);
     }
-    return parse(workingDirectory.getRelative(serviceConfigPath));
+    if (serviceConfigPath.equals(WORKSPACE_PREFIX)
+        || serviceConfigPath.startsWith(WORKSPACE_PREFIX + "/")
+        || serviceConfigPath.startsWith(WORKSPACE_PREFIX + File.separator)) {
+      if (workspace == null) {
+        throw new IOException("%workspace% requires a workspace");
+      }
+      // Expand before path normalization so that '..' is resolved relative to the workspace.
+      serviceConfigPath =
+          workspace.getPathString() + serviceConfigPath.substring(WORKSPACE_PREFIX.length());
+    }
+    return parse(
+        workingDirectory.getRelative(
+            new OptionsUtils.PathFragmentConverter().convert(serviceConfigPath)));
   }
 
   static ImmutableMap<String, ?> create(Duration remoteTimeout) {
