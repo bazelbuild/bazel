@@ -82,6 +82,7 @@ pid_t initial_ppid;
 // Must we politely ask the child to exit before we send it a SIGKILL (once we
 // want it to exit)? Holds only zero or one.
 static std::atomic<int> global_need_polite_sigterm{false};
+static std::atomic<int> global_using_bwrap_pgrp{false};
 
 #if __cplusplus >= 201703L
 static_assert(global_child_pid.is_always_lock_free);
@@ -192,6 +193,12 @@ static void OnTimeoutOrTerm(int) {
   // Find the PID of the child, which main set up before installing us as a
   // signal handler.
   const pid_t child_pid = global_child_pid.load(std::memory_order_relaxed);
+  if (child_pid <= 0) {
+    return;
+  }
+  const pid_t target = global_using_bwrap_pgrp.load(std::memory_order_relaxed)
+                           ? -child_pid
+                           : child_pid;
 
   // Figure out whether we should send a SIGTERM here. If so, we won't want to
   // next time we're called.
@@ -200,7 +207,7 @@ static void OnTimeoutOrTerm(int) {
 
   // If we're not supposed to ask politely, simply forcibly kill the child.
   if (!need_polite_sigterm) {
-    kill(child_pid, SIGKILL);
+    kill(target, SIGKILL);
     return;
   }
 
@@ -209,11 +216,11 @@ static void OnTimeoutOrTerm(int) {
   //
   // Note that main sets us up as the signal handler for SIGALRM, and arranges
   // for this code path to be taken only if kill_delay_secs > 0.
-  kill(child_pid, SIGTERM);
+  kill(target, SIGTERM);
   alarm(opt.kill_delay_secs);
 }
 
-static pid_t SpawnPid1() {
+static pid_t SpawnPid1(int argc, char *argv[]) {
   const int kStackSize = 1024 * 1024;
   std::vector<char> child_stack(kStackSize);
 
@@ -262,7 +269,45 @@ static pid_t SpawnPid1() {
   // the child process that we still existed after it ran
   // prctl(PR_SET_PDEATHSIG, SIGKILL), thus preventing a race condition where
   // the parent is killed before that call was made.
-  WaitPipe(pipe_from_child);
+  if (close(pipe_from_child[1]) < 0) {
+    DIE("close");
+  }
+  char buf = 0;
+  ssize_t n;
+  do {
+    n = read(pipe_from_child[0], &buf, 1);
+  } while (n < 0 && errno == EINTR);
+  if (n < 0) {
+    DIE("read");
+  }
+  if (close(pipe_from_child[0]) < 0) {
+    DIE("close");
+  }
+  if (n == 0) {
+    int status = 0;
+    while (waitpid(child_pid, &status, 0) < 0) {
+      if (errno != EINTR) {
+        DIE("waitpid");
+      }
+    }
+    if (WIFEXITED(status) &&
+        WEXITSTATUS(status) == kAppArmorBwrapFallbackExitCode) {
+      FILE* f =
+          fopen("/proc/sys/kernel/apparmor_restrict_unprivileged_userns", "r");
+      int restricted = 0;
+      if (f != nullptr) {
+        restricted = (fgetc(f) == '1');
+        fclose(f);
+      }
+      if (restricted && access("/usr/bin/bwrap", X_OK) == 0) {
+        global_using_bwrap_pgrp.store(1, std::memory_order_relaxed);
+        const pid_t bwrap_pid = SpawnBwrap(argc, argv);
+        MaybeAddChildProcessToCgroup(bwrap_pid);
+        return bwrap_pid;
+      }
+    }
+    DIE("child exited prematurely");
+  }
 
   PRINT_DEBUG("done manipulating pipes");
 
@@ -333,6 +378,13 @@ static int WaitForPid1(const pid_t child_pid) {
 }
 
 int main(int argc, char *argv[]) {
+  if (getenv("BAZEL_LINUX_SANDBOX_BWRAP_PID1") != nullptr) {
+    unsetenv("BAZEL_LINUX_SANDBOX_BWRAP_PID1");
+    ParseOptions(argc, argv);
+    CloseFds();
+    return RunInBwrapPid1();
+  }
+
   // Ask the kernel to kill us with SIGKILL if our parent dies.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
     DIE("prctl");
@@ -382,7 +434,7 @@ int main(int argc, char *argv[]) {
 
   // Spawn the child that will fork the sandboxed program with fresh
   // namespaces etc.
-  const pid_t child_pid = SpawnPid1();
+  const pid_t child_pid = SpawnPid1(argc, argv);
 
   // Let the signal handlers installed below know the PID of the child.
   global_child_pid.store(child_pid, std::memory_order_relaxed);

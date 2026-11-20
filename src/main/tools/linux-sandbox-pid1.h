@@ -15,11 +15,17 @@
 #ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_PID1_H_
 #define SRC_MAIN_TOOLS_LINUX_SANDBOX_PID1_H_
 
+#include <sys/types.h>
+
+constexpr int kAppArmorBwrapFallbackExitCode = 199;
+
 struct Pid1Args {
   int *pipe_to_parent;
   int *pipe_from_parent;
 };
 
 int Pid1Main(void *pid1Args);
+pid_t SpawnBwrap(int argc, char *argv[]);
+int RunInBwrapPid1();
 
 #endif
