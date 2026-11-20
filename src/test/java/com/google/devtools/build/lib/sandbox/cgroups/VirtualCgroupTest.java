@@ -15,14 +15,20 @@
 package com.google.devtools.build.lib.sandbox.cgroups;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupControllerInfo;
 import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -323,5 +329,26 @@ public class VirtualCgroupTest {
                         .setVersion(CgroupControllerInfo.Version.V2)
                         .build())
                 .build());
+  }
+
+  @Test
+  public void nonAsciiCgroupV1_cgroupsInfo_returnsUnicodePath() throws IOException {
+    assume()
+        .that(ImmutableList.of(UTF_8, ISO_8859_1))
+        .contains(Charset.forName(System.getProperty("sun.jnu.encoding")));
+
+    String cgroupDir = unicodeToInternal("dev/cgroup/jörg");
+    File mounts =
+        scratch
+            .file(
+                "proc/self/mounts",
+                String.format("cgroup %s/%s cgroup rw,cpu 0 0", scratch.path(""), cgroupDir))
+            .getPathFile();
+    File hierarchies = scratch.file("proc/self/cgroup", "1:cpu:/").getPathFile();
+    updateV1(cgroupDir);
+
+    VirtualCgroup vcg = VirtualCgroup.createRoot(mounts, hierarchies);
+    assertThat(vcg.cgroupsInfo().getCgroupControllers(0).getPath())
+        .isEqualTo(internalToUnicode(scratch.path(cgroupDir).getPathString()));
   }
 }

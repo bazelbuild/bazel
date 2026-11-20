@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox.cgroups;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.value.AutoValue;
@@ -158,7 +160,7 @@ public abstract class VirtualCgroup implements Cgroup {
         boolean isCgroupWritable = cgroup.toFile().canWrite();
         cgroupsInfo.addCgroupControllers(
             CgroupControllerInfo.newBuilder()
-                .setPath(cgroup.toString())
+                .setPath(internalToUnicode(platformToInternal(cgroup.toString())))
                 .setIsWritable(isCgroupWritable)
                 .setVersion(CgroupControllerInfo.Version.V2)
                 .build());
@@ -199,7 +201,7 @@ public abstract class VirtualCgroup implements Cgroup {
           boolean isCgroupWritable = cgroup.toFile().canWrite();
           cgroupsInfo.addCgroupControllers(
               CgroupControllerInfo.newBuilder()
-                  .setPath(cgroup.toString())
+                  .setPath(internalToUnicode(platformToInternal(cgroup.toString())))
                   .setIsWritable(isCgroupWritable)
                   .setVersion(CgroupControllerInfo.Version.V1)
                   .build());
