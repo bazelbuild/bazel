@@ -42,8 +42,7 @@ public class JavaSubprocessFactoryTest {
 
   @Test
   public void createFromVirtualThreadForksOnPlatformThread() throws Exception {
-    // macOS starts subprocesses from the calling thread.
-    assumeTrue(OS.getCurrent() != OS.DARWIN);
+    assumeTrue(OS.getCurrent() == OS.LINUX);
     Path recordingPath = tempFolder.newFile("process-start.jfr").toPath();
     long pid;
     try (Recording recording = new Recording();
