@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */
@@ -51,8 +49,12 @@ public class CacheFileDigestsModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+  public void beforeCommand(CommandEnvironment env) {
+    ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
+    if (options == null || !env.getCommand().buildPhase().analyzes()) {
+      return;
+    }
+    // Repository input checks run during loading, before the execution tool is initialized.
     if (lastKnownCacheSize == null
         || options.getCacheSizeForComputedFileDigests() != lastKnownCacheSize) {
       logger.atInfo().log(
@@ -77,7 +79,7 @@ public class CacheFileDigestsModule extends BlazeModule {
       Preconditions.checkNotNull(newStats, "The cache is enabled so we must get some stats back");
       logStats("Accumulated cache stats after command", newStats);
       logStats("Cache stats for finished command", newStats.minus(stats));
-      stats = null; // Silence stats until next command that uses the executor.
+      stats = null; // Do not log stats for commands skipped by beforeCommand.
     }
   }
 }
