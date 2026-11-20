@@ -1495,6 +1495,23 @@ public final class SkyframeActionExecutor {
                 Code.ACTION_FINALIZATION_FAILURE);
           }
         }
+
+        try {
+          actionExecutionContext.flushDeferredSpawnCacheStores();
+        } catch (ExecException e) {
+          throw ActionExecutionException.fromExecException(e, action);
+        } catch (IOException e) {
+          throw ActionExecutionException.fromExecException(
+              new EnvironmentalExecException(
+                  e,
+                  FailureDetail.newBuilder()
+                      .setMessage("Exec failed due to IOException")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder()
+                              .setCode(FailureDetails.Spawn.Code.EXEC_IO_EXCEPTION))
+                      .build()),
+              action);
+        }
       } catch (ActionExecutionException actionException) {
         maybeSignalLostInputs(actionException, primaryOutputPath);
         // Success in execution but failure in completion.

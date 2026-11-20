@@ -41,6 +41,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -199,6 +200,54 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
   }
 
+  /**
+   * A spawn cache store that is delayed until after output validation succeeds.
+   */
+  public interface DeferredSpawnCacheStore extends Closeable {
+    void store() throws ExecException, InterruptedException, IOException;
+
+    @Override
+    void close();
+  }
+
+  private static final class DeferredSpawnCacheStores implements Closeable {
+    private final ArrayList<DeferredSpawnCacheStore> stores = new ArrayList<>();
+
+    synchronized void add(DeferredSpawnCacheStore store) {
+      stores.add(store);
+    }
+
+    void flush() throws ExecException, InterruptedException, IOException {
+      ArrayList<DeferredSpawnCacheStore> storesToFlush;
+      synchronized (this) {
+        storesToFlush = new ArrayList<>(stores);
+        stores.clear();
+      }
+      for (int i = 0; i < storesToFlush.size(); i++) {
+        try (DeferredSpawnCacheStore store = storesToFlush.get(i)) {
+          store.store();
+        } catch (ExecException | InterruptedException | IOException e) {
+          for (int j = i + 1; j < storesToFlush.size(); j++) {
+            storesToFlush.get(j).close();
+          }
+          throw e;
+        }
+      }
+    }
+
+    @Override
+    public void close() {
+      ArrayList<DeferredSpawnCacheStore> storesToClose;
+      synchronized (this) {
+        storesToClose = new ArrayList<>(stores);
+        stores.clear();
+      }
+      for (DeferredSpawnCacheStore store : storesToClose) {
+        store.close();
+      }
+    }
+  }
+
   /** Enum for --subcommands flag */
   public enum ShowSubcommands {
     TRUE(true, false), PRETTY_PRINT(true, true), FALSE(false, false);
@@ -233,6 +282,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
   private final boolean bustCaches;
+  private final DeferredSpawnCacheStores deferredSpawnCacheStores;
+  private final boolean ownsDeferredSpawnCacheStores;
 
   private ActionExecutionContext(
       Executor executor,
@@ -250,7 +301,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics,
-      boolean bustCaches) {
+      boolean bustCaches,
+      DeferredSpawnCacheStores deferredSpawnCacheStores,
+      boolean ownsDeferredSpawnCacheStores) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -270,6 +323,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
     this.bustCaches = bustCaches;
+    this.deferredSpawnCacheStores = deferredSpawnCacheStores;
+    this.ownsDeferredSpawnCacheStores = ownsDeferredSpawnCacheStores;
   }
 
   public ActionExecutionContext(
@@ -303,7 +358,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        /* bustCaches= */ false);
+        /* bustCaches= */ false,
+        new DeferredSpawnCacheStores(),
+        /* ownsDeferredSpawnCacheStores= */ true);
   }
 
   public ActionExecutionContext(
@@ -338,7 +395,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        bustCaches);
+        bustCaches,
+        new DeferredSpawnCacheStores(),
+        /* ownsDeferredSpawnCacheStores= */ true);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -372,7 +431,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics,
-        /* bustCaches= */ false);
+        /* bustCaches= */ false,
+        new DeferredSpawnCacheStores(),
+        /* ownsDeferredSpawnCacheStores= */ true);
   }
 
   public boolean bustCaches() {
@@ -564,14 +625,33 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return threadStateReceiverForMetrics;
   }
 
+  public void deferSpawnCacheStore(DeferredSpawnCacheStore store) {
+    deferredSpawnCacheStores.add(store);
+  }
+
+  /**
+   * Stores spawn cache entries that were deferred until action output validation and finalization
+   * succeeded.
+   */
+  public void flushDeferredSpawnCacheStores()
+      throws ExecException, InterruptedException, IOException {
+    deferredSpawnCacheStores.flush();
+  }
+
   @Override
   public void close() throws IOException {
-    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    // Ensure that we close all resources even if one throws.
     try {
       fileOutErr.close();
     } finally {
-      if (actionFileSystem instanceof Closeable closeable) {
-        closeable.close();
+      try {
+        if (actionFileSystem instanceof Closeable closeable) {
+          closeable.close();
+        }
+      } finally {
+        if (ownsDeferredSpawnCacheStores) {
+          deferredSpawnCacheStores.close();
+        }
       }
     }
   }
@@ -594,7 +674,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        bustCaches);
+        bustCaches,
+        deferredSpawnCacheStores,
+        /* ownsDeferredSpawnCacheStores= */ false);
   }
 
   /**
@@ -648,7 +730,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        bustCaches);
+        bustCaches,
+        deferredSpawnCacheStores,
+        /* ownsDeferredSpawnCacheStores= */ false);
   }
 
   /**
