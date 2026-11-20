@@ -167,6 +167,19 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
   }
 
   /**
+   * Returns the files that the protobuf representation of this event names when it is written
+   * with the given options. A transport calls this to learn which files to look at, and possibly
+   * upload, before it converts the event.
+   *
+   * <p>Defaults to {@link #referencedLocalFiles()}. An event whose representation names fewer
+   * files under some options overrides this, so that a transport does not look at the others in
+   * vain.
+   */
+  default Collection<LocalFile> referencedLocalFiles(BuildEventProtocolOptions options) {
+    return referencedLocalFiles();
+  }
+
+  /**
    * Returns a collection of URI futures corresponding to in-flight file uploads.
    *
    * <p>The files here are considered "remote" in that they may not correspond to on-disk files.

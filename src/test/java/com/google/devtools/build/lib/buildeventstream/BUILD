@@ -28,6 +28,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
         "//third_party/java/junit",
