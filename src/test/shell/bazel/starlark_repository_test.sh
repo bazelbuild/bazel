@@ -2825,17 +2825,21 @@ EOF
 def _r(rctx):
   rctx.file("BUILD", "filegroup(name='r')")
   data_file = rctx.path("${outside_dir}/data.txt")
-  rctx.watch(data_file)
+  rctx.watch(data_file, "${outside_dir}/other.txt")
   if not data_file.exists:
     print("I see nothing")
   elif data_file.is_dir:
     print("I see a directory")
   else:
-    print("I see: " + rctx.read(data_file))
+    print("I see: " + rctx.read(data_file, watch="no"))
 r=repository_rule(_r)
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: something"
+
+  echo created > "${outside_dir}/other.txt"
+  bazel build @r >& "$TEST_log" || fail "expected bazel to succeed"
   expect_log "I see: something"
 
   # test that all kinds of transitions between file, dir, and noent are watched
