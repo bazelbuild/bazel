@@ -1501,6 +1501,70 @@ class RemoteRepoContentsCacheTest(
     with open(out) as f:
       self.assertEqual(f.read(), 'hello')
 
+  def testTopLevelSymlinkToRepoFile(self):
+    # A symlink action doesn't read its input, so it creates its output before
+    # the file it points to has been downloaded. On Windows, the output is a
+    # copy of that file unless symlinks are enabled, which can only be made once
+    # the file is available.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/symlink.bzl',
+        [
+            'def _symlink_impl(ctx):',
+            '  out = ctx.actions.declare_file(ctx.label.name + ".txt")',
+            '  ctx.actions.symlink(output = out, target_file = ctx.file.src)',
+            '  return [DefaultInfo(files = depset([out]))]',
+            'symlink = rule(',
+            '  implementation = _symlink_impl,',
+            '  attrs = {"src": attr.label(allow_single_file = True)},',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("//main:symlink.bzl", "symlink")',
+            'symlink(name = "link", src = "@my_repo//:data.txt")',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    out = self.Path('bazel-bin/main/link.txt')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '//main:link'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'hello')
+
+    # After expunging: cached, with data.txt only being downloaded since the
+    # top-level output points to it.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '//main:link'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+    with open(out) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def testSourceDirectoryWithSymlinkToDirectory_expandedExecutionLog(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/30264:
     # the expanded execution log walks directory inputs on the overlay file
@@ -1844,6 +1908,82 @@ class RemoteRepoContentsCacheTest(
       self,
   ):
     self.doTestInputBelowSymlinkedDirectories('use_source_directory')
+
+  def testMaterializationReproducesSymlinkLoops(self):
+    # Symlinks that form a loop are reproduced verbatim when the repo is
+    # materialized, just like dangling symlinks.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            (
+                'other_repo_rule ='
+                ' use_repo_rule("//:other_repo.bzl", "other_repo_rule")'
+            ),
+            'other_repo_rule(name = "other", build_file = "@my_repo//:BUILD")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  rctx.file("real/file.txt", "file")',
+            '  rctx.symlink("loop_b", "loop_a")',
+            '  rctx.symlink("loop_a", "loop_b")',
+            '  rctx.symlink("loop/subdir", "loop")',
+            '  rctx.symlink("self", "self")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Resolving my_repo's BUILD to a path forces full materialization of
+            # my_repo.
+            '  rctx.read(rctx.path(rctx.attr.build_file))',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo_rule = repository_rule(_other_repo_impl,'
+                ' attrs={"build_file": attr.label()})'
+            ),
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: my_repo is a remote cache hit and fully materialized
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@other//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    with open(os.path.join(repo_dir, 'real/file.txt')) as f:
+      self.assertEqual(f.read(), 'file')
+    for link, link_target in [
+        ('loop_a', 'loop_b'),
+        ('loop_b', 'loop_a'),
+        ('loop', 'loop/subdir'),
+        ('self', 'self'),
+    ]:
+      self.assertTrue(os.path.islink(os.path.join(repo_dir, link)), link)
+      if not self.IsWindows():
+        self.assertEqual(os.readlink(os.path.join(repo_dir, link)), link_target)
 
   def testRepoWithSymlinkChainIntoMainRepoIsNotCached(self):
     # A repo containing a symlink chain that ends with a symlink pointing at a
