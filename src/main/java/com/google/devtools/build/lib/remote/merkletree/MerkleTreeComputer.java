@@ -385,7 +385,6 @@ public final class MerkleTreeComputer {
               spawnExecutionContext.getInputMetadataProvider(),
               spawnExecutionContext.getPathResolver(),
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy));
     } catch (BulkTransferException e) {
       e.getLostArtifacts(spawnExecutionContext.getInputMetadataProvider()::getInput)
@@ -435,20 +434,22 @@ public final class MerkleTreeComputer {
    * doesn't matter.
    */
   private static class PathActionInput extends BasicActionInput {
+    private final PathFragment execPath;
     private final Path path;
 
-    PathActionInput(Path path) {
+    PathActionInput(PathFragment execPath, Path path) {
+      this.execPath = execPath;
       this.path = path;
     }
 
     @Override
     public PathFragment getExecPath() {
-      return path.asFragment();
+      return execPath;
     }
 
     @Override
     public String getExecPathString() {
-      return path.asFragment().getPathString();
+      return execPath.getPathString();
     }
 
     Path getPath() {
@@ -490,13 +491,12 @@ public final class MerkleTreeComputer {
                   Lists.transform(
                       ImmutableList.sortedCopyOf(
                           Map.Entry.comparingByKey(HIERARCHICAL_COMPARATOR), inputs.entrySet()),
-                      e -> entry(e.getKey(), new PathActionInput(e.getValue()))),
+                      e -> entry(e.getKey(), new PathActionInput(e.getKey(), e.getValue()))),
                   alwaysFalse(),
                   /* spawnScrubber= */ null,
                   StaticInputMetadataProvider.empty(),
                   PATH_ACTION_INPUT_RESOLVER,
                   /* remoteActionExecutionContext= */ null,
-                  /* remotePathResolver= */ null,
                   BlobPolicy.KEEP_AND_REUPLOAD));
     }
   }
@@ -508,7 +508,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException {
     return transform(
@@ -518,7 +517,6 @@ public final class MerkleTreeComputer {
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
-            remotePathResolver,
             blobPolicy),
         subTreeRoots -> {
           try {
@@ -752,7 +750,6 @@ public final class MerkleTreeComputer {
           InputMetadataProvider metadataProvider,
           ArtifactPathResolver artifactPathResolver,
           RemoteActionExecutionContext remoteActionExecutionContext,
-          RemotePathResolver remotePathResolver,
           BlobPolicy blobPolicy)
           throws IOException {
     var subTreeFutures =
@@ -768,7 +765,6 @@ public final class MerkleTreeComputer {
               metadataProvider,
               artifactPathResolver,
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy);
       if (future != null) {
         subTreeFutures.add(transform(future, subTree -> entry(entry, subTree), directExecutor()));
@@ -785,7 +781,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy)
       throws IOException {
     return switch (input) {
@@ -798,7 +793,6 @@ public final class MerkleTreeComputer {
               metadataProvider,
               artifactPathResolver,
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy);
       case Artifact artifact when artifact.isRunfilesTree() ->
           computeForRunfilesTreeIfAbsent(
@@ -808,7 +802,6 @@ public final class MerkleTreeComputer {
               metadataProvider,
               artifactPathResolver,
               remoteActionExecutionContext,
-              remotePathResolver,
               blobPolicy);
       case Artifact artifact when artifact.isSourceArtifact() -> {
         var metadata =
@@ -826,7 +819,6 @@ public final class MerkleTreeComputer {
             metadataProvider,
             artifactPathResolver,
             remoteActionExecutionContext,
-            remotePathResolver,
             blobPolicy);
       }
       case null, default -> null;
@@ -840,7 +832,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     // A runfiles tree contains either only tool inputs or only non-tool inputs. It always contains
     // at least one artifact at its canonical location: the executable for which it has been
@@ -876,7 +867,6 @@ public final class MerkleTreeComputer {
         metadataProvider,
         artifactPathResolver,
         remoteActionExecutionContext,
-        remotePathResolver,
         blobPolicy);
   }
 
@@ -888,7 +878,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     // A tree artifact contains either only tool inputs or only non-tool inputs.
     boolean isTool =
@@ -914,7 +903,6 @@ public final class MerkleTreeComputer {
         metadataProvider,
         artifactPathResolver,
         remoteActionExecutionContext,
-        remotePathResolver,
         blobPolicy);
   }
 
@@ -943,7 +931,6 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
-      @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
     var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
@@ -991,7 +978,6 @@ public final class MerkleTreeComputer {
                     metadataProvider,
                     artifactPathResolver,
                     remoteActionExecutionContext,
-                    remotePathResolver,
                     blobPolicy);
           } catch (IOException e) {
             throw new WrappedException(e);
@@ -1007,8 +993,7 @@ public final class MerkleTreeComputer {
                       merkleTreeUploader.ensureInputsPresent(
                           remoteActionExecutionContext,
                           uploadable,
-                          blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD,
-                          remotePathResolver);
+                          blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD);
                     }
                   } catch (IOException e) {
                     throw new WrappedException(e);
