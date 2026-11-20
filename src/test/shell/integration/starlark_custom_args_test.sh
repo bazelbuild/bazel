@@ -164,7 +164,7 @@ def transform_file_name(name):
 EOF
 
   bazel build //foo:a >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 
   cat > foo/transform.bzl <<'EOF'
 def transform_file_name(name):
@@ -172,7 +172,7 @@ def transform_file_name(name):
 EOF
 
   bazel build //foo:a >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file_suffix" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file_suffix" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 }
 
 function test_expand_directories_map_each_failure_change() {
@@ -273,7 +273,7 @@ touch_outputs(name="a")
 EOF
 
   bazel build //foo:a >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 
   cat > foo/BUILD <<'EOF'
 load(":def.bzl", "touch_outputs")
@@ -281,7 +281,7 @@ touch_outputs(name="a", use_other_rewrite=True)
 EOF
 
   bazel build //foo:a >& "${TEST_log}" || fail "Expected success"
-  assert_equals "prefix_file" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "prefix_file" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 }
 
 function test_map_each_identical_function_and_module_contents_different_behavior() {
@@ -408,7 +408,7 @@ create = rule(implementation=_create)
 EOF
 
   bazel build //foo:b >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/b_dir")"
+  assert_equals "file" "$(ls -1 "${PRODUCT_NAME}-bin/foo/b_dir")"
 
   cat > foo/create.bzl <<'EOF'
 def _create(ctx):
@@ -420,7 +420,7 @@ create = rule(implementation=_create)
 EOF
 
   bazel build //foo:b >& "${TEST_log}" || fail "Expected success"
-  assert_equals "" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/b_dir")"
+  assert_equals "" "$(ls -1 "${PRODUCT_NAME}-bin/foo/b_dir")"
 }
 
 function test_args_expand_directories_aspect_over_native_rule() {
@@ -442,7 +442,7 @@ def transform_file_name(name):
 EOF
 
   bazel build //foo:b >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 
   cat > foo/transform.bzl <<'EOF'
 def transform_file_name(name):
@@ -450,7 +450,7 @@ def transform_file_name(name):
 EOF
 
   bazel build //foo:b >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file_suffix" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file_suffix" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 }
 
 # Regression test for b/153904017.
@@ -479,7 +479,7 @@ def transform_file_name(name):
 EOF
 
   bazel build //foo:b >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 
   cat > foo/transform.bzl <<'EOF'
 def transform_file_name(name):
@@ -487,7 +487,7 @@ def transform_file_name(name):
 EOF
 
   bazel build //foo:b >& "${TEST_log}" || fail "Expected success"
-  assert_equals "file_suffix" "$(ls -w 1 "${PRODUCT_NAME}-bin/foo/dir2")"
+  assert_equals "file_suffix" "$(ls -1 "${PRODUCT_NAME}-bin/foo/dir2")"
 }
 
 function _write_aspect_declaring_action_def {

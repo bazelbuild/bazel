@@ -205,8 +205,8 @@ genrule(name = 'stampy',
         cmd = 'echo OTHER_STAMPY > \$(OUTS)')
 EOF
 
-  SAME_TIME="12/16/1982 2:00"
-  touch -d "$SAME_TIME" stampy/{BUILD,OTHER_BUILD}
+  SAME_TIME="198212160200"
+  touch -t "$SAME_TIME" stampy/{BUILD,OTHER_BUILD}
 
   bazel --nobatch build //stampy || fail "Expected success"
   assert_equals "STAMPY" "$(cat "${PRODUCT_NAME}-genfiles/stampy/stampy.out")"
@@ -224,10 +224,10 @@ genrule(name = 'stampy',
         cmd = 'cat \$(location f1) > \$(OUTS)')
 EOF
 
-  SAME_TIME="12/16/1982 2:00"
+  SAME_TIME="198212160200"
   echo 'STAMPY' > stampy/f1
   echo 'donovan_mcnabb' > stampy/f2
-  touch -d "$SAME_TIME" stampy/{f1,f2}
+  touch -t "$SAME_TIME" stampy/{f1,f2}
 
   bazel --nobatch build //stampy || fail "Expected success"
   assert_equals "STAMPY" "$(cat "${PRODUCT_NAME}-genfiles/stampy/stampy.out")"
@@ -284,12 +284,12 @@ function test_limited_number_of_simultaneous_actions() {
 [genrule(
   name = "rule_%s" % i,
   srcs=[],
-  # We can get away with avoiding the lock since all the writes are single bytes
-  # and all the writers are in append mode, but it's best to be a bit paranoid.
+  # Single-byte writes in append mode are atomic, so no external lock utility
+  # (such as Linux-only flock) is needed.
   cmd="shared_file=\$(@D)/shared; " +
-    "flock \$\$shared_file -c \\"echo -n [ >> \$\$shared_file\\"; " +
+    "printf '[' >> \$\$shared_file; " +
     "sleep 1; " +
-    "flock \$\$shared_file -c \\"echo -n ] >> \$\$shared_file\\"; " +
+    "printf ']' >> \$\$shared_file; " +
     "touch \$@;",
   outs=["rule_%s.out" % i],
   local=1,

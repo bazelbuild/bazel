@@ -230,7 +230,7 @@ EOF
       { fail "Expected successful build"; return 1; }
 
   # Decompress and check for merged events
-  zcat "$TEST_TMPDIR/profile.gz" > "$TEST_TMPDIR/profile.json" || fail "Failed to decompress profile"
+  gzip -dc "$TEST_TMPDIR/profile.gz" > "$TEST_TMPDIR/profile.json" || fail "Failed to decompress profile"
   if ! grep -q "various events" "$TEST_TMPDIR/profile.json"; then
     cat "$TEST_TMPDIR/profile.json"
     fail "Expected merged events in slim profile"
