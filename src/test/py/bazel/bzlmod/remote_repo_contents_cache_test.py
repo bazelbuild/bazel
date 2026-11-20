@@ -1251,6 +1251,58 @@ class RemoteRepoContentsCacheTest(
     with open(out) as f:
       self.assertEqual(f.read(), 'source-directory-data')
 
+  def testUseCachedRepositorySourceDirectoryInRemoteAction(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'sysroot\','
+                " srcs=['.'], visibility=['//visibility:public'])\")"
+            ),
+            '  rctx.file("include/data.txt", "source-directory-data")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "read_source_directory",',
+            '  srcs = ["@my_repo//:sysroot"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $(location @my_repo//:sysroot)/include/data.txt > $@",',
+            ')',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+    # Populate the repository cache without caching the action.
+    _, _, stderr = self.RunBazel(['query', '@my_repo//:sysroot'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+
+    _, _, stderr = self.RunBazel([
+        'build',
+        '//main:read_source_directory',
+        '--spawn_strategy=remote',
+        '--remote_executor=grpc://localhost:' + str(self._worker_port),
+    ])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'include/data.txt')))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'source-directory-data')
+
   def testUseSourceDirectoryWithSymlinksInBuildRule_actionDoesNotUseCache(
       self,
   ):

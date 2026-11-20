@@ -191,7 +191,7 @@ public sealed interface MerkleTree {
               uploader.uploadFile(
                   context,
                   digest,
-                  pathResolver.toPath(actionInput),
+                  MerkleTreeComputer.resolveInputPath(actionInput, pathResolver),
                   actionInput.getExecPath(),
                   force));
         }
