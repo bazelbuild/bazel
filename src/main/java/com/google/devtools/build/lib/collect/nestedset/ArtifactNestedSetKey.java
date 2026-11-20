@@ -66,6 +66,11 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     this.children = children;
   }
 
+  @Override
+  public boolean canBeDeletedWhenUnreferenced() {
+    return true;
+  }
+
   /**
    * Returns a list of this key's direct dependencies, including {@link Artifact#key} for leaves and
    * {@link ArtifactNestedSetKey} for non-leaves.

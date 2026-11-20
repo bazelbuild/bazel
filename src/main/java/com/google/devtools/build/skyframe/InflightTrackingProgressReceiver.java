@@ -33,6 +33,9 @@ interface InflightTrackingProgressReceiver extends EvaluationProgressReceiver {
   /** Removes the given key from the set of inflight keys. */
   void removeFromInflight(SkyKey skyKey);
 
+  /** Called after an edge to this dependency is removed. */
+  default void removedDependency(SkyKey skyKey) {}
+
   /** Returns the set of all keys that are enqueued for evaluation, and resets the set to empty. */
   Set<SkyKey> getAndClearInflightKeys();
 }

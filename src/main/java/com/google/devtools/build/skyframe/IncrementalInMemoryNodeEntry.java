@@ -332,6 +332,14 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     return ReverseDepsUtility.consolidateAndGetReverseDeps(this, /* checkConsistency= */ false);
   }
 
+  synchronized boolean isUnreferencedWhileDirty(Set<SkyKey> deletedParents) {
+    // Consolidation is safe before reevaluation, when there are no parent signals to preserve.
+    return dirtyBuildingState != null
+        && dirtyBuildingState.isIncremental()
+        && !dirtyBuildingState.isEvaluating()
+        && deletedParents.containsAll(getAllReverseDepsForNodeBeingDeleted());
+  }
+
   @Override
   public synchronized boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
     checkState(
