@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkPath;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -202,6 +204,22 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       structField = true)
   public boolean rootModuleHasNonDevDependency() {
     return rootModuleHasNonDevDependency;
+  }
+
+  @StarlarkMethod(
+      name = "watch_all",
+      doc =
+          "Watches a sequence of paths within the main workspace, as with"
+              + " <a href=\"#watch\"><code>watch()</code></a>.",
+      parameters = {
+        @Param(
+            name = "paths",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkPath.class)},
+            doc = "Paths returned by <code>path()</code>."),
+      })
+  public void watchAll(Sequence<?> paths)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    watchAllWorkspacePaths(Sequence.cast(paths, StarlarkPath.class, "paths"));
   }
 
   @StarlarkMethod(

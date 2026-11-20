@@ -290,6 +290,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_version",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:attribute_utils",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",

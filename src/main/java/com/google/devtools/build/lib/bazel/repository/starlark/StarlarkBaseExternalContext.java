@@ -1925,6 +1925,23 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  protected void watchAllWorkspacePaths(Sequence<StarlarkPath> paths)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    var inputs = ImmutableList.<RepoRecordedInput>builderWithExpectedSize(paths.size());
+    for (var path : paths) {
+      var cachePath = toRepoCacheFriendlyPath(path.getPath(), ShouldWatch.YES);
+      if (cachePath == null || !RepositoryName.MAIN.equals(cachePath.repoName().orElse(null))) {
+        throw Starlark.errorf("watch_all paths must be in the main workspace: %s", path);
+      }
+      inputs.add(new RepoRecordedInput.File(cachePath));
+    }
+    // Request the file values as one Skyframe dependency group, then record the individual watches.
+    RepoRecordedInput.prefetch(env, directories, inputs.build());
+    for (var path : paths) {
+      maybeWatch(path, ShouldWatch.YES);
+    }
+  }
+
   /**
    * Records a watch on a directory's non-recursive contents.
    *
