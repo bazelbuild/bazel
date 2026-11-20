@@ -134,6 +134,56 @@ public class RemoteRetrierTest {
   }
 
   @Test
+  public void oversizedMessagesDoNotCountAsRemoteFailures() {
+    List<String> descriptions =
+        List.of(
+            "grpc: received message larger than max (5621411 vs. 4194304)",
+            "gRPC message exceeds maximum size 4194304: 5621411",
+            "SERVER: Received message larger than max (5621411 vs. 4194304)",
+            "SERVER: Sent message larger than max (5621411 vs. 4194304)",
+            "CLIENT: Received message larger than max (5621411 vs. 4194304)",
+            "CLIENT: Sent message larger than max (5621411 vs. 4194304)");
+
+    for (String description : descriptions) {
+      Exception error =
+          Status.RESOURCE_EXHAUSTED.withDescription(description).asRuntimeException();
+      assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
+          .isEqualTo(Result.SUCCESS);
+    }
+  }
+
+  @Test
+  public void oversizedMessageNearMatchesRemainTransient() {
+    List<String> descriptions =
+        List.of(
+            "received message larger than max (5621411 vs. 4194304)",
+            "grpc: received message larger than max (5621411 vs. 4194304) while decoding",
+            "grpc: received message larger than max (many vs. 4194304)",
+            "gRPC message exceeds maximum size 4194304: 5621411 while decoding",
+            "SERVER: Received message larger than max (5621411 vs. 4194304) while decoding",
+            "server: received message larger than max (5621411 vs. 4194304)",
+            "request quota exhausted");
+
+    for (String description : descriptions) {
+      Exception error =
+          Status.RESOURCE_EXHAUSTED.withDescription(description).asRuntimeException();
+      assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
+          .isEqualTo(Result.TRANSIENT_FAILURE);
+    }
+  }
+
+  @Test
+  public void oversizedMessageWithOtherStatusRemainsTransient() {
+    Exception error =
+        Status.UNAVAILABLE
+            .withDescription("grpc: received message larger than max (5621411 vs. 4194304)")
+            .asRuntimeException();
+
+    assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
+        .isEqualTo(Result.TRANSIENT_FAILURE);
+  }
+
+  @Test
   public void testRepeatedRetriesReset() throws Exception {
     Supplier<Backoff> s =
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);
