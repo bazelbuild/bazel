@@ -63,7 +63,10 @@ filegroup(
         "@platforms//os:macos": [":jq_macos"],
         "@platforms//os:windows": ["@jq_windows_amd64//file"],
     }),
-    visibility = ["//src/test:__subpackages__"],
+    visibility = [
+        "//:__pkg__",
+        "//src/test:__subpackages__",
+    ],
 )
 
 sh_test(

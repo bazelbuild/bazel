@@ -42,6 +42,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --repo_contents_cache= \
       --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
       --extra_toolchains=//scripts/bootstrap:all \
+      --extra_toolchains=@local_config_rust//:all \
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --enable_bzlmod \
       --check_direct_dependencies=error \

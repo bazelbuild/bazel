@@ -130,6 +130,17 @@ single_version_override(
     version = "2.2.0",
 )
 
+# TODO: Remove once upstream rules_rs defers host cargo errors on non-Tier-1
+# host architectures during module extension evaluation.
+single_version_override(
+    module_name = "rules_rs",
+    patch_strip = 1,
+    patches = [
+        "//third_party:rules_rs_0.2.4_host_cargo.patch",
+    ],
+    version = "0.2.4",
+)
+
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
 single_version_override(
     module_name = "rules_graalvm",
@@ -455,8 +466,9 @@ use_repo(
 # `local_config_cc` is required only by
 # `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc.
 # `local_config_cc_toolchains` is required only to build the Turbine native
-# image with MSVC on Windows, see
-# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl.
+# image and bootstrap Rust toolchain with MSVC on Windows, see
+# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl
+# and //src/test/shell/bazel:bootstrap_rust_toolchain.bzl.
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
 
@@ -563,6 +575,10 @@ list_source_repository(name = "local_bazel_source_list")
 winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
 
 winsdk_configure(name = "local_config_winsdk")
+
+local_rust_configure = use_repo_rule("//scripts:local_rust_configure.bzl", "local_rust_configure")
+
+local_rust_configure(name = "local_config_rust")
 
 # /usr/local/kythe is setup on Bazel CI machines
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
