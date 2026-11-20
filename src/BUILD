@@ -418,6 +418,7 @@ filegroup(
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
+        "//src/rust:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",

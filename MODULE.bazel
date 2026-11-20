@@ -575,6 +575,25 @@ local_repository(
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
+crate = use_extension("@rules_rs//rs:extensions.bzl", "crate", dev_dependency = True)
+crate.from_cargo(
+    name = "crates",
+    cargo_lock = "//src/rust:Cargo.lock",
+    cargo_toml = "//src/rust:Cargo.toml",
+    incompatible_no_root_alias_targets = True,
+    incompatible_no_root_crate_data = True,
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-pc-windows-msvc",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-gnullvm",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+    ],
+)
+use_repo(crate, "crates")
+
 # =========================================
 # Register platforms & toolchains
 # =========================================
