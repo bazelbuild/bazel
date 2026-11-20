@@ -1314,8 +1314,15 @@ public final class RemoteModule extends BlazeModule {
         env.getEventBus().register(outputService);
       }
     }
+  }
 
-    builder.setActionExecutionSalt(computeActionExecutionSalt(remoteOptions));
+  @Override
+  @Nullable
+  public String getActionExecutionSalt(CommandEnvironment env, BuildRequest request) {
+    if (actionContextProvider == null) {
+      return null;
+    }
+    return computeActionExecutionSalt(remoteOptions);
   }
 
   @VisibleForTesting
