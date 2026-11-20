@@ -29,6 +29,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLConnection;
@@ -132,11 +134,15 @@ class HttpConnector {
       HttpURLConnection connection = null;
       try {
         ProxyInfo proxyInfo = proxyHelper.createProxyIfNeeded(url);
-        connection = (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy());
-        // For HTTP connections through authenticated proxies, set the Proxy-Authorization header.
-        // For HTTPS, Java's HttpURLConnection handles CONNECT tunneling internally using the
-        // Authenticator we set in ProxyHelper.
-        if (proxyInfo.hasCredentials() && Ascii.equalsIgnoreCase(url.getScheme(), "http")) {
+        // HttpClient doesn't support SOCKS proxies.
+        boolean socks = proxyInfo.proxy().type() == Proxy.Type.SOCKS;
+        connection =
+            socks
+                ? (HttpURLConnection) url.toURL().openConnection(proxyInfo.proxy())
+                : new HttpClientConnection(
+                    url, (InetSocketAddress) proxyInfo.proxy().address());
+        // HttpClient sends this header to the proxy only, including when tunneling HTTPS.
+        if (proxyInfo.hasCredentials() && !socks) {
           connection.setRequestProperty(
               "Proxy-Authorization", proxyInfo.getProxyAuthorizationHeader());
         }
@@ -158,7 +164,8 @@ class HttpConnector {
         if (connection.getRequestProperty("User-Agent") == null) {
           connection.setRequestProperty("User-Agent", USER_AGENT_VALUE);
         }
-        connection.setConnectTimeout(connectTimeout);
+        // HttpClient fixes the connect timeout per connection pool, so vary it for SOCKS only.
+        connection.setConnectTimeout(socks ? connectTimeout : scale(MAX_CONNECT_TIMEOUT_MS));
         // The read timeout is always large because it stays in effect after this method.
         connection.setReadTimeout(scale(READ_TIMEOUT_MS));
         // Java tries to abstract HTTP error responses for us. We don't want that. So we're going
@@ -313,11 +320,12 @@ class HttpConnector {
   }
 
   private String describeHttpResponse(HttpURLConnection connection) throws IOException {
+    String message = connection.getResponseMessage();
     return format(
-        "%s returned %d %s",
+        "%s returned %d%s",
         connection.getRequestMethod(),
         connection.getResponseCode(),
-        Strings.nullToEmpty(connection.getResponseMessage()));
+        Strings.isNullOrEmpty(message) ? "" : " " + message);
   }
 
   private String format(String format, Object... args) {
