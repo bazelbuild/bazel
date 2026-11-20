@@ -205,11 +205,19 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         throw StatusProto.toStatusRuntimeException(response.getStatus());
       }
       final Digest blobDigest = response.getBlobDigest();
+      // When the CAS digest is the requested checksum, the gRPC client's verification covers it.
+      var streamChecksum =
+          checksum.filter(
+              value ->
+                  !(blobDigest.getSizeBytes() > 0
+                      && cacheClient.verifiesDownloadDigest(digestFunction)
+                      && value.getKeyType().getHashName().equalsIgnoreCase(digestFunction.name())
+                      && value.toString().equals(blobDigest.getHash())));
 
       var unused =
           retrier.execute(
               () -> {
-                try (OutputStream out = newOutputStream(destination, checksum)) {
+                try (OutputStream out = newOutputStream(destination, streamChecksum)) {
                   getFromFuture(
                       cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
                 } catch (OutputDigestMismatchException e) {

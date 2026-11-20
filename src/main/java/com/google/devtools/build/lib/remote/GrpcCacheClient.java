@@ -470,6 +470,11 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   }
 
   @Override
+  public boolean verifiesDownloadDigest(DigestFunction.Value digestFunction) {
+    return options.getRemoteVerifyDownloads() && digestUtil.getDigestFunction() == digestFunction;
+  }
+
+  @Override
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     if (digest.getSizeBytes() == 0) {

@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.annotations.VisibleForTesting;
@@ -84,6 +85,11 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public abstract ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult);
+
+  /** Returns whether the client verifies nonempty downloads using the given digest function. */
+  public boolean verifiesDownloadDigest(DigestFunction.Value digestFunction) {
+    return false;
+  }
 
   /**
    * Downloads a BLOB for the given {@code digest} and writes it to {@code out}.
