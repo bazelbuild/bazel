@@ -1253,6 +1253,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     init();
   }
 
+  /** Returns the duration of source diff checking from the most recent sync. */
+  public final Duration getSourceDiffCheckingDuration() {
+    return sourceDiffCheckingDuration;
+  }
+
   /**
    * Notifies the executor that the command is complete.
    *
