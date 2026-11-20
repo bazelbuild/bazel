@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_E
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1183,7 +1182,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setMnemonic(String mnemonic) {
       checkArgument(
           !mnemonic.isEmpty()
-              && CharMatcher.javaLetterOrDigit().matchesAllOf(internalToUnicode(mnemonic)),
+              && internalToUnicode(mnemonic).codePoints().allMatch(Character::isLetterOrDigit),
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
       this.mnemonic = mnemonic;

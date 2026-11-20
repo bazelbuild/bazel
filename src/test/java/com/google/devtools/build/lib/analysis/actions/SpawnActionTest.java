@@ -428,6 +428,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
   public void testMnemonicMayContainUnicodeLetters() {
     SpawnAction.Builder builder = builder();
     builder.setMnemonic(unicodeToInternal("Ärger"));
+    builder.setMnemonic(unicodeToInternal("\uD801\uDC00"));
     // The UTF-8 bytes of this non-letter are Latin-1 letters.
     assertThrows(
         IllegalArgumentException.class, () -> builder.setMnemonic(unicodeToInternal("\u0375")));
