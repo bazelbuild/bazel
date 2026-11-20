@@ -166,6 +166,21 @@ public final class StreamedProtoOutputFormatterTest extends PackageLoadingTestCa
   }
 
   @Test
+  public void changingOutputRuleAttrsRecomputesSelection() throws Exception {
+    StreamedProtoOutputFormatter formatter = new StreamedProtoOutputFormatter();
+    Target target = getTarget("//pkg:files");
+    for (String name : ImmutableList.of("srcs", "tags")) {
+      byte[] output =
+          format(
+              formatter,
+              options("--proto:output_rule_attrs=" + name),
+              AspectResolver.Mode.OFF,
+              ImmutableList.of(target));
+      assertThat(parseTargets(output).get(0).getRule().getAttribute(0).getName()).isEqualTo(name);
+    }
+  }
+
+  @Test
   public void emptyInputWritesNothing() throws Exception {
     byte[] output =
         format(
