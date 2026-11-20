@@ -285,10 +285,15 @@ def _git_repository_implementation(ctx):
     # to patch their packaged module and the patch may not apply to the file
     # checked in to the registry. This overrides the file if it exists.
     if ctx.attr.remote_module_file_urls:
+        # See _expand_workspace in utils.bzl.
+        remote_module_file_urls = [
+            url.replace("%workspace%", str(ctx.workspace_root))
+            for url in ctx.attr.remote_module_file_urls
+        ]
         ctx.download(
-            ctx.attr.remote_module_file_urls,
+            remote_module_file_urls,
             "MODULE.bazel",
-            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            auth = get_auth(ctx, remote_module_file_urls),
             integrity = ctx.attr.remote_module_file_integrity,
         )
 

@@ -94,7 +94,10 @@ public class IndexRegistryTest extends FoundationTestCase {
     downloadCache = new DownloadCache();
     HttpDownloader httpDownloader = new HttpDownloader();
     downloadManager = new DownloadManager(downloadCache, httpDownloader, httpDownloader, reporter);
-    registryFactory = new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+    registryFactory =
+        new RegistryFactoryImpl(
+            Suppliers.ofInstance(ImmutableMap.of()),
+            fileSystem.getPath(tempFolder.getRoot().getPath()));
   }
 
   @Test
@@ -394,6 +397,69 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"foo\", version = \"1.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(moduleFileUrl)))
+                .setRemotePatchStrip(0)
+                .build());
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_workspaceRegistry() throws Exception {
+    tempFolder.newFolder("reg", "modules", "foo", "1.0", "patches");
+    tempFolder.newFolder("reg", "modules", "foo", "1.0", "overlay");
+    var moduleDir = tempFolder.getRoot().toPath().resolve("reg/modules/foo/1.0");
+    Files.writeString(
+        moduleDir.resolve("source.json"),
+        """
+        {
+          "url": "https://example.com/foo.zip",
+          "integrity": "sha256-blah",
+          "patches": {
+            "fix.patch": "sha256-lol"
+          },
+          "overlay": {
+            "BUILD.bazel": "sha256-bleh-overlay"
+          }
+        }
+        """);
+    Files.writeString(
+        moduleDir.resolve("MODULE.bazel"), "module(name = \"foo\", version = \"1.0\")");
+
+    Registry registry =
+        registryFactory.createRegistry(
+            "file:///%workspace%/reg",
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(registry.getUrl()).isEqualTo("file:///%workspace%/reg");
+    // Registry files are fetched from the workspace.
+    var unused = registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager);
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"),
+                eventRecorder.getRecordedHashes(),
+                reporter,
+                downloadManager))
+        .isEqualTo(
+            new ArchiveRepoSpecBuilder()
+                .setUrls(ImmutableList.of("https://example.com/foo.zip"))
+                .setIntegrity("sha256-blah")
+                .setStripPrefix("")
+                .setRemotePatches(
+                    ImmutableMap.of(
+                        "file:///%workspace%/reg/modules/foo/1.0/patches/fix.patch", "sha256-lol"))
+                .setOverlay(
+                    ImmutableMap.of(
+                        "BUILD.bazel",
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            "sha256-bleh-overlay",
+                            ImmutableList.of(
+                                "file:///%workspace%/reg/modules/foo/1.0/overlay/BUILD.bazel"))))
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"foo\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of("file:///%workspace%/reg/modules/foo/1.0/MODULE.bazel")))
                 .setRemotePatchStrip(0)
                 .build());
   }

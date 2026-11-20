@@ -143,7 +143,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               // Only used in tests, so it's okay to miss download progress events.
               ExtendedEventHandler.NOOP);
       RegistryFactoryImpl registryFactory =
-          new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+          new RegistryFactoryImpl(
+              Suppliers.ofInstance(ImmutableMap.of()), directories.getWorkspace());
 
       // Allow tests to override the following functions to use fake registry or custom built-in
       // modules
