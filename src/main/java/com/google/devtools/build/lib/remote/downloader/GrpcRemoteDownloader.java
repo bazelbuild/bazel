@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -189,13 +191,14 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             credentials);
     String eventUri = urls.getFirst().toString();
     try {
-      FetchBlobResponse response =
-          retrier.execute(
-              () ->
-                  channel.withChannelBlocking(
-                      channel ->
-                          fetchBlockingStub(remoteActionExecutionContext, channel)
-                              .fetchBlob(request)));
+      FetchBlobResponse response;
+      try (var span =
+          Profiler.instance().profile(ProfilerTask.REMOTE_NETWORK, "Remote Asset FetchBlob")) {
+        response =
+            retrier.execute(() ->
+                channel.withChannelBlocking(channel ->
+                    fetchBlockingStub(remoteActionExecutionContext, channel).fetchBlob(request)));
+      }
       if (!response.getUri().isEmpty()) {
         eventUri = response.getUri();
       }
@@ -206,18 +209,20 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       }
       final Digest blobDigest = response.getBlobDigest();
 
-      var unused =
-          retrier.execute(
-              () -> {
-                try (OutputStream out = newOutputStream(destination, checksum)) {
-                  getFromFuture(
-                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
-                } catch (OutputDigestMismatchException e) {
-                  e.setOutputPath(destination.getPathString());
-                  throw e;
-                }
-                return null;
-              });
+      try (var span =
+          Profiler.instance().profile(ProfilerTask.REMOTE_NETWORK, "Remote Asset CAS read")) {
+        var unused =
+            retrier.execute(() -> {
+              try (OutputStream out = newOutputStream(destination, checksum)) {
+                getFromFuture(
+                    cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+              } catch (OutputDigestMismatchException e) {
+                e.setOutputPath(destination.getPathString());
+                throw e;
+              }
+              return null;
+            });
+      }
 
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
