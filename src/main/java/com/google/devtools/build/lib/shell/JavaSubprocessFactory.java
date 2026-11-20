@@ -156,12 +156,23 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // there are CPU cores on my workstation - the more threads the more likely it happens.
   //
   // As a workaround, we use a lock around the fork.
+  //
+  // FreeBSD also returns ETXTBSY when executing a file that is open for writing, but macOS and
+  // OpenBSD don't, so the lock is only used on Linux and FreeBSD.
   private Process start(ProcessBuilder builder) throws IOException {
-    try (var _ = Profiler.instance().profile("wait for subprocess factory lock")) {
-      lock.lock();
-    }
     try {
-      return startOnPlatformThread(builder);
+      if (OS.getCurrent() != OS.LINUX && OS.getCurrent() != OS.FREEBSD) {
+        // Only the linux-sandbox depends on the lifetime of the forking thread.
+        return builder.start();
+      }
+      try (var _ = Profiler.instance().profile("wait for subprocess factory lock")) {
+        lock.lock();
+      }
+      try {
+        return startOnPlatformThread(builder);
+      } finally {
+        lock.unlock();
+      }
     } catch (IOException e) {
       if (e.getMessage().contains("Failed to exec spawn helper")) {
         // Detect permanent failures due to an upgrade of the underlying JDK version,
@@ -172,8 +183,6 @@ public class JavaSubprocessFactory implements SubprocessFactory {
             e);
       }
       throw e;
-    } finally {
-      lock.unlock();
     }
   }
 
