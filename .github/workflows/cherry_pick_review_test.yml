@@ -1,0 +1,40 @@
+name: Cherry-Pick Review Unit Tests
+
+on:
+  pull_request:
+    paths:
+      - '.github/actions/cherry-pick-review/**'
+      - '.github/workflows/cherry_pick_review*.yml'
+  push:
+    branches:
+      - master
+      - 'release-*'
+    paths:
+      - '.github/actions/cherry-pick-review/**'
+      - '.github/workflows/cherry_pick_review*.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run prepare_context_test.py
+        run: python3 -B .github/actions/cherry-pick-review/prepare_context_test.py -v
+
+      - name: Run post_review_test.py
+        run: python3 -B .github/actions/cherry-pick-review/post_review_test.py -v

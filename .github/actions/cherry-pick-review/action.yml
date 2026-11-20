@@ -1,0 +1,194 @@
+name: 'Bazel Cherry-Pick PR Reviewer'
+description: 'Prepares release-branch cherry-pick PR context against master, runs Antigravity CLI analysis (read-only), and deterministically posts the review.'
+
+inputs:
+  github_token:
+    description: 'Read-only GitHub token used to read PR metadata and stage PR files'
+    required: true
+  review_token:
+    description: 'Privileged GitHub token used only in deterministic steps to post reactions and submit the PR review (never passed to Antigravity CLI)'
+    required: false
+    default: ''
+  pr_number:
+    description: 'Pull request number to review'
+    required: true
+  additional_context:
+    description: 'Optional focus or instructions for the review'
+    required: false
+    default: ''
+  gemini_api_key:
+    description: 'Gemini API key'
+    required: false
+    default: ''
+  gemini_model:
+    description: 'Gemini model name'
+    required: false
+    default: 'gemini-4-carbon'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare cherry-pick review context
+      id: prepare_context
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GEMINI_API_KEY_SET: ${{ inputs.gemini_api_key != '' && 'true' || 'false' }}
+        REPOSITORY: ${{ github.repository }}
+        EVENT_NAME: ${{ github.event_name }}
+        EVENT_ACTION: ${{ github.event.action }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        INPUT_CONTEXT: ${{ inputs.additional_context }}
+      run: |-
+        if [[ "${GEMINI_API_KEY_SET}" != "true" ]]; then
+          echo "Skipping Gemini cherry-pick PR review: GEMINI_API_KEY is not configured."
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            printf '### 🤖 Gemini Cherry-Pick PR Review\n\n- **Outcome:** ⏭️ Skipped (`GEMINI_API_KEY` is not configured)\n' >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "should_run=false" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+        python3 "${{ github.action_path }}/prepare_context.py"
+
+    - name: Acknowledge manual comment request
+      if: steps.prepare_context.outputs.should_run == 'true' && github.event_name == 'issue_comment'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.review_token || inputs.github_token }}
+        REPOSITORY: ${{ github.repository }}
+        COMMENT_ID: ${{ github.event.comment.id }}
+      run: |-
+        if [[ "${REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] && [[ "${COMMENT_ID}" =~ ^[1-9][0-9]*$ ]]; then
+          gh api "repos/${REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content='eyes' || true
+        fi
+
+    - name: Install Antigravity CLI
+      if: steps.prepare_context.outputs.should_run == 'true'
+      id: install_agy
+      shell: bash
+      env:
+        AGY_TARBALL_URL: 'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.11-6132547114106880/linux-x64/cli_linux_x64.tar.gz'
+        AGY_TARBALL_SHA512: 'dad3c015e8964fcdc1639b13b7152f4cb84cb1bde385707e2bcdf095d6f1831f4f6521199aec499cc052f9e99906b7fdbc52c273df064d5cb7c84b068ba3ce50'
+      run: |-
+        set -euo pipefail
+        AGY_BIN_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/agy-bin.XXXXXX")"
+        TARBALL_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/agy.XXXXXX.tar.gz")"
+        trap 'rm -f "${TARBALL_FILE}"' EXIT
+
+        curl -fsSL -o "${TARBALL_FILE}" "${AGY_TARBALL_URL}"
+        echo "${AGY_TARBALL_SHA512}  ${TARBALL_FILE}" | sha512sum -c -
+        tar -xzf "${TARBALL_FILE}" -C "${AGY_BIN_DIR}" antigravity
+        mv "${AGY_BIN_DIR}/antigravity" "${AGY_BIN_DIR}/agy"
+        chmod +x "${AGY_BIN_DIR}/agy"
+        "${AGY_BIN_DIR}/agy" --version
+        echo "agy_bin=${AGY_BIN_DIR}/agy" >> "${GITHUB_OUTPUT}"
+
+    - name: Run Gemini pull request review
+      if: steps.prepare_context.outputs.should_run == 'true'
+      id: gemini_pr_review
+      shell: bash
+      env:
+        AGY_BIN: ${{ steps.install_agy.outputs.agy_bin }}
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        GEMINI_MODEL: ${{ inputs.gemini_model }}
+        AGY_CLI_NONINTERACTIVE_HEADLESS: '1'
+        AGY_CLI_MODEL_API_MAX_RETRIES: '10'
+      run: |-
+        set -euo pipefail
+        SETTINGS_FILE="$(mktemp "${RUNNER_TEMP:-/tmp}/agy-settings.XXXXXX.json")"
+        trap 'rm -f "${SETTINGS_FILE}"' EXIT
+
+        if [[ ! "${GEMINI_MODEL}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          echo "::error::Invalid GEMINI_MODEL value."
+          exit 1
+        fi
+
+        mkdir -p gemini-artifacts
+        python3 - "${SETTINGS_FILE}" <<'PY'
+        import json, os, sys
+        ws = os.path.realpath(os.getcwd())
+        settings = {
+            "modelProvider": "gemini",
+            "allowNonWorkspaceAccess": False,
+            "permissions": {
+                "allow": [
+                    f"read_file({ws})",
+                ],
+                "deny": [
+                    f"read_file({ws}/.git)",
+                    "read_file(/proc)",
+                    "read_file(/sys)",
+                    "read_file(/etc)",
+                    "read_file(/tmp)",
+                    "read_file(/var)",
+                    "read_file(/root)",
+                    "write_file(*)",
+                    "command(*)",
+                    "read_url(*)",
+                    "execute_url(*)",
+                    "download_url(*)",
+                    "mcp(*)",
+                    "escalate_admin(*)",
+                ],
+            },
+        }
+        with open(sys.argv[1], "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+        PY
+
+        if ! "${AGY_BIN}" \
+          --output-format json \
+          --model "${GEMINI_MODEL}" \
+          --disable-slash-commands \
+          --settings "${SETTINGS_FILE}" \
+          --log-file gemini-artifacts/cli.log \
+          < .gemini/prompt.md \
+          > gemini-artifacts/stdout.log \
+          2> gemini-artifacts/stderr.log; then
+          echo "::error::Antigravity CLI exited with an error."
+          cat gemini-artifacts/stderr.log >&2 || true
+          tail -n 100 gemini-artifacts/cli.log >&2 || true
+          if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            {
+              echo "### 🤖 Gemini Cherry-Pick PR Review"
+              echo ""
+              echo "- **Outcome:** ❌ Antigravity CLI exited with an error"
+              echo ""
+              if [[ -s gemini-artifacts/stderr.log ]]; then
+                echo "<details open><summary><strong>stderr.log</strong></summary>"
+                echo ""
+                echo '~~~~~~text'
+                tail -n 100 gemini-artifacts/stderr.log
+                echo '~~~~~~'
+                echo "</details>"
+                echo ""
+              fi
+              if [[ -s gemini-artifacts/cli.log ]]; then
+                echo "<details><summary><strong>cli.log (last 100 lines)</strong></summary>"
+                echo ""
+                echo '~~~~~~text'
+                tail -n 100 gemini-artifacts/cli.log
+                echo '~~~~~~'
+                echo "</details>"
+                echo ""
+              fi
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          exit 1
+        fi
+
+    - name: Post Gemini pull request review
+      if: steps.prepare_context.outputs.should_run == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.review_token || inputs.github_token }}
+      run: |-
+        python3 "${{ github.action_path }}/post_review.py"
+
+    - name: Cleanup temporary files
+      if: always()
+      shell: bash
+      run: |-
+        rm -rf "${RUNNER_TEMP:-/tmp}"/agy-bin.* "${RUNNER_TEMP:-/tmp}"/agy-settings*.json /tmp/agy-settings*.json .gemini/context.json .gemini/prompt.md gemini-artifacts
