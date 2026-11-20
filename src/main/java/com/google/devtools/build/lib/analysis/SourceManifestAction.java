@@ -317,6 +317,24 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       SortedMap<PathFragment, Artifact> output,
       @Nullable InputMetadataProvider inputMetadataProvider)
       throws IOException {
+    writeEntries(out, output, inputMetadataProvider, manifestWriter);
+  }
+
+  /**
+   * Writes the input manifest of a runfiles tree with the given mapping, byte for byte as a {@link
+   * ManifestType#SOURCE_SYMLINKS} action would.
+   */
+  public static void writeSourceSymlinksManifest(
+      OutputStream out, SortedMap<PathFragment, Artifact> mapping) throws IOException {
+    writeEntries(out, mapping, /* inputMetadataProvider= */ null, ManifestType.SOURCE_SYMLINKS);
+  }
+
+  private static void writeEntries(
+      OutputStream out,
+      SortedMap<PathFragment, Artifact> output,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      ManifestWriter manifestWriter)
+      throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     for (Map.Entry<PathFragment, Artifact> line : output.entrySet()) {
       Artifact artifact = line.getValue();

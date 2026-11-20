@@ -1290,20 +1290,90 @@ function test_test_with_nobuild_runfile_manifests() {
   mkdir -p dir
   add_rules_shell "MODULE.bazel"
 
-  touch dir/test.sh
+  echo "hello runfile" > dir/data.txt
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+grep -q "hello runfile" "$TEST_SRCDIR/$TEST_WORKSPACE/dir/data.txt"
+EOF
   chmod u+x dir/test.sh
   cat <<'EOF' > dir/BUILD
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'test',
     srcs = ['test.sh'],
+    data = ['data.txt'],
 )
 EOF
-  bazel test --nobuild_runfile_manifests --spawn_strategy=local --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
-  bazel test --nobuild_runfile_manifests --spawn_strategy=standalone --test_output=errors //dir:test >& $TEST_log && fail "should have failed"
-  expect_log "ERROR: RUNFILES_DIR does not exist. This can happen when using --nobuild_runfile_manifests with local execution."
-  bazel test --nobuild_runfile_manifests --spawn_strategy=sandboxed //dir:test >& $TEST_log || fail "should have succeeded"
+  # The strategy is not part of the test's cache key, so every run has to be forced to execute.
+  for strategy in local standalone sandboxed; do
+    bazel test --nobuild_runfile_manifests --spawn_strategy=$strategy --nocache_test_results \
+      --test_output=errors //dir:test >& $TEST_log || fail "should have succeeded with $strategy"
+  done
+
+  local manifest="$(bazel info bazel-bin --nobuild_runfile_manifests)/dir/test.runfiles_manifest"
+  [[ ! -e "$manifest" ]] || fail "$manifest should not exist"
+}
+
+function test_runfiles_tree_incrementality_with_nobuild_runfile_manifests() {
+  mkdir -p dir
+  add_rules_shell "MODULE.bazel"
+
+  echo "a" > dir/a.txt
+  echo "b" > dir/b.txt
+  # Checks which of a.txt and b.txt are in the tree and in its MANIFEST against EXPECT_TREE and
+  # EXPECT_MANIFEST, each a space-separated list.
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+for f in a.txt b.txt; do
+  case " $EXPECT_TREE " in
+    *" $f "*) [ -e "$TEST_SRCDIR/$TEST_WORKSPACE/dir/$f" ] || { echo "$f missing from tree"; exit 1; } ;;
+    *) [ ! -e "$TEST_SRCDIR/$TEST_WORKSPACE/dir/$f" ] || { echo "stale $f in tree"; exit 1; } ;;
+  esac
+  case " $EXPECT_MANIFEST " in
+    *" $f "*) grep -q "/dir/$f " "$TEST_SRCDIR/MANIFEST" || { echo "$f missing from MANIFEST"; exit 1; } ;;
+    *) ! grep -q "/dir/$f " "$TEST_SRCDIR/MANIFEST" || { echo "stale $f in MANIFEST"; exit 1; } ;;
+  esac
+done
+EOF
+  chmod u+x dir/test.sh
+  write_build() {
+    cat > dir/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = 'test',
+    srcs = ['test.sh'],
+    data = ['$1'],
+)
+EOF
+  }
+
+  # Runs the test locally, where Bazel itself maintains the runfiles tree.
+  check() {
+    local tree="$1" manifest="$2"
+    shift 2
+    bazel test --spawn_strategy=local --nocache_test_results --test_output=errors \
+      --test_env=EXPECT_TREE="$tree" --test_env=EXPECT_MANIFEST="$manifest" "$@" //dir:test \
+      >& $TEST_log || fail "expected tree '$tree' and MANIFEST '$manifest' with $*"
+  }
+
+  write_build a.txt
+  check "a.txt" "a.txt" --build_runfile_manifests --enable_runfiles
+  check "a.txt" "a.txt" --nobuild_runfile_manifests --enable_runfiles
+  # Each run after a --noenable_runfiles run finds a matching MANIFEST over an empty tree.
+  check "" "a.txt" --nobuild_runfile_manifests --noenable_runfiles
+  check "a.txt" "a.txt" --nobuild_runfile_manifests --enable_runfiles
+  check "" "a.txt" --nobuild_runfile_manifests --noenable_runfiles
+  check "a.txt" "a.txt" --build_runfile_manifests --nobuild_runfile_links --enable_runfiles
+
+  write_build b.txt
+  check "b.txt" "b.txt" --nobuild_runfile_manifests --enable_runfiles
+  check "b.txt" "b.txt" --build_runfile_manifests --enable_runfiles
+  check "" "b.txt" --build_runfile_manifests --noenable_runfiles
+  check "b.txt" "b.txt" --nobuild_runfile_manifests --enable_runfiles
+
+  write_build a.txt
+  check "" "a.txt" --nobuild_runfile_manifests --noenable_runfiles
+  check "a.txt" "a.txt" --build_runfile_manifests --enable_runfiles
 }
 
 function test_test_with_reserved_env_variable() {
