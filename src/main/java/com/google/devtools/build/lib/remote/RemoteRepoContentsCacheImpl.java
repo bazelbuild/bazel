@@ -48,12 +48,14 @@ import com.google.devtools.build.lib.bazel.repository.DigestWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.RemoteRepoContentsCache;
@@ -202,21 +204,27 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       var action = buildAction(finalHash);
       var actionKey = new ActionKey(cache.digestUtil().compute(action));
       var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
-      var manifest =
-          UploadManifest.create(
-              cache.getRemoteCacheCapabilities(),
-              cache.digestUtil(),
-              remotePathResolver,
-              actionKey,
-              action,
-              COMMAND,
-              ImmutableList.of(fetchedRepoMarkerFile, fetchedRepoDir),
-              /* outErr= */ null,
-              /* exitCode= */ 0,
-              /* startTime= */ Instant.now(),
-              /* wallTimeInMs= */ 0,
-              /* preserveExecutableBit= */ true);
-      var result = manifest.upload(context, cache, reporter, /* force= */ false);
+      UploadManifest manifest;
+      try (var span = profile(repoName, "Build repository upload manifest")) {
+        manifest =
+            UploadManifest.create(
+                cache.getRemoteCacheCapabilities(),
+                cache.digestUtil(),
+                remotePathResolver,
+                actionKey,
+                action,
+                COMMAND,
+                ImmutableList.of(fetchedRepoMarkerFile, fetchedRepoDir),
+                /* outErr= */ null,
+                /* exitCode= */ 0,
+                /* startTime= */ Instant.now(),
+                /* wallTimeInMs= */ 0,
+                /* preserveExecutableBit= */ true);
+      }
+      ActionResult result;
+      try (var span = profile(repoName, "Upload repository contents")) {
+        result = manifest.upload(context, cache, reporter, /* force= */ false);
+      }
       // Relative repository-root symlinks have no directory Tree to install.
       if (result.getOutputDirectoriesCount() != 1) {
         return;
@@ -240,13 +248,26 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       String predeclaredInputHash,
       SkyFunction.Environment env)
       throws IOException, InterruptedException {
+    var profiler = Profiler.instance();
+    long profileStart =
+        profiler.isProfiling(ProfilerTask.REPO_CONTENTS_CACHE) ? profiler.nanoTimeMaybe() : -1;
+    String outcome = "error";
     try {
-      return doLookupCache(repoName, repoDir, predeclaredInputHash, env);
+      boolean hit = doLookupCache(repoName, repoDir, predeclaredInputHash, env);
+      if (profileStart != -1) {
+        outcome = hit ? "hit" : env.valuesMissing() ? "restart" : "miss";
+      }
+      return hit;
     } catch (IOException e) {
       throw new IOException(
           "Failed to look up repo %s in the remote repo contents cache: %s"
               .formatted(repoName, maybeGetStackTrace(e)),
           e);
+    } finally {
+      if (profileStart != -1) {
+        profiler.logSimpleTask(
+            profileStart, ProfilerTask.REPO_CONTENTS_CACHE, "Lookup " + outcome + ": " + repoName);
+      }
     }
   }
 
@@ -264,31 +285,40 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getReadCachePolicy().allowRemoteCache()) {
       return false;
     }
-    var finalEntry = fetchFinalCacheEntry(env, context, predeclaredInputHash);
+    CacheEntry.Final finalEntry;
+    try (var span = profile(repoName, "Resolve cache entry")) {
+      finalEntry = fetchFinalCacheEntry(env, context, repoName, predeclaredInputHash);
+    }
     if (env.valuesMissing() || finalEntry == null) {
       return false;
     }
 
     ListenableFuture<byte[]> markerFileContentFuture;
-    var markerFile = finalEntry.markerFile();
-    // Inlining is an optional feature, so we have to be prepared to download the marker file.
-    if (markerFile.getContents().isEmpty()) {
-      markerFileContentFuture =
-          cache.downloadBlob(
-              context, MARKER_FILE_PATH, /* execPath= */ null, markerFile.getDigest());
-    } else {
-      markerFileContentFuture = immediateFuture(markerFile.getContents().toByteArray());
+    ListenableFuture<Tree> repoDirectoryContentFuture;
+    try (var span = profile(repoName, "Read cache marker and Tree")) {
+      var markerFile = finalEntry.markerFile();
+      // Inlining is an optional feature, so we have to be prepared to download the marker file.
+      if (markerFile.getContents().isEmpty()) {
+        markerFileContentFuture =
+            cache.downloadBlob(
+                context, MARKER_FILE_PATH, /* execPath= */ null, markerFile.getDigest());
+      } else {
+        markerFileContentFuture = immediateFuture(markerFile.getContents().toByteArray());
+      }
+      var repoDirectory = finalEntry.repoDirectory();
+      repoDirectoryContentFuture =
+          transformAsync(
+              cache.downloadBlobAsByteString(
+                  context,
+                  REPO_DIRECTORY_PATH,
+                  /* execPath= */ null,
+                  repoDirectory.getTreeDigest()),
+              (treeBytes) ->
+                  immediateFuture(
+                      Tree.parseFrom(treeBytes, ExtensionRegistryLite.getEmptyRegistry())),
+              directExecutor());
+      waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
     }
-    var repoDirectory = finalEntry.repoDirectory();
-    var repoDirectoryContentFuture =
-        transformAsync(
-            cache.downloadBlobAsByteString(
-                context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
-            (treeBytes) ->
-                immediateFuture(
-                    Tree.parseFrom(treeBytes, ExtensionRegistryLite.getEmptyRegistry())),
-            directExecutor());
-    waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
 
     String markerFileContent = new String(markerFileContentFuture.resultNow(), ISO_8859_1);
     var maybeRecordedInputs = DigestWriter.readMarkerFile(markerFileContent, predeclaredInputHash);
@@ -306,8 +336,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
-    return remoteFs.injectRemoteRepo(
-        repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
+    try (var span = profile(repoName, "Install cached repository")) {
+      return remoteFs.injectRemoteRepo(
+          repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
+    }
+  }
+
+  private static SilentCloseable profile(RepositoryName repo, String phase) {
+    return Profiler.instance().profile(ProfilerTask.REPO_CONTENTS_CACHE, () -> phase + ": " + repo);
   }
 
   private enum CacheOp {
@@ -480,13 +516,14 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private CacheEntry.Final fetchFinalCacheEntry(
       SkyFunction.Environment env,
       RemoteActionExecutionContext context,
+      RepositoryName repoName,
       String predeclaredInputHash)
       throws IOException, InterruptedException {
     var currentHashes = ImmutableList.of(predeclaredInputHash);
     while (!currentHashes.isEmpty()) {
       var nextHashes = ImmutableList.<String>builder();
       for (var hash : currentHashes) {
-        switch (fetchCacheEntry(env, context, hash)) {
+        switch (fetchCacheEntry(env, context, repoName, hash)) {
           case CacheEntry.Final finalEntry -> {
             return finalEntry;
           }
@@ -510,15 +547,21 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   // Returns null if and only if values are missing.
   @Nullable
   private CacheEntry fetchCacheEntry(
-      SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      RepositoryName repoName,
+      String inputHash)
       throws IOException, InterruptedException {
     var actionKey = new ActionKey(cache.digestUtil().compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result
     // is an intermediate node, the full result will be contained in the stdout, which should thus
     // also be inlined.
-    var cachedActionResult =
-        cache.downloadActionResult(
-            context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+    CombinedCache.CachedActionResult cachedActionResult;
+    try (var span = profile(repoName, "Read cache action result")) {
+      cachedActionResult =
+          cache.downloadActionResult(
+              context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+    }
     if (cachedActionResult == null) {
       return new CacheEntry.Intermediate(ImmutableList.of());
     }
@@ -543,45 +586,50 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           "Unexpected intermediate action result for remotely cached repo %s:\n%s"
               .formatted(context.getRequestMetadata().getActionId(), actionResult));
     }
-    var stdoutFuture = fetchStdout(context, actionResult);
-    waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+    String recordedInputs;
+    try (var span = profile(repoName, "Read cache recorded input batch")) {
+      var stdoutFuture = fetchStdout(context, actionResult);
+      waitForBulkTransfer(ImmutableList.of(stdoutFuture));
+      recordedInputs = stdoutFuture.resultNow();
+    }
 
-    // The action result's stdout contains multiple lines, each representing a batch of
-    // RepoRecordedInputs separated by spaces. A given batch is valid only if all inputs in the
-    // batch are, but separate batches are tried independently.
-    var nextInputBatches =
-        SPLIT_ON_NEWLINE
-            .splitToStream(stdoutFuture.resultNow())
-            .map(
-                line ->
-                    SPLIT_ON_SPACE
-                        .splitToStream(line)
-                        .map(RepoRecordedInput::parse)
-                        .collect(toImmutableList()))
-            .collect(toImmutableList());
-    var uniqueNextInputs =
-        nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());
-    RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    var nextHashes = ImmutableList.<String>builder();
-    nextBatch:
-    for (var batch : nextInputBatches) {
-      var rollingHash = inputHash;
-      for (var input : batch) {
-        var value = input.getValue(env, directories);
-        // Values have been prefetched above.
-        Preconditions.checkState(!env.valuesMissing());
-        if (!(value instanceof RepoRecordedInput.MaybeValue.Valid(String valueString))) {
-          continue nextBatch;
-        }
-        rollingHash =
-            rollForwardHash(rollingHash, new RepoRecordedInput.WithValue(input, valueString));
+    try (var span = profile(repoName, "Check cache recorded inputs")) {
+      // The action result's stdout contains multiple lines, each representing a batch of
+      // RepoRecordedInputs separated by spaces. A given batch is valid only if all inputs in the
+      // batch are, but separate batches are tried independently.
+      var nextInputBatches =
+          SPLIT_ON_NEWLINE
+              .splitToStream(recordedInputs)
+              .map(line ->
+                  SPLIT_ON_SPACE
+                      .splitToStream(line)
+                      .map(RepoRecordedInput::parse)
+                      .collect(toImmutableList()))
+              .collect(toImmutableList());
+      var uniqueNextInputs =
+          nextInputBatches.stream().flatMap(List::stream).collect(toImmutableSet());
+      RepoRecordedInput.prefetch(env, directories, uniqueNextInputs);
+      if (env.valuesMissing()) {
+        return null;
       }
-      nextHashes.add(rollingHash);
+      var nextHashes = ImmutableList.<String>builder();
+      nextBatch:
+      for (var batch : nextInputBatches) {
+        var rollingHash = inputHash;
+        for (var input : batch) {
+          var value = input.getValue(env, directories);
+          // Values have been prefetched above.
+          Preconditions.checkState(!env.valuesMissing());
+          if (!(value instanceof RepoRecordedInput.MaybeValue.Valid(String valueString))) {
+            continue nextBatch;
+          }
+          rollingHash =
+              rollForwardHash(rollingHash, new RepoRecordedInput.WithValue(input, valueString));
+        }
+        nextHashes.add(rollingHash);
+      }
+      return new CacheEntry.Intermediate(nextHashes.build());
     }
-    return new CacheEntry.Intermediate(nextHashes.build());
   }
 
   private String rollForwardHash(String hash, RepoRecordedInput.WithValue inputWithValue) {

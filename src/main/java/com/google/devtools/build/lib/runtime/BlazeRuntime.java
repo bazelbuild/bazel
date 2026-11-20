@@ -452,7 +452,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.
               && profilerTask != ProfilerTask.CRITICAL_PATH
-              && profilerTask != ProfilerTask.SKYFUNCTION) {
+              && profilerTask != ProfilerTask.SKYFUNCTION
+              && profilerTask != ProfilerTask.REPO_CONTENTS_CACHE) {
             profiledTasksBuilder.add(profilerTask);
           }
         }
