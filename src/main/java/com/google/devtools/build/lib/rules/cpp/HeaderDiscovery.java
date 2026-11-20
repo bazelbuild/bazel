@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
+import static java.util.Comparator.comparing;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -75,8 +77,20 @@ final class HeaderDiscovery {
       ArtifactResolver artifactResolver,
       PathMapper pathMapper)
       throws ActionExecutionException {
-    Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
-    Map<PathFragment, TreeArtifact> treeArtifacts = new HashMap<>();
+    boolean possiblyCaseInsensitiveFileSystem =
+        getOsFromConstraintsOrHost(action.getExecutionPlatform()) == OS.WINDOWS;
+    Map<PathFragment, Artifact> regularDerivedArtifacts = possiblyCaseInsensitiveFileSystem
+        ? new TreeMap<>(
+            comparing(
+                pathFragment -> pathFragment.getPathString(),
+                String.CASE_INSENSITIVE_ORDER))
+        : new HashMap<>();
+    Map<PathFragment, TreeArtifact> treeArtifacts = possiblyCaseInsensitiveFileSystem
+        ? new TreeMap<>(
+            comparing(
+                pathFragment -> pathFragment.getPathString(),
+                String.CASE_INSENSITIVE_ORDER))
+        : new HashMap<>();
     for (Artifact a : allowedDerivedInputs.toList()) {
       if (a.isSourceArtifact()) {
         continue;
