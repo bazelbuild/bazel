@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// IOKit includes <sys/types.h> in an extern "C" block. Include it outside of
+// one first so that its inline functions have the same language linkage as in
+// header modules.
+#include <sys/types.h>
+
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <jni.h>

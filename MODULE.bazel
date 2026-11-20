@@ -99,14 +99,27 @@ single_version_override(
     version = "1.76.0.bcr.1",
 )
 
-# Makes abseil link its Windows system libraries (dbghelp, bcrypt) with -l<lib>
-# when it is built with MinGW clang.
-# TODO: Remove once abseil is updated to a release that includes
-# https://github.com/abseil/abseil-cpp/commit/583556e932.
 single_version_override(
     module_name = "abseil-cpp",
     patch_strip = 1,
-    patches = ["//third_party:abseil-cpp-mingw-clang.patch"],
+    patches = [
+        # Makes abseil link its Windows system libraries (dbghelp, bcrypt) with
+        # -l<lib> when it is built with MinGW clang.
+        # TODO: Remove once abseil is updated to a release that includes
+        # https://github.com/abseil/abseil-cpp/commit/583556e932.
+        "//third_party:abseil-cpp-mingw-clang.patch",
+        # Fixes the build with --features=use_header_modules.
+        "//third_party:abseil-cpp-randen-header-modules.patch",
+    ],
+)
+
+# Drops the -pthread copt of re2, which changes a language option and thus
+# keeps re2 from using the header modules of abseil with
+# --features=use_header_modules.
+single_version_override(
+    module_name = "re2",
+    patch_strip = 1,
+    patches = ["//third_party:re2-pthread-copts.patch"],
 )
 
 # bazel_dep overrides

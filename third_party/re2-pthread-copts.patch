@@ -1,0 +1,18 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -57,15 +57,6 @@
+         "re2/set.h",
+         "re2/stringpiece.h",
+     ],
+-    copts = select({
+-        # WebAssembly support for threads is... fraught at every level.
+-        "@platforms//cpu:wasm32": [],
+-        "@platforms//cpu:wasm64": [],
+-        "@platforms//os:emscripten": [],
+-        "@platforms//os:wasi": [],
+-        "@platforms//os:windows": [],
+-        "//conditions:default": ["-pthread"],
+-    }),
+     linkopts = select({
+         # macOS doesn't need `-pthread' when linking and it appears that
+         # older versions of Clang will warn about the unused command line
