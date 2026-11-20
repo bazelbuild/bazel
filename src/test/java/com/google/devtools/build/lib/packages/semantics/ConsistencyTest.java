@@ -165,6 +165,7 @@ public class ConsistencyTest {
         "--force_starlark_stack_trace=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
         "--incompatible_check_external_repo_source_dir_package_boundary=" + rand.nextBoolean(),
+        "--incompatible_disable_build_prelude=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
         "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
         "--incompatible_enforce_starlark_utf8="
@@ -214,6 +215,7 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY,
             rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_BUILD_PRELUDE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_EMPTY_GLOB, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, rand.nextBoolean())
         .set(
