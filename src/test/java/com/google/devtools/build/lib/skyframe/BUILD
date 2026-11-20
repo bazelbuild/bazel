@@ -490,6 +490,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
