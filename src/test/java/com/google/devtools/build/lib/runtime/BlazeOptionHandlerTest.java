@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -974,6 +975,30 @@ public class BlazeOptionHandlerTest {
         .inOrder();
     assertThat(commandLineOptions.get(0).getSource()).isEqualTo("Invocation policy");
     assertThat(commandLineOptions.get(1).getSource()).isEqualTo("command line options");
+  }
+
+  @Test
+  public void testParseOptions_configPolicy_nonAsciiName() throws Exception {
+    setUpWithInvocationPolicy(
+        InvocationPolicy.newBuilder()
+            .addConfigPolicies(
+                ConfigPolicy.newBuilder().setName("cönf🌱").setOrder(ConfigPolicy.Order.PREPEND))
+            .build());
+    DetailedExitCode exitCode =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                unicodeToInternal(
+                    "--default_override=0:build:cönf🌱=--test_multiple_string=config"),
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
+    assertThat(exitCode.isSuccess()).isTrue();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .contains(unicodeToInternal("Invocation policy prepended options: --config=cönf🌱"));
+    assertThat(parser.getOptions(TestOptions.class).getTestMultipleString())
+        .containsExactly("config");
   }
 
   @Test

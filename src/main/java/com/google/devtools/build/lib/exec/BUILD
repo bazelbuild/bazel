@@ -372,6 +372,7 @@ java_library(
     name = "spawn_strategy_policy",
     srcs = ["SpawnStrategyPolicy.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/protobuf:strategy_policy_java_proto",
         "//third_party/java/guava:collect",
     ],

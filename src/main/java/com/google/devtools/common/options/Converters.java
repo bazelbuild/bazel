@@ -444,7 +444,8 @@ public final class Converters {
         return RegexPatternOption.create(
             Pattern.compile(StringEncoding.internalToUnicode(input), Pattern.DOTALL));
       } catch (PatternSyntaxException e) {
-        throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
+        throw new OptionsParsingException(
+            "Not a valid regular expression: " + StringEncoding.unicodeToInternal(e.getMessage()));
       }
     }
 

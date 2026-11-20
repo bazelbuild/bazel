@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.unsafe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -61,5 +63,21 @@ public final class StringUnsafeTest {
     assertThat(StringUnsafe.isAscii("hällo")).isFalse();
     assertThat(StringUnsafe.isAscii("hållo")).isFalse();
     assertThat(StringUnsafe.isAscii("h👋llo")).isFalse();
+  }
+
+  @Test
+  public void testGetInternalStringBytesOrUtf8() {
+    assertThat(StringUnsafe.getInternalStringBytesOrUtf8("")).isEmpty();
+    assertThat(StringUnsafe.getInternalStringBytesOrUtf8("hello"))
+        .isEqualTo("hello".getBytes(ISO_8859_1));
+
+    String internal = new String("hällo h👋llo".getBytes(UTF_8), ISO_8859_1);
+    assertThat(StringUnsafe.getInternalStringBytesOrUtf8(internal))
+        .isEqualTo("hällo h👋llo".getBytes(UTF_8));
+
+    assertThat(StringUnsafe.getInternalStringBytesOrUtf8("lambda λ"))
+        .isEqualTo("lambda λ".getBytes(UTF_8));
+    assertThat(StringUnsafe.getInternalStringBytesOrUtf8("h👋llo"))
+        .isEqualTo("h👋llo".getBytes(UTF_8));
   }
 }

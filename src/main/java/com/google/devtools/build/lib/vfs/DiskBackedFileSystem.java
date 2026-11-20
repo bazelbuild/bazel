@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.FileChannels;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -76,10 +77,7 @@ public abstract class DiskBackedFileSystem extends FileSystem {
     } catch (FileNotFoundException e) {
       // FileInputStream throws FileNotFoundException if opening fails for any reason, including
       // permissions. Fix it up here.
-      if (e.getMessage().endsWith(ERR_PERMISSION_DENIED)) {
-        throw new FileAccessException(e.getMessage());
-      }
-      throw e;
+      throw translateFileNotFoundException(e);
     } finally {
       if (profileOpen) {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.getPathString());
@@ -105,15 +103,25 @@ public abstract class DiskBackedFileSystem extends FileSystem {
     } catch (FileNotFoundException e) {
       // FileOutputStream throws FileNotFoundException if opening fails for any reason, including
       // permissions. Fix it up here.
-      if (e.getMessage().endsWith(ERR_PERMISSION_DENIED)) {
-        throw new FileAccessException(e.getMessage());
-      }
-      throw e;
+      throw translateFileNotFoundException(e);
     } finally {
       if (profileOpen) {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.getPathString());
       }
     }
+  }
+
+  private static IOException translateFileNotFoundException(FileNotFoundException e) {
+    String message = StringEncoding.platformToInternal(e.getMessage());
+    if (message.endsWith(ERR_PERMISSION_DENIED)) {
+      return new FileAccessException(message);
+    }
+    if (message.equals(e.getMessage())) {
+      return e;
+    }
+    var newException = new FileNotFoundException(message);
+    newException.initCause(e);
+    return newException;
   }
 
   @Override
@@ -131,6 +139,8 @@ public abstract class DiskBackedFileSystem extends FileSystem {
     try {
       // TODO: add profiling for read/write operations.
       return Files.newByteChannel(nioPath, READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     } finally {
       if (profileOpen) {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.toString());
