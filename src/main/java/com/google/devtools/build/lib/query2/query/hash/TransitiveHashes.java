@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.query.hash;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -32,6 +31,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +58,7 @@ import javax.annotation.Nullable;
  * type.
  */
 public final class TransitiveHashes {
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   /**
    * The hashes of the requested targets, and the errors that make hashes missing or unreliable.
@@ -167,7 +168,7 @@ public final class TransitiveHashes {
     for (Label root : rootSet) {
       State<Label> state = graph.get(root);
       if (state != null && state.hash != null) {
-        rootHashes.put(root, BaseEncoding.base16().lowerCase().encode(state.hash));
+        rootHashes.put(root, HEX_FORMAT.formatHex(state.hash));
       } else if (failureImpact != null) {
         failureImpact.record(state == null ? failureImpact.mask(root) : state.failures);
       }
