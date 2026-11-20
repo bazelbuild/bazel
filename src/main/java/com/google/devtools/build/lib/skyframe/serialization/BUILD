@@ -137,7 +137,6 @@ java_library(
         ],
     ),
     add_opens = [
-        "java.base/java.io",
         "java.base/java.lang",
         "java.base/java.lang.invoke",
         "java.base/java.time",

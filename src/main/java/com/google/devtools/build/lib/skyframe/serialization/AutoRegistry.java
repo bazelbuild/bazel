@@ -43,7 +43,7 @@ public class AutoRegistry {
   }
 
   /** Class name prefixes to forbid for {@link DynamicCodec}. */
-  private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
+  private static final ImmutableList<String> CLASS_NAME_PREFIX_DENYLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
           // Concurrency infrastructure, never serialized. Some classes extend JDK classes (e.g.
@@ -51,6 +51,9 @@ public class AutoRegistry {
           // field access.
           "com.google.devtools.build.lib.concurrent",
           "com.google.devtools.build.lib.skyframe.serialization",
+          // Console, log and process I/O plumbing, never serialized. Some classes extend JDK stream
+          // classes (e.g. PrintStream) whose packages are not opened for reflective field access.
+          "com.google.devtools.build.lib.util.io",
           "com.google.devtools.build.lib.vfs",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
@@ -107,7 +110,7 @@ public class AutoRegistry {
       for (Object constant : REFERENCE_CONSTANTS_TO_REGISTER) {
         registry.addReferenceConstant(constant);
       }
-      for (String classNamePrefix : CLASS_NAME_PREFIX_BLACKLIST) {
+      for (String classNamePrefix : CLASS_NAME_PREFIX_DENYLIST) {
         registry.excludeClassNamePrefix(classNamePrefix);
       }
       return registry.build();
