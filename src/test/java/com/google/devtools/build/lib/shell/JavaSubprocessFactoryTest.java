@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.shell;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +42,8 @@ public class JavaSubprocessFactoryTest {
 
   @Test
   public void createFromVirtualThreadForksOnPlatformThread() throws Exception {
+    // macOS starts subprocesses from the calling thread.
+    assumeTrue(OS.getCurrent() != OS.DARWIN);
     Path recordingPath = tempFolder.newFile("process-start.jfr").toPath();
     long pid;
     try (Recording recording = new Recording();
@@ -54,8 +57,7 @@ public class JavaSubprocessFactoryTest {
                 assertThat(Thread.currentThread().isVirtual()).isTrue();
                 SubprocessBuilder subprocessBuilder =
                     new SubprocessBuilder(ImmutableMap.of(), JavaSubprocessFactory.INSTANCE);
-                subprocessBuilder.setArgv(
-                    ImmutableList.of(OS.getCurrent() == OS.DARWIN ? "/usr/bin/true" : "/bin/true"));
+                subprocessBuilder.setArgv(ImmutableList.of("/bin/true"));
                 try (Subprocess subprocess = subprocessBuilder.start()) {
                   subprocess.waitFor();
                   assertThat(subprocess.exitValue()).isEqualTo(0);
