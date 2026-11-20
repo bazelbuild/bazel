@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toCollection;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -363,7 +364,9 @@ public final class SandboxModule extends BlazeModule {
     // TODO(philwo): Does this return the correct result if one of the elements intentionally ends
     // in white space?
     Splitter pathSplitter =
-        Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':').trimResults().omitEmptyStrings();
+        Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':')
+            .trimResults(CharMatcher.ascii().and(CharMatcher.whitespace()))
+            .omitEmptyStrings();
 
     FileSystem fs = cmdEnv.getRuntime().getFileSystem();
 
