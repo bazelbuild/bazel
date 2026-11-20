@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutab
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -367,7 +366,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
     for (ExpandedPattern expansion : expandedPatterns) {
       if (expansion.pattern().isNegative()) {
-        builder.filter(Predicates.not(Predicates.in(expansion.resolvedTargets().getTargets())));
+        builder.filterOut(expansion.resolvedTargets().getTargets());
       } else {
         builder.merge(expansion.resolvedTargets());
       }
@@ -485,7 +484,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 env,
                 expandedSuitesValue.getLabels().getTargets(),
                 expandedSuitesValue.getLabels().hasError());
-        testTargetsBuilder.filter(Predicates.not(Predicates.in(negativeTargets.getTargets())));
+        testTargetsBuilder.filterOut(negativeTargets.getTargets());
         testTargetsBuilder.mergeError(negativeTargets.hasError());
       } else {
         ResolvedTargets<Target> positiveTargets =
