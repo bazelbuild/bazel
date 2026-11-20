@@ -139,6 +139,7 @@ java_library(
         ":resolution",
         ":resolution_impl",
         ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
@@ -148,6 +149,7 @@ java_library(
         "//third_party/java/gson",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
