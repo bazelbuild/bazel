@@ -20,6 +20,8 @@ TEST_LOG="$1"
 XML_OUTPUT_FILE="$2"
 DURATION_IN_SECONDS="$3"
 EXIT_CODE="$4"
+# Optional arguments after the first four are additional raw log files, in the
+# order in which their contents should appear after TEST_LOG.
 
 function encode_stream {
   # Replace invalid XML characters and invalid sequence in CDATA
@@ -95,9 +97,14 @@ function encode_stream {
 }
 
 function encode_as_xml {
-  if [ -f "$1" ]; then
-    cat "$1" | encode_stream
-  fi
+  local log
+  # Concatenate before encoding so file boundaries neither introduce newlines
+  # nor split UTF-8 characters or CDATA delimiters.
+  for log in "$@"; do
+    if [ -f "$log" ]; then
+      cat "$log" || return
+    fi
+  done | encode_stream
 }
 
 # For testing, we allow calling this script with "-", in which case we only
@@ -134,7 +141,7 @@ Generated test.log (if the file is not UTF-8, then this may be unreadable):
 EOF
   printf '<![CDATA['
   # Match command substitution's trailing-newline trimming without buffering the log.
-  encode_as_xml "${TEST_LOG}" | LC_ALL=C awk '
+  encode_as_xml "${TEST_LOG}" "${@:5}" | LC_ALL=C awk '
     length($0) {
       for (; newlines > 0; newlines--) printf "\n"
       printf "%s", $0
