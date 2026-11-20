@@ -69,6 +69,10 @@ import net.starlark.java.syntax.Location;
  * use_extension}.
  */
 final class RegularRunnableExtension implements RunnableExtension {
+  static final class State extends WorkerSkyKeyComputeState<RunModuleExtensionResult> {
+    boolean lockfileOutdated;
+  }
+
   private final BzlLoadValue bzlLoadValue;
   private final ModuleExtension extension;
   private final ImmutableMap<String, Optional<String>> staticEnvVars;
@@ -229,7 +233,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       throws InterruptedException, ExternalDepsException {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
-      var state = env.getState(WorkerSkyKeyComputeState<RunModuleExtensionResult>::new);
+      var state = env.getState(State::new);
       try {
         return state.startOrContinueWork(
             env,

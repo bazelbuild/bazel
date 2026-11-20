@@ -190,7 +190,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         lockedExtension =
             lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       }
-      if (lockedExtension != null) {
+      var state = env.getState(RegularRunnableExtension.State::new);
+      if (lockedExtension != null && !state.lockfileOutdated) {
         try (SilentCloseable c =
             Profiler.instance()
                 .profile(ProfilerTask.BZLMOD, () -> "check lockfile for " + extensionId)) {
@@ -207,6 +208,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
+          // The running extension may suspend for many new dependencies. Its lockfile entry
+          // was already rejected for this evaluation.
+          state.lockfileOutdated = true;
         } catch (NeedsSkyframeRestartException e) {
           return null;
         }
