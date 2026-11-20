@@ -128,9 +128,12 @@ cc_library(
 )
 EOF
 
+  # The local compiler searches dep1 first. Its old virtual include still exists,
+  # so the .d file names dep1's header even though only dep2 declares it now.
   bazel build --spawn_strategy=local --disk_cache="${cache}" "//${pkg}:f" &>"$TEST_log" \
-    && fail "incremental build should fail from stale virtual include" || true
+    && fail "incremental build should fail from stale virtual include"
   expect_log "undeclared inclusion(s) in rule '//${pkg}:f'"
+  expect_log "/${pkg}/dep1/_virtual_includes/dep1_h/some_inc[.]h'"
 
   bazel clean &>"$TEST_log" || fail "clean failed"
   bazel build --spawn_strategy=local --disk_cache="${cache}" "//${pkg}:f" &>"$TEST_log" \
