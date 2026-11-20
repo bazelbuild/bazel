@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.ToLongFunction;
@@ -67,12 +70,17 @@ public final class TransitiveHashes {
    * @param errors errors of requested targets that could not be hashed, and of their transitive
    *     dependencies whose hashes may be wrong. A dependency that does not exist is not an error:
    *     it is hashed as missing, so creating it changes the hashes of its dependents.
+   * @param timing elapsed time for the computation phases
    */
   public record Result(
       ImmutableMap<Label, String> hashes,
       ImmutableMap<Label, ErrorInfo> errors,
       ImmutableMap<String, FailureImpact> failureImpact,
-      int unlistedFailureImpact) {}
+      int unlistedFailureImpact,
+      Timing timing) {}
+
+  /** Wall time by phase, in milliseconds. */
+  public record Timing(long discoveryMs, long combineMs, long assembleMs) {}
 
   /** Requested targets reaching a direct failure, and those reaching only that failure. */
   public record FailureImpact(int affected, int exclusive) {}
@@ -104,6 +112,7 @@ public final class TransitiveHashes {
       Consumer<String> progress,
       boolean reportFailureImpact)
       throws InterruptedException {
+    long discoveryStart = System.nanoTime();
     Map<Label, State<Label>> graph = HashMap.newHashMap(roots.size());
     Set<Label> failed = new HashSet<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
@@ -159,12 +168,15 @@ public final class TransitiveHashes {
     }
 
     progress.accept(String.format("Hashing: combining hashes of %d targets", graph.size()));
+    long combineStart = System.nanoTime();
     var failureImpact =
         reportFailureImpact && !failed.isEmpty() ? new FailureImpactCollector(failed) : null;
     ToLongFunction<Label> failedMask =
         failureImpact == null ? label -> failed.contains(label) ? 1L : 0L : failureImpact::mask;
     combineStates(graph, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm, failedMask);
-    ImmutableMap.Builder<Label, String> rootHashes = ImmutableMap.builderWithExpectedSize(roots.size());
+    long assembleStart = System.nanoTime();
+    ImmutableMap.Builder<Label, String> rootHashes =
+        ImmutableMap.builderWithExpectedSize(roots.size());
     for (Label root : rootSet) {
       State<Label> state = graph.get(root);
       if (state != null && state.hash != null) {
@@ -173,11 +185,24 @@ public final class TransitiveHashes {
         failureImpact.record(state == null ? failureImpact.mask(root) : state.failures);
       }
     }
+    var hashes = rootHashes.buildOrThrow();
+    var sortedErrors = ImmutableMap.copyOf(errors);
+    ImmutableMap<String, FailureImpact> impact =
+        failureImpact == null ? ImmutableMap.of() : failureImpact.build();
+    int unlisted = failureImpact == null ? 0 : failureImpact.unlisted();
+    long end = System.nanoTime();
+    var profiler = Profiler.instance();
+    profiler.logSimpleTask(combineStart, assembleStart, ProfilerTask.INFO, "NativeQuery.combine");
+    profiler.logSimpleTask(assembleStart, end, ProfilerTask.INFO, "NativeQuery.assemble");
     return new Result(
-        rootHashes.buildOrThrow(),
-        ImmutableMap.copyOf(errors),
-        failureImpact == null ? ImmutableMap.of() : failureImpact.build(),
-        failureImpact == null ? 0 : failureImpact.unlisted());
+        hashes,
+        sortedErrors,
+        impact,
+        unlisted,
+        new Timing(
+            TimeUnit.NANOSECONDS.toMillis(combineStart - discoveryStart),
+            TimeUnit.NANOSECONDS.toMillis(assembleStart - combineStart),
+            TimeUnit.NANOSECONDS.toMillis(end - assembleStart)));
   }
 
   private static final class FailureImpactCollector {

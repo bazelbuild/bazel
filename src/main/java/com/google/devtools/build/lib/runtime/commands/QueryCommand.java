@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.CountingOutputStream;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -62,7 +64,9 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Command line wrapper for executing a query with blaze. */
@@ -165,10 +169,13 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     QueryEvalResult result;
+    long evaluationStart = System.nanoTime();
+    long evaluationNanos;
     boolean catastrophe = true;
     try {
       try (SilentCloseable closeable = Profiler.instance().profile("queryEnv.evaluateQuery")) {
         result = queryEnv.evaluateQuery(expr, callback);
+        evaluationNanos = System.nanoTime() - evaluationStart;
         catastrophe = false;
       } catch (QueryException e) {
         catastrophe = false;
@@ -196,8 +203,10 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       if (generateHashes) {
         disableAnsiCharactersFiltering(env);
         try (SilentCloseable closeable = Profiler.instance().profile("QueryCommand.outputHashes")) {
+          long sortStart = System.nanoTime();
           Set<Target> targets =
               ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
+          long sortNanos = System.nanoTime() - sortStart;
           HashOutputFormatter catalog = null;
           if (formatter instanceof HashOutputFormatter hashed) {
             // Require complete enumeration before writing any snapshot rows.
@@ -214,7 +223,15 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             catalog = hashed;
           }
           BlazeCommandResult failure =
-              outputHashes(env, queryOptions, targets, out, queryEnv.getLabelPrinter(), catalog);
+              outputHashes(
+                  env,
+                  queryOptions,
+                  targets,
+                  out,
+                  queryEnv.getLabelPrinter(),
+                  catalog,
+                  evaluationNanos,
+                  sortNanos);
           if (failure != null) {
             return Either.ofLeft(failure);
           }
@@ -268,7 +285,9 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       Set<Target> targets,
       OutputStream out,
       LabelPrinter labelPrinter,
-      @Nullable HashOutputFormatter catalog)
+      @Nullable HashOutputFormatter catalog,
+      long evaluationNanos,
+      long sortNanos)
       throws IOException, InterruptedException {
     ImmutableSet<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
     EvaluationContext evaluationContext =
@@ -277,10 +296,18 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
                 env.getOptions().getOptions(LoadingPhaseThreadsOption.class).getThreads())
             .setEventHandler(env.getReporter())
             .build();
+    Stopwatch skyframeTime = Stopwatch.createUnstarted();
     TransitiveHashes.Result result =
         TransitiveHashes.compute(
             labels,
-            keys -> env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext),
+            keys -> {
+              skyframeTime.start();
+              try {
+                return env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext);
+              } finally {
+                skyframeTime.stop();
+              }
+            },
             message -> env.getReporter().handle(Event.progress(message)),
             queryOptions.getQueryHashFailureImpact());
     CountingOutputStream binary = null;
@@ -289,6 +316,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       out = binary;
     }
     String lineTerminator = queryOptions.getLineTerminator();
+    long writeStart = System.nanoTime();
     if (catalog != null) {
       catalog.writeHashedTargets(targets, labelPrinter, result.hashes(), out);
     } else {
@@ -299,6 +327,12 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           out.write((labelPrinter.toString(label) + " " + hash + lineTerminator).getBytes(UTF_8));
         }
       }
+    }
+    long writeEnd = System.nanoTime();
+    long writeNanos = writeEnd - writeStart;
+    if (catalog != null) {
+      Profiler.instance().logSimpleTask(
+          writeStart, writeEnd, ProfilerTask.INFO, "NativeQuery.writeCatalog");
     }
     result
         .errors()
@@ -315,7 +349,25 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
                                     : error.toString()))));
     int omitted = labels.size() - result.hashes().size();
     if (binary != null) {
+      long flushStart = System.nanoTime();
       binary.flush();
+      long outputNanos = writeNanos + (System.nanoTime() - flushStart);
+      var timing = result.timing();
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      Locale.ROOT,
+                      "Native query phases (ms): file_diff=%d evaluate=%d sort=%d discovery=%d"
+                          + " skyframe=%d combine=%d assemble=%d output=%d",
+                      env.getSkyframeExecutor().getSourceDiffCheckingDuration().toMillis(),
+                      TimeUnit.NANOSECONDS.toMillis(evaluationNanos),
+                      TimeUnit.NANOSECONDS.toMillis(sortNanos),
+                      timing.discoveryMs(),
+                      skyframeTime.elapsed(TimeUnit.MILLISECONDS),
+                      timing.combineMs(),
+                      timing.assembleMs(),
+                      TimeUnit.NANOSECONDS.toMillis(outputNanos))));
       env.getReporter()
           .handle(
               Event.info(
