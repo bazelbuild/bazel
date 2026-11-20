@@ -46,7 +46,7 @@ public final class BinaryOperatorExpression extends Expression {
 
   BinaryOperatorExpression(
       FileLocations locs, Expression x, TokenKind op, int opOffset, Expression y) {
-    super(locs, Kind.BINARY_OPERATOR);
+    super(locs);
     this.x = x;
     this.op = op;
     this.opOffset = opOffset;

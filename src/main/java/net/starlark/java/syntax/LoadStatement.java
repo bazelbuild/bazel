@@ -53,7 +53,7 @@ public final class LoadStatement extends Statement {
       StringLiteral module,
       ImmutableList<Binding> bindings,
       int rparenOffset) {
-    super(locs, Kind.LOAD);
+    super(locs);
     this.loadOffset = loadOffset;
     this.module = module;
     this.bindings = bindings;

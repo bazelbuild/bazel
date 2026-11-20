@@ -22,7 +22,7 @@ public final class ReturnStatement extends Statement {
   @Nullable private final Expression result;
 
   ReturnStatement(FileLocations locs, int returnOffset, @Nullable Expression result) {
-    super(locs, Kind.RETURN);
+    super(locs);
     this.returnOffset = returnOffset;
     this.result = result;
   }

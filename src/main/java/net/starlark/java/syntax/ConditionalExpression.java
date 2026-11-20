@@ -34,7 +34,7 @@ public final class ConditionalExpression extends Expression {
 
   /** Constructor for a conditional expression */
   ConditionalExpression(FileLocations locs, Expression t, Expression cond, Expression f) {
-    super(locs, Kind.CONDITIONAL);
+    super(locs);
     this.t = t;
     this.cond = cond;
     this.f = f;

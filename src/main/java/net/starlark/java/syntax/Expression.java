@@ -22,49 +22,29 @@ package net.starlark.java.syntax;
  * slice expressions and starred expressions cannot appear on the LHS. TODO(bazel-team): Add support
  * for assigning to slices (e.g. a[2:6] = [3]).
  */
-public abstract class Expression extends Node {
+public abstract sealed class Expression extends Node
+    permits BinaryOperatorExpression,
+        CallExpression,
+        CastExpression,
+        Comprehension,
+        ConditionalExpression,
+        DictExpression,
+        DotExpression,
+        Ellipsis,
+        FloatLiteral,
+        Identifier,
+        IndexExpression,
+        IntLiteral,
+        IsInstanceExpression,
+        LambdaExpression,
+        ListExpression,
+        SliceExpression,
+        StringLiteral,
+        TypeApplication,
+        UnaryOperatorExpression {
 
-  /**
-   * Kind of the expression. This is similar to using instanceof, except that it's more efficient
-   * and can be used in a switch/case.
-   */
-  public enum Kind {
-    BINARY_OPERATOR,
-    CALL,
-    CAST,
-    COMPREHENSION,
-    CONDITIONAL,
-    DICT_EXPR,
-    DOT,
-    ELLIPSIS,
-    FLOAT_LITERAL,
-    IDENTIFIER,
-    INDEX,
-    INT_LITERAL,
-    ISINSTANCE,
-    LAMBDA,
-    LIST_EXPR,
-    SLICE,
-    STRING_LITERAL,
-    UNARY_OPERATOR,
-    TYPE_APPLICATION,
-  }
-
-  // Materialize kind as a field so its accessor can be non-virtual.
-  private final Kind kind;
-
-  Expression(FileLocations locs, Kind kind) {
+  Expression(FileLocations locs) {
     super(locs);
-    this.kind = kind;
-  }
-
-  /**
-   * Kind of the expression. This is similar to using instanceof, except that it's more efficient
-   * and can be used in a switch/case.
-   */
-  // Final to avoid cost of virtual call (see #12967).
-  public final Kind kind() {
-    return kind;
   }
 
   /** Parses an expression. */
