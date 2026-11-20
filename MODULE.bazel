@@ -34,6 +34,7 @@ bazel_dep(name = "rules_jvm_external")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "2.2.0")
+bazel_dep(name = "rules_rs", version = "0.2.4")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
@@ -55,6 +56,19 @@ bazel_dep(name = "llvm", version = "0.8.27")
 # repo for access to the symbols
 cc_compatibility_proxy = use_extension("@rules_cc//cc:extensions.bzl", "compatibility_proxy")
 use_repo(cc_compatibility_proxy, "cc_compatibility_proxy")
+
+rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+use_repo(rules_rust, "rules_rust")
+
+rust = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+# Keep the repo name short so generated sysroot `.rlib` paths stay under Windows's
+# 260-character MAX_PATH limit (with output-dir overrides in .bazelrc).
+rust.toolchain(
+    name = "rs",
+    edition = "2024",
+    version = "1.100.0",
+)
+use_repo(rust, "rs")
 
 # TODO: wyv@ - add remoteapis to the BCR
 bazel_dep(name = "remoteapis", version = "")
@@ -568,6 +582,8 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 register_execution_platforms("//:default_host_platform")
 
 register_toolchains("//:all")
+
+register_toolchains("@rs//...")
 
 register_toolchains("@local_config_winsdk//:all")
 
