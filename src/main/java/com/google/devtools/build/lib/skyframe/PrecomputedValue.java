@@ -101,6 +101,9 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<LazyMacroExpansionPackages> LAZY_MACRO_EXPANSION_PACKAGES =
       new Precomputed<>("lazy_macro_expansion_packages");
 
+  public static final Precomputed<Boolean> STRICT_LABEL_CASING =
+      new Precomputed<>("strict_label_casing");
+
   /**
    * A marker Skyframe dependency for a configured target that may behave differently due to {@code
    * --stamp=true}, even if it does not own a stamped action.

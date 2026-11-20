@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
+  // Maps lowercased repo names to the first repo name with that lowercase form.
+  private final Map<String, String> lowercaseRepoNames = new HashMap<>();
+  @Nullable private String caseOnlyRepoNameCollision;
   private final List<Event> warnings = new ArrayList<>();
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
@@ -121,6 +125,30 @@ public class ModuleThreadContext extends StarlarkThreadContext {
           "The repo name '%s' cannot be defined %s at %s as it is already defined %s at %s",
           repoName, incoming.how(), incoming.location(), collision.how(), collision.location());
     }
+    // Repo names are ASCII-only.
+    String previousRepoName = lowercaseRepoNames.putIfAbsent(Ascii.toLowerCase(repoName), repoName);
+    if (previousRepoName != null && caseOnlyRepoNameCollision == null) {
+      RepoNameUsage previous = repoNameUsages.get(previousRepoName);
+      caseOnlyRepoNameCollision =
+          String.format(
+              "The repo name '%s' defined %s at %s only differs in case from the repo name '%s'"
+                  + " defined %s at %s",
+              repoName,
+              incoming.how(),
+              incoming.location(),
+              previousRepoName,
+              previous.how(),
+              previous.location());
+    }
+  }
+
+  /**
+   * Returns a description of the first pair of repo names that only differ in case, if any.
+   *
+   * <p>Such names are only rejected with {@code --incompatible_strict_label_casing}.
+   */
+  public Optional<String> getCaseOnlyRepoNameCollision() {
+    return Optional.ofNullable(caseOnlyRepoNameCollision);
   }
 
   /** Whether the {@code module()} directive has been called. */
