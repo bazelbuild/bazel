@@ -253,12 +253,15 @@ public final class TestActionBuilder {
       inputsBuilder.addTransitive(testRuntime);
     }
 
-    TestTargetProperties testProperties =
-        new TestTargetProperties(
-            ruleContext, executionRequirements, actionOwner.getExecProperties());
-
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
+
+    TestTargetProperties testProperties =
+        new TestTargetProperties(
+            ruleContext,
+            executionRequirements,
+            actionOwner.getExecProperties(),
+            collectCodeCoverage);
 
     Artifact testActionExecutable =
         isExecutedOnWindows

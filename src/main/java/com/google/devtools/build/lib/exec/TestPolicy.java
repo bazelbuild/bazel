@@ -82,7 +82,7 @@ public class TestPolicy {
     // Add all env variables, allow some string replacements and inheritance.
     String userProp = UserUtils.getUserName();
     String tmpDirPath = tmpDir.getPathString();
-    String runfilesDirPath = relativeRunfilesDir.getPathString();
+    String runfilesDirPath = pathMapper.map(relativeRunfilesDir).getPathString();
     for (Map.Entry<String, String> entry : envVariables.entrySet()) {
       String val = entry.getValue();
       if (val.contains("${")) {
