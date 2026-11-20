@@ -295,7 +295,8 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
     ],
     outs = ["jvm_module_options.h"],
-    cmd = "$(location generate_jvm_module_options.sh) $(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar) $(OUTS)",
+    cmd = "$(location generate_jvm_module_options.sh) $(location //src:extract_zip) $(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar) $(OUTS)",
+    tools = ["//src:extract_zip"],
 )
 
 cc_library(

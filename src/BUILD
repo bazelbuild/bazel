@@ -3,7 +3,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
@@ -507,6 +507,24 @@ sh_binary(
     name = "merge_zip_files",
     srcs = ["merge_zip_files.sh"],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "extract_zip_lib",
+    srcs = ["extract_zip.py"],
+)
+
+py_binary(
+    name = "extract_zip",
+    srcs = ["extract_zip.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "extract_zip_test",
+    size = "small",
+    srcs = ["extract_zip_test.py"],
+    deps = [":extract_zip_lib"],
 )
 
 # The java_tools release process produces following zip files:
