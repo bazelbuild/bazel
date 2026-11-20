@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_test")
+load("//src:java_opt_binary.bzl", "java_opt_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -14,7 +15,10 @@ filegroup(
 
 java_test(
     name = "merkletree",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = ["MerkleTreeComputerBenchmark.java"],
+    ),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -51,6 +55,32 @@ java_test(
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_opt_binary(
+    name = "MerkleTreeComputerBenchmark",
+    srcs = ["MerkleTreeComputerBenchmark.java"],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jmh",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
