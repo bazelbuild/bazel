@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -198,7 +200,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
 
     @Override
-    public ActionExecutionContext withOutputsAsInputs(Iterable<Artifact> outputs) {
+    public Path getInputPath(ActionInput input) {
+      return input instanceof Artifact artifact
+          ? artifact.getPath()
+          : getExecRoot().getRelative(input.getExecPath());
+    }
+
+    @Override
+    public ActionExecutionContext withOutputsAsInputs(Iterable<? extends ActionInput> outputs) {
       return this;
     }
 
@@ -671,12 +680,23 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
                   stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
                 }
+                outErr.printErr("Stray test stderr\n");
                 throw new SpawnExecException(
                     "Failure!!",
                     testSpawnResult,
                     /* forciblyRunRemotely= */ false,
                     /* catastrophe= */ false);
               } else {
+                // The helper reads the original streams, not a locally assembled test.log.
+                assertThat(context.getInputPath(testRunnerAction.getTestLog()).exists()).isFalse();
+                assertThat(
+                        spawn.getInputFiles().flatten().stream()
+                            .map(ActionInput::getExecPath)
+                            .collect(toImmutableList()))
+                    .containsAtLeast(
+                        testRunnerAction.getTestStdoutPath(), testRunnerAction.getTestStderrPath());
+                assertThat(spawn.getInputFiles().flatten())
+                    .doesNotContain(testRunnerAction.getTestLog());
                 String testName = "standalone/failing_test";
                 assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
                 return ImmutableList.of(xmlGeneratorSpawnResult);
@@ -697,7 +717,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     String logData = FileSystemUtils.readContent(testRunnerAction.getTestLog().getPath(), UTF_8);
     assertThat(logData).contains("bla");
     assertThat(logData).contains(TestLogHelper.HEADER_DELIMITER);
-    assertThat(logData).contains("foo");
+    assertThat(logData).endsWith("foo\nStray test stderr\n");
     // check that the test stdout contains all the expected output
     outErr.close(); // Create the output files.
     String outData = FileSystemUtils.readContent(outErr.getOutputPath(), UTF_8);
@@ -711,6 +731,87 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(outErr.getErrorPath().exists()).isFalse();
     assertThat(called).hasSize(2);
     assertThat(called).containsNoDuplicates();
+  }
+
+  @Test
+  public void xmlGeneratingSpawnConsumesStderrWithoutCreatingStdout() throws Exception {
+    scratch.file("standalone/stderr_test.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(name = "stderr_test", srcs = ["stderr_test.sh"])
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:stderr_test");
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Spawn currentSpawn = invocation.getArgument(0);
+              ActionExecutionContext context = invocation.getArgument(1);
+              spawns.add(currentSpawn);
+              if (currentSpawn.getOutputFiles().size() != 1) {
+                context.getFileOutErr().printErr("stderr only\n");
+                return ImmutableList.of(PASSED_TEST_SPAWN);
+              }
+              assertThat(context.getInputPath(testRunnerAction.getTestLog()).exists()).isFalse();
+              assertThat(
+                      currentSpawn.getInputFiles().flatten().stream()
+                          .map(ActionInput::getExecPath)
+                          .collect(toImmutableList()))
+                  .containsExactly(
+                      testRunnerAction.getTestXmlGeneratorScript().getExecPath(),
+                      testRunnerAction.getTestStderrPath());
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+    execute(
+        testRunnerAction,
+        new FakeActionExecutionContext(
+            createTempOutErr(outputBase), inputMetadataFor(testRunnerAction), spawnStrategy),
+        new TestedStandaloneTestStrategy(
+            Options.getDefaults(ExecutionOptions.class),
+            Options.getDefaults(TestSummaryOptions.class),
+            outputBase));
+    assertThat(spawns).hasSize(2);
+    assertThat(FileSystemUtils.readContent(testRunnerAction.getTestLog().getPath(), UTF_8))
+        .isEqualTo("stderr only\n");
+    assertThat(getExecRoot().getRelative(testRunnerAction.getTestStdoutPath()).exists()).isFalse();
+    assertThat(getExecRoot().getRelative(testRunnerAction.getTestStderrPath()).exists()).isFalse();
+  }
+
+  @Test
+  public void interruptedTestRetainsCapturedStdout() throws Exception {
+    scratch.file("standalone/interrupted_test.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(name = "interrupted_test", srcs = ["interrupted_test.sh"])
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:interrupted_test");
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              ActionExecutionContext context = invocation.getArgument(1);
+              context.getFileOutErr().printOut("output before interruption\n");
+              throw new InterruptedException();
+            });
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            execute(
+                testRunnerAction,
+                new FakeActionExecutionContext(
+                    createTempOutErr(outputBase),
+                    inputMetadataFor(testRunnerAction),
+                    spawnStrategy),
+                new TestedStandaloneTestStrategy(
+                    Options.getDefaults(ExecutionOptions.class),
+                    Options.getDefaults(TestSummaryOptions.class),
+                    outputBase)));
+    assertThat(FileSystemUtils.readContent(testRunnerAction.getTestLog().getPath(), UTF_8))
+        .isEqualTo("output before interruption\n");
+    verify(spawnStrategy).exec(any(), any());
   }
 
   @Test

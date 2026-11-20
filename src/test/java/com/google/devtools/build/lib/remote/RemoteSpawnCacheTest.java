@@ -356,6 +356,7 @@ public class RemoteSpawnCacheTest {
             new RemoteExecutionService(
                 reporter,
                 /* verboseFailures= */ true,
+                /* requireLocalLogPaths= */ false,
                 execRoot,
                 remotePathResolver,
                 BUILD_REQUEST_ID,

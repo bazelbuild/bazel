@@ -109,8 +109,10 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
@@ -128,6 +130,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -554,6 +557,27 @@ public final class RemoteModule extends BlazeModule {
         remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL
             ? ImmutableList.copyOf(remoteOptions.getRemoteDownloadRegex())
             : ImmutableList.of();
+    if (remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL
+        && (remoteOptions.getRemoteDownloadStdoutStderr()
+            || RemoteActionContextProvider.reportsBuildEvents(env)
+            || RemoteExecutionService.showsPassingTestLogs(
+                env.getOptions().getOptions(ExecutionOptions.class)))) {
+      // Cached test events and terminal output use host paths without action-filesystem
+      // metadata. If an earlier build kept a log remote, require it now through output checks.
+      try {
+        downloadRegexes =
+            ImmutableList.<RegexPatternOption>builder()
+                .addAll(downloadRegexes)
+                .add(
+                    new Converters.RegexPatternConverter()
+                        .convert(
+                            Pattern.quote(env.getDirectories().getRelativeOutputPath())
+                                + "/[^/]+/testlogs/.*/test\\.log"))
+                .build();
+      } catch (OptionsParsingException e) {
+        throw new IllegalStateException("Invalid built-in test log pattern", e);
+      }
+    }
 
     boolean executes = env.getCommand().buildPhase().executes();
     remoteOutputChecker =
