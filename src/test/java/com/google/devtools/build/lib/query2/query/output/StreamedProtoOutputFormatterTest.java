@@ -166,6 +166,97 @@ public final class StreamedProtoOutputFormatterTest extends PackageLoadingTestCa
   }
 
   @Test
+  public void possibleToolchainTypesIncludeAspectsOnPossibleDependencies() throws Exception {
+    setBuildLanguageOptions("--experimental_dormant_deps");
+    scratch.file(
+        "client/defs.bzl",
+        """
+        def impl(ctx):
+            return []
+
+        def aspect_impl(target, ctx):
+            return []
+
+        required = aspect(implementation = aspect_impl, toolchains = ["//types:required"])
+        attached = aspect(
+            implementation = aspect_impl,
+            requires = [required],
+            toolchains = ["//types:aspect"],
+            exec_groups = {"extra": exec_group(toolchains = ["//types:aspect_group"])},
+        )
+
+        def materialize(ctx):
+            return []
+
+        deferred = rule(
+            implementation = impl,
+            attrs = {"_deps": attr.label_list(materializer = materialize, aspects = [attached])},
+        )
+
+        read = rule(
+            implementation = impl,
+            attrs = {"source": attr.label(aspects = [attached])},
+            toolchains = ["//types:rule"],
+            exec_groups = {"extra": exec_group(toolchains = ["//types:group", "//types:rule"])},
+        )
+        """);
+    scratch.file(
+        "client/BUILD",
+        """
+        load(":defs.bzl", "deferred", "read")
+        deferred(name = "deferred_dep")
+        read(name = "populated", source = "//pkg:b")
+        read(name = "empty")
+        filegroup(name = "ordinary")
+        genrule(name = "g", outs = ["out"], cmd = "echo ok > $@", toolchains = ["//types:gen"])
+        """);
+    var targets =
+        ImmutableList.of(
+            getTarget("//client:populated"),
+            getTarget("//client:empty"),
+            getTarget("//client:ordinary"),
+            getTarget("//client:g"),
+            getTarget("//client:deferred_dep"));
+    var rows =
+        parseTargets(
+            format(
+                new StreamedProtoOutputFormatter(),
+                options("--proto:possible_toolchain_types", "--proto:output_rule_attrs="),
+                AspectResolver.Mode.OFF,
+                targets));
+    assertThat(rows.get(0).getRule().getPossibleToolchainTypes().getLabelList())
+        .containsExactly(
+            "@@//types:aspect",
+            "@@//types:aspect_group",
+            "@@//types:group",
+            "@@//types:required",
+            "@@//types:rule")
+        .inOrder();
+    assertThat(rows.get(1).getRule().getPossibleToolchainTypes().getLabelList())
+        .containsExactly("@@//types:group", "@@//types:rule")
+        .inOrder();
+    assertThat(rows.get(2).getRule().hasPossibleToolchainTypes()).isTrue();
+    assertThat(rows.get(2).getRule().getPossibleToolchainTypes().getLabelList()).isEmpty();
+    assertThat(rows.get(3).getRule().getPossibleToolchainTypes().getLabelList())
+        .containsExactly("@@//types:gen");
+    assertThat(rows.get(4).getRule().getPossibleToolchainTypes().getLabelList())
+        .containsExactly("@@//types:aspect", "@@//types:aspect_group", "@@//types:required")
+        .inOrder();
+    var defaultRows =
+        parseTargets(
+            format(
+                new StreamedProtoOutputFormatter(),
+                options("--proto:output_rule_attrs="),
+                AspectResolver.Mode.OFF,
+                targets));
+    for (int i = 0; i < rows.size(); i++) {
+      var target = rows.get(i).toBuilder();
+      target.getRuleBuilder().clearPossibleToolchainTypes();
+      assertThat(target.build().toByteArray()).isEqualTo(defaultRows.get(i).toByteArray());
+    }
+  }
+
+  @Test
   public void emptyInputWritesNothing() throws Exception {
     byte[] output =
         format(

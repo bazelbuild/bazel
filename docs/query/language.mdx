@@ -1244,6 +1244,19 @@ Prints the query output as a
 [`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
 protocol buffer.
 
+Use `--proto:possible_toolchain_types` to include toolchain requirements in
+proto output. Each rule's `possible_toolchain_types.label` lists the sorted
+canonical labels declared by the rule and aspects attached to its possible
+outgoing dependencies, including named execution groups. This distinguishes a
+rule that declares a type from a rule whose ordinary attributes reference
+the same label. Aspects propagated into the target from another rule or a
+top-level invocation are outside this field's scope.
+
+With the option enabled, an empty field means that Bazel found no declarations.
+With the option disabled, Bazel omits the field. Native `genrule.toolchains`
+can also name template variable providers. Use [cquery](/query/cquery) to
+inspect the dependencies selected for a particular build configuration.
+
 ### Print targets in length-delimited protocol buffer format {#print-target-length-delimited-proto}
 
 ```
