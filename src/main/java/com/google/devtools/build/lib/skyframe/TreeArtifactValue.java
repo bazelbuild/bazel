@@ -274,7 +274,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       return false;
     }
 

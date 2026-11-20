@@ -579,7 +579,7 @@ public final class ActionInputMapTest {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       throw new UnsupportedOperationException();
     }
 
