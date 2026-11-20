@@ -899,6 +899,18 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "skyframe_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["skyframe_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 4,
+)
+
 cc_binary(
     name = "spend_cpu_time",
     testonly = 1,
