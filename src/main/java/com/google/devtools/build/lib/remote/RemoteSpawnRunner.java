@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
 import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.lang.Math.max;
 
 import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
@@ -618,7 +619,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       }
       if (e.isExecutionTimeout()) {
-        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success= */ false);
+        maybePrintExecutionMessages(
+            context, unicodeToInternal(e.getResponse().getMessage()), /* success= */ false);
         SpawnResult.Builder resultBuilder =
             new SpawnResult.Builder()
                 .setRunnerName(getName())
@@ -674,7 +676,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (exception.getCause() instanceof ExecutionStatusException e) {
       if (e.getResponse() != null) {
         if (!e.getResponse().getMessage().isEmpty()) {
-          errorMessage += "\n" + e.getResponse().getMessage();
+          errorMessage += "\n" + unicodeToInternal(e.getResponse().getMessage());
         }
       }
     }
