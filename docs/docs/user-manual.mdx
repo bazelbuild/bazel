@@ -105,24 +105,14 @@ output and standard error are thrown away.
 
 Here are some typical values for this option:
 
-<table>
-  <tr>
-    <td>`--output_filter='^//(first/project|second/project):'`</td>
-    <td>Show the output for the specified packages.</td>
-  </tr>
-  <tr>
-    <td>`--output_filter='^//((?!(first/bad_project|second/bad_project):).)*$'`</td>
-    <td>Don't show output for the specified packages.</td>
-  </tr>
-  <tr>
-    <td>`--output_filter=`</td>
-    <td>Show everything.</td>
-  </tr>
-  <tr>
-    <td>`--output_filter=DONT_MATCH_ANYTHING`</td>
-    <td>Show nothing.</td>
-  </tr>
-</table>
+
+|  |  |
+| --- | --- |
+| `--output_filter='^//(first/project\|second/project):'` | Show the output for the specified packages. |
+| `--output_filter='^//((?!(first/bad_project\|second/bad_project):).)*$'` | Don't show output for the specified packages. |
+| `--output_filter=` | Show everything. |
+| `--output_filter=DONT_MATCH_ANYTHING` | Show nothing. |
+
 
 ### Tool flags {#tool-flags}
 
