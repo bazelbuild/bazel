@@ -503,7 +503,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         lockFileInfo,
         fixup,
         facts,
-        factsVersion);
+        factsVersion,
+        moduleExtensionMetadata);
   }
 
   private static SingleExtensionEvalFunctionException createOutdatedLockfileException(

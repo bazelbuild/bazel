@@ -393,6 +393,7 @@ java_library(
     ],
     deps = [
         ":exception",
+        ":module_extension",
         ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -400,6 +401,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -411,6 +413,7 @@ java_library(
     deps = [
         ":common",
         ":exception",
+        ":module_extension",
         ":resolution",
         ":root_module_file_fixup",
         ":tidy",

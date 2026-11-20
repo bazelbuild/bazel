@@ -1298,6 +1298,323 @@ class ModCommandTest(test_base.TestBase):
     for field in ['moduleExtensions', 'facts', 'factsVersions']:
       self.assertNotIn(extension_id, updated.get(field, {}))
 
+  def testModTidyWithTargetPatterns(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "dep", version = "1.0")',
+            'local_path_override(module_name = "dep", path = "dep")',
+            'bazel_dep(name = "other", version = "1.0")',
+            'local_path_override(module_name = "other", path = "other")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load("@dep//:defs.bzl", "my_rule")',
+            'my_rule(name = "root", srcs = ["@dep//:used"])',
+        ],
+    )
+    self.ScratchFile(
+        'dep/MODULE.bazel',
+        [
+            'module(name = "dep", version = "1.0")',
+            'used_ext = use_extension("//:ext.bzl", "used_ext")',
+            'use_repo(used_ext, "used_repo")',
+            'unused_ext = use_extension("//:ext.bzl", "unused_ext")',
+            'use_repo(unused_ext, "unused_repo")',
+            'toolchain_ext = use_extension("//:ext.bzl", "toolchain_ext")',
+            'use_repo(toolchain_ext, "toolchain_repo")',
+            'register_toolchains("@toolchain_repo//:all")',
+        ],
+    )
+    self.ScratchFile(
+        'dep/BUILD.bazel',
+        [
+            'toolchain_type(',
+            '    name = "toolchain_type",',
+            '    visibility = ["//visibility:public"],',
+            ')',
+            'filegroup(',
+            '    name = "used",',
+            '    srcs = ["@used_repo//:file"],',
+            '    visibility = ["//visibility:public"],',
+            ')',
+            'filegroup(',
+            '    name = "unused",',
+            '    srcs = ["@unused_repo//:file"],',
+            '    visibility = ["//visibility:public"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'dep/defs.bzl',
+        [
+            'def _my_rule_impl(ctx):',
+            '    return [DefaultInfo(files = depset(ctx.files.srcs))]',
+            'my_rule = rule(',
+            '    implementation = _my_rule_impl,',
+            '    attrs = {"srcs": attr.label_list(allow_files = True)},',
+            '    toolchains = ["//:toolchain_type"],',
+            ')',
+            'def _my_toolchain_impl(ctx):',
+            '    return [platform_common.ToolchainInfo()]',
+            'my_toolchain = rule(implementation = _my_toolchain_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'dep/ext.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '    rctx.file("BUILD", rctx.attr.build_file_content)',
+            'repo = repository_rule(',
+            '    implementation = _repo_impl,',
+            '    attrs = {"build_file_content": attr.string()},',
+            ')',
+            'FILE = \'filegroup(name = "file", visibility = ["//visibility:public"])\'',
+            'def _used_ext_impl(ctx):',
+            '    repo(name = "used_repo", build_file_content = FILE)',
+            'used_ext = module_extension(implementation = _used_ext_impl)',
+            'def _unused_ext_impl(ctx):',
+            '    repo(name = "unused_repo", build_file_content = FILE)',
+            'unused_ext = module_extension(implementation = _unused_ext_impl)',
+            'def _toolchain_ext_impl(ctx):',
+            '    repo(',
+            '        name = "toolchain_repo",',
+            '        build_file_content = "\\n".join([',
+            '            \'load("@dep//:defs.bzl", "my_toolchain")\',',
+            '            \'my_toolchain(name = "impl")\',',
+            '            \'toolchain(name = "toolchain", toolchain = ":impl",\'',
+            '            + \' toolchain_type = "@dep//:toolchain_type")\',',
+            '        ]),',
+            '    )',
+            'toolchain_ext = module_extension(implementation = _toolchain_ext_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other/MODULE.bazel',
+        [
+            'module(name = "other", version = "1.0")',
+            'other_ext = use_extension("//:ext.bzl", "other_ext")',
+            'use_repo(other_ext, "other_toolchain_repo")',
+            'register_toolchains("@other_toolchain_repo//:all")',
+        ],
+    )
+    self.ScratchFile(
+        'other/BUILD.bazel',
+        [
+            'toolchain_type(',
+            '    name = "toolchain_type",',
+            '    visibility = ["//visibility:public"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'other/ext.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '    rctx.file("BUILD", "\\n".join([',
+            '        \'filegroup(name = "impl")\',',
+            '        \'toolchain(name = "toolchain", toolchain = ":impl",\'',
+            '        + \' toolchain_type = "@other//:toolchain_type")\',',
+            '    ]))',
+            'repo = repository_rule(implementation = _repo_impl)',
+            'def _other_ext_impl(ctx):',
+            '    repo(name = "other_toolchain_repo")',
+            'other_ext = module_extension(implementation = _other_ext_impl)',
+        ],
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'tidy', '//:all'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        'Target patterns for \'tidy\' require'
+        ' --incompatible_restrict_non_root_registrations',
+        '\n'.join(stderr),
+    )
+
+    all_extensions = [
+        '@@dep+//:ext.bzl%toolchain_ext',
+        '@@dep+//:ext.bzl%unused_ext',
+        '@@dep+//:ext.bzl%used_ext',
+        '@@other+//:ext.bzl%other_ext',
+    ]
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      self.assertEqual(
+          all_extensions,
+          sorted(
+              e
+              for e in json.load(lockfile)['moduleExtensions']
+              if e.startswith(('@@dep+', '@@other+'))
+          ),
+      )
+
+    # Without a scope, tidy evaluates all extensions. With one, it prunes the
+    # results of extensions whose repos the targets can't reach.
+    flag = '--incompatible_restrict_non_root_registrations'
+    self.RunBazel(['mod', 'tidy', flag, '//:all'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      self.assertEqual(
+          ['@@dep+//:ext.bzl%toolchain_ext', '@@dep+//:ext.bzl%used_ext'],
+          sorted(json.load(lockfile)['moduleExtensions']),
+      )
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=error', flag, '//:all'])
+
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      self.assertEqual(
+          all_extensions,
+          sorted(
+              e
+              for e in json.load(lockfile)['moduleExtensions']
+              if e.startswith(('@@dep+', '@@other+'))
+          ),
+      )
+
+  def writeModuleWithExtensions(self, name, extensions, extra_module=None,
+                                 extra_build=None):
+    """Writes a module whose non-reproducible extensions each generate a repo.
+
+    Args:
+      name: the name of the module.
+      extensions: maps the name of each extension to the content of the BUILD
+        file of the repo "<extension>_repo" that it generates.
+      extra_module: additional lines for the MODULE.bazel file.
+      extra_build: additional lines for the BUILD.bazel file.
+    """
+    module = ['module(name = "%s", version = "1.0")' % name]
+    ext_bzl = [
+        'def _repo_impl(rctx):',
+        '    rctx.file("BUILD", rctx.attr.build_file_content)',
+        'repo = repository_rule(',
+        '    implementation = _repo_impl,',
+        '    attrs = {"build_file_content": attr.string()},',
+        ')',
+    ]
+    for ext, build in extensions.items():
+      module += [
+          '%s = use_extension("//:ext.bzl", "%s")' % (ext, ext),
+          'use_repo(%s, "%s_repo")' % (ext, ext),
+      ]
+      ext_bzl += [
+          'def _%s_impl(ctx):' % ext,
+          '    repo(name = "%s_repo", build_file_content = %r)' % (ext, build),
+          '%s = module_extension(implementation = _%s_impl)' % (ext, ext),
+      ]
+    self.ScratchFile(name + '/MODULE.bazel', module + (extra_module or []))
+    self.ScratchFile(name + '/BUILD.bazel', extra_build or [])
+    self.ScratchFile(name + '/ext.bzl', ext_bzl)
+
+  def testModTidyWithTargetPatternsFollowsExtensionRepoReferences(self):
+    file_build = 'filegroup(name = "file", visibility = ["//visibility:public"])'
+    public = ', visibility = ["//visibility:public"])'
+    self.writeModuleWithExtensions(
+        'declared',
+        {
+            'declared_ext': file_build,
+            'unrelated_ext': file_build,
+            'declared_toolchain_ext': '\n'.join([
+                'filegroup(name = "impl")',
+                'toolchain(name = "toolchain", toolchain = ":impl",'
+                + ' toolchain_type = "@declared//:toolchain_type")',
+            ]),
+        },
+        extra_module=[
+            'register_toolchains("@declared_toolchain_ext_repo//:all")'
+        ],
+        extra_build=[
+            'filegroup(name = "lib", srcs = ["@declared_ext_repo//:file"]'
+            + public,
+            'filegroup(name = "unrelated", srcs = ["@unrelated_ext_repo//:file"]'
+            + public,
+            'toolchain_type(name = "toolchain_type", visibility ='
+            + ' ["//visibility:public"])',
+        ],
+    )
+    for name in ['tagged', 'injected']:
+      self.writeModuleWithExtensions(
+          name,
+          {name + '_ext': file_build},
+          extra_build=[
+              'filegroup(name = "lib", srcs = ["@%s_ext_repo//:file"]' % name
+              + public
+          ],
+      )
+    self.ScratchFile(
+        'hub/MODULE.bazel',
+        [
+            'module(name = "hub", version = "1.0")',
+            'bazel_dep(name = "declared", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('hub/BUILD.bazel')
+    self.ScratchFile(
+        'hub/ext.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '    rctx.file("BUILD", "\\n".join([',
+            '        \'filegroup(name = "all", srcs = ["@declared//:lib",\'',
+            '        + \' "@injected//:lib"], visibility = ["//visibility:public"])\',',
+            '        \'filegroup(name = "undeclared", srcs = ["@hub//:BUILD.bazel"])\',',
+            '    ]))',
+            'repo = repository_rule(implementation = _repo_impl)',
+            'def _hub_ext_impl(ctx):',
+            '    repo(name = "hub_repo")',
+            '    return ctx.extension_metadata(',
+            '        references = ["@declared//:lib"],',
+            '        toolchain_types = ["@declared//:toolchain_type"],',
+            '    )',
+            'hub_ext = module_extension(',
+            '    implementation = _hub_ext_impl,',
+            '    tag_classes = {"ref": tag_class(attrs = {"target": attr.label()})},',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "hub", version = "1.0")',
+            'bazel_dep(name = "tagged", version = "1.0")',
+            'bazel_dep(name = "injected", version = "1.0")',
+            'hub_ext = use_extension("@hub//:ext.bzl", "hub_ext")',
+            'hub_ext.ref(target = "@tagged//:lib")',
+            'use_repo(hub_ext, "hub_repo")',
+            'inject_repo(hub_ext, "injected")',
+        ]
+        + [
+            'local_path_override(module_name = "%s", path = "%s")' % (m, m)
+            for m in ['hub', 'declared', 'tagged', 'injected']
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel', ['filegroup(name = "root", srcs = ["@hub_repo//:all"])']
+    )
+
+    flag = '--incompatible_restrict_non_root_registrations'
+    self.RunBazel(['mod', 'tidy', flag, '//:all'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      self.assertEqual(
+          [
+              '@@declared+//:ext.bzl%declared_ext',
+              '@@declared+//:ext.bzl%declared_toolchain_ext',
+              '@@hub+//:ext.bzl%hub_ext',
+              '@@injected+//:ext.bzl%injected_ext',
+              '@@tagged+//:ext.bzl%tagged_ext',
+          ],
+          sorted(json.load(lockfile)['moduleExtensions']),
+      )
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=error', flag, '//:all'])
+
+    # The generated repo can only see the repos it declares references to.
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '@hub_repo//:undeclared'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 1, stderr)
+    self.assertIn("No repository visible as '@hub'", '\n'.join(stderr))
+
   def testModTidyFailsOnTransitiveExtensionError(self):
     self.createTransitiveTidyExtension()
     self.ScratchFile(

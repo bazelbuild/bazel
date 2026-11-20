@@ -39,6 +39,7 @@ import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * Module collecting Bazel module and module extensions resolution results and updating the
@@ -47,6 +48,7 @@ import java.util.function.Predicate;
 public class BazelLockFileModule extends BlazeModule {
 
   private CommandEnvironment env;
+  @Nullable private ImmutableSet<ModuleExtensionId> workspaceLockfileExtensions;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -56,12 +58,23 @@ public class BazelLockFileModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    this.workspaceLockfileExtensions = null;
+  }
+
+  /**
+   * Restricts the module extension results and facts in the workspace lockfile written after the
+   * current command to the given extensions.
+   */
+  public void restrictWorkspaceLockfileTo(ImmutableSet<ModuleExtensionId> extensions) {
+    this.workspaceLockfileExtensions = extensions;
   }
 
   @Override
   public void afterCommand() {
     CommandEnvironment env = this.env;
     this.env = null;
+    ImmutableSet<ModuleExtensionId> workspaceLockfileExtensions = this.workspaceLockfileExtensions;
+    this.workspaceLockfileExtensions = null;
     if (env == null || !env.hasSyncedPackageLoading()) {
       // The current command (e.g. shutdown) didn't evaluate the lockfile values so they may
       // be stale, e.g., if a server with a different output base changed the lockfile
@@ -138,9 +151,14 @@ public class BazelLockFileModule extends BlazeModule {
         combinedHiddenFactsVersions.put(extensionId, value.factsVersion());
       }
     }
-    var relevantFacts = filterRelevantFacts(combinedFacts, depGraphValue);
+    Predicate<ModuleExtensionId> hasUsages = depGraphValue.getExtensionUsagesTable()::containsRow;
+    Predicate<ModuleExtensionId> inWorkspaceLockfile =
+        workspaceLockfileExtensions == null
+            ? hasUsages
+            : hasUsages.and(workspaceLockfileExtensions::contains);
+    var relevantFacts = filterRelevantFacts(combinedFacts, inWorkspaceLockfile);
     var relevantFactsVersions = filterRelevantFactsVersions(combinedFactsVersions, relevantFacts);
-    var relevantHiddenFacts = filterRelevantFacts(combinedHiddenFacts, depGraphValue);
+    var relevantHiddenFacts = filterRelevantFacts(combinedHiddenFacts, hasUsages);
     var relevantHiddenFactsVersions =
         filterRelevantFactsVersions(combinedHiddenFactsVersions, relevantHiddenFacts);
 
@@ -154,8 +172,8 @@ public class BazelLockFileModule extends BlazeModule {
               var notReproducibleExtensionInfos =
                   combineModuleExtensions(
                       oldLockfile.getModuleExtensions(),
-                      newExtensionInfos,
-                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+                      Maps.filterKeys(newExtensionInfos, inWorkspaceLockfile::test),
+                      inWorkspaceLockfile,
                       /* reproducible= */ false);
 
               // Bazel may track the hashes of files fetched from local registries for internal
@@ -201,7 +219,7 @@ public class BazelLockFileModule extends BlazeModule {
                   combineModuleExtensions(
                       oldHiddenLockfileFinal.getModuleExtensions(),
                       newExtensionInfos,
-                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+                      hasUsages,
                       /* reproducible= */ true);
               BazelLockFileValue newHiddenLockfile =
                   BazelLockFileValue.builder()
@@ -227,13 +245,11 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   private static ImmutableSortedMap<ModuleExtensionId, Facts> filterRelevantFacts(
-      Map<ModuleExtensionId, Facts> combinedFacts, BazelDepGraphValue depGraphValue) {
+      Map<ModuleExtensionId, Facts> combinedFacts, Predicate<ModuleExtensionId> isRelevant) {
     return ImmutableSortedMap.copyOf(
         Maps.filterEntries(
             combinedFacts,
-            entry ->
-                depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
-                    && !entry.getValue().equals(Facts.EMPTY)),
+            entry -> isRelevant.test(entry.getKey()) && !entry.getValue().equals(Facts.EMPTY)),
         ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
   }
 

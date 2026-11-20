@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * All Skyframe information required for the {@code bazel mod tidy} command.
@@ -48,7 +50,28 @@ public record BazelModTidyValue(
     requireNonNull(errors, "errors");
   }
 
-  @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MOD_TIDY;
+  /** The key for {@code bazel mod tidy} without a scope, which evaluates all extensions. */
+  @SerializationConstant public static final Key KEY = new Key(null);
+
+  /**
+   * Returns the key for {@code bazel mod tidy} that only evaluates the given extensions and those
+   * used by the root module.
+   */
+  public static Key key(ImmutableSet<ModuleExtensionId> extensions) {
+    return new Key(requireNonNull(extensions));
+  }
+
+  /**
+   * The key for a {@link BazelModTidyValue}.
+   *
+   * @param extensions the extensions to evaluate, or {@code null} to evaluate all extensions
+   */
+  public record Key(@Nullable ImmutableSet<ModuleExtensionId> extensions) implements SkyKey {
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.BAZEL_MOD_TIDY;
+    }
+  }
 
   static BazelModTidyValue create(
       List<RootModuleFileFixup> fixups,

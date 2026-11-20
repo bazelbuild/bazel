@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The result of running Bazel module resolution, containing the Bazel module dependency graph
@@ -125,6 +126,14 @@ public abstract class BazelDepGraphValue implements SkyValue {
         getExtensionUniqueNames(),
         getCanonicalRepoNameLookup(),
         getRepoOverrides());
+  }
+
+  /** Returns the ID of the module extension that generates the given repo, if any. */
+  public final Optional<ModuleExtensionId> getModuleExtensionForRepo(RepositoryName repo) {
+    return getExtensionUniqueNames().entrySet().stream()
+        .filter(e -> repo.getName().startsWith(e.getValue() + "+"))
+        .map(Map.Entry::getKey)
+        .findFirst();
   }
 
   static RepositoryMapping getRepositoryMapping(

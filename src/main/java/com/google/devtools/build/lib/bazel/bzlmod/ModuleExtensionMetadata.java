@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -45,7 +46,9 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
           /* reproducible= */ false,
-          /* facts= */ Facts.EMPTY);
+          /* facts= */ Facts.EMPTY,
+          /* references= */ null,
+          /* toolchainTypes= */ null);
 
   static final ModuleExtensionMetadata REPRODUCIBLE =
       create(
@@ -53,7 +56,9 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
           /* reproducible= */ true,
-          /* facts= */ Facts.EMPTY);
+          /* facts= */ Facts.EMPTY,
+          /* references= */ null,
+          /* toolchainTypes= */ null);
 
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
@@ -67,12 +72,22 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract Facts getFacts();
 
+  /** Canonical target patterns, or {@code null} if the extension doesn't declare references. */
+  @Nullable
+  abstract ImmutableList<String> getReferences();
+
+  /** Canonical toolchain type labels, or {@code null} if the extension doesn't declare them. */
+  @Nullable
+  abstract ImmutableList<String> getToolchainTypes();
+
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
       boolean reproducible,
-      Facts facts) {
+      Facts facts,
+      @Nullable ImmutableList<String> references,
+      @Nullable ImmutableList<String> toolchainTypes) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -82,32 +97,37 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             : null,
         useAllRepos,
         reproducible,
-        facts);
+        facts,
+        references,
+        toolchainTypes);
   }
 
   static ModuleExtensionMetadata create(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
       boolean reproducible,
-      Dict<String, Object> factsObj)
+      Dict<String, Object> factsObj,
+      @Nullable ImmutableList<String> references,
+      @Nullable ImmutableList<String> toolchainTypes)
       throws EvalException {
     var facts = Facts.validateAndCreate(factsObj);
 
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
-      return create(null, null, UseAllRepos.NO, reproducible, facts);
+      return create(null, null, UseAllRepos.NO, reproducible, facts, references, toolchainTypes);
     }
 
     // When root_module_direct_deps = "all", accept both root_module_direct_dev_deps = None and
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.REGULAR, reproducible, facts);
+      return create(
+          null, null, UseAllRepos.REGULAR, reproducible, facts, references, toolchainTypes);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.DEV, reproducible, facts);
+      return create(null, null, UseAllRepos.DEV, reproducible, facts, references, toolchainTypes);
     }
 
     if (rootModuleDirectDepsUnchecked.equals("all")
@@ -170,7 +190,9 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         explicitRootModuleDirectDevDeps,
         UseAllRepos.NO,
         reproducible,
-        facts);
+        facts,
+        references,
+        toolchainTypes);
   }
 
   enum UseAllRepos {
