@@ -386,7 +386,7 @@ static void RunBatchMode(
                 startup_options.io_nice_level);
 
   {
-    WithEnvVars env_obj(PrepareEnvironmentForJvm());
+    WithEnvVars env_obj(PrepareEnvironmentForJvm(startup_options));
 #ifdef __linux__
     bool run_in_user_cgroup = startup_options.run_in_user_cgroup;
 #else
@@ -552,7 +552,7 @@ static void StartServerAndConnect(
                   << " and connecting to it...";
   BlazeServerStartup *server_startup;
   const int server_pid = ExecuteDaemon(
-      server_exe, server_exe_args, PrepareEnvironmentForJvm(),
+      server_exe, server_exe_args, PrepareEnvironmentForJvm(startup_options),
       server->ProcessInfo().jvm_log_file_,
       server->ProcessInfo().jvm_log_file_append_, startup_options.install_base,
       server_dir, startup_options, &server_startup);

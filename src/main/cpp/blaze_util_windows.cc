@@ -811,8 +811,8 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
   // The arguments can exceed the command line length limit of CreateProcessW,
   // for example in batch mode with a large client environment passed via
   // --client_env. Let the Java launcher read them from a file instead. The
-  // embedded JDK's java.exe uses UTF-8 as its active code page and thus reads
-  // the file as UTF-8.
+  // server JVM host uses UTF-8 as its active code page and thus reads the file
+  // as UTF-8.
   string content;
   // Skip the first argument, it is equal to 'exe'.
   for (size_t i = 1; i < server_jvm_args.size(); ++i) {

@@ -18,17 +18,7 @@
 # the specified JDK modules. It runs on any host and can produce a minimized JDK
 # for any target platform, including Windows.
 
-# --- begin runfiles.bash initialization v3 ---
-# Copy-pasted from the Bazel Bash runfiles library v3.
-set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
-# shellcheck disable=SC1090
-source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
-  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
-  source "$0.runfiles/$f" 2>/dev/null || \
-  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
-  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
-  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
-# --- end runfiles.bash initialization v3 ---
+set -euo pipefail
 
 # Force a UTF-8 compatible locale for Java tools to operate under paths with
 # Unicode characters.
@@ -59,7 +49,6 @@ if [ -n "$jmods_archive" ]; then
   jmods_archive=$(cd "$(dirname "$jmods_archive")" && echo "$(pwd)/$(basename "$jmods_archive")")
 fi
 
-UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Options for the JVM that runs the Bazel server, which are either required or
 # recommended when using the embedded JDK on platforms that use a minified JDK.
 # Setting these options here rather than in blaze.cc avoids the need to detect
@@ -209,21 +198,6 @@ for fp in "${DISTRUSTED_SHA256[@]}"; do
   fi
 done
 
-if [[ "$target_windows" == true ]]; then
-  # Patch the app manifest of the java.exe launcher to force its active code
-  # page to UTF-8 on Windows 1903 and later, which is required for proper
-  # support of Unicode characters outside the system code page.
-  # The JDK currently (as of JDK 23) doesn't support this natively:
-  # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  if [[ "$UNAME" =~ msys_nt* ]]; then
-    "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
-      | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
-      | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
-  else
-    echo >&2 "WARNING: not patching the app manifest of java.exe: only" \
-      "supported when building on Windows"
-  fi
-fi
 for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
 # These are necessary for --host_jvm_debug to work.
 if [[ "$target_windows" == true ]]; then
