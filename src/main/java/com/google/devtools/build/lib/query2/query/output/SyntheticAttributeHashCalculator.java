@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Contains the logic for condensing the various properties of rules that contribute to their
@@ -61,6 +62,24 @@ class SyntheticAttributeHashCalculator {
       HashFunction hashFunction,
       boolean includeAttributeSourceAspects,
       boolean includeStarlarkRuleEnv) {
+    return compute(
+        rule,
+        serializedAttributes,
+        extraDataForAttrHash,
+        hashFunction,
+        includeAttributeSourceAspects,
+        includeStarlarkRuleEnv,
+        /* defaults= */ null);
+  }
+
+  static String compute(
+      Rule rule,
+      Map<Attribute, Build.Attribute> serializedAttributes,
+      Object extraDataForAttrHash,
+      HashFunction hashFunction,
+      boolean includeAttributeSourceAspects,
+      boolean includeStarlarkRuleEnv,
+      @Nullable DefaultAttributeProtos defaults) {
     HashingOutputStream hashingOutputStream =
         new HashingOutputStream(hashFunction, ByteStreams.nullOutputStream());
     CodedOutputStream codedOut = CodedOutputStream.newInstance(hashingOutputStream);
@@ -76,7 +95,9 @@ class SyntheticAttributeHashCalculator {
     }
 
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
-    for (Attribute attr : rule.getAttributes()) {
+    var attributes = rule.getAttributeProvider().getAttributes();
+    for (int index = 0; index < attributes.size(); index++) {
+      Attribute attr = attributes.get(index);
       String attrName = attr.getName();
 
       if (attrName.equals("generator_location")) {
@@ -112,8 +133,19 @@ class SyntheticAttributeHashCalculator {
         }
       }
 
-      Build.Attribute attrPb;
-      if (valueToHash instanceof SelectorList<?> || !serializedAttributes.containsKey(attr)) {
+      Build.Attribute attrPb =
+          valueToHash instanceof SelectorList<?> ? null : serializedAttributes.get(attr);
+      if (attrPb == null) {
+        if (defaults != null
+            && !(valueToHash instanceof SelectorList<?>)
+            && valueToHash == attr.getDefaultValueUnchecked()) {
+          try {
+            codedOut.writeRawBytes(defaults.getHashBytes(index, attr, valueToHash));
+          } catch (IOException e) {
+            throw new IllegalStateException("Unexpected IO failure writing to digest stream", e);
+          }
+          continue;
+        }
         // We didn't already serialize the attribute or it's a SelectorList. Latter may
         // have been flattened while we want the full representation, so we start from scratch.
         attrPb =
@@ -125,8 +157,6 @@ class SyntheticAttributeHashCalculator {
                 /* sourceAspect= */ null,
                 includeAttributeSourceAspects,
                 LabelPrinter.legacy());
-      } else {
-        attrPb = serializedAttributes.get(attr);
       }
 
       try {
