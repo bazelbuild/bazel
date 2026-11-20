@@ -22,3 +22,12 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = ["//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker"],
 )
+
+java_binary(
+    name = "test_output_service",
+    testonly = True,
+    jvm_flags = ["--enable-native-access=ALL-UNNAMED"],
+    main_class = "com.google.devtools.build.remote.worker.TestOutputService",
+    visibility = ["//src/test/py/bazel:__pkg__"],
+    runtime_deps = ["//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker:output_service"],
+)

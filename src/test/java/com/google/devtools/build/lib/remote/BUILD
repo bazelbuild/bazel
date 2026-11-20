@@ -125,6 +125,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/exec:file_write_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:remote_local_fallback_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
