@@ -712,7 +712,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "8",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The maximum number parallel http downloads.")
+      help =
+          "The maximum number of parallel HTTP downloads per host. Bazel registry files are"
+              + " fetched with a separate per-host limit of at least 32.")
   public abstract int getHttpMaxParallelDownloads();
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
