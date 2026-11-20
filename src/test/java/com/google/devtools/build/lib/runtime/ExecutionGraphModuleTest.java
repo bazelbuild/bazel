@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -79,7 +80,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -947,6 +950,134 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
                 .addDependentIndex(0)
                 .build())
         .inOrder();
+  }
+
+  /**
+   * A spawn's outputs must not become visible in {@code outputToNode} until its own bytes have been
+   * handed to the write queue. Otherwise a concurrent spawn can write a forward dependency that
+   * appears before its node.
+   */
+  @Test(timeout = 30_000)
+  public void outputsPublishedAfterEnqueue_noForwardReferenceInStream() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    Artifact out1 = createOutputArtifact("foo/out1");
+    Artifact out2 = createOutputArtifact("foo/out2");
+    Artifact out3 = createOutputArtifact("foo/out3");
+    SpawnResult result = createRemoteSpawnResult(100);
+
+    CountDownLatch aInEnqueueBytes = new CountDownLatch(1);
+    CountDownLatch bDone = new CountDownLatch(1);
+
+    ActionDumpWriter writer =
+        new ActionDumpWriter(
+            new CompressionServiceImpl(),
+            BugReporter.defaultInstance(),
+            new EventBus(),
+            /* localLockFreeOutputEnabled= */ false,
+            /* logFileWriteEdges= */ false,
+            buffer,
+            DependencyInfo.ALL,
+            /* queueSize= */ -1,
+            /* queuedBytesLimit= */ -1) {
+          @Override
+          protected void updateLogs(BuildToolLogCollection logs) {}
+
+          @Override
+          boolean enqueueBytes(byte[] entry) {
+            if (Thread.currentThread().getName().equals("spawn-a")) {
+              aInEnqueueBytes.countDown();
+              try {
+                bDone.await();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+              }
+            }
+            return super.enqueueBytes(entry);
+          }
+        };
+
+    Thread a =
+        new Thread(
+            () ->
+                writer.enqueue(
+                    new SpawnExecutedEvent(
+                        new SpawnBuilder().withOwnerPrimaryOutput(out1).build(),
+                        new FakeActionInputFileCache(),
+                        null,
+                        new TestFileOutErr(),
+                        result,
+                        Instant.ofEpochMilli(0),
+                        /* spawnIdentifier= */ "a")),
+            "spawn-a");
+
+    Thread b =
+        new Thread(
+            () -> {
+              try {
+                aInEnqueueBytes.await();
+                writer.enqueue(
+                    new SpawnExecutedEvent(
+                        new SpawnBuilder().withOwnerPrimaryOutput(out2).withInput(out1).build(),
+                        new FakeActionInputFileCache(),
+                        null,
+                        new TestFileOutErr(),
+                        result,
+                        Instant.ofEpochMilli(100),
+                        /* spawnIdentifier= */ "b"));
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                // Always unpark A, so a failure here surfaces as an assertion rather than a hang.
+                bDone.countDown();
+              }
+            },
+            "spawn-b");
+
+    a.start();
+    b.start();
+    a.join();
+    b.join();
+
+    // Spawn c consumes out1 after a's bytes are in the stream, so the dependency is recorded.
+    writer.enqueue(
+        new SpawnExecutedEvent(
+            new SpawnBuilder().withOwnerPrimaryOutput(out3).withInput(out1).build(),
+            new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
+            result,
+            Instant.ofEpochMilli(200),
+            /* spawnIdentifier= */ "c"));
+    writer.shutdown(/* logs= */ null);
+
+    ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
+    assertThat(nodes).hasSize(3);
+
+    ExecutionGraph.Node nodeA = getOnlyNodeWithIdentifier(nodes, "a");
+    ExecutionGraph.Node nodeB = getOnlyNodeWithIdentifier(nodes, "b");
+    ExecutionGraph.Node nodeC = getOnlyNodeWithIdentifier(nodes, "c");
+
+    // b read out1 while a was still blocked in enqueueBytes, so out1 was not yet published.
+    assertThat(nodeB.getDependentIndexList()).isEmpty();
+    assertThat(nodeC.getDependentIndexList()).containsExactly(nodeA.getIndex());
+
+    // Every dependent_index must resolve to a node at an earlier position in the stream.
+    Map<Integer, Integer> streamPositionByIndex = new HashMap<>();
+    for (int pos = 0; pos < nodes.size(); pos++) {
+      streamPositionByIndex.put(nodes.get(pos).getIndex(), pos);
+    }
+    for (int pos = 0; pos < nodes.size(); pos++) {
+      for (int depIndex : nodes.get(pos).getDependentIndexList()) {
+        assertThat(streamPositionByIndex).containsKey(depIndex);
+        assertThat(streamPositionByIndex.get(depIndex)).isLessThan(pos);
+      }
+    }
+  }
+
+  private static ExecutionGraph.Node getOnlyNodeWithIdentifier(
+      ImmutableList<ExecutionGraph.Node> nodes, String identifier) {
+    return nodes.stream().filter(n -> n.getIdentifier().equals(identifier)).collect(onlyElement());
   }
 
   private class FakeOwnerWithPrimaryOutput extends FakeOwner {
