@@ -85,14 +85,21 @@ single_version_override(
     version = "1.76.0.bcr.1",
 )
 
-# Makes abseil link its Windows system libraries (dbghelp, bcrypt) with -l<lib>
-# when it is built with MinGW clang.
-# TODO: Remove once abseil is updated to a release that includes
-# https://github.com/abseil/abseil-cpp/commit/583556e932.
+# Use GAS syntax assembly files under clang-cl, because hermetic-llvm's
+# clang-cl cannot assemble MASM .asm files.
+# TODO: Remove once llvm is updated to a version that includes
+# https://github.com/hermeticbuild/hermetic-llvm/pull/980.
 single_version_override(
-    module_name = "abseil-cpp",
+    module_name = "blake3",
     patch_strip = 1,
-    patches = ["//third_party:abseil-cpp-mingw-clang.patch"],
+    patches = ["//third_party:blake3-clang-cl-asm.patch"],
+)
+
+# Add clang-cl to WABT_CXXOPTS select().
+single_version_override(
+    module_name = "wabt",
+    patch_strip = 1,
+    patches = ["//third_party:wabt-clang-cl.patch"],
 )
 
 # bazel_dep overrides
@@ -150,9 +157,6 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//third_party:protobuf.patch",
-        # Fixes the build of a protobuf tool with MinGW clang.
-        # TODO: Remove once protobuf is updated to a version with this fix.
-        "//third_party:protobuf-mingw-setmode.patch",
     ],
     version = "36.2",
 )
