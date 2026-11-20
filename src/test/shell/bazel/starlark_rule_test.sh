@@ -232,4 +232,58 @@ function test_actions_run_stdout_output_consumed_by_downstream_action() {
   assert_equals "hello-from-stdout" "$(cat bazel-bin/pkg/consumed.copy)"
 }
 
+function test_shared_computed_default_after_rule_reload() {
+  mkdir -p computed
+  cat > computed/defaults.bzl <<'EOF'
+_OLD = Label("//computed:old")
+_NEW = Label("//computed:new")
+
+def _choose_dep(mode):
+    return _OLD if mode == "old" else _NEW
+
+SHARED_DEP = attr.label(default = _choose_dep)
+EOF
+  cat > computed/rules.bzl <<'EOF'
+load(":defaults.bzl", "SHARED_DEP")
+
+def _leaf_impl(ctx):
+    return []
+
+def _probe_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, ctx.attr._dep.label.name + "\n")
+    return [DefaultInfo(files = depset([out]))]
+
+leaf = rule(implementation = _leaf_impl)
+probe = rule(
+    implementation = _probe_impl,
+    attrs = {
+        "_dep": SHARED_DEP,
+        "mode": attr.string(default = "old"),
+    },
+)
+EOF
+  cat > computed/BUILD.bazel <<'EOF'
+load(":rules.bzl", "leaf", "probe")
+
+leaf(name = "old")
+leaf(name = "new")
+probe(name = "instance")
+EOF
+
+  local output_file="${PRODUCT_NAME}-bin/computed/instance.txt"
+  bazel build //computed:instance &> "$TEST_log" || fail "initial build failed"
+  assert_equals "old" "$(cat "$output_file")"
+
+  # Keep the server and the module defining SHARED_DEP warm while reloading the rule.
+  sed 's/default = "old"/default = "new"/' computed/rules.bzl > computed/reloaded.bzl
+  mv computed/reloaded.bzl computed/rules.bzl
+  bazel build //computed:instance &> "$TEST_log" || fail "build after reload failed"
+  assert_equals "new" "$(cat "$output_file")"
+  bazel cquery 'deps(//computed:instance, 1)' --output=label &> "$TEST_log" \
+    || fail "cquery after reload failed"
+  expect_log '^//computed:new '
+  expect_not_log '^//computed:old '
+}
+
 run_suite "Starlark rule definition tests"
