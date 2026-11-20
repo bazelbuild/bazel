@@ -1,0 +1,24 @@
+---
+title: 'ExecTransitionFactory'
+---
+an execution transition.
+
+## Members
+
+* [and_then](#and_then)
+
+## and_then {#and_then}
+
+```
+transition ExecTransitionFactory.and_then(transition)
+```
+
+Returns a new transition that applies this transition followed by the given one. The second transition reads the build settings produced by this one; the original transitions are left unchanged. The result is itself a transition and may be composed further.
+
+A composition may be used as a rule or attribute transition wherever its component transitions could be used. At most one of the composed transitions may target the exec configuration (e.g. `config.exec`). When two transitions in the chain split the configuration, the result has the cross product of their splits; the key for each combined split is the comma-separated concatenation of the component keys.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `transition` | [transition](../builtins/transition); required  The transition to apply after this one. |
