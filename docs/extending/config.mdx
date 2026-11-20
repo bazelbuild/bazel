@@ -187,6 +187,10 @@ build setting to control where its value propagates:
     `PROJECT.scl` directories (including in-project `exec` tools) and resets to
     the baseline value outside the project.
 *   `"universal"`: Propagates everywhere, including across `exec` transitions.
+*   `"platform"`: Propagates to target dependencies, but resets whenever a
+    transition changes `--platforms` so that values set by one platform's
+    [`flags`](/reference/be/platforms-and-toolchains#platform.flags) don't leak
+    into the configurations of another platform. Resets on `exec` transitions.
 *   `"exec:--//pkg:host_flag"`: Inherits the target-configuration value of a
     separate host flag when transitioning to an `exec` configuration.
 

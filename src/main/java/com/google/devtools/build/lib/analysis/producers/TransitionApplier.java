@@ -170,7 +170,11 @@ final class TransitionApplier
     try {
       transitionedOptions =
           transitionCache.computeIfAbsent(
-              fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, eventHandler);
+              fromConfiguration.getOptions(),
+              transition,
+              buildSettingsDetailsValue,
+              fromConfigurationFlagDetails,
+              eventHandler);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;

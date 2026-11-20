@@ -148,6 +148,16 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
                       setting -> setting,
                       setting -> getActual(buildSettingPackages, setting).getAssociatedRule()));
       ImmutableSet<Rule> actualRules = ImmutableSet.copyOf(rawSettingToActualRule.values());
+      for (Rule rule : actualRules) {
+        if (RawAttributeMapper.of(rule).isAttributeValueExplicitlySpecified("on_leave_scope")
+            && getScopeAttribute(rule).equals(Scope.ScopeType.PLATFORM)) {
+          throw new TransitionException(
+              String.format(
+                  "Can't load flag --%s: \"on_leave_scope\" can't be set on a flag with scope"
+                      + " \"platform\".",
+                  rule.getLabel().getCanonicalForm()));
+        }
+      }
 
       // Calculate info based on the actual rules
       // Different rules have different labels so don't need a merge function

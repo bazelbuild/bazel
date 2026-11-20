@@ -62,6 +62,7 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
     "{scope: 'universal', expectFail: false}",
     "{scope: 'target', expectFail: false}",
     "{scope: 'project', expectFail: false}",
+    "{scope: 'platform', expectFail: false}",
     "{scope: 'badvalue', expectFail: true}",
     "{scope: 'default', expectFail: true}", // Valid internal value but can't be set by users.
   })
@@ -86,6 +87,40 @@ public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTes
               InvalidConfigurationException.class,
               () -> createBuildOptions("--//test_flags:foo=True"));
       assertThat(exception).hasMessageThat().contains("Invalid \"scope\" attribute value");
+    }
+  }
+
+  @Test
+  @TestParameters({
+    "{scope: 'target', expectFail: false}",
+    "{scope: 'platform', expectFail: true}",
+  })
+  public void onLeaveScope(String scope, boolean expectFail) throws Exception {
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+            scope = "%s",
+            on_leave_scope = False,
+        )
+        """
+            .formatted(scope));
+
+    if (!expectFail) {
+      assertThat(createBuildOptions("--//test_flags:foo=True")).isNotNull();
+    } else {
+      var exception =
+          assertThrows(
+              InvalidConfigurationException.class,
+              () -> createBuildOptions("--//test_flags:foo=True"));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains(
+              "Can't load flag --//test_flags:foo: \"on_leave_scope\" can't be set on a flag with"
+                  + " scope \"platform\".");
     }
   }
 
