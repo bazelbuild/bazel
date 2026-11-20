@@ -133,6 +133,9 @@ echo "HOME=${HOME-<unset>}"
 if [[ "${HOME:-}" == "$TEST_TMPDIR" ]]; then
   echo "HOME_IS_TEST_TMPDIR"
 fi
+if [[ "${HOME:-}" == "$(unset HOME; echo ~)" ]]; then
+  echo "HOME_IS_USER_HOME"
+fi
 EOF
   chmod +x foo/home_test.sh
   cat > foo/BUILD <<EOF
@@ -162,18 +165,20 @@ EOF
   expect_log "^HOME=$"
   expect_not_log "HOME_IS_TEST_TMPDIR"
 
-  # --test_env==HOME unsets the default HOME.
+  # --test_env==HOME removes the default HOME, so the test uses the home
+  # directory of the current user.
   bazel test --nocache_test_results --test_output=all //foo:home_test \
     --test_env==HOME >& $TEST_log || fail "Running sh_test failed"
-  expect_log "^HOME=<unset>$"
+  expect_log "^HOME=/"
+  expect_log "HOME_IS_USER_HOME"
   expect_not_log "HOME_IS_TEST_TMPDIR"
 
-  # --test_env==HOME also unsets a HOME set via --test_env in a bazelrc, but a
+  # --test_env==HOME also removes a HOME set via --test_env in a bazelrc, but a
   # later --test_env=HOME=... wins again.
   add_to_bazelrc "test --test_env=HOME=/from/bazelrc"
   bazel test --nocache_test_results --test_output=all //foo:home_test \
     --test_env==HOME >& $TEST_log || fail "Running sh_test failed"
-  expect_log "^HOME=<unset>$"
+  expect_log "HOME_IS_USER_HOME"
   bazel test --nocache_test_results --test_output=all //foo:home_test \
     --test_env==HOME --test_env=HOME=/set/again >& $TEST_log || fail "Running sh_test failed"
   expect_log "^HOME=/set/again$"
