@@ -936,7 +936,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       actionExecutionContext
           .getOutputMetadataStore()
           .resetOutputs(ImmutableList.of(outputDepsProto));
-      fsPath.setWritable(true);
+      // Replace the file rather than overwrite it: a remote output service may stage it as an
+      // immutable file that cannot be opened for writing, even after making it writable.
+      fsPath.delete();
       try (var outputStream = fsPath.getOutputStream()) {
         fullOutputDeps.writeTo(outputStream);
       }

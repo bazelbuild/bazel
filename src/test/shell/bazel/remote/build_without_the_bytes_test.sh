@@ -2632,6 +2632,135 @@ EOF
   fi
 }
 
+# Counts the spawns with the given mnemonic and target label in a JSON execution log.
+function count_logged_spawns() {
+  local -r exec_log="$1" mnemonic="$2" label="$3"
+  awk -v m="\"mnemonic\": \"${mnemonic}\"" -v l="\"targetLabel\": \"${label}\"" \
+      'BEGIN { RS = "\n}" } index($0, m) && index($0, l) { n++ } END { print n + 0 }' \
+      "${exec_log}"
+}
+
+function do_test_path_mapped_jdeps_lost_inputs() {
+  local -r consumer_tags="$1"
+  add_rules_java "MODULE.bazel"
+  mkdir -p java/a java/b java/c
+
+  # B's API exposes A, so B's header .jdeps lists A's header jar, and C's reduced classpath only
+  # contains that jar if Bazel reads B's .jdeps with unmapped paths.
+  cat > java/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
+java_library(
+    name = "a",
+    srcs = ["a/A.java"],
+)
+
+java_library(
+    name = "b",
+    srcs = ["b/B.java"],
+    deps = [":a"],
+)
+
+java_library(
+    name = "c",
+    srcs = ["c/C.java"],
+    tags = [${consumer_tags}],
+    deps = [":b"],
+)
+EOF
+  cat > java/a/A.java <<'EOF'
+package a;
+
+public final class A {
+  public int value() {
+    return 1;
+  }
+}
+EOF
+  cat > java/b/B.java <<'EOF'
+package b;
+
+import a.A;
+
+public final class B {
+  public A make() {
+    return new A();
+  }
+}
+EOF
+  cat > java/c/C.java <<'EOF'
+package c;
+
+import b.B;
+
+public final class C {
+  public int run() {
+    return new B().make().value();
+  }
+}
+EOF
+
+  local -r exec_log="${TEST_TMPDIR}/exec.json"
+  local common_flags=(
+    --experimental_output_paths=strip
+    --remote_executor=grpc://localhost:${worker_port}
+    --remote_download_minimal
+    --rewind_lost_inputs
+    --experimental_remote_cache_eviction_retries=0
+  )
+
+  bazel build "${common_flags[@]}" //java:c >& $TEST_log || fail "Initial build failed"
+  bazel clean >& $TEST_log || fail "Clean failed"
+  bazel build "${common_flags[@]}" //java:c >& $TEST_log \
+    || fail "Build with remote cache hits failed"
+
+  # Drop every blob but keep the action cache, so the header jars C compiles against are lost and
+  # the actions producing them must be rewound.
+  delete_remote_cas_files
+  cat > java/c/C.java <<'EOF'
+package c;
+
+import b.B;
+
+public final class C {
+  public int run() {
+    return new B().make().value() + 1;
+  }
+}
+EOF
+  bazel build "${common_flags[@]}" \
+      --execution_log_json_file="${exec_log}" --execution_log_sort=false \
+      //java:c >& $TEST_log || fail "Build after losing remote blobs failed"
+  expect_not_log "Exec failed due to IOException"
+  # Only C's source changed, so B's header compilation reruns only if it was rewound.
+  [[ "$(count_logged_spawns "${exec_log}" Turbine //java:b)" -gt 0 ]] \
+    || fail "Expected the header compilation of //java:b to be rewound"
+
+  # A .jdeps with mapped paths would drop A's header jar from C's reduced classpath, forcing a second
+  # compilation with the full classpath.
+  assert_equals 1 "$(count_logged_spawns "${exec_log}" Javac //java:c)"
+  [[ -f bazel-bin/java/libb-hjar.jdeps ]] || fail "Expected bazel-bin/java/libb-hjar.jdeps to exist"
+  if grep -q "bazel-out/cfg/" bazel-bin/java/libb-hjar.jdeps; then
+    fail "bazel-bin/java/libb-hjar.jdeps still contains mapped paths"
+  fi
+
+  # The recorded metadata must match the rewritten .jdeps files, so nothing re-executes.
+  bazel build "${common_flags[@]}" //java:c >& $TEST_log || fail "No-op build failed"
+  expect_log "1 process: 1 internal."
+  bazel shutdown >& $TEST_log || fail "Shutdown failed"
+  bazel build "${common_flags[@]}" //java:c >& $TEST_log \
+    || fail "No-op build after a server restart failed"
+  expect_log "1 process: [0-9][0-9]* action cache hit, 1 internal."
+}
+
+function test_path_mapped_jdeps_lost_inputs_local_consumer() {
+  do_test_path_mapped_jdeps_lost_inputs '"no-remote-exec"'
+}
+
+function test_path_mapped_jdeps_lost_inputs_remote_consumer() {
+  do_test_path_mapped_jdeps_lost_inputs ''
+}
+
 function test_remote_cache_eviction_retries_with_fixed_invocation_id() {
   mkdir -p a
 
