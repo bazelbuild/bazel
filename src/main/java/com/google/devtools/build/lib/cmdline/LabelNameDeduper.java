@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.devtools.build.lib.runtime.MemoryOptimizations;
-import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Deduplicates target names in labels ("//pkg:name-to-dedup").
@@ -28,7 +28,8 @@ import java.util.Arrays;
  */
 public final class LabelNameDeduper {
   private static final int CACHE_SIZE = 262144;
-  private static final String[] stringCache = new String[CACHE_SIZE];
+  private static final AtomicReferenceArray<String> stringCache =
+      new AtomicReferenceArray<>(CACHE_SIZE);
 
   private LabelNameDeduper() {}
 
@@ -38,19 +39,20 @@ public final class LabelNameDeduper {
     }
     int hash = name.hashCode();
     int idx = (hash ^ (hash >>> 16)) & (CACHE_SIZE - 1);
-    String existing = stringCache[idx];
+    String existing = stringCache.getOpaque(idx);
     if (existing != null && existing.equals(name)) {
       return existing;
     }
-    // Clear can happen concurrently (when Blaze is under memory pressure; see HighWaterMarkLimiter)
-    // but this unsynchronized write is fine because we'd actually benefit from the ability to have
-    // the stringCache array to contain the string but it's also fine if it doesn't. The entire idea
-    // is a very low overhead memory optimization.
-    stringCache[idx] = name;
+    // Concurrent reads, writes, and clears are expected (for example, under memory pressure from
+    // HighWaterMarkLimiter). Opaque access avoids a Java Memory Model data race without adding
+    // memory barrier overhead, and String's final fields ensure safe publication.
+    stringCache.setOpaque(idx, name);
     return name;
   }
 
   public static void clear() {
-    Arrays.fill(stringCache, null);
+    for (int i = 0; i < CACHE_SIZE; i++) {
+      stringCache.setOpaque(i, null);
+    }
   }
 }
