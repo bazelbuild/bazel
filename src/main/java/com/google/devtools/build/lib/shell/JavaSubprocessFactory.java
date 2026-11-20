@@ -157,11 +157,11 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   //
   // As a workaround, we use a lock around the fork.
   //
-  // macOS doesn't return ETXTBSY when executing a file that is open for writing, so the lock isn't
-  // needed there.
+  // FreeBSD also returns ETXTBSY when executing a file that is open for writing, but macOS and
+  // OpenBSD don't, so the lock is only used on Linux and FreeBSD.
   private Process start(ProcessBuilder builder) throws IOException {
     try {
-      if (OS.getCurrent() == OS.DARWIN) {
+      if (OS.getCurrent() != OS.LINUX && OS.getCurrent() != OS.FREEBSD) {
         // Only the linux-sandbox depends on the lifetime of the forking thread.
         return builder.start();
       }
