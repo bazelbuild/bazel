@@ -623,11 +623,6 @@ only contain the minimal set of files the tool requires to do its job. Currently
 sandboxing works on Linux 3.12 or newer with the `CONFIG_USER_NS` option
 enabled, and also on macOS 10.11 or newer.
 
-Bazel will print a warning if your system does not support sandboxing to alert
-you to the fact that builds are not guaranteed to be hermetic and might affect
-the host system in unknown ways. To disable this warning you can pass the
-`--ignore_unsupported_sandboxing` flag to Bazel.
-
 Note: Hermeticity means that the action only uses its declared input
 files and no other files in the filesystem, and it only produces its declared
 output files. See [Hermeticity](/basics/hermeticity) for more details.
