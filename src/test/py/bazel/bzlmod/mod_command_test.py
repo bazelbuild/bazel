@@ -1006,6 +1006,143 @@ class ModCommandTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('"äöü€🌱"', '\n'.join(stdout))
 
+  def testGraphJsonToolchainRegistrations(self):
+    self.ScratchFile('MODULE.bazel', [
+        'module(name = "root")',
+        'bazel_dep(name = "owner", version = "1.0")',
+        'local_path_override(module_name = "owner", path = "owner")',
+        'local_path_override(module_name = "provider", path = "provider")',
+        'register_toolchains("//:second", "//:first", "//:second")',
+    ])
+    self.ScratchFile('BUILD.bazel', [
+        'toolchain_type(name = "type")',
+        'filegroup(name = "impl")',
+        'toolchain(name = "first", toolchain_type = ":type", toolchain = ":impl")',
+        'toolchain(name = "second", toolchain_type = ":type", toolchain = ":impl")',
+    ])
+    self.ScratchFile('owner/MODULE.bazel', [
+        'module(name = "owner", version = "1.0")',
+        'bazel_dep(name = "provider", version = "1.0", repo_name = "private_name")',
+        'register_toolchains("@private_name//:all", "@private_name//:explicit", "@private_name//:impl")',
+        'register_toolchains("@private_name//:dev", dev_dependency = True)',
+    ])
+    self.ScratchFile('provider/MODULE.bazel', [
+        'module(name = "provider", version = "1.0")',
+    ])
+    self.ScratchFile('provider/BUILD.bazel', [
+        'toolchain_type(name = "type")',
+        'filegroup(name = "impl")',
+        'config_setting(name = "opt", values = {"compilation_mode": "opt"})',
+        'constraint_setting(name = "abi")',
+        'constraint_value(name = "special", constraint_setting = ":abi")',
+        'toolchain(name = "normal", toolchain_type = ":type", toolchain = ":impl")',
+        'toolchain(name = "optimized", toolchain_type = ":type", toolchain = ":impl",'
+        ' target_settings = [":opt"], exec_compatible_with = [":special"])',
+        'alias(name = "explicit", actual = ":normal")',
+        'alias(name = "wildcard_alias", actual = ":normal")',
+        'alias(name = "dev", actual = ":normal")',
+    ])
+    graph = ['mod', 'graph', '--output=json']
+    _, stdout, _ = self.RunBazel(graph)
+    plain = json.loads('\n'.join(stdout))
+    self.assertNotIn('moduleToolchainRegistrations', plain)
+    _, stdout, _ = self.RunBazel(graph + ['--include_toolchain_registrations'])
+    enhanced = json.loads('\n'.join(stdout))
+    labels = enhanced.pop('moduleToolchainRegistrations')
+    self.assertEqual(enhanced, plain)
+    # Other built-in modules can register targets as well.
+    ours = [
+        label for label in labels if label.startswith(('//:', '@@provider+//'))
+    ]
+    self.assertEqual(ours[:2], ['//:second', '//:first'])
+    self.assertCountEqual(
+        ours[2:-2], ['@@provider+//:normal', '@@provider+//:optimized']
+    )
+    # An explicit target pattern participates before provider validation.
+    self.assertEqual(ours[-2:], ['@@provider+//:explicit', '@@provider+//:impl'])
+
+  def testGraphJsonToolchainRegistrationOrder(self):
+    self.ScratchFile('tool.bzl', [
+        'def _tool(ctx):',
+        '    return [platform_common.ToolchainInfo(value = ctx.label.name)]',
+        'tool = rule(implementation = _tool)',
+        'def _read(ctx):',
+        '    out = ctx.actions.declare_file(ctx.label.name + ".txt")',
+        '    ctx.actions.write(out, ctx.toolchains["//:type"].value)',
+        '    return [DefaultInfo(files = depset([out]))]',
+        'read = rule(implementation = _read, toolchains = ["//:type"])',
+    ])
+    self.ScratchFile('BUILD.bazel', [
+        'load(":tool.bzl", "read", "tool")',
+        'toolchain_type(name = "type")',
+        'tool(name = "a")',
+        'tool(name = "b")',
+        'toolchain(name = "first", toolchain_type = ":type", toolchain = ":a")',
+        'toolchain(name = "second", toolchain_type = ":type", toolchain = ":b")',
+        'read(name = "chosen")',
+    ])
+
+    def register(first, second):
+      self.ScratchFile('MODULE.bazel', [
+          'module(name = "root")',
+          f'register_toolchains("//:{first}", "//:{second}")',
+      ])
+
+    def labels():
+      _, stdout, _ = self.RunBazel(
+          ['mod', 'graph', '--output=json', '--include_toolchain_registrations']
+      )
+      registered = json.loads('\n'.join(stdout))['moduleToolchainRegistrations']
+      return [label for label in registered if label.startswith('//:')]
+
+    register('first', 'second')
+    _, original_pid, _ = self.RunBazel(['info', 'server_pid'])
+    self.RunBazel(['build', '//:chosen'])
+    with open(self.Path('bazel-bin/chosen.txt'), encoding='utf-8') as output:
+      self.assertEqual(output.read(), 'a')
+    self.assertEqual(labels(), ['//:first', '//:second'])
+    register('second', 'first')
+    self.assertEqual(labels(), ['//:second', '//:first'])
+    self.RunBazel(['build', '//:chosen'])
+    with open(self.Path('bazel-bin/chosen.txt'), encoding='utf-8') as output:
+      self.assertEqual(output.read(), 'b')
+    _, final_pid, _ = self.RunBazel(['info', 'server_pid'])
+    self.assertEqual(original_pid, final_pid)
+
+  def testGraphJsonMissingToolchainRegistration(self):
+    self.ScratchFile('MODULE.bazel', [
+        'module(name = "root")',
+        'register_toolchains("//:present", "//:missing")',
+    ])
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "present")'])
+    graph = ['mod', 'graph', '--output=json']
+    self.RunBazel(graph)
+    code, stdout, stderr = self.RunBazel(
+        graph + ['--include_toolchain_registrations'], allow_failure=True
+    )
+    self.assertNotEqual(code, 0)
+    self.assertIn('missing', '\n'.join(stderr))
+    self.assertEqual(stdout, [])
+
+  def testGraphJsonPartialWildcardToolchainRegistration(self):
+    self.ScratchFile('MODULE.bazel', [
+        'module(name = "root")',
+        'register_toolchains("//broken:all")',
+    ])
+    self.ScratchFile('broken/BUILD.bazel', [
+        'toolchain_type(name = "type")',
+        'filegroup(name = "impl")',
+        'toolchain(name = "present", toolchain_type = ":type", toolchain = ":impl")',
+        'fail("incomplete toolchain package")',
+    ])
+    code, stdout, stderr = self.RunBazel(
+        ['mod', 'graph', '--output=json', '--include_toolchain_registrations'],
+        allow_failure=True,
+    )
+    self.assertNotEqual(code, 0)
+    self.assertIn('target pattern matched a package containing errors', '\n'.join(stderr))
+    self.assertEqual(stdout, [])
+
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
         [

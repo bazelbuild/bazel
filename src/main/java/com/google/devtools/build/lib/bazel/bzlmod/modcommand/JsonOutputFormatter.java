@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
@@ -38,13 +39,27 @@ import javax.annotation.Nullable;
 
 /** Outputs graph-based results of {@link ModExecutor} in JSON format. */
 public class JsonOutputFormatter extends OutputFormatter {
+  @Nullable private final ImmutableList<String> toolchainRegistrations;
   private Set<ModuleExtensionId> seenExtensions;
+
+  public JsonOutputFormatter() {
+    this(null);
+  }
+
+  JsonOutputFormatter(@Nullable ImmutableList<String> toolchainRegistrations) {
+    this.toolchainRegistrations = toolchainRegistrations;
+  }
 
   @Override
   public void output() {
     seenExtensions = new HashSet<>();
     JsonObject root = printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE);
     root.addProperty("root", true);
+    if (toolchainRegistrations != null) {
+      JsonArray labels = new JsonArray();
+      toolchainRegistrations.forEach(labels::add);
+      root.add("moduleToolchainRegistrations", labels);
+    }
     printer.println(
         new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(root));
   }
