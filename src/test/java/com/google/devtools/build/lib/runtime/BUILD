@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -23,6 +23,7 @@ java_library(
             "commands/*.java",
         ],
         exclude = [
+            "ExecutionGraphProtoToTextMain.java",
             "commands/ConfigCommandTest.java",
             "commands/DumpCommandTest.java",
             "commands/RunCommandLineTest.java",
@@ -250,6 +251,18 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",
+    ],
+)
+
+java_binary(
+    name = "execution_graph_proto_to_text",
+    srcs = ["ExecutionGraphProtoToTextMain.java"],
+    main_class = "com.google.devtools.build.lib.runtime.ExecutionGraphProtoToTextMain",
+    visibility = ["//src/test/shell/integration:__pkg__"],
+    deps = [
+        "//src/main/protobuf:execution_graph_java_proto",
+        "//third_party/java/protobuf",
+        "//third_party/java/zstd_jni",
     ],
 )
 

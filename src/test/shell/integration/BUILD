@@ -164,6 +164,18 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_profile_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["bazel_profile_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 6,
+)
+
+sh_test(
     name = "bazel_query_test",
     size = "medium",
     timeout = "long",
@@ -468,6 +480,18 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 5,
+)
+
+sh_test(
+    name = "execution_graph_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["execution_graph_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib/runtime:execution_graph_proto_to_text",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
