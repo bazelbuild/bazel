@@ -17,12 +17,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -41,6 +43,7 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -129,17 +132,17 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
     }
   }
 
-  private Clock clock;
-  private Set<ProfilerTask> profiledTasks;
+  private volatile Clock clock;
+  private volatile ImmutableSet<ProfilerTask> profiledTasks = ImmutableSet.of();
   private volatile boolean active = false;
   private volatile boolean recordAllDurations = false;
-  private Duration profileCpuStartTime = Duration.ZERO;
-  private Duration profileCpuEndTime = Duration.ZERO;
-  private Duration profileStartTime = Duration.ZERO;
-  private Duration profileEndTime = Duration.ZERO;
+  private volatile Duration profileCpuStartTime = Duration.ZERO;
+  private volatile Duration profileCpuEndTime = Duration.ZERO;
+  private volatile Duration profileStartTime = Duration.ZERO;
+  private volatile Duration profileEndTime = Duration.ZERO;
 
   /** Heuristics for determining the filesystem type of a given path. */
-  private ImmutableMap<String, ? extends Predicate<? super String>> vfsTypeHeuristics =
+  private volatile ImmutableMap<String, ? extends Predicate<? super String>> vfsTypeHeuristics =
       DEFAULT_VFS_TYPE_HEURISTICS;
 
   /**
@@ -151,8 +154,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private final SlowestTaskAggregator[] slowestTasks =
       new SlowestTaskAggregator[ProfilerTask.values().length];
 
-  @VisibleForTesting
-  final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
+  private volatile ImmutableMap<ProfilerTask, StatRecorder> tasksHistograms = ImmutableMap.of();
 
   /** Collects local cpu usage data (if enabled). */
   private final ResourceCollector resourceCollector = new ResourceCollector();
@@ -163,14 +165,13 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private final AtomicReference<Map<String, TimeSeries>> inflightRpcTimeSeriesMapRef =
       new AtomicReference<>();
 
-  private Duration actionCountStartTime;
-  private boolean collectTaskHistograms;
-  private boolean includePrimaryOutput;
-  private boolean includeTargetLabel;
-  private boolean includeConfiguration;
+  private volatile Duration actionCountStartTime;
+  private volatile boolean collectTaskHistograms;
+  private volatile boolean includePrimaryOutput;
+  private volatile boolean includeTargetLabel;
+  private volatile boolean includeConfiguration;
 
   public TraceProfilerServiceImpl() {
-    initHistograms();
     for (ProfilerTask task : ProfilerTask.values()) {
       if (task.collectsSlowestInstances) {
         slowestTasks[task.ordinal()] = new SlowestTaskAggregator();
@@ -179,21 +180,23 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   }
 
   private void initHistograms() {
-    for (ProfilerTask task : ProfilerTask.values()) {
+    ImmutableMap<String, ? extends Predicate<? super String>> heuristics = this.vfsTypeHeuristics;
+    Map<ProfilerTask, StatRecorder> histograms = new EnumMap<>(ProfilerTask.class);
+    for (ProfilerTask task : EnumSet.allOf(ProfilerTask.class)) {
       if (task.isVfs()) {
-        List<RecorderAndPredicate> recorders = new ArrayList<>(vfsTypeHeuristics.size());
-        for (Map.Entry<String, ? extends Predicate<? super String>> e :
-            vfsTypeHeuristics.entrySet()) {
+        List<RecorderAndPredicate> recorders = new ArrayList<>(heuristics.size());
+        for (Map.Entry<String, ? extends Predicate<? super String>> e : heuristics.entrySet()) {
           recorders.add(
               new RecorderAndPredicate(
                   new SingleStatRecorder(task + " " + e.getKey(), HISTOGRAM_BUCKETS),
                   e.getValue()));
         }
-        tasksHistograms[task.ordinal()] = new PredicateBasedStatRecorder(recorders);
+        histograms.put(task, new PredicateBasedStatRecorder(recorders));
       } else {
-        tasksHistograms[task.ordinal()] = new SingleStatRecorder(task, HISTOGRAM_BUCKETS);
+        histograms.put(task, new SingleStatRecorder(task, HISTOGRAM_BUCKETS));
       }
     }
+    this.tasksHistograms = Maps.immutableEnumMap(histograms);
   }
 
   @Override
@@ -208,7 +211,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   // can't call stop itself. What to do?
   @Override
   public synchronized ImmutableList<StatRecorder> getTasksHistograms() {
-    return isActive() ? ImmutableList.copyOf(tasksHistograms) : ImmutableList.of();
+    return isActive() ? ImmutableList.copyOf(tasksHistograms.values()) : ImmutableList.of();
   }
 
   @Override
@@ -265,7 +268,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
     initHistograms();
 
-    this.profiledTasks = profiledTasks.isEmpty() ? profiledTasks : EnumSet.copyOf(profiledTasks);
+    this.profiledTasks = Sets.immutableEnumSet(profiledTasks);
     this.clock = clock;
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
     this.actionCountTimeSeriesRef.set(
@@ -410,7 +413,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   @Override
   public synchronized void clear() {
     Preconditions.checkState(!active);
-    Arrays.fill(tasksHistograms, null);
+    tasksHistograms = ImmutableMap.of();
     profileStartTime = Duration.ZERO;
     profileEndTime = Duration.ZERO;
     profileCpuStartTime = Duration.ZERO;
@@ -464,6 +467,15 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
     }
   }
 
+  private void recordTaskHistogram(ProfilerTask type, long duration, String description) {
+    if (collectTaskHistograms) {
+      StatRecorder statRecorder = tasksHistograms.get(type);
+      if (statRecorder != null) {
+        statRecorder.addStat((int) (duration / 1_000_000L), description);
+      }
+    }
+  }
+
   /**
    * Adds task directly to the main queue bypassing task stack. Used for simple tasks that are known
    * to not have any subtasks.
@@ -476,17 +488,17 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
     checkNotNull(description);
     checkState(!description.isEmpty(), "No description -> not helpful");
+    if (!isActive()) {
+      return;
+    }
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
     }
 
-    StatRecorder statRecorder = tasksHistograms[type.ordinal()];
-    if (collectTaskHistograms && statRecorder != null) {
-      statRecorder.addStat((int) (duration / 1_000_000L), description);
-    }
+    recordTaskHistogram(type, duration, description);
 
-    if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
+    if (startTimeNanos >= 0 && isProfiling(type)) {
       // Store instance fields as local variables so they are not nulled out from under us by
       // #clear.
       JsonTraceFileWriter currentWriter = writerRef.get();
@@ -522,17 +534,17 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
       @Nullable String configuration) {
     checkNotNull(description);
     checkState(!description.isEmpty(), "No description -> not helpful");
+    if (!isActive()) {
+      return;
+    }
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
     }
 
-    StatRecorder statRecorder = tasksHistograms[type.ordinal()];
-    if (collectTaskHistograms && statRecorder != null) {
-      statRecorder.addStat((int) (duration / 1_000_000L), description);
-    }
+    recordTaskHistogram(type, duration, description);
 
-    if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
+    if (startTimeNanos >= 0 && isProfiling(type)) {
       JsonTraceFileWriter currentWriter = writerRef.get();
       if (wasTaskSlowEnoughToRecord(type, duration)) {
         var lane = borrowLane();
@@ -566,9 +578,10 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public void logSimpleTask(long startTimeNanos, ProfilerTask type, String description) {
-    if (clock != null) {
-      logTask(startTimeNanos, clock.nanoTime() - startTimeNanos, type, description);
+    if (!isActive()) {
+      return;
     }
+    logTask(startTimeNanos, clock.nanoTime() - startTimeNanos, type, description);
   }
 
   @Override
@@ -611,6 +624,9 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
 
   @Override
   public void logEvent(ProfilerTask type, String description) {
+    if (!isActive()) {
+      return;
+    }
     logEventAtTime(clock.nanoTime(), type, description);
   }
 
