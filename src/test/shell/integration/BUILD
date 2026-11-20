@@ -315,6 +315,16 @@ sh_test(
 )
 
 sh_test(
+    name = "blaze_query_invalidate_test",
+    size = "medium",
+    srcs = ["blaze_query_invalidate_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "build_event_stream_test",
     size = "medium",
     timeout = "long",
