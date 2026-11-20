@@ -24,14 +24,19 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** --run_under options converter. */
 public class RunUnderConverter implements Converter<RunUnder> {
   private static final LabelConverter LABEL_CONVERTER = new LabelConverter();
 
   @Override
+  @Nullable
   public RunUnder convert(final String input, Object conversionContext)
       throws OptionsParsingException {
+    if (input.isEmpty()) {
+      return null;
+    }
     final List<String> runUnderList = new ArrayList<>();
     try {
       ShellUtils.tokenize(runUnderList, input);
