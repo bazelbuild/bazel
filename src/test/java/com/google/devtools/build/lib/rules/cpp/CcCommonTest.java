@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -1216,6 +1218,39 @@ public class CcCommonTest extends BuildViewTestCase {
     Args args = (Args) action.getStarlarkArgs().get(0);
     assertThat(args.getParamFileInfo().getFileType())
         .isEqualTo(windowsQuoting ? ParameterFileType.WINDOWS : ParameterFileType.GCC_QUOTED);
+  }
+
+  @Test
+  public void testCompilationParameterFilePathMapped() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
+    scratch.file(
+        "a/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(name = "foo", srcs = ["foo.cc"])
+        """);
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=CppCompile=+supports-path-mapping");
+    CppCompileAction action = getCppCompileAction("//a:foo");
+    PathMapper pathMapper =
+        PathMappers.create(
+            action,
+            OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
+    assertThat(pathMapper.isNoop()).isFalse();
+
+    var argumentsAndParamFile = action.getArgumentsForExecute(pathMapper);
+
+    PathFragment paramFilePath = argumentsAndParamFile.paramFileActionInput().getExecPath();
+    assertThat(argumentsAndParamFile.arguments())
+        .contains("@" + pathMapper.map(paramFilePath).getPathString());
   }
 
   @Test
