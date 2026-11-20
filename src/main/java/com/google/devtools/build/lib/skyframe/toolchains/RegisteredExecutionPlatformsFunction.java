@@ -68,7 +68,7 @@ import javax.annotation.Nullable;
 public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
   @SerializationConstant
-  static final FilteringPolicy HAS_PLATFORM_INFO =
+  public static final FilteringPolicy HAS_PLATFORM_INFO =
       (Target target, boolean explicit) -> explicit || PlatformLookupUtil.hasPlatformInfo(target);
 
   @Nullable
