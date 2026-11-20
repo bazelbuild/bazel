@@ -166,6 +166,36 @@ public class FileOutErrTest {
   }
 
   @Test
+  public void testFileRecordingOutputStream_deleteIfEmptyDeletesEmptyFile() throws Exception {
+    FileRecordingOutputStream os = newFileRecordingOutputStream("/some-file.txt");
+    Path path = os.getFile();
+    path.getOutputStream().close();
+
+    os.deleteIfEmpty();
+
+    assertThat(path.exists()).isFalse();
+    assertThat(os.getRecordedOutputSize()).isEqualTo(0);
+    assertThat(os.hadError()).isFalse();
+  }
+
+  @Test
+  public void testFileRecordingOutputStream_deleteIfEmptyKeepsFileWithContents() throws Exception {
+    FileRecordingOutputStream os = newFileRecordingOutputStream("/some-file.txt");
+    byte[] data = "12345".getBytes(StandardCharsets.ISO_8859_1);
+    try {
+      os.write(data);
+    } finally {
+      os.close();
+    }
+
+    os.deleteIfEmpty();
+
+    assertThat(os.getFileUnsafe().exists()).isTrue();
+    assertThat(os.getRecordedOutput()).isEqualTo(data);
+    assertThat(os.hadError()).isFalse();
+  }
+
+  @Test
   public void testFileRecordingOutputStream_errorDuringSizeCheck() throws Exception {
     fs.getPath("/dir").createDirectory();
     FileRecordingOutputStream os = newFileRecordingOutputStream("/dir/some-file.txt");
