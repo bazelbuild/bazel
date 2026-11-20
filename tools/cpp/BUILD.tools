@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+load("@bazel_features//:features.bzl", "bazel_features")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -18,13 +19,34 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 # The toolchain type used to distinguish cc toolchains.
-toolchain_type(name = "toolchain_type")
+# buildifier: disable=no-effect
+alias(
+    name = "toolchain_type",
+    actual = "@rules_cc//cc:toolchain_type",
+) if bazel_features.cc._toolchain_type_in_rules_cc else toolchain_type(
+    # buildifier: disable=duplicated-name
+    name = "toolchain_type",
+)
 
-# The toolchain type used to for cc runtimes.
-toolchain_type(name = "cc_runtimes_toolchain_type")
+# The toolchain type used for cc runtimes.
+# buildifier: disable=no-effect
+alias(
+    name = "cc_runtimes_toolchain_type",
+    actual = "@rules_cc//cc:cc_runtimes_toolchain_type",
+) if bazel_features.cc._toolchain_type_in_rules_cc else toolchain_type(
+    # buildifier: disable=duplicated-name
+    name = "cc_runtimes_toolchain_type",
+)
 
-# The toolchain_type used for cc test runners.
-toolchain_type(name = "test_runner_toolchain_type")
+# The toolchain type used for cc test runners.
+# buildifier: disable=no-effect
+alias(
+    name = "test_runner_toolchain_type",
+    actual = "@rules_cc//cc:test_runner_toolchain_type",
+) if bazel_features.cc._toolchain_type_in_rules_cc else toolchain_type(
+    # buildifier: disable=duplicated-name
+    name = "test_runner_toolchain_type",
+)
 
 # Aliases to @rules_cc
 [
