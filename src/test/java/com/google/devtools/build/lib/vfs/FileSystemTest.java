@@ -1124,7 +1124,6 @@ public abstract class FileSystemTest {
     assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
     FileStatus stat = file.stat();
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000);
   }
 
@@ -1137,7 +1136,6 @@ public abstract class FileSystemTest {
     assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(file.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_456);
     FileStatus stat = file.stat();
-    assertThat(stat.getLastModifiedTime()).isEqualTo(1L << 34);
     assertThat(stat.getLastModifiedTimeNanos()).isEqualTo((1L << 34) * 1_000_000 + 123_456);
   }
 
@@ -1237,7 +1235,8 @@ public abstract class FileSystemTest {
 
     // Expect the change time to be only slightly behind the current time.
     assertThat(
-            Duration.between(Instant.ofEpochMilli(file.stat().getLastChangeTime()), Instant.now()))
+            Duration.between(
+                Instant.ofEpochSecond(0, file.stat().getLastChangeTimeNanos()), Instant.now()))
         .isLessThan(Duration.ofSeconds(1));
   }
 

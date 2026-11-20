@@ -532,12 +532,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -580,12 +580,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -628,12 +628,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       return 0;
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
