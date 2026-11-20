@@ -453,7 +453,7 @@
     },
     "@@bazel_jar_jar+//internal:non_module_deps.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "aWu8wa/4jVctfDPq8bBobfW3dSyFVj+YHEe/OT6F79U=",
+        "bzlTransitiveDigest": "I1Wpg1ETZay0XVn48cHCMXwAuqw9z/7JltPaq08mzYc=",
         "usagesDigest": "yPUJRbCRF7ZBu5lCj2Y0tKOlweQexKh04B+dgm99R3U=",
         "recordedInputs": [
           "REPO_MAPPING:bazel_features+,bazel_features_globals bazel_features++version_extension+bazel_features_globals",
