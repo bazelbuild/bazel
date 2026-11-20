@@ -141,7 +141,7 @@ public final class DirectTargetHashFunction implements SkyFunction {
   }
 
   /** Key for {@link DirectTargetHashFunction}. */
-  public static final class Key extends AbstractSkyKey<Label> {
+  public static final class Key extends AbstractSkyKey.WithCachedHashCode<Label> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(Label arg) {
