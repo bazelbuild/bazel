@@ -86,6 +86,9 @@ on the package path. This can be used to simulate the deletion of packages witho
 actually deleting them. This option can be passed multiple times, in which case
 the individual lists are concatenated.
 
+An entry ending in `/...` (for example, `foo/bar/...`) marks the named package
+and every package beneath it as deleted.
+
 ### Error checking {#error-checking}
 
 These options control Bazel's error-checking and/or warnings.
