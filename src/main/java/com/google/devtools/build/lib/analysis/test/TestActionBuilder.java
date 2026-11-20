@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformConstants;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -56,6 +57,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Starlark;
 
 /** Helper class to create test actions. */
 public final class TestActionBuilder {
@@ -76,6 +80,12 @@ public final class TestActionBuilder {
   // reported source file is the same as the actual source path it will not be included in the file.
   private static final String COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE =
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
+
+  // Optional fields of the ToolchainInfo resolved for the default test toolchain type that override
+  // the test wrapper ($test_wrapper / $test_setup_script) and the test XML writer ($xml_writer /
+  // $xml_generator_script) otherwise taken from the implicit attributes of the test rule.
+  private static final String TOOLCHAIN_TEST_WRAPPER_FIELD = "bazel_test_wrapper";
+  private static final String TOOLCHAIN_XML_WRITER_FIELD = "bazel_xml_writer";
 
   private final RuleContext ruleContext;
   private final ImmutableList.Builder<Artifact> additionalTools;
@@ -158,6 +168,68 @@ public final class TestActionBuilder {
     return ruleContext.getActionOwner();
   }
 
+  /** Returns the resolved toolchain context of the exec group the test action runs in, if any. */
+  @Nullable
+  private ResolvedToolchainContext getTestToolchainContext() {
+    var toolchainContexts = ruleContext.getToolchainContexts();
+    if (toolchainContexts == null
+        || !toolchainContexts.hasToolchainContext(getTestExecGroupName())) {
+      return null;
+    }
+    return toolchainContexts.getToolchainContext(getTestExecGroupName());
+  }
+
+  /**
+   * Returns the tool provided by the given field of the default test toolchain if it is set, and
+   * the single artifact of the given implicit attribute otherwise.
+   *
+   * <p>The toolchain field may be a {@code File} or a {@code FilesToRunProvider} with an
+   * executable. A value of {@code None} is treated like an absent field.
+   */
+  private FilesToRunProvider resolveTestTool(
+      @Nullable ToolchainInfo testToolchainInfo, String toolchainField, String fallbackAttr) {
+    if (testToolchainInfo != null) {
+      Object value;
+      try {
+        value = testToolchainInfo.getValue(toolchainField);
+      } catch (EvalException e) {
+        ruleContext.ruleError(e.getMessage());
+        value = null;
+      }
+      switch (value) {
+        case null -> {}
+        case NoneType unused -> {}
+        case Artifact artifact -> {
+          return singleFileToRun(artifact);
+        }
+        case FilesToRunProvider filesToRun when filesToRun.getExecutable() != null -> {
+          return filesToRun;
+        }
+        case FilesToRunProvider unused ->
+            ruleContext.ruleError(
+                String.format(
+                    "The '%s' field of the toolchain for %s must be executable or a single file",
+                    toolchainField, PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE));
+        default ->
+            ruleContext.ruleError(
+                String.format(
+                    "The '%s' field of the toolchain for %s must be a File, FilesToRunProvider or"
+                        + " None, got %s",
+                    toolchainField,
+                    PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE,
+                    Starlark.type(value)));
+      }
+    }
+    return singleFileToRun(ruleContext.getPrerequisiteArtifact(fallbackAttr));
+  }
+
+  private static FilesToRunProvider singleFileToRun(Artifact executable) {
+    return FilesToRunProvider.create(
+        NestedSetBuilder.create(Order.STABLE_ORDER, executable),
+        /* runfilesSupport= */ null,
+        executable);
+  }
+
   /**
    * Returns the reason why the test can't be run in this build, or {@code null} if it can be run.
    *
@@ -167,14 +239,10 @@ public final class TestActionBuilder {
    * be run in that situation, the test action is created, but fails when executed.
    */
   @Nullable
-  private String getUnrunnableReason() {
-    var toolchainContexts = ruleContext.getToolchainContexts();
-    if (toolchainContexts == null
-        || !toolchainContexts.hasToolchainContext(getTestExecGroupName())) {
+  private String getUnrunnableReason(@Nullable ResolvedToolchainContext toolchainContext) {
+    if (toolchainContext == null) {
       return null;
     }
-    ResolvedToolchainContext toolchainContext =
-        toolchainContexts.getToolchainContext(getTestExecGroupName());
     ToolchainTypeInfo testToolchainType =
         toolchainContext
             .requestedToolchainTypeLabels()
@@ -238,7 +306,8 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
     ActionOwner actionOwner = getTestActionOwner();
-    String unrunnableReason = getUnrunnableReason();
+    ResolvedToolchainContext testToolchainContext = getTestToolchainContext();
+    String unrunnableReason = getUnrunnableReason(testToolchainContext);
     boolean isExecutedOnWindows =
         getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 
@@ -260,17 +329,25 @@ public final class TestActionBuilder {
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
 
-    Artifact testActionExecutable =
-        isExecutedOnWindows
-            ? ruleContext.getPrerequisiteArtifact("$test_wrapper")
-            : ruleContext.getPrerequisiteArtifact("$test_setup_script");
+    // The test wrapper and the test XML writer can be provided by the default test toolchain, which
+    // allows them to be chosen based on the execution platform of the test.
+    ToolchainInfo testToolchainInfo =
+        testToolchainContext == null
+            ? null
+            : testToolchainContext.forToolchainType(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE);
+    FilesToRunProvider testActionTool =
+        resolveTestTool(
+            testToolchainInfo,
+            TOOLCHAIN_TEST_WRAPPER_FIELD,
+            isExecutedOnWindows ? "$test_wrapper" : "$test_setup_script");
+    inputsBuilder.addTransitive(testActionTool.getFilesToRun());
 
-    inputsBuilder.add(testActionExecutable);
-    Artifact testXmlGeneratorExecutable =
-        isExecutedOnWindows
-            ? ruleContext.getPrerequisiteArtifact("$xml_writer")
-            : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
-    inputsBuilder.add(testXmlGeneratorExecutable);
+    FilesToRunProvider testXmlGenerator =
+        resolveTestTool(
+            testToolchainInfo,
+            TOOLCHAIN_XML_WRITER_FIELD,
+            isExecutedOnWindows ? "$xml_writer" : "$xml_generator_script");
+    inputsBuilder.addTransitive(testXmlGenerator.getFilesToRun());
 
     FilesToRunProvider collectCoverageScript = null;
     TreeMap<String, String> coverageTestEnv = new TreeMap<>();
@@ -443,8 +520,8 @@ public final class TestActionBuilder {
                 actionOwner,
                 inputs,
                 runfilesSupport.getRunfilesTreeArtifact(),
-                testActionExecutable,
-                testXmlGeneratorExecutable,
+                testActionTool.getExecutable(),
+                testXmlGenerator,
                 collectCoverageScript,
                 testLog,
                 testXml,

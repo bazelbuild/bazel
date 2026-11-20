@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -766,6 +767,105 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(xmlGeneratingSpawn.getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(xmlGeneratingSpawn.getExecutionInfo()).containsKey("resources:cpu:4");
+  }
+
+  @Test
+  public void xmlGeneratingSpawnIncludesFilesToRunOfToolchainXmlWriter() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    scratch.file(
+        "standalone/defs.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [DefaultInfo(executable = script)]
+
+        some_test = rule(implementation = _some_test_impl, test = True)
+
+        def _tool_impl(ctx):
+            exe = ctx.actions.declare_file(ctx.label.name + ".exe")
+            ctx.actions.write(exe, "tool", is_executable = True)
+            return [DefaultInfo(executable = exe, runfiles = ctx.runfiles(files = ctx.files.data))]
+
+        tool = rule(
+            implementation = _tool_impl,
+            executable = True,
+            attrs = {"data": attr.label_list(allow_files = True)},
+        )
+
+        def _test_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(
+                bazel_xml_writer = ctx.attr.xml_writer[DefaultInfo].files_to_run,
+            )]
+
+        test_toolchain = rule(
+            implementation = _test_toolchain_impl,
+            attrs = {"xml_writer": attr.label(cfg = "exec", executable = True)},
+        )
+        """);
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load(":defs.bzl", "some_test", "test_toolchain", "tool")
+
+        tool(
+            name = "custom_xml_writer",
+            data = ["xml_writer_data.txt"],
+        )
+
+        test_toolchain(
+            name = "custom_test_toolchain_impl",
+            xml_writer = ":custom_xml_writer",
+        )
+
+        toolchain(
+            name = "custom_test_toolchain",
+            toolchain = ":custom_test_toolchain_impl",
+            toolchain_type = "%s//tools/test:default_test_toolchain_type",
+        )
+
+        some_test(
+            name = "simple_test",
+            size = "small",
+        )
+        """
+            .formatted(TestConstants.TOOLS_REPOSITORY.getCanonicalForm()));
+    useConfiguration("--extra_toolchains=//standalone:custom_test_toolchain");
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+    assertThat(testRunnerAction.getTestXmlGenerator().getExecutable().getFilename())
+        .isEqualTo("custom_xml_writer.exe");
+
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(invocation -> {
+          spawns.add(invocation.getArgument(0));
+          return ImmutableList.of(PASSED_TEST_SPAWN);
+        });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(2);
+    Spawn xmlGeneratingSpawn = spawns.get(1);
+    assertThat(xmlGeneratingSpawn.getOutputFiles()).containsExactly(testRunnerAction.getTestXml());
+    ImmutableList<Artifact> xmlWriterFilesToRun =
+        testRunnerAction.getTestXmlGenerator().getFilesToRun().toList();
+    // The runfiles of the XML writer are part of its files to run.
+    assertThat(xmlWriterFilesToRun.size()).isGreaterThan(1);
+    assertThat(ImmutableList.copyOf(xmlGeneratingSpawn.getInputFiles().flatten()))
+        .containsExactlyElementsIn(
+            ImmutableList.<Artifact>builder()
+                .addAll(xmlWriterFilesToRun)
+                .add(testRunnerAction.getTestLog())
+                .build());
   }
 
   @Test

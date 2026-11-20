@@ -918,6 +918,290 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     }
   }
 
+  /**
+   * Writes a test rule, a custom toolchain for the default test toolchain type and platforms. The
+   * toolchain provides {@code bazel_test_wrapper} and {@code bazel_xml_writer} according to the
+   * given modes, which are one of "file", "files_to_run", "none", "omit", "string" and
+   * "non_executable".
+   */
+  private void writeCustomTestToolchain(String wrapperMode, String xmlWriterMode)
+      throws IOException {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            providers = [DefaultInfo(executable = script)]
+            if ctx.attr.exec_group_name:
+                providers.append(testing.ExecutionInfo({}, exec_group = ctx.attr.exec_group_name))
+            return providers
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            attrs = {"exec_group_name": attr.string()},
+            exec_groups = {
+                "custom_test": exec_group(
+                    toolchains = ["%s//tools/test:default_test_toolchain_type"],
+                ),
+            },
+            test = True,
+        )
+        """
+            .formatted(TestConstants.TOOLS_REPOSITORY.getCanonicalForm()));
+    scratch.file(
+        "test_toolchain.bzl",
+        """
+        def _tool_impl(ctx):
+            exe = ctx.actions.declare_file(ctx.label.name + ".exe")
+            ctx.actions.write(exe, "tool", is_executable = True)
+            return [DefaultInfo(executable = exe, runfiles = ctx.runfiles(files = ctx.files.data))]
+
+        tool = rule(
+            implementation = _tool_impl,
+            executable = True,
+            attrs = {"data": attr.label_list(allow_files = True)},
+        )
+
+        def _value(ctx, target, executable, mode):
+            if mode == "file":
+                return executable
+            if mode == "files_to_run":
+                return target[DefaultInfo].files_to_run
+            if mode == "none":
+                return None
+            if mode == "string":
+                return "not a file"
+            if mode == "non_executable":
+                return ctx.attr.non_executable[DefaultInfo].files_to_run
+            fail("unexpected mode: " + mode)
+
+        def _test_toolchain_impl(ctx):
+            fields = {}
+            if ctx.attr.wrapper_mode != "omit":
+                fields["bazel_test_wrapper"] = _value(
+                    ctx,
+                    ctx.attr.wrapper,
+                    ctx.executable.wrapper,
+                    ctx.attr.wrapper_mode,
+                )
+            if ctx.attr.xml_writer_mode != "omit":
+                fields["bazel_xml_writer"] = _value(
+                    ctx,
+                    ctx.attr.xml_writer,
+                    ctx.executable.xml_writer,
+                    ctx.attr.xml_writer_mode,
+                )
+            return [platform_common.ToolchainInfo(**fields)]
+
+        test_toolchain = rule(
+            implementation = _test_toolchain_impl,
+            attrs = {
+                "wrapper": attr.label(cfg = "exec", executable = True),
+                "xml_writer": attr.label(cfg = "exec", executable = True),
+                "non_executable": attr.label(cfg = "exec"),
+                "wrapper_mode": attr.string(),
+                "xml_writer_mode": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(":some_test.bzl", "some_test")
+        load(":test_toolchain.bzl", "test_toolchain", "tool")
+
+        platform(
+            name = "linux",
+            constraint_values = ["%1$sos:linux"],
+        )
+
+        platform(
+            name = "windows",
+            constraint_values = ["%1$sos:windows"],
+        )
+
+        tool(
+            name = "custom_wrapper",
+            data = ["wrapper_data.txt"],
+        )
+
+        tool(
+            name = "custom_xml_writer",
+            data = ["xml_writer_data.txt"],
+        )
+
+        filegroup(
+            name = "two_files",
+            srcs = ["a.txt", "b.txt"],
+        )
+
+        test_toolchain(
+            name = "custom_test_toolchain_impl",
+            non_executable = ":two_files",
+            wrapper = ":custom_wrapper",
+            wrapper_mode = "%2$s",
+            xml_writer = ":custom_xml_writer",
+            xml_writer_mode = "%3$s",
+        )
+
+        toolchain(
+            name = "custom_test_toolchain",
+            toolchain = ":custom_test_toolchain_impl",
+            toolchain_type = "%4$s//tools/test:default_test_toolchain_type",
+        )
+
+        some_test(name = "some_test")
+
+        some_test(
+            name = "custom_exec_group_test",
+            exec_group_name = "custom_test",
+        )
+        """
+            .formatted(
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT,
+                wrapperMode,
+                xmlWriterMode,
+                TestConstants.TOOLS_REPOSITORY.getCanonicalForm()));
+  }
+
+  private void useCustomTestToolchainConfiguration(String os) throws Exception {
+    useConfiguration(
+        "--platforms=//:" + os,
+        "--host_platform=//:" + os,
+        "--extra_execution_platforms=//:" + os,
+        "--extra_toolchains=//:custom_test_toolchain");
+  }
+
+  private TestRunnerAction getTestRunnerAction(String label) throws Exception {
+    return (TestRunnerAction) getGeneratingAction(getTestStatusArtifacts(label).get(0));
+  }
+
+  @Test
+  public void testToolchainProvidesTestWrapperAndXmlWriterAsFiles(
+      @TestParameter({"linux", "windows"}) String os) throws Exception {
+    writeCustomTestToolchain("file", "file");
+    useCustomTestToolchainConfiguration(os);
+
+    TestRunnerAction testAction = getTestRunnerAction("//:some_test");
+
+    assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("custom_wrapper.exe");
+    assertThat(testAction.getTestXmlGenerator().getExecutable().getFilename())
+        .isEqualTo("custom_xml_writer.exe");
+    assertThat(testAction.getTestXmlGenerator().getFilesToRun().toList())
+        .containsExactly(testAction.getTestXmlGenerator().getExecutable());
+    assertThat(testAction.getInputs().toList())
+        .containsAtLeast(
+            testAction.getTestSetupScript(), testAction.getTestXmlGenerator().getExecutable());
+    if (os.equals("windows")) {
+      // The default Windows tools are not staged when the toolchain provides replacements.
+      ConfiguredTarget test = getConfiguredTarget("//:some_test");
+      assertThat(testAction.getInputs().toList())
+          .containsNoneIn(getPrerequisiteArtifacts(test, "$test_wrapper"));
+      assertThat(testAction.getInputs().toList())
+          .containsNoneIn(getPrerequisiteArtifacts(test, "$xml_writer"));
+    }
+  }
+
+  @Test
+  public void testToolchainProvidesTestWrapperAndXmlWriterAsFilesToRun(
+      @TestParameter({"linux", "windows"}) String os) throws Exception {
+    writeCustomTestToolchain("files_to_run", "files_to_run");
+    useCustomTestToolchainConfiguration(os);
+
+    TestRunnerAction testAction = getTestRunnerAction("//:some_test");
+
+    assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("custom_wrapper.exe");
+    assertThat(testAction.getTestXmlGenerator().getExecutable().getFilename())
+        .isEqualTo("custom_xml_writer.exe");
+    ImmutableList<Artifact> xmlWriterFilesToRun =
+        testAction.getTestXmlGenerator().getFilesToRun().toList();
+    assertThat(xmlWriterFilesToRun).contains(testAction.getTestXmlGenerator().getExecutable());
+    // The runfiles of the XML writer are part of its files to run.
+    assertThat(xmlWriterFilesToRun.size()).isGreaterThan(1);
+    assertThat(testAction.getInputs().toList()).containsAtLeastElementsIn(xmlWriterFilesToRun);
+    assertThat(testAction.getInputs().toList()).contains(testAction.getTestSetupScript());
+  }
+
+  @Test
+  public void testToolchainFieldsFallBackToRuleAttributesIndependently(
+      @TestParameter({"linux", "windows"}) String os,
+      @TestParameter({"none", "omit"}) String fallbackMode,
+      @TestParameter boolean fallBackForWrapper)
+      throws Exception {
+    writeCustomTestToolchain(
+        fallBackForWrapper ? fallbackMode : "file", fallBackForWrapper ? "file" : fallbackMode);
+    useCustomTestToolchainConfiguration(os);
+
+    TestRunnerAction testAction = getTestRunnerAction("//:some_test");
+    ConfiguredTarget test = getConfiguredTarget("//:some_test");
+    boolean isWindows = os.equals("windows");
+
+    if (fallBackForWrapper) {
+      assertThat(testAction.getTestSetupScript())
+          .isEqualTo(
+              Iterables.getOnlyElement(
+                  getPrerequisiteArtifacts(
+                      test, isWindows ? "$test_wrapper" : "$test_setup_script")));
+      assertThat(testAction.getTestXmlGenerator().getExecutable().getFilename())
+          .isEqualTo("custom_xml_writer.exe");
+    } else {
+      assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("custom_wrapper.exe");
+      assertThat(testAction.getTestXmlGenerator().getExecutable())
+          .isEqualTo(
+              Iterables.getOnlyElement(
+                  getPrerequisiteArtifacts(
+                      test, isWindows ? "$xml_writer" : "$xml_generator_script")));
+    }
+    assertThat(testAction.getTestXmlGenerator().getFilesToRun().toList())
+        .containsExactly(testAction.getTestXmlGenerator().getExecutable());
+    assertThat(testAction.getInputs().toList())
+        .containsAtLeast(
+            testAction.getTestSetupScript(), testAction.getTestXmlGenerator().getExecutable());
+  }
+
+  @Test
+  public void testToolchainProvidesToolsForCustomExecGroup() throws Exception {
+    writeCustomTestToolchain("file", "file");
+    useCustomTestToolchainConfiguration("linux");
+
+    TestRunnerAction testAction = getTestRunnerAction("//:custom_exec_group_test");
+
+    assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("custom_wrapper.exe");
+    assertThat(testAction.getTestXmlGenerator().getExecutable().getFilename())
+        .isEqualTo("custom_xml_writer.exe");
+  }
+
+  @Test
+  public void testToolchainFieldWithInvalidTypeFails() throws Exception {
+    writeCustomTestToolchain("string", "file");
+    useCustomTestToolchainConfiguration("linux");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//:some_test");
+
+    assertContainsEvent(
+        ("The 'bazel_test_wrapper' field of the toolchain for"
+                + " %s//tools/test:default_test_toolchain_type must be a File, FilesToRunProvider"
+                + " or None, got string")
+            .formatted(TestConstants.TOOLS_REPOSITORY.getCanonicalForm()));
+  }
+
+  @Test
+  public void testToolchainFieldWithNonExecutableFilesToRunFails() throws Exception {
+    writeCustomTestToolchain("file", "non_executable");
+    useCustomTestToolchainConfiguration("linux");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//:some_test");
+
+    assertContainsEvent(
+        ("The 'bazel_xml_writer' field of the toolchain for"
+                + " %s//tools/test:default_test_toolchain_type must be executable or a single"
+                + " file")
+            .formatted(TestConstants.TOOLS_REPOSITORY.getCanonicalForm()));
+  }
+
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(String label)
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);

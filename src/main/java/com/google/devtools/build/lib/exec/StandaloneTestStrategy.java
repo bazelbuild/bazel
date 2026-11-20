@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -460,10 +461,11 @@ public class StandaloneTestStrategy extends TestStrategy {
    */
   private static Spawn createXmlGeneratingSpawn(
       TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
+    FilesToRunProvider xmlGenerator = action.getTestXmlGenerator();
     ImmutableList<String> args =
         ImmutableList.of(
-            action
-                .getTestXmlGeneratorScript()
+            xmlGenerator
+                .getExecutable()
                 .getExecPath()
                 .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
             action.getTestLog().getExecPathString(),
@@ -488,9 +490,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Pass the execution info of the action which is identical to the supported tags set on
         // the test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
-        SpawnInputs.of(
-            NestedSetBuilder.create(
-                Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog())),
+        SpawnInputs.of(xmlGenerator.getFilesToRun(), ImmutableList.of(action.getTestLog())),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
