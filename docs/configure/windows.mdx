@@ -29,7 +29,7 @@ startup --output_user_root=C:/tmp
 
 ### Enable symlink support {#symlink}
 
-Some features require Bazel to be able to create file symlinks on Windows,
+Some features require Bazel to be able to create symlinks on Windows,
 either by enabling
 [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development)
 (on Windows 10 version 1703 or newer), or by running Bazel as an administrator.
@@ -45,6 +45,20 @@ startup --windows_enable_symlinks
 
 build --enable_runfiles
 ```
+
+With `--windows_enable_symlinks`, Bazel creates directory symlinks as well as file
+symlinks. Without it, Bazel uses junctions for directories and copies existing
+files. This applies to links in the execroot, external repositories, runfiles, and
+build outputs.
+
+Directory symlinks and junctions resolve nested relative symlinks differently.
+For example, if `C:\view\repo` points to `C:\store\repo`, and that directory
+contains a symlink `link -> ..\other\data.txt`, opening `C:\view\repo\link`
+reaches `C:\store\other\data.txt` through a directory symlink, but
+`C:\view\other\data.txt` through a junction. Builds that rely on relative
+symlinks reaching siblings in the execroot or runfiles tree may need adjustment.
+Existing junctions may be reused after enabling the flag; it does not convert
+them in place.
 
 **Note**: Creating symlinks on Windows is an expensive operation. The `--enable_runfiles` flag can potentially create a large amount of file symlinks. Only enable this feature when you need it.
 
