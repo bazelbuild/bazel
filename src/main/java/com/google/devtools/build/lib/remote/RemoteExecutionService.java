@@ -428,6 +428,28 @@ public class RemoteExecutionService {
   private final Semaphore remoteActionBuildingSemaphore =
       new Semaphore(Runtime.getRuntime().availableProcessors(), true);
 
+  /**
+   * Semaphore for limiting the number of actions that upload their inputs concurrently if
+   * --experimental_throttle_remote_action_building is enabled.
+   *
+   * <p>Uploads mostly wait on the network. They don't share a semaphore with buildRemoteAction() so
+   * that actions that only check the remote cache don't have to wait for them.
+   */
+  private final Semaphore inputUploadSemaphore =
+      new Semaphore(Runtime.getRuntime().availableProcessors(), true);
+
+  /**
+   * The total number of input files of the actions that upload their inputs concurrently if
+   * --experimental_throttle_remote_action_building is disabled.
+   */
+  // While its inputs are uploaded, an action retains its Merkle tree and the state of the upload,
+  // which take up to about 1 KiB per input file. This allows uploads to use an eighth of the heap.
+  private static final int INPUT_UPLOAD_FILE_BUDGET =
+      (int) Math.min(Integer.MAX_VALUE, Runtime.getRuntime().maxMemory() / 8 / 1024);
+
+  /** Has {@link #INPUT_UPLOAD_FILE_BUDGET} permits, one per input file. */
+  private final Semaphore inputUploadFileSemaphore = new Semaphore(INPUT_UPLOAD_FILE_BUDGET, true);
+
   @Nullable
   private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
@@ -438,23 +460,11 @@ public class RemoteExecutionService {
         : null;
   }
 
-  private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
+  private static void acquire(Semaphore semaphore, int permits, ProfilerTask task)
       throws InterruptedException {
-    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
-      return;
-    }
-
     try (var c = Profiler.instance().profile(task, "acquiring semaphore")) {
-      remoteActionBuildingSemaphore.acquire();
+      semaphore.acquire(permits);
     }
-  }
-
-  private void maybeReleaseRemoteActionBuildingSemaphore() {
-    if (!remoteOptions.getThrottleRemoteActionBuilding()) {
-      return;
-    }
-
-    remoteActionBuildingSemaphore.release();
   }
 
   private boolean useOutputPaths() {
@@ -531,7 +541,10 @@ public class RemoteExecutionService {
   public RemoteAction buildRemoteAction(
       Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.BlobPolicy blobPolicy)
       throws IOException, ExecException, InterruptedException {
-    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
+    boolean throttle = remoteOptions.getThrottleRemoteActionBuilding();
+    if (throttle) {
+      acquire(remoteActionBuildingSemaphore, 1, ProfilerTask.REMOTE_SETUP);
+    }
     try {
       // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
       // the paths of the inputs and outputs as well as paths appearing in the command line for
@@ -616,7 +629,9 @@ public class RemoteExecutionService {
           action,
           actionKey);
     } finally {
-      maybeReleaseRemoteActionBuildingSemaphore();
+      if (throttle) {
+        remoteActionBuildingSemaphore.release();
+      }
     }
   }
 
@@ -2091,7 +2106,17 @@ public class RemoteExecutionService {
     // concurrency. This prevents memory exhaustion. We assume that
     // ensureInputsPresent() provides enough parallelism to saturate the
     // network connection.
-    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
+    Semaphore uploadSemaphore;
+    int uploadPermits;
+    if (remoteOptions.getThrottleRemoteActionBuilding()) {
+      uploadSemaphore = inputUploadSemaphore;
+      uploadPermits = 1;
+    } else {
+      uploadSemaphore = inputUploadFileSemaphore;
+      // An action with more input files than the budget uploads on its own.
+      uploadPermits = (int) Math.min(Math.max(action.getInputFiles(), 1), INPUT_UPLOAD_FILE_BUDGET);
+    }
+    acquire(uploadSemaphore, uploadPermits, ProfilerTask.UPLOAD_TIME);
     try {
       MerkleTree.Uploadable merkleTree;
       if (action.getMerkleTree() instanceof MerkleTree.Uploadable uploadable && !force) {
@@ -2123,7 +2148,7 @@ public class RemoteExecutionService {
           additionalInputs,
           force);
     } finally {
-      maybeReleaseRemoteActionBuildingSemaphore();
+      uploadSemaphore.release(uploadPermits);
     }
   }
 
