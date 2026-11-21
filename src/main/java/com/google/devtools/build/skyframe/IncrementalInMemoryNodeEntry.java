@@ -347,7 +347,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
    */
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
-      DirtyType dirtyType, GroupedDeps directDeps, SkyValue value) {
+      DirtyType dirtyType, @GroupedDeps.Compressed Object directDeps, SkyValue value) {
     return new IncrementalBuildingState(dirtyType, directDeps, value);
   }
 
@@ -365,9 +365,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
         }
         return null; // Rewinding errors is no-op.
       }
-      GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
+      @GroupedDeps.Compressed Object directDeps = getCompressedDirectDepsForDoneEntry();
       checkState(
-          dirtyType != DirtyType.DIRTY || !directDeps.isEmpty(),
+          dirtyType != DirtyType.DIRTY || !GroupedDeps.isEmpty(directDeps),
           "%s is being marked dirty but has no children that could have dirtied it",
           getKey());
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
@@ -432,7 +432,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
    * still present and was not changed more recently than {@link #lastEvaluatedVersion}.
    */
   @Nullable
-  final Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
+  final synchronized Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
     var localDirtyBuildingState = dirtyBuildingState;
     if (localDirtyBuildingState == null
         || !localDirtyBuildingState.isIncremental()
@@ -545,11 +545,12 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
 
   /** {@link DirtyBuildingState} for a node on an incremental build. */
   private static class IncrementalBuildingState extends DirtyBuildingState {
-    private final GroupedDeps lastBuildDirectDeps;
+    // Keep saved deps compressed until they are inspected.
+    private Object lastBuildDirectDeps;
     private final SkyValue lastBuildValue;
 
     private IncrementalBuildingState(
-        DirtyType dirtyType, GroupedDeps lastBuildDirectDeps, SkyValue lastBuildValue) {
+        DirtyType dirtyType, Object lastBuildDirectDeps, SkyValue lastBuildValue) {
       super(dirtyType);
       this.lastBuildDirectDeps = lastBuildDirectDeps;
       this.lastBuildValue = lastBuildValue;
@@ -567,18 +568,22 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
 
     @Override
     public final GroupedDeps getLastBuildDirectDeps() {
-      return lastBuildDirectDeps;
+      if (!(lastBuildDirectDeps instanceof GroupedDeps)) {
+        lastBuildDirectDeps =
+            GroupedDeps.decompress(GroupedDeps.castAsCompressed(lastBuildDirectDeps));
+      }
+      return (GroupedDeps) lastBuildDirectDeps;
     }
 
     @Override
     protected final int getNumOfGroupsInLastBuildDirectDeps() {
-      return lastBuildDirectDeps.numGroups();
+      return getLastBuildDirectDeps().numGroups();
     }
 
     @Override
     protected MoreObjects.ToStringHelper getStringHelper() {
       return super.getStringHelper()
-          .add("lastBuildDirectDeps", lastBuildDirectDeps)
+          .add("lastBuildDirectDeps", getLastBuildDirectDeps())
           .add("lastBuildValue", lastBuildValue);
     }
   }
@@ -615,7 +620,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     private final ImmutableSet<SkyKey> resetDeps;
 
     private ResetIncrementalBuildingState(
-        GroupedDeps lastBuildDirectDeps,
+        Object lastBuildDirectDeps,
         SkyValue lastBuildValue,
         int dirtyDirectDepIndex,
         ImmutableSet<SkyKey> resetDeps) {
