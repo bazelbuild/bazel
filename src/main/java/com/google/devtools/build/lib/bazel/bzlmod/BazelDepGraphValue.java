@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The result of running Bazel module resolution, containing the Bazel module dependency graph
@@ -48,7 +49,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
         ImmutableBiMap.copyOf(canonicalRepoNameLookup),
         abridgedModules,
         extensionUsagesTable,
-        extensionUniqueNames,
+        ImmutableBiMap.copyOf(extensionUniqueNames),
         repoOverrides);
   }
 
@@ -105,7 +106,22 @@ public abstract class BazelDepGraphValue implements SkyValue {
    * is not the same as the extension's declared name, as the declared name is only unique within
    * the .bzl file, whereas this unique name is guaranteed to be unique across the workspace.
    */
-  public abstract ImmutableMap<ModuleExtensionId, String> getExtensionUniqueNames();
+  public abstract ImmutableBiMap<ModuleExtensionId, String> getExtensionUniqueNames();
+
+  /** Returns the module extension whose unique name prefixes the canonical repository name. */
+  public final Optional<ModuleExtensionId> getModuleExtensionForRepo(RepositoryName repositoryName) {
+    var extensionsByName = getExtensionUniqueNames().inverse();
+    String name = repositoryName.getName();
+    // Unique extension names followed by '+' are prefix-free. Check earlier delimiters as well
+    // so a nonexistent repository name containing an extra '+' still identifies its extension.
+    for (int end = name.lastIndexOf('+'); end >= 0; end = name.lastIndexOf('+', end - 1)) {
+      ModuleExtensionId id = extensionsByName.get(name.substring(0, end));
+      if (id != null) {
+        return Optional.of(id);
+      }
+    }
+    return Optional.empty();
+  }
 
   /**
    * For each module extension, a mapping from the name of the repo exported by the extension to the
