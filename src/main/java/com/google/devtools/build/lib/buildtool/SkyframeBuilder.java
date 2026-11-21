@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -55,6 +56,8 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -165,6 +168,23 @@ public class SkyframeBuilder implements Builder {
     parallelTests = Sets.difference(parallelTests, targetsToSkip);
     exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
 
+    // Sort parallel tests by timeout descending so that longer-running tests are enqueued first.
+    // TestParams exposes timeout but not size; timeout is a proxy for expected duration here.
+    // ResourceManager uses TestSize-derived schedulingPriority (see TestTargetProperties).
+    Set<ConfiguredTarget> orderedParallelTests = parallelTests;
+    ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
+    if (executionOptions != null && executionOptions.getPrioritizeTestBySize()) {
+      List<ConfiguredTarget> sorted = new ArrayList<>(parallelTests);
+      sorted.sort(
+          Comparator.comparingInt(
+                  (ConfiguredTarget ct) -> {
+                    TestProvider p = ct.getProvider(TestProvider.class);
+                    return p != null ? p.getTestParams().getTimeout().ordinal() : 0;
+                  })
+              .reversed());
+      orderedParallelTests = new LinkedHashSet<>(sorted);
+    }
+
     try {
       result =
           skyframeExecutor.buildArtifacts(
@@ -174,7 +194,7 @@ public class SkyframeBuilder implements Builder {
               artifactsToBuild,
               targetsToBuild,
               aspects,
-              parallelTests,
+              orderedParallelTests,
               exclusiveTests,
               options,
               actionCacheChecker,
