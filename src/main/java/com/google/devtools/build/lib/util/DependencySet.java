@@ -21,6 +21,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -55,10 +56,14 @@ import javax.annotation.Nullable;
 public final class DependencySet {
 
   /**
-   * The set of dependent files that this DependencySet embodies. They are all Path with the same
-   * FileSystem A tree set is used to ensure that we write them out in a consistent order.
+   * The dependent files that this DependencySet embodies, in the order in which they were added.
+   * Relative paths are relative to {@link #root}.
+   *
+   * <p>These are deliberately not stored as {@link Path}s: almost all dependencies in a .d file are
+   * relative, and turning each of them into an absolute {@link Path} only for the consumer to make
+   * it relative again is a measurable cost in large C++ builds.
    */
-  private final Collection<Path> dependencies = new ArrayList<>();
+  private final Collection<PathFragment> dependencies = new ArrayList<>();
 
   private final Path root;
   private String outputFileName;
@@ -78,10 +83,11 @@ public final class DependencySet {
   }
 
   /**
-   * Gets an unmodifiable view of the set of dependencies in {@link Path} form from this
-   * DependencySet instance.
+   * Gets an unmodifiable view of the dependencies of this DependencySet instance. A dependency is
+   * relative to the root of this DependencySet if and only if its {@link PathFragment} is relative.
+   * Relative dependencies never start with an uplevel reference.
    */
-  public Collection<Path> getDependencies() {
+  public Collection<PathFragment> getDependencies() {
     return Collections.unmodifiableCollection(dependencies);
   }
 
@@ -93,14 +99,17 @@ public final class DependencySet {
   public void addDependencies(Collection<Path> deps) {
     for (Path d : deps) {
       Preconditions.checkArgument(d.startsWith(root));
-      dependencies.add(d);
+      dependencies.add(d.asFragment());
     }
   }
 
   /** Adds a given dependency to this DependencySet instance. */
   private void addDependency(String dep) {
-    dep = translatePath(dep);
-    Path depPath = root.getRelative(dep);
+    PathFragment depPath = PathFragment.create(translatePath(dep));
+    if (depPath.containsUplevelReferences()) {
+      // The path may escape the root, so resolve it against the root.
+      depPath = root.asFragment().getRelative(depPath);
+    }
     dependencies.add(depPath);
   }
 
@@ -234,8 +243,8 @@ public final class DependencySet {
 
     try (PrintStream out = new PrintStream(dotdFile.getOutputStream())) {
       out.print(outFile.relativeTo(root) + ": ");
-      for (Path d : dependencies) {
-        out.print(" \\\n  " + d.getPathString()); // should already be root relative
+      for (PathFragment d : dependencies) {
+        out.print(" \\\n  " + d.getPathString());
       }
       out.println();
     }
