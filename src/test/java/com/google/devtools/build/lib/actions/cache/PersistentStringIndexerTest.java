@@ -156,6 +156,70 @@ public final class PersistentStringIndexerTest {
   }
 
   @Test
+  public void lookupsReplaceLoadedInstances() throws Exception {
+    setupTestContent();
+    indexer.save();
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    clock.advance(4);
+
+    String created = copyOf("abcdefghi");
+    assertThat(indexer.getStringForIndex(0)).isNotSameInstanceAs(created);
+    assertThat(indexer.getOrCreateIndex(created)).isEqualTo(0);
+    assertThat(indexer.getStringForIndex(0)).isSameInstanceAs(created);
+
+    String lookedUp = copyOf("abcdefjkl");
+    assertThat(indexer.getStringForIndex(1)).isNotSameInstanceAs(lookedUp);
+    assertThat(indexer.getIndex(lookedUp)).isEqualTo(1);
+    assertThat(indexer.getStringForIndex(1)).isSameInstanceAs(lookedUp);
+    assertThat(indexer.getIndex(copyOf("abcdefjkl")))
+        .isSameInstanceAs(indexer.getOrCreateIndex(lookedUp));
+
+    // Replacing instances doesn't change the persisted entries.
+    assertThat(journalPath.exists()).isFalse();
+    assertSize(9);
+    indexer.save();
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertSize(9);
+    assertContent();
+  }
+
+  @Test
+  public void concurrentLookupsReplacingInstancesDontMiss() throws Exception {
+    int numStrings = 10000;
+    for (int i = 0; i < numStrings; i++) {
+      assertIndex(i, "string" + i);
+    }
+    indexer.save();
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+
+    int numThreads = 10;
+    CountDownLatch synchronizerLatch = new CountDownLatch(numThreads);
+    TestRunnable lookup =
+        () -> {
+          synchronizerLatch.countDown();
+          synchronizerLatch.await();
+          for (int i = 0; i < numStrings; i++) {
+            assertThat(indexer.getIndex(copyOf("string" + i))).isEqualTo(i);
+          }
+        };
+    Collection<TestThread> threads = new ArrayList<>();
+    for (int i = 0; i < numThreads; i++) {
+      TestThread thread = new TestThread(lookup);
+      thread.start();
+      threads.add(thread);
+    }
+    for (TestThread thread : threads) {
+      thread.joinAndAssertState(0);
+    }
+    assertSize(numStrings);
+    assertContent();
+  }
+
+  private static String copyOf(String s) {
+    return new StringBuilder(s).toString();
+  }
+
+  @Test
   public void testNormalOperation() throws Exception {
     assertThat(dataPath.exists()).isFalse();
     assertThat(journalPath.exists()).isFalse();
