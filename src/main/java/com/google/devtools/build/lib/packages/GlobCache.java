@@ -128,15 +128,22 @@ public class GlobCache {
     this.ignoredSubdirectories = ignoredSubdirectories;
   }
 
+  private PathFragment packageRelativePath(Path directory) {
+    return packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
+  }
+
+  private boolean isIgnoredDirectory(PathFragment subPackagePath) {
+    return ignoredSubdirectories.matchingEntry(subPackagePath) != null;
+  }
+
   private boolean globCacheShouldTraverseDirectory(Path directory) {
     if (directory.equals(packageDirectory)) {
       return true;
     }
 
-    PathFragment subPackagePath =
-        packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
+    PathFragment subPackagePath = packageRelativePath(directory);
 
-    if (ignoredSubdirectories.matchingEntry(subPackagePath) != null) {
+    if (isIgnoredDirectory(subPackagePath)) {
       return false;
     }
 
@@ -145,9 +152,7 @@ public class GlobCache {
 
   private boolean isSubPackage(Path directory) {
     return isSubPackage(
-        PackageIdentifier.create(
-            packageId.getRepository(),
-            packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory))));
+        PackageIdentifier.create(packageId.getRepository(), packageRelativePath(directory)));
   }
 
   private boolean isSubPackage(PackageIdentifier subPackageId) {
@@ -360,6 +365,11 @@ public class GlobCache {
 
     @Override
     public boolean shouldIncludePathInResult(Path path, boolean isDirectory) {
+      if (isDirectory
+          && !path.equals(packageDirectory)
+          && isIgnoredDirectory(packageRelativePath(path))) {
+        return false;
+      }
       return switch (globberOperation) {
         case FILES_AND_DIRS -> !isDirectory || !isSubPackage(path);
         case SUBPACKAGES -> {
