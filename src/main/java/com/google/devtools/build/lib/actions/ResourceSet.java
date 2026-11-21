@@ -184,7 +184,7 @@ public record ResourceSet(
   }
 
   @Override
-  public ResourceSet buildResourceSet(OS os, int inputsSize) {
+  public ResourceSet buildResourceSet(OS os, InputsStats inputsStats) {
     return this;
   }
 }

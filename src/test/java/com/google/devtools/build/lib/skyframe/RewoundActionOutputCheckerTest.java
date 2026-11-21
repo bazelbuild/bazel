@@ -92,7 +92,7 @@ public final class RewoundActionOutputCheckerTest {
     for (FileArtifactValue changed :
         ImmutableList.of(
             FileArtifactValue.createForRemoteFile(new byte[0], 1, 1),
-            FileArtifactValue.createForDirectoryWithHash(new byte[0]))) {
+            FileArtifactValue.createForDirectoryWithHash(new byte[0], /* fileCount= */ 0))) {
       assertThat(changedOutput(createWithArtifactData(ImmutableMap.of(file, changed)), before))
           .isEqualTo(file.getExecPathString());
     }

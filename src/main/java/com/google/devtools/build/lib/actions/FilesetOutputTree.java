@@ -148,7 +148,7 @@ public final class FilesetOutputTree implements RichArtifactData {
       ImmutableList<FilesetOutputSymlink> symlinks) {
     Fingerprint fp = new Fingerprint();
     fingerprintSymlinks(symlinks, fp);
-    return FileArtifactValue.createSymlinkTreeProxy(fp.digestAndReset());
+    return FileArtifactValue.createSymlinkTreeProxy(fp.digestAndReset(), symlinks.size());
   }
 
   private static void fingerprintSymlinks(
