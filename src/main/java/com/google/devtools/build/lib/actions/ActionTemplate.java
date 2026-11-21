@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.io.IOException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -74,14 +75,29 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    *     TreeArtifact} the tree file artifact is from.
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
+   * @param inputFileReader provides the contents of the {@code inputTreeFileArtifacts}
    * @param eventHandler the {@link EventHandler} to report events to.
    * @return a list of expanded {@link Action}s to execute
    */
   ImmutableList<T> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionLookupKey artifactOwner,
+      InputFileReader inputFileReader,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException;
+
+  /** Reads the contents of the input {@link TreeFileArtifact}s of an {@link ActionTemplate}. */
+  @FunctionalInterface
+  interface InputFileReader {
+
+    /**
+     * Returns the contents of the given {@link TreeFileArtifact}, downloading it from a remote
+     * cache if necessary.
+     *
+     * @param file a {@link TreeFileArtifact} passed to {@link #generateActionsForInputArtifacts}
+     */
+    byte[] read(TreeFileArtifact file) throws IOException, InterruptedException;
+  }
 
   /** Returns the input TreeArtifacts. */
   ImmutableList<TreeArtifact> getInputTreeArtifacts();

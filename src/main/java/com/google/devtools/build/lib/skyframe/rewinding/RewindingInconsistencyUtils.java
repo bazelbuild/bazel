@@ -31,6 +31,7 @@ public final class RewindingInconsistencyUtils {
   static boolean mayForceRebuildChildren(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
+        || key instanceof ActionTemplateExpansionKey
         || key instanceof TopLevelActionLookupKeyWrapper;
   }
 

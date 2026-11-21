@@ -815,6 +815,22 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void mapDirectory_contentsOfInputDirectoryEvictedWithoutRecovery_recoversWithRewinding()
+      throws Exception {
+    prepareEvictedInputDirectoryForMapDirectory();
+    evictAllBlobs();
+    addOptions("--norewind_lost_inputs", "--experimental_remote_cache_eviction_retries=0");
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:my"));
+
+    // Nothing invalidates the failed expansion, so it has to be reevaluated by the next build.
+    enableActionRewinding();
+    buildTarget("//a:my");
+    waitDownloads();
+
+    assertOutputEquals(getOutputPath("a/my.out/file-hello"), "hello");
+  }
+
+  @Test
   public void actionRewinding_chainedLostInputsWithStaleActionCacheEntries_recovers(
       @TestParameter boolean actionCacheIntegrityCheck, @TestParameter boolean invocationRetries)
       throws Exception {

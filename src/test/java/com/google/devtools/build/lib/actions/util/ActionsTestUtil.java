@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.FilesetArtifact;
@@ -404,6 +405,12 @@ public final class ActionsTestUtil {
 
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
       ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /* actionIndex= */ 0);
+
+  /** An {@link ActionTemplate.InputFileReader} for templates that don't read their inputs. */
+  public static final ActionTemplate.InputFileReader THROWING_INPUT_FILE_READER =
+      file -> {
+        throw new UnsupportedOperationException("Unexpected read of " + file);
+      };
 
   @SerializationConstant
   static final InMemoryFileSystem DUMMY_ARTIFACT_FILE_SYSTEM =
