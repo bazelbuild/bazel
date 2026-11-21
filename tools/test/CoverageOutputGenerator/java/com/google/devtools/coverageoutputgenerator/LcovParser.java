@@ -27,6 +27,9 @@ import static com.google.devtools.coverageoutputgenerator.Constants.FNH_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.FN_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LF_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LH_MARKER;
+import static com.google.devtools.coverageoutputgenerator.Constants.MCDC_MARKER;
+import static com.google.devtools.coverageoutputgenerator.Constants.MCF_MARKER;
+import static com.google.devtools.coverageoutputgenerator.Constants.MCH_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.NEVER_EVALUATED;
 import static com.google.devtools.coverageoutputgenerator.Constants.SF_MARKER;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -138,6 +141,15 @@ class LcovParser {
     if (line.equals(END_OF_RECORD_MARKER)) {
       reset(allSourceFiles);
       return true;
+    }
+    if (line.startsWith(MCDC_MARKER)) {
+      return parseMcdcLine(line);
+    }
+    if (line.startsWith(MCF_MARKER)) {
+      return parseMcfLine(line);
+    }
+    if (line.startsWith(MCH_MARKER)) {
+      return parseMchLine(line);
     }
     logger.log(Level.WARNING, "Tracefile includes invalid line: " + line);
     return false;
@@ -420,6 +432,73 @@ class LcovParser {
       assert currentSourceFileCoverage.nrOfInstrumentedLines() == nrLines;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number on LF line " + line);
+      return false;
+    }
+    return true;
+  }
+
+  // MCDC:<line_number>,<group_size>,<sense>,<taken>,<index>,<expression>
+  private boolean parseMcdcLine(String line) {
+    String lineContent = line.substring(MCDC_MARKER.length());
+    if (lineContent.isEmpty()) {
+      logger.log(Level.WARNING, "Tracefile contains invalid MCDC line " + line);
+      return false;
+    }
+
+    String[] tokens = lineContent.split(DELIMITER, 6);
+    if (tokens.length < 5) {
+      logger.log(Level.WARNING, "Tracefile contains invalid MCDC line " + line);
+      return false;
+    }
+
+    try {
+      int lineNumber = Integer.parseInt(tokens[0]);
+      int groupSize = Integer.parseInt(tokens[1]);
+      char sense = tokens[2].length() > 0 ? tokens[2].charAt(0) : 't';
+      long taken = NEVER_EVALUATED.equals(tokens[3]) ? 0 : Long.parseLong(tokens[3]);
+      int index = Integer.parseInt(tokens[4]);
+      String expression = tokens.length > 5 ? tokens[5] : "";
+
+      McdcCoverage record = McdcCoverage.create(lineNumber, groupSize, sense, taken, index, expression);
+      currentSourceFileCoverage.addMcdc(lineNumber, record);
+    } catch (NumberFormatException e) {
+      logger.log(Level.WARNING, "Tracefile contains invalid MCDC line " + line);
+      return false;
+    }
+    return true;
+  }
+
+  // MCF:<conditions found>
+  private boolean parseMcfLine(String line) {
+    String lineContent = line.substring(MCF_MARKER.length());
+    if (lineContent.isEmpty()) {
+      logger.log(Level.WARNING, "Tracefile contains invalid MCF line " + line);
+      return false;
+    }
+    try {
+      int conditionsFound = Integer.parseInt(lineContent);
+      // We compute this from the records, so just log for verification
+      logger.log(Level.FINE, "MCF line indicates " + conditionsFound + " conditions found");
+    } catch (NumberFormatException e) {
+      logger.log(Level.WARNING, "Tracefile contains an invalid number on MCF line " + line);
+      return false;
+    }
+    return true;
+  }
+
+  // MCH:<conditions hit>
+  private boolean parseMchLine(String line) {
+    String lineContent = line.substring(MCH_MARKER.length());
+    if (lineContent.isEmpty()) {
+      logger.log(Level.WARNING, "Tracefile contains invalid MCH line " + line);
+      return false;
+    }
+    try {
+      int conditionsHit = Integer.parseInt(lineContent);
+      // We compute this from the records, so just log for verification
+      logger.log(Level.FINE, "MCH line indicates " + conditionsHit + " conditions hit");
+    } catch (NumberFormatException e) {
+      logger.log(Level.WARNING, "Tracefile contains an invalid number on MCH line " + line);
       return false;
     }
     return true;
