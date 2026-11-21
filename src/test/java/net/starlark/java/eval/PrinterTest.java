@@ -90,8 +90,34 @@ public class PrinterTest {
     assertThat(Starlark.reprForErrors(overlyNestedList)).isEqualTo("<overly nested list>");
 
     // TODO(bazel-team): can we reproducibly detect a nesting depth over some fixed limit?
-    assertThrows(StackOverflowError.class, () -> str(overlyNestedList));
-    assertThrows(StackOverflowError.class, () -> Starlark.repr(overlyNestedList, DEFAULT));
+    assertStackOverflowsOnSmallStack(() -> str(overlyNestedList));
+    assertStackOverflowsOnSmallStack(() -> Starlark.repr(overlyNestedList, DEFAULT));
+  }
+
+  // The nesting depth at which printing overflows depends on the thread's stack size and on how
+  // much of the printer the JIT has compiled, since compiled frames are smaller than interpreted
+  // ones. On a default-sized stack, 10,000 levels overflow in a cold JVM but can fit once earlier
+  // tests have warmed up the printer. Running on a small, explicit stack makes the overflow
+  // independent of both.
+  private static final long SMALL_STACK_SIZE = 256 * 1024;
+
+  private static void assertStackOverflowsOnSmallStack(Runnable r) throws InterruptedException {
+    Throwable[] thrown = new Throwable[1];
+    Thread t =
+        new Thread(
+            null,
+            () -> {
+              try {
+                r.run();
+              } catch (Throwable e) {
+                thrown[0] = e;
+              }
+            },
+            "small-stack-printer",
+            SMALL_STACK_SIZE);
+    t.start();
+    t.join();
+    assertThat(thrown[0]).isInstanceOf(StackOverflowError.class);
   }
 
   private static StarlarkList<Object> makeOverlyNestedList(Mutability mu, int depth)
