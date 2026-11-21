@@ -45,6 +45,7 @@ import javax.annotation.Nullable;
 public final class ActionInputMetadataProvider implements InputMetadataProvider {
 
   private final ActionInputMap inputArtifactData;
+  private final boolean allowDeclaredInputMetadata;
 
   /**
    * Supports looking up a {@link FilesetOutputSymlink} by the target's exec path.
@@ -55,7 +56,13 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
   private final Supplier<ImmutableMap<String, FilesetOutputSymlink>> filesetMapping;
 
   public ActionInputMetadataProvider(ActionInputMap inputArtifactData) {
+    this(inputArtifactData, /* allowDeclaredInputMetadata= */ true);
+  }
+
+  ActionInputMetadataProvider(
+      ActionInputMap inputArtifactData, boolean allowDeclaredInputMetadata) {
     this.inputArtifactData = inputArtifactData;
+    this.allowDeclaredInputMetadata = allowDeclaredInputMetadata;
     this.filesetMapping =
         Suppliers.memoize(() -> createFilesetMapping(inputArtifactData.getFilesets()));
   }
@@ -86,6 +93,17 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
       return filesetLink.metadata();
     }
     return null;
+  }
+
+  @Nullable
+  @Override
+  public FileArtifactValue getDeclaredInputMetadata(Artifact input) throws IOException {
+    if (!allowDeclaredInputMetadata) {
+      throw new IOException(
+          "DirectoryExpander.digest() is unavailable for actions that discover inputs, including"
+              + " unused_inputs_list");
+    }
+    return inputArtifactData.getDeclaredInputMetadata(input);
   }
 
   @Nullable

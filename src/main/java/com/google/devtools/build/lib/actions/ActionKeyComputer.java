@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.CommandLineExpansionException.InputMetadataRequiredException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
@@ -23,6 +24,8 @@ import net.starlark.java.eval.EvalException;
  * ActionAnalysisMetadata#getKey action key} computation.
  */
 public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
+
+  static final String KEY_REQUIRES_INPUT_METADATA = "requires input metadata";
 
   /**
    * Integer embedded in every action key.
@@ -42,6 +45,10 @@ public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
     try {
       computeKey(actionKeyContext, inputMetadataProvider, fp);
     } catch (CommandLineExpansionException | EvalException e) {
+      if (actionKeyContext.isForActionSharing()
+          && e.getCause() instanceof InputMetadataRequiredException) {
+        return KEY_REQUIRES_INPUT_METADATA;
+      }
       return KEY_ERROR;
     }
 

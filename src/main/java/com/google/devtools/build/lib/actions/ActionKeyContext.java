@@ -21,8 +21,29 @@ import com.google.devtools.build.lib.util.Fingerprint;
 /** Contains state that aids in action key computation via {@link AbstractAction#computeKey}. */
 public class ActionKeyContext {
 
-  private final NestedSetFingerprintCache nestedSetFingerprintCache =
-      new NestedSetFingerprintCache();
+  private final NestedSetFingerprintCache nestedSetFingerprintCache;
+  private final boolean forActionSharing;
+
+  public ActionKeyContext() {
+    this(new NestedSetFingerprintCache(), /* forActionSharing= */ false);
+  }
+
+  private ActionKeyContext(
+      NestedSetFingerprintCache nestedSetFingerprintCache, boolean forActionSharing) {
+    this.nestedSetFingerprintCache = nestedSetFingerprintCache;
+    this.forActionSharing = forActionSharing;
+  }
+
+  /** Returns a context for computing action sharing keys with the same nested-set cache. */
+  ActionKeyContext forActionSharing() {
+    return forActionSharing
+        ? this
+        : new ActionKeyContext(nestedSetFingerprintCache, /* forActionSharing= */ true);
+  }
+
+  public boolean isForActionSharing() {
+    return forActionSharing;
+  }
 
   public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws InterruptedException {

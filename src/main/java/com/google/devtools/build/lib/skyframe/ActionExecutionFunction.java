@@ -344,7 +344,10 @@ public class ActionExecutionFunction implements SkyFunction {
     if (checkedInputs != null) {
       checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.actionInputMap;
-      state.actionInputMetadataProvider = new ActionInputMetadataProvider(state.inputArtifactData);
+      // Action cache checks compute the action key before input discovery.
+      state.actionInputMetadataProvider =
+          new ActionInputMetadataProvider(
+              state.inputArtifactData, /* allowDeclaredInputMetadata= */ !action.discoversInputs());
       state.skyframeInputMetadataProvider =
           new SkyframeInputMetadataProvider(
               evaluator.get(),
@@ -1364,7 +1367,8 @@ public class ActionExecutionFunction implements SkyFunction {
       if (lateDiscoveredInputArtifactData == null) {
         lateDiscoveredInputArtifactData = new ActionInputMap(sizeHint);
         lateDiscoveredInputMetadataProvider =
-            new ActionInputMetadataProvider(lateDiscoveredInputArtifactData);
+            new ActionInputMetadataProvider(
+                lateDiscoveredInputArtifactData, /* allowDeclaredInputMetadata= */ false);
       }
       return lateDiscoveredInputArtifactData;
     }
