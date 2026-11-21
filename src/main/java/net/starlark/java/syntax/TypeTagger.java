@@ -157,8 +157,9 @@ public final class TypeTagger extends NodeVisitor {
     @Nullable TypeConstructor constructor = null;
     if (!(scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED || scope == Scope.GLOBAL)) {
       // Non-file-level local names cannot be types. Don't allow `x: Foo` to succeed if Foo is a
-      // local shadowing a type name.
-      if (binding.isToplevelLocal()) {
+      // local shadowing a type name. A FREE binding may capture a file-level local, such as a
+      // loaded type constructor.
+      if (binding.isToplevelLocal() || scope == Scope.FREE) {
         constructor = typeTable.getTypeConstructor(binding);
       }
       if (constructor != null) {

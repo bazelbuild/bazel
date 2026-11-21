@@ -85,7 +85,8 @@ public final class Resolver extends NodeVisitor {
     // index within frame (LOCAL/CELL), freevars (FREE), or module (GLOBAL)
     private final int index;
 
-    // index within the set of all bindings in the program
+    // index within the set of all bindings in the program, shared by a FREE binding and the
+    // binding it captures
     private final int bindingId;
 
     // True if there is at least one binding occurrence in the resolved syntax tree;
@@ -161,7 +162,10 @@ public final class Resolver extends NodeVisitor {
       return index;
     }
 
-    /** Returns the sequence number of the binding within the set of all bindings in the program. */
+    /**
+     * Returns the sequence number of the binding within the set of all bindings in the program. A
+     * FREE binding has the same sequence number as the binding it captures.
+     */
     int getBindingId() {
       return bindingId;
     }
@@ -1087,7 +1091,14 @@ public final class Resolver extends NodeVisitor {
             }
             int index = b.freevars.size();
             b.freevars.add(bind);
-            bind = newBinding(Scope.FREE, index, /* isSyntactic= */ true, bind.first);
+            bind =
+                new Binding(
+                    Scope.FREE,
+                    index,
+                    bind.bindingId,
+                    /* isSyntactic= */ true,
+                    /* isToplevelLocal= */ false,
+                    bind.first);
           }
         }
 
