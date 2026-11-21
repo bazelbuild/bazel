@@ -21,6 +21,7 @@ import org.junit.runners.Suite.SuiteClasses;
 /** Test suite for downloader package. */
 @RunWith(Suite.class)
 @SuiteClasses({
+  DownloadManagerTest.class,
   HashInputStreamTest.class,
   HttpConnectorMultiplexerIntegrationTest.class,
   HttpConnectorMultiplexerTest.class,

@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -64,6 +66,7 @@ import javax.annotation.Nullable;
  */
 public class DownloadManager {
   private final DownloadCache downloadCache;
+  private final Map<DownloadKey, CountDownLatch> activeCacheFills = new ConcurrentHashMap<>();
   private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
@@ -73,6 +76,8 @@ public class DownloadManager {
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
+
+  private record DownloadKey(Checksum checksum, String canonicalId) {}
 
   /** Creates {@code Credentials} from a map of per-{@code URI} authentication headers. */
   public interface CredentialFactory {
@@ -258,16 +263,11 @@ public class DownloadManager {
       if (downloadCache.isEnabled()) {
         isCachingByProvidedChecksum = true;
 
-        try {
-          Path cachedDestination =
-              downloadCache.get(cacheKey, destination, cacheKeyType, canonicalId, mayHardlink);
-          if (cachedDestination != null) {
-            // Cache hit!
-            eventHandler.post(new DownloadCacheHitEvent(context, cacheKey, mainUrl));
-            return cachedDestination;
-          }
-        } catch (IOException e) {
-          // Ignore error trying to get. We'll just download again.
+        Path cachedDestination =
+            getFromDownloadCache(
+                checksum.get(), destination, canonicalId, mayHardlink, context, mainUrl);
+        if (cachedDestination != null) {
+          return cachedDestination;
         }
       }
 
@@ -330,37 +330,95 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
     }
 
-    for (int attempt = 0; ; ++attempt) {
-      try {
-        downloader.download(
-            rewrittenUrls,
-            headers,
-            credentialFactory.create(rewrittenAuthHeaders),
-            checksum,
-            canonicalId,
-            destination,
-            eventHandler,
-            clientEnv,
-            type,
-            context);
-        break;
-      } catch (InterruptedIOException e) {
-        throw new InterruptedException(e.getMessage());
-      } catch (IOException e) {
-        if (!shouldRetryDownload(e, attempt)) {
-          throw e;
-        }
+    DownloadKey fillKey =
+        isCachingByProvidedChecksum
+            ? new DownloadKey(checksum.get(), Strings.nullToEmpty(canonicalId))
+            : null;
+    CountDownLatch completion = null;
+    if (fillKey != null) {
+      // Concurrent downloads of the same verified bytes can use the normal cache copy.
+      // Include the canonical ID so downloads retain their existing cache restrictions.
+      var newCompletion = new CountDownLatch(1);
+      var pending = activeCacheFills.putIfAbsent(fillKey, newCompletion);
+      if (pending == null) {
+        completion = newCompletion;
+      } else {
+        pending.await();
       }
     }
 
-    if (isCachingByProvidedChecksum) {
-      downloadCache.put(
-          checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
-    } else if (downloadCache.isEnabled()) {
-      var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
-    }
+    try {
+      if (fillKey != null) {
+        // The leader may have completed after our original miss. A failed leader or cache
+        // write still lets each waiting request proceed with its own URLs and credentials.
+        Path cachedDestination =
+            getFromDownloadCache(
+                fillKey.checksum(), destination, canonicalId, mayHardlink, context, mainUrl);
+        if (cachedDestination != null) {
+          return cachedDestination;
+        }
+      }
 
-    return destination;
+      for (int attempt = 0; ; ++attempt) {
+        try {
+          downloader.download(
+              rewrittenUrls,
+              headers,
+              credentialFactory.create(rewrittenAuthHeaders),
+              checksum,
+              canonicalId,
+              destination,
+              eventHandler,
+              clientEnv,
+              type,
+              context);
+          break;
+        } catch (InterruptedIOException e) {
+          throw new InterruptedException(e.getMessage());
+        } catch (IOException e) {
+          if (!shouldRetryDownload(e, attempt)) {
+            throw e;
+          }
+        }
+      }
+
+      if (isCachingByProvidedChecksum) {
+        downloadCache.put(
+            checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
+      } else if (downloadCache.isEnabled()) {
+        var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
+      }
+
+      return destination;
+    } finally {
+      if (completion != null) {
+        activeCacheFills.remove(fillKey, completion);
+        completion.countDown();
+      }
+    }
+  }
+
+  @Nullable
+  private Path getFromDownloadCache(
+      Checksum checksum,
+      Path destination,
+      String canonicalId,
+      boolean mayHardlink,
+      String context,
+      URI mainUrl)
+      throws InterruptedException {
+    try {
+      Path cachedDestination =
+          downloadCache.get(
+              checksum.toString(), destination, checksum.getKeyType(), canonicalId, mayHardlink);
+      if (cachedDestination != null) {
+        eventHandler.post(new DownloadCacheHitEvent(context, checksum.toString(), mainUrl));
+      }
+      return cachedDestination;
+    } catch (IOException e) {
+      // An unreadable entry can be downloaded again.
+      return null;
+    }
   }
 
   private boolean shouldRetryDownload(IOException e, int attempt) {
