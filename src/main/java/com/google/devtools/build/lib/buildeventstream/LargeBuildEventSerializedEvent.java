@@ -29,12 +29,19 @@ public final class LargeBuildEventSerializedEvent {
    */
   public static final int SIZE_OF_LARGE_BUILD_EVENTS_IN_BYTES = 10000000;
 
+  private final String buildEventType;
   private final String buildEventId;
   private final int serializedSizeInBytes;
 
-  public LargeBuildEventSerializedEvent(String buildEventId, int size) {
+  public LargeBuildEventSerializedEvent(String buildEventType, String buildEventId, int size) {
+    this.buildEventType = buildEventType;
     this.buildEventId = buildEventId;
     this.serializedSizeInBytes = size;
+  }
+
+  /** Returns the type of the build event, i.e. the name of its payload case. */
+  public String getBuildEventType() {
+    return buildEventType;
   }
 
   public String getBuildEventId() {
