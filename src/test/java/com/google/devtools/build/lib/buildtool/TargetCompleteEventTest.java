@@ -21,7 +21,11 @@ import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CompletionContext;
+import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
@@ -38,14 +42,19 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Tar
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.ValueWithMetadata;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -175,6 +184,134 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
             .getCompletionContext()
             .getFileArtifactValue(validationArtifact);
     assertThat(validationArtifactMetadata).isNull();
+  }
+
+  /**
+   * Validates that the Skyframe graph, which replays the TargetCompleteEvent and the
+   * AspectCompleteEvent in a build that finds the target and the aspect up to date, does not keep
+   * the events' contexts, and that the replayed events get contexts equivalent to the first ones.
+   */
+  @Test
+  public void completionContextNotRetainedForReplay() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _impl(ctx):
+            file = ctx.actions.declare_file(ctx.label.name + ".txt")
+            ctx.actions.write(file, "Hello")
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "echo -n Hello > %s/file.txt" % dir.path,
+            )
+            return DefaultInfo(files = depset([file, dir]))
+
+        file_and_directory = rule(implementation = _impl)
+
+        def _aspect_impl(target, ctx):
+            file = ctx.actions.declare_file(ctx.label.name + ".aspect.txt")
+            ctx.actions.write(file, "Hello from the aspect")
+            return OutputGroupInfo(aspect_out = depset([file]))
+
+        file_aspect = aspect(implementation = _aspect_impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "file_and_directory")
+
+        file_and_directory(name = "foo")
+        """);
+
+    List<TargetCompleteEvent> targetEvents = new ArrayList<>();
+    List<AspectCompleteEvent> aspectEvents = new ArrayList<>();
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @SuppressWarnings("unused")
+          @Subscribe
+          public void accept(TargetCompleteEvent event) {
+            targetEvents.add(event);
+          }
+
+          @SuppressWarnings("unused")
+          @Subscribe
+          public void accept(AspectCompleteEvent event) {
+            aspectEvents.add(event);
+          }
+        });
+
+    addOptions("--aspects=//foo:defs.bzl%file_aspect", "--output_groups=+aspect_out");
+    buildTarget("//foo:foo");
+    assertThat(targetEvents).hasSize(1);
+    assertThat(aspectEvents).hasSize(1);
+    assertNoCompletionContextInGraph();
+
+    buildTarget("//foo:foo");
+    assertThat(targetEvents).hasSize(2);
+    assertThat(aspectEvents).hasSize(2);
+    assertNoCompletionContextInGraph();
+
+    assertEquivalentContexts(
+        targetEvents.get(0).getCompletionContext(),
+        targetEvents.get(1).getCompletionContext(),
+        targetEvents.get(1).getOutputGroup(OutputGroupInfo.DEFAULT).getArtifacts().toList(),
+        /* expectedFiles= */ 2);
+    assertEquivalentContexts(
+        aspectEvents.get(0).getCompletionContext(),
+        aspectEvents.get(1).getCompletionContext(),
+        aspectEvents.get(1).getArtifacts("aspect_out").getArtifacts().toList(),
+        /* expectedFiles= */ 1);
+  }
+
+  private static void assertEquivalentContexts(
+      CompletionContext first,
+      CompletionContext replayed,
+      ImmutableList<Artifact> outputs,
+      int expectedFiles) {
+    assertThat(replayed).isNotSameInstanceAs(first);
+    List<String> firstExpansion = new ArrayList<>();
+    List<String> replayedExpansion = new ArrayList<>();
+    first.visitArtifacts(outputs, expansionCollector(first, firstExpansion));
+    replayed.visitArtifacts(outputs, expansionCollector(replayed, replayedExpansion));
+    assertThat(firstExpansion).hasSize(expectedFiles);
+    assertThat(replayedExpansion).containsExactlyElementsIn(firstExpansion).inOrder();
+  }
+
+  private static ArtifactReceiver expansionCollector(CompletionContext ctx, List<String> out) {
+    return new ArtifactReceiver() {
+      @Override
+      public void accept(Artifact artifact, FileArtifactValue metadata) {
+        out.add(
+            String.format(
+                "%s %s %d",
+                ctx.pathResolver().toPath(artifact),
+                BaseEncoding.base16().lowerCase().encode(metadata.getDigest()),
+                metadata.getSize()));
+      }
+
+      @Override
+      public void acceptFilesetMapping(Artifact fileset, FilesetOutputSymlink link) {
+        throw new AssertionError(fileset);
+      }
+    };
+  }
+
+  private void assertNoCompletionContextInGraph() {
+    int storedEvents = 0;
+    for (InMemoryNodeEntry entry :
+        getSkyframeExecutor().getEvaluator().getInMemoryGraph().getAllNodeEntries()) {
+      if (!entry.isDone()) {
+        continue;
+      }
+      for (Reportable event :
+          ValueWithMetadata.getEvents(entry.getValueMaybeWithMetadata()).toList()) {
+        assertThat(event).isNotInstanceOf(TargetCompleteEvent.class);
+        assertThat(event).isNotInstanceOf(AspectCompleteEvent.class);
+        storedEvents++;
+      }
+    }
+    // Something is stored to replay the event.
+    assertThat(storedEvents).isGreaterThan(0);
   }
 
   @Test

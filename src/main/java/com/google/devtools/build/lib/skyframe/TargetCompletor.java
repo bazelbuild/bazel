@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -27,12 +26,13 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.ArtifactValueLookup;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.EventFactory;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /** Manages completing builds for configured targets. */
@@ -43,12 +43,14 @@ final class TargetCompletor
 
   static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory,
+      ArtifactValueLookup artifactValueLookup,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
       BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
+        artifactValueLookup,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
@@ -83,28 +85,26 @@ final class TargetCompletor
   }
 
   @Override
-  public TargetCompleteEvent createFailed(
+  public EventFactory createFailed(
       TargetCompletionKey skyKey,
       ConfiguredTargetValue value,
       NestedSet<Cause> rootCauses,
-      CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       Environment env)
       throws InterruptedException {
     return TargetCompleteEvent.createFailed(
-        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env),
-        ctx,
-        rootCauses,
-        outputs,
-        skyframeActionExecutor.publishTargetSummaries());
+            ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env),
+            /* completionContext= */ null,
+            rootCauses,
+            outputs,
+            skyframeActionExecutor.publishTargetSummaries())
+        ::withCompletionContext;
   }
 
   @Override
-  @Nullable
-  public TargetCompleteEvent createSucceeded(
+  public EventFactory createSucceeded(
       TargetCompletionKey skyKey,
       ConfiguredTargetValue value,
-      CompletionContext completionContext,
       ArtifactsToBuild artifactsToBuild,
       Environment env)
       throws InterruptedException {
@@ -113,10 +113,11 @@ final class TargetCompletor
         ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env);
     if (skyKey.willTest()) {
       return TargetCompleteEvent.successfulBuildSchedulingTest(
-          configuredTargetAndData,
-          completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup(),
-          skyframeActionExecutor.publishTargetSummaries());
+              configuredTargetAndData,
+              /* completionContext= */ null,
+              artifactsToBuild.getAllArtifactsByOutputGroup(),
+              skyframeActionExecutor.publishTargetSummaries())
+          ::withCompletionContext;
     } else {
       if (target instanceof InputFileConfiguredTarget) {
         env.getListener()
@@ -128,10 +129,11 @@ final class TargetCompletor
                         + " target that consumes this file, try --compile_one_dependency"));
       }
       return TargetCompleteEvent.successfulBuild(
-          configuredTargetAndData,
-          completionContext,
-          artifactsToBuild.getAllArtifactsByOutputGroup(),
-          skyframeActionExecutor.publishTargetSummaries());
+              configuredTargetAndData,
+              /* completionContext= */ null,
+              artifactsToBuild.getAllArtifactsByOutputGroup(),
+              skyframeActionExecutor.publishTargetSummaries())
+          ::withCompletionContext;
     }
   }
 }
