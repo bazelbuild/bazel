@@ -48,6 +48,15 @@ java_library(
 )
 
 java_library(
+    name = "cpu",
+    srcs = ["CPU.java"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
     name = "os",
     srcs = ["OS.java"],
     visibility = [
@@ -294,7 +303,6 @@ java_library(
     srcs = [
         "AnsiStrippingOutputStream.java",
         "BytesSink.java",
-        "CPU.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
