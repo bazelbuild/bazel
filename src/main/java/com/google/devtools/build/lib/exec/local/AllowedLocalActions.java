@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -69,9 +70,9 @@ public final class AllowedLocalActions {
         ("Action type "
                 + mnemonic
                 + " is not allowed to run locally due to regex filter: "
-                + allowed.regexPattern()
+                + StringEncoding.unicodeToInternal(allowed.regexPattern().toString())
                 + "\n")
-            .getBytes(UTF_8));
+            .getBytes(ISO_8859_1));
     err.flush();
     return runner
         .getSpawnResultBuilder(context)
