@@ -437,7 +437,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
 
   /**
    * Returns a sorted set containing all labels that match a given {@link DependencyFilter}, not
-   * including outputs.
+   * including outputs. Rule-class toolchain types are treated as implicit dependencies.
    *
    * @param filter A dependency filter that determines whether a label should be included in the
    *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
@@ -448,6 +448,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
     ImmutableSortedSet.Builder<Label> labels = ImmutableSortedSet.naturalOrder();
     AggregatingAttributeMapper.of(this)
         .visitLabels(filter, (Attribute attribute, Label label) -> labels.add(label));
+    LabelVisitationUtils.visitRuleToolchains(
+        this, filter, (from, attribute, label) -> labels.add(label));
     return labels.build();
   }
 
