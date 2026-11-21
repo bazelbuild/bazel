@@ -1543,6 +1543,14 @@ public final class SkyframeActionExecutor {
           fileOutErr,
           ErrorTiming.NO_ERROR);
 
+      // Keep the action log directory small since it is cleared serially at the start of the next
+      // build.
+      try {
+        fileOutErr.deleteEmptyFiles();
+      } catch (IOException e) {
+        // The files are deleted along with the directory instead.
+      }
+
       return ActionExecutionValue.create(
           this.outputMetadataStore, actionExecutionContext.getRichArtifactData(), action);
     }

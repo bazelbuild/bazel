@@ -201,6 +201,12 @@ public class FileOutErr extends OutErr {
     getFileOutputStream().clear();
   }
 
+  /** Closes and deletes the out and error streams if they were created but are empty. */
+  public void deleteEmptyFiles() throws IOException {
+    getFileOutputStream().deleteIfEmpty();
+    getFileErrorStream().deleteIfEmpty();
+  }
+
 
   /**
    * Writes the captured out content to the given output stream,
@@ -286,6 +292,9 @@ public class FileOutErr extends OutErr {
 
     /** Closes and deletes the output. */
     abstract void clear() throws IOException;
+
+    /** Closes and deletes the output if it may have been created but is empty. */
+    abstract void deleteIfEmpty() throws IOException;
   }
 
   /**
@@ -337,6 +346,9 @@ public class FileOutErr extends OutErr {
     }
 
     @Override
+    void deleteIfEmpty() {}
+
+    @Override
     public void write(byte[] b, int off, int len) {
     }
 
@@ -373,6 +385,7 @@ public class FileOutErr extends OutErr {
     private OutputStream outputStream;
     private String error;
     private Long cachedSize;
+    private boolean mayExist;
 
     protected FileRecordingOutputStream(Path outputFile) {
       this.outputFile = outputFile;
@@ -399,12 +412,14 @@ public class FileOutErr extends OutErr {
 
     private synchronized void markDirty() {
       cachedSize = null;
+      mayExist = true;
     }
 
     private OutputStream getOutputStream() throws IOException {
       // you should hold the lock before you invoke this method
       if (outputStream == null) {
         outputStream = outputFile.getOutputStream();
+        mayExist = true;
       }
       return outputStream;
     }
@@ -419,6 +434,14 @@ public class FileOutErr extends OutErr {
       outputStream = null;
       outputFile.delete();
       cachedSize = 0L;
+      mayExist = false;
+    }
+
+    @Override
+    synchronized void deleteIfEmpty() throws IOException {
+      if (mayExist && getRecordedOutputSize() == 0) {
+        clear();
+      }
     }
 
     /**
