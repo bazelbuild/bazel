@@ -161,11 +161,17 @@ public class TestSummaryPrinter {
             + "\n");
 
     if (showAllTestCases) {
+      // In one piece: a piece is flushed to the client when printed, and a build of many tests
+      // has more than a million test cases.
+      StringBuilder cases = new StringBuilder();
       for (TestCase testCase : summary.getPassedTestCases()) {
-        TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+        appendTestCase(cases, testCase);
       }
       for (TestCase testCase : summary.getSkippedTestCases()) {
-        TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+        appendTestCase(cases, testCase);
+      }
+      if (!cases.isEmpty()) {
+        terminalPrinter.print(cases.toString());
       }
 
       if (summary.getStatus() == BlazeTestStatus.FAILED) {
@@ -176,10 +182,14 @@ public class TestSummaryPrinter {
                   + Mode.DEFAULT
                   + "\n");
         } else {
+          StringBuilder failed = new StringBuilder();
           for (TestCase testCase : summary.getFailedTestCases()) {
             if (testCase.getStatus() != TestCase.Status.PASSED) {
-              TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+              appendTestCase(failed, testCase);
             }
+          }
+          if (!failed.isEmpty()) {
+            terminalPrinter.print(failed.toString());
           }
 
           if (summary.getFailedTestCasesStatus() != FailedTestCasesStatus.FULL) {
@@ -220,8 +230,8 @@ public class TestSummaryPrinter {
     }
   }
 
-  /** Prints the result of an individual test case. */
-  static void printTestCase(AnsiTerminalPrinter terminalPrinter, TestCase testCase) {
+  /** Appends the line that reports the result of an individual test case. */
+  private static void appendTestCase(StringBuilder out, TestCase testCase) {
     String timeSummary;
     if (testCase.hasRunDurationMillis()) {
       timeSummary = " ("
@@ -237,16 +247,15 @@ public class TestSummaryPrinter {
           case SKIPPED -> Mode.WARNING;
           default -> Mode.ERROR;
         };
-    terminalPrinter.print(
-        "    "
-            + mode
-            + Strings.padEnd(testCase.getStatus().toString(), 8, ' ')
-            + Mode.DEFAULT
-            + testCase.getClassName()
-            + "."
-            + testCase.getName()
-            + timeSummary
-            + "\n");
+    out.append("    ")
+        .append(mode)
+        .append(Strings.padEnd(testCase.getStatus().toString(), 8, ' '))
+        .append(Mode.DEFAULT)
+        .append(testCase.getClassName())
+        .append(".")
+        .append(testCase.getName())
+        .append(timeSummary)
+        .append("\n");
   }
 
   /**
