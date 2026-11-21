@@ -51,6 +51,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
+  @Nullable private final StarlarkBazelModule definingModule;
   private final Facts facts;
   private final boolean rootModuleHasNonDevDependency;
 
@@ -67,6 +68,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
+      @Nullable StarlarkBazelModule definingModule,
       Facts facts,
       boolean rootModuleHasNonDevDependency,
       ImmutableMap<String, Optional<String>> staticEnvVars,
@@ -86,6 +88,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
+    this.definingModule = definingModule;
     this.facts = facts;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
     // Record inputs to the extension that are known prior to evaluation.
@@ -123,6 +126,43 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               + " breadth-first search starting from the root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
+  }
+
+  @StarlarkMethod(
+      name = "root_module",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          """
+          The <a href="../builtins/bazel_module.html">bazel_module</a> object for the root \
+          module if it uses this module extension, or <code>None</code> otherwise. If not \
+          <code>None</code>, this is the same object as the first element of \
+          <a href="#modules"><code>modules</code></a>.
+          """)
+  @Nullable
+  public StarlarkBazelModule getRootModule() {
+    if (modules.isEmpty() || !modules.get(0).isRoot()) {
+      return null;
+    }
+    return modules.get(0);
+  }
+
+  @StarlarkMethod(
+      name = "defining_module",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          """
+          The <a href="../builtins/bazel_module.html">bazel_module</a> object for the module \
+          whose repository contains the <code>.bzl</code> file that defines this module \
+          extension, or <code>None</code> if that module does not itself use the extension. \
+          The module is identified by its repository, not by its name, so this also works \
+          when the extension is used under a different apparent name or with \
+          <code>multiple_version_override</code>.
+          """)
+  @Nullable
+  public StarlarkBazelModule getDefiningModule() {
+    return definingModule;
   }
 
   @StarlarkMethod(
