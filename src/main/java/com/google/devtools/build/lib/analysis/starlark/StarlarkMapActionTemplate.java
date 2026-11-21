@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.io.IOException;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -209,6 +210,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   public ImmutableList<AbstractAction> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionLookupKey artifactOwner,
+      InputFileReader inputFileReader,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException {
 
@@ -222,9 +224,11 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             artifactOwner,
             spawnActionBuilder,
             () -> repoMapping,
+            inputTreeArtifactsToChildren.keySet(),
             ImmutableSet.copyOf(outputDirectories.values()),
             getExecutionInfo(),
-            isSubdirectoryAllowed);
+            isSubdirectoryAllowed,
+            inputFileReader);
 
     ImmutableMap.Builder<String, ExpandedDirectory> expandedDirectories = ImmutableMap.builder();
     for (Entry<String, TreeArtifact> entry : inputDirectories.entrySet()) {
@@ -265,12 +269,20 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       return actions;
     } catch (EvalException e) {
       var messageWithStack = e.getMessageWithStack();
+      // Unlike a bug in the implementation function, an I/O error, such as one encountered while
+      // reading an input, is environmental and shouldn't stop other targets from building.
+      boolean readFailed = e.getCause() instanceof IOException;
       throw new ActionExecutionException(
           messageWithStack,
           e,
           this,
-          /* catastrophe= */ true,
-          makeDetailedExitCode(messageWithStack));
+          /* catastrophe= */ !readFailed,
+          makeDetailedExitCode(
+              messageWithStack,
+              readFailed
+                  ? FailureDetails.Execution.Code.ACTION_INPUT_READ_IO_EXCEPTION
+                  : FailureDetails.Execution.Code
+                      .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE));
     } finally {
       context.close();
     }
@@ -309,15 +321,12 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     }
   }
 
-  private static DetailedExitCode makeDetailedExitCode(String message) {
+  private static DetailedExitCode makeDetailedExitCode(
+      String message, FailureDetails.Execution.Code code) {
     return DetailedExitCode.of(
         FailureDetails.FailureDetail.newBuilder()
             .setMessage(message)
-            .setExecution(
-                FailureDetails.Execution.newBuilder()
-                    .setCode(
-                        FailureDetails.Execution.Code
-                            .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE))
+            .setExecution(FailureDetails.Execution.newBuilder().setCode(code))
             .build());
   }
 

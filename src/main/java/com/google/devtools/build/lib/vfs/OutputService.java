@@ -313,6 +313,13 @@ public interface OutputService {
         throws InterruptedException;
 
     /**
+     * Guards a read of the given input of an {@link
+     * com.google.devtools.build.lib.actions.ActionTemplate} during its expansion.
+     */
+    SilentCloseable enterActionTemplateInputRead(
+        Artifact input, InputMetadataProvider metadataProvider) throws InterruptedException;
+
+    /**
      * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
      * that support racy access to action outputs.
      */
@@ -337,6 +344,12 @@ public interface OutputService {
               Action action,
               NestedSet<Artifact> evaluatedInputs,
               InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterActionTemplateInputRead(
+              Artifact input, InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };

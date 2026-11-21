@@ -43,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",

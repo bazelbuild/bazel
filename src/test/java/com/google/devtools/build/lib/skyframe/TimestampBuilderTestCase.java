@@ -168,7 +168,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     inMemoryCache = new InMemoryActionCache();
     tsgm = new TimestampGranularityMonitor(clock);
     actions = new LinkedHashSet<>();
-    actionTemplateExpansionFunction = new ActionTemplateExpansionFunction(actionKeyContext);
   }
 
   protected void clearActions() {
@@ -250,6 +249,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         /* actionExecutionSalt= */ "",
         /* maxStdoutErrBytes= */ Integer.MAX_VALUE);
 
+    ActionRewindStrategy actionRewindStrategy =
+        new ActionRewindStrategy(
+            skyframeActionExecutor,
+            BugReporter.defaultInstance(),
+            () -> RemoteAnalysisCacheDeps.createDisabled());
+
     InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -270,10 +275,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
-                        new ActionRewindStrategy(
-                            skyframeActionExecutor,
-                            BugReporter.defaultInstance(),
-                            () -> RemoteAnalysisCacheDeps.createDisabled()),
+                        actionRewindStrategy,
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,
@@ -288,7 +290,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         null, BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new DelegatingActionTemplateExpansionFunction())
+                    new DelegatingActionTemplateExpansionFunction(
+                        new ActionTemplateExpansionFunction(
+                            actionKeyContext, skyframeActionExecutor, actionRewindStrategy)))
                 .put(SkyFunctions.ARTIFACT_NESTED_SET, new ArtifactNestedSetFunction(() -> null))
                 .buildOrThrow(),
             differencer,
@@ -407,7 +411,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   /** A non-persistent cache. */
   protected InMemoryActionCache inMemoryCache;
 
-  protected SkyFunction actionTemplateExpansionFunction;
+  /** Replaces the {@link ActionTemplateExpansionFunction} if set. */
+  @Nullable protected SkyFunction actionTemplateExpansionFunction;
 
   /** A class that records an event. */
   protected static class Button implements Runnable {
@@ -621,15 +626,27 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   private class DelegatingActionTemplateExpansionFunction implements SkyFunction {
+    private final SkyFunction defaultFunction;
+
+    DelegatingActionTemplateExpansionFunction(SkyFunction defaultFunction) {
+      this.defaultFunction = defaultFunction;
+    }
+
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      return actionTemplateExpansionFunction.compute(skyKey, env);
+      return delegate().compute(skyKey, env);
     }
 
     @Override
     public String extractTag(SkyKey skyKey) {
-      return actionTemplateExpansionFunction.extractTag(skyKey);
+      return delegate().extractTag(skyKey);
+    }
+
+    private SkyFunction delegate() {
+      return actionTemplateExpansionFunction != null
+          ? actionTemplateExpansionFunction
+          : defaultFunction;
     }
   }
 

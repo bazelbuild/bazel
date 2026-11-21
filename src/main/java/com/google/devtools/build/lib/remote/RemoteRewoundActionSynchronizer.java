@@ -308,6 +308,16 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     }
   }
 
+  @Override
+  public SilentCloseable enterActionTemplateInputRead(
+      Artifact input, InputMetadataProvider metadataProvider) throws InterruptedException {
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(ProfilerTask.ACTION_LOCK, "action.enterActionTemplateInputRead")) {
+      return lockArtifactsForConsumption(() -> ImmutableList.of(input), metadataProvider);
+    }
+  }
+
   /**
    * Guards a call to {@link
    * com.google.devtools.build.lib.remote.RemoteImportantOutputHandler#processOutputsAndGetLostArtifacts}.

@@ -325,6 +325,197 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
+  public void readsContentsOfInputDirectoryChildren() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def read_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for f1 in input_directories["input_dir"].children:
+                seed = template_ctx.read(f1).strip()
+                o1 = template_ctx.declare_file(
+                    f1.basename + "_seed_" + seed + ".out",
+                    directory = output_directories["output_dir"])
+                args = template_ctx.args()
+                args.add_all([o1, f1])
+                template_ctx.run(
+                    inputs = [f1],
+                    outputs = [o1],
+                    executable = tools["cat_tool"],
+                    arguments = [args],
+                )
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = read_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    buildTarget("//test:target");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    assertThat(getChildRelativePaths(outputTree, getTreeArtifactValueFromTemplate(outputTree)))
+        .containsExactly(
+            PathFragment.create("input_dir_f1_seed_1.out"),
+            PathFragment.create("input_dir_f2_seed_2.out"),
+            PathFragment.create("input_dir_f3_seed_3.out"));
+  }
+
+  @Test
+  public void changedContentsOfInputDirectoryChildren_reexpandTemplate() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        def read_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for f1 in input_directories["input_dir"].children:
+                o1 = template_ctx.declare_file(
+                    template_ctx.read(f1).strip() + ".out",
+                    directory = output_directories["output_dir"])
+                args = template_ctx.args()
+                args.add_all([o1, f1])
+                template_ctx.run(
+                    inputs = [f1],
+                    outputs = [o1],
+                    executable = tools["cat_tool"],
+                    arguments = [args],
+                )
+
+        def rule_impl(ctx):
+            input_dir = ctx.actions.declare_directory(ctx.attr.name + "_input_dir")
+            ctx.actions.run_shell(
+                inputs = [ctx.file.data],
+                outputs = [input_dir],
+                command = "cp %s %s/copy" % (ctx.file.data.path, input_dir.path),
+            )
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = read_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    write("test/data.txt", "before");
+    buildTarget("//test:target");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    assertThat(getChildRelativePaths(outputTree, getTreeArtifactValueFromTemplate(outputTree)))
+        .containsExactly(PathFragment.create("before.out"));
+
+    write("test/data.txt", "after");
+    buildTarget("//test:target");
+    outputTree = assertTreeBuilt("test/target_output_dir");
+    assertThat(getChildRelativePaths(outputTree, getTreeArtifactValueFromTemplate(outputTree)))
+        .containsExactly(PathFragment.create("after.out"));
+  }
+
+  @Test
+  public void readsContentsOfInputDirectoryPassedUnderTwoNames() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def read_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            f1 = input_directories["first"].children[0]
+            o1 = template_ctx.declare_file(
+                f1.basename + "_seed_" + template_ctx.read(f1).strip() + ".out",
+                directory = output_directories["output_dir"])
+            args = template_ctx.args()
+            args.add_all([o1, f1])
+            template_ctx.run(
+                inputs = [f1],
+                outputs = [o1],
+                executable = tools["cat_tool"],
+                arguments = [args],
+            )
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 1)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = read_impl,
+                input_directories = {
+                    "first": input_dir,
+                    "second": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    buildTarget("//test:target");
+    TreeArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    assertThat(getChildRelativePaths(outputTree, getTreeArtifactValueFromTemplate(outputTree)))
+        .containsExactly(PathFragment.create("input_dir_f1_seed_1.out"));
+  }
+
+  @Test
+  public void readingFileOutsideInputDirectoriesDisallowed() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir")
+
+        def read_impl(template_ctx, additional_inputs, **kwargs):
+            template_ctx.read(additional_inputs["data"])
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = read_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                additional_inputs = {
+                    "data": ctx.file.data,
+                },
+                tools = {
+                    "cat_tool": ctx.attr.cat_tool.files_to_run,
+                },
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(BuildFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .containsMatch(
+            "Cannot read File:.*test/data.txt, which is not a file in one of the input"
+                + " directories");
+  }
+
+  @Test
   public void outputDirectoriesCanBeChainedToSubsequentMapDirectoryCalls() throws Exception {
     SkyframeExecutorTestHelper.process(getSkyframeExecutor());
     write(
