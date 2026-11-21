@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -53,9 +54,17 @@ public record RegisteredToolchainsValue(
     requireNonNull(toolchainResolutionFlags, "toolchainResolutionFlags");
   }
 
-  /** Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s. */
-  public static Key key(BuildConfigurationKey configurationKey, boolean debug) {
-    return Key.of(configurationKey, debug);
+  /**
+   * Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s.
+   *
+   * @param typeOwnerRepo if not null, the value only contains the toolchains registered with {@code
+   *     --extra_toolchains}, by the root module and by the module with this repo
+   */
+  public static Key key(
+      BuildConfigurationKey configurationKey,
+      boolean debug,
+      @Nullable RepositoryName typeOwnerRepo) {
+    return Key.of(configurationKey, debug, typeOwnerRepo);
   }
 
   /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
@@ -65,14 +74,22 @@ public record RegisteredToolchainsValue(
 
     private final BuildConfigurationKey configurationKey;
     private final boolean debug;
+    @Nullable private final RepositoryName typeOwnerRepo;
 
-    private Key(BuildConfigurationKey configurationKey, boolean debug) {
+    private Key(
+        BuildConfigurationKey configurationKey,
+        boolean debug,
+        @Nullable RepositoryName typeOwnerRepo) {
       this.configurationKey = configurationKey;
       this.debug = debug;
+      this.typeOwnerRepo = typeOwnerRepo;
     }
 
-    private static Key of(BuildConfigurationKey configurationKey, boolean debug) {
-      return interner.intern(new Key(configurationKey, debug));
+    private static Key of(
+        BuildConfigurationKey configurationKey,
+        boolean debug,
+        @Nullable RepositoryName typeOwnerRepo) {
+      return interner.intern(new Key(configurationKey, debug, typeOwnerRepo));
     }
 
     @VisibleForSerialization
@@ -94,6 +111,11 @@ public record RegisteredToolchainsValue(
       return debug;
     }
 
+    @Nullable
+    RepositoryName typeOwnerRepo() {
+      return typeOwnerRepo;
+    }
+
     @Override
     public String toString() {
       return "RegisteredToolchainsValue.Key{"
@@ -101,6 +123,8 @@ public record RegisteredToolchainsValue(
           + configurationKey
           + ", debug: "
           + debug
+          + ", typeOwnerRepo: "
+          + typeOwnerRepo
           + "}";
     }
 
@@ -110,12 +134,13 @@ public record RegisteredToolchainsValue(
         return false;
       }
       return Objects.equals(this.configurationKey, that.configurationKey)
-          && this.debug == that.debug;
+          && this.debug == that.debug
+          && Objects.equals(this.typeOwnerRepo, that.typeOwnerRepo);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(configurationKey, debug);
+      return Objects.hash(configurationKey, debug, typeOwnerRepo);
     }
 
     @Override

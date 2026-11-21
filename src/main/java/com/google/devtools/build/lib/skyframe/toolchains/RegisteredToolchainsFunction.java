@@ -96,7 +96,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     // Get registered toolchains from the external dep graph.
-    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(env);
+    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(env, key.typeOwnerRepo());
     if (bzlmodToolchains == null) {
       return null;
     }
@@ -158,7 +158,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   }
 
   @Nullable
-  private static ImmutableList<TargetPattern> getBzlmodToolchains(Environment env)
+  private static ImmutableList<TargetPattern> getBzlmodToolchains(
+      Environment env, @Nullable RepositoryName typeOwnerRepo)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     BazelDepGraphValue bazelDepGraphValue =
         (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
@@ -172,6 +173,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       }
       RepositoryName repoName =
           bazelDepGraphValue.getCanonicalRepoNameLookup().inverse().get(module.getKey());
+      if (typeOwnerRepo != null && !repoName.isMain() && !repoName.equals(typeOwnerRepo)) {
+        continue;
+      }
       RepositoryMappingValue repoMapping =
           (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
       if (repoMapping == null) {
