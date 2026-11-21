@@ -433,6 +433,15 @@ public final class MerkleTreeComputer {
     }
   }
 
+  static Path resolveInputPath(ActionInput input, ArtifactPathResolver pathResolver) {
+    if (input instanceof ChildActionInput child) {
+      // Read children from the directory that was enumerated. A cached external repository can
+      // be available through the parent artifact without a corresponding execroot symlink.
+      return pathResolver.toPath(child.parent).getRelative(child.relativePath);
+    }
+    return pathResolver.toPath(input);
+  }
+
   /**
    * Adapts a {@link Path} to an {@link ActionInput}.
    *
@@ -733,7 +742,7 @@ public final class MerkleTreeComputer {
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
-          var resolvedPath = artifactPathResolver.toPath(input);
+          var resolvedPath = resolveInputPath(input, artifactPathResolver);
           var digest = digestUtil.compute(resolvedPath, resolvedPath.stat());
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
