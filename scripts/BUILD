@@ -63,10 +63,13 @@ filegroup(
         "@platforms//os:macos": [":jq_macos"],
         "@platforms//os:windows": ["@jq_windows_amd64//file"],
     }),
-    visibility = [
-        "//:__pkg__",
-        "//src/test:__subpackages__",
-    ],
+    visibility = ["//src/test:__subpackages__"],
+)
+
+py_binary(
+    name = "merge_dist_lockfile",
+    srcs = ["merge_dist_lockfile.py"],
+    visibility = ["//:__pkg__"],
 )
 
 sh_test(

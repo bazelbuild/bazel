@@ -174,6 +174,7 @@ EOF
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
       --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \
       --extra_toolchains=@local_config_rust//:all \
+      --@rules_rust//rust/settings:use_hermetic_macos_sdkroot=false \
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --extra_toolchains=fake_java_toolchain:all \
       src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"

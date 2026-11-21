@@ -92,19 +92,18 @@ genrule(
         "mkdir -p $$TMPDIR/workspace",
         "touch $$TMPDIR/workspace/BUILD.bazel",
         "for i in $(SRCS); do if [ \"$$(basename \"$$i\")\" = \"MODULE.bazel.lock\" ]; then continue; fi; dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
-        "cd $$TMPDIR/workspace",
         # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
         # so that we only trigger module resolution, not extension eval.
         # Also use `--batch` so that Bazel doesn't keep a server process alive.
-        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
+        "(cd $$TMPDIR/workspace && $$ROOT/$(execpath //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all)",
         # Carry over platform-independent reproducible extension facts from the
         # checked-in lockfile so extensions (such as rules_rs) do not attempt
         # network downloads during offline bootstrap.
-        "$$ROOT/$(execpath //scripts:jq) -s '.[0] + (.[1] | {facts, factsVersions} | with_entries(select(.value != null)))' MODULE.bazel.lock $$ROOT/$(execpath MODULE.bazel.lock) > $$ROOT/$@",
+        "$(execpath //scripts:merge_dist_lockfile) $$TMPDIR/workspace/MODULE.bazel.lock $(execpath MODULE.bazel.lock) $@",
     ]),
     tags = ["requires-network"],
     tools = [
-        "//scripts:jq",
+        "//scripts:merge_dist_lockfile",
         "//src:bazel",
     ],
 )

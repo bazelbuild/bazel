@@ -79,8 +79,10 @@ rust_stdlib_filegroup(
 {rust_objcopy_target}{toolchains}"""
 
 _TOOLCHAIN_TEMPLATE = """
+# Keep the rust_toolchain target name short so generated sysroot `.rlib` paths
+# stay under Windows's 260-character MAX_PATH limit.
 rust_toolchain(
-    name = "local_rust_toolchain{suffix}",
+    name = "{toolchain_name}",
     binary_ext = {binary_ext_repr},
     bootstrapping = {bootstrapping_repr},
     channel = {channel_repr},
@@ -104,7 +106,7 @@ toolchain(
     exec_compatible_with = {constraints_repr},
     target_compatible_with = {constraints_repr},
     target_settings = ["@rules_rust//rust/private:{setting}"],
-    toolchain = ":local_rust_toolchain{suffix}",
+    toolchain = ":{toolchain_name}",
     toolchain_type = "@rules_rust//rust:toolchain_type",
     visibility = ["//visibility:public"],
 )
@@ -260,11 +262,12 @@ filegroup(
             staticlib_ext_repr = repr(staticlib_ext),
             stdlib_linkflags_repr = repr(stdlib_linkflags),
             suffix = suffix,
+            toolchain_name = toolchain_name,
             version_repr = repr(release),
         )
-        for suffix, bootstrapping, process_wrapper, setting in [
-            ("_bootstrap", True, "@rules_rust//util/process_wrapper:bootstrap_process_wrapper", "bootstrapping"),
-            ("", False, "@rules_rust//util/process_wrapper", "bootstrapped"),
+        for suffix, toolchain_name, bootstrapping, process_wrapper, setting in [
+            ("_bootstrap", "b", True, "@rules_rust//util/process_wrapper:bootstrap_process_wrapper", "bootstrapping"),
+            ("", "t", False, "@rules_rust//util/process_wrapper", "bootstrapped"),
         ]
     ])
 
