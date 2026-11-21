@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.DefaultDependOnFutureShim;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
@@ -85,7 +86,7 @@ public final class SkyValueRetrieverUtils {
     RetrievalResult retrievalResult = null;
     RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
     if (state.isInitialQuery()) {
-      state.setStartTimestampNanos(System.nanoTime());
+      state.setStartTimestampNanos(BlazeClock.nanoTime());
     }
     try {
       retrievalResult =

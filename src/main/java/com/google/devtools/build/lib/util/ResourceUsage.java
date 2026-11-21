@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.File;
@@ -120,7 +121,7 @@ public final class ResourceUsage {
   /** Returns a measurement of the current resource usage of the current process. */
   public static Measurement measureCurrentResourceUsage() {
     return new Measurement(
-        System.nanoTime(),
+        BlazeClock.nanoTime(),
         MEM_BEAN.getHeapMemoryUsage().getUsed(),
         MEM_BEAN.getHeapMemoryUsage().getCommitted(),
         MEM_BEAN.getNonHeapMemoryUsage().getUsed(),
