@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
+import com.google.devtools.build.lib.packages.Type.DictType;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import com.google.devtools.build.lib.packages.Type.ListType;
@@ -333,22 +334,28 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   /**
-   * If the attribute is a selector list of list type, then this method returns a list with number
-   * of elements equal to the number of select statements in the selector list. Each element of this
-   * list is equal to concatenating every possible attribute value in a single select statement.
-   * The conditions themselves in the select statements are completely ignored. Returns {@code null}
-   * if the attribute isn't of the desired format.
+   * If the attribute is a selector list of list or dict type, then this method returns a list with
+   * number of elements equal to the number of select statements in the selector list. Each element
+   * of this list is equal to concatenating every possible attribute value in a single select
+   * statement. The conditions themselves in the select statements are completely ignored. Returns
+   * {@code null} if the attribute isn't of the desired format.
    *
    * As an example, if we have select({a: ["a"], b: ["a", "b"]}) + select({a: ["c", "d"], c: ["e"])
    * The output will be [["a", "a", "b"], ["c", "d", "e"]]. The idea behind this structure is that
    * at least some of the structure in the original selector list is preserved and we know any
    * possible attribute value is the result of concatenating some sublist of each element.
+   *
+   * <p>For dicts, an element is the {@link Type#concat} of the select's branches, so a later branch
+   * replaces an earlier branch's entry for the same key. The union of the elements holds every key
+   * of every possible value without enumerating the combinations {@link #visitAttribute} visits.
+   * Callers merging the elements must let later elements replace earlier ones' entries, as a later
+   * select overrides an earlier one.
    */
   @Nullable
-  public <T> Iterable<T> getConcatenatedSelectorListsOfListType(
+  public <T> Iterable<T> getConcatenatedSelectorListsOfCollectionType(
       String attributeName, Type<T> type) {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
-    if (selectorList != null && type instanceof ListType) {
+    if (selectorList != null && (type instanceof ListType || type instanceof DictType)) {
       List<T> selectList = new ArrayList<>();
 
       for (Selector<T> selector : selectorList.getSelectors()) {
