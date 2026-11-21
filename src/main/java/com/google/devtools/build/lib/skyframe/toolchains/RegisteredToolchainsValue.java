@@ -32,7 +32,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A value which represents every toolchain known to Bazel and available for toolchain resolution.
+ * A value which represents the registered toolchains available for resolving one toolchain type.
  *
  * @param rejectedToolchains Any toolchains that were rejected, along with a reason. The row keys
  *     are the toolchain type labels, column keys are toolchain target (not implementation) labels,
@@ -54,8 +54,9 @@ public record RegisteredToolchainsValue(
   }
 
   /** Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s. */
-  public static Key key(BuildConfigurationKey configurationKey, boolean debug) {
-    return Key.of(configurationKey, debug);
+  public static Key key(
+      BuildConfigurationKey configurationKey, Label toolchainType, boolean debug) {
+    return Key.of(configurationKey, toolchainType, debug);
   }
 
   /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
@@ -64,15 +65,18 @@ public record RegisteredToolchainsValue(
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private final BuildConfigurationKey configurationKey;
+    private final Label toolchainType;
     private final boolean debug;
 
-    private Key(BuildConfigurationKey configurationKey, boolean debug) {
+    private Key(BuildConfigurationKey configurationKey, Label toolchainType, boolean debug) {
       this.configurationKey = configurationKey;
+      this.toolchainType = requireNonNull(toolchainType);
       this.debug = debug;
     }
 
-    private static Key of(BuildConfigurationKey configurationKey, boolean debug) {
-      return interner.intern(new Key(configurationKey, debug));
+    private static Key of(
+        BuildConfigurationKey configurationKey, Label toolchainType, boolean debug) {
+      return interner.intern(new Key(configurationKey, toolchainType, debug));
     }
 
     @VisibleForSerialization
@@ -90,6 +94,10 @@ public record RegisteredToolchainsValue(
       return configurationKey;
     }
 
+    Label toolchainType() {
+      return toolchainType;
+    }
+
     boolean debug() {
       return debug;
     }
@@ -99,6 +107,8 @@ public record RegisteredToolchainsValue(
       return "RegisteredToolchainsValue.Key{"
           + "configurationKey: "
           + configurationKey
+          + ", toolchainType: "
+          + toolchainType
           + ", debug: "
           + debug
           + "}";
@@ -110,12 +120,13 @@ public record RegisteredToolchainsValue(
         return false;
       }
       return Objects.equals(this.configurationKey, that.configurationKey)
+          && this.toolchainType.equals(that.toolchainType)
           && this.debug == that.debug;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(configurationKey, debug);
+      return Objects.hash(configurationKey, toolchainType, debug);
     }
 
     @Override
@@ -137,5 +148,4 @@ public record RegisteredToolchainsValue(
     return new RegisteredToolchainsValue(
         registeredToolchains, rejectedToolchains, toolchainResolutionFlags);
   }
-
 }
