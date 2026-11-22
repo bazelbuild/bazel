@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.query2.query.output.SyntheticAttributeHashC
 import com.google.devtools.build.lib.skyframe.ArtifactFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil;
@@ -97,6 +98,8 @@ public final class DirectTargetHashFunction implements SkyFunction {
   public static final SkyFunctionName NAME =
       SkyFunctionName.createHermetic("QUERY_DIRECT_TARGET_HASH");
 
+  private static final int MAX_TARGETS_PER_BATCHED_PACKAGE = 2048;
+
   private final BlazeDirectories directories;
 
   public DirectTargetHashFunction(BlazeDirectories directories) {
@@ -106,6 +109,30 @@ public final class DirectTargetHashFunction implements SkyFunction {
   public static Key key(Label label) {
     return Key.create(label);
   }
+
+  static SkyKey packageKey(PackageIdentifier packageId) {
+    return PackageKey.interner.intern(new PackageKey(packageId));
+  }
+
+  private static final class PackageKey extends AbstractSkyKey<PackageIdentifier> {
+    private static final SkyKeyInterner<PackageKey> interner = SkyKey.newInterner();
+
+    private PackageKey(PackageIdentifier packageId) {
+      super(packageId);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return NAME;
+    }
+
+    @Override
+    public SkyKeyInterner<PackageKey> getSkyKeyInterner() {
+      return interner;
+    }
+  }
+
+  record PackageHashes(ImmutableMap<String, Value> rules) implements SkyValue {}
 
   /** Cquery supplies configured edges separately, so it only needs the digest. */
   public static SkyKey configuredKey(Label label) {
@@ -217,6 +244,9 @@ public final class DirectTargetHashFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws DirectTargetHashFunctionException, InterruptedException {
+    if (skyKey instanceof PackageKey packageKey) {
+      return computePackage(packageKey.argument(), env);
+    }
     Label label = (Label) skyKey.argument();
     Target target;
     try {
@@ -232,7 +262,51 @@ public final class DirectTargetHashFunction implements SkyFunction {
       throw new DirectTargetHashFunctionException(e);
     }
 
-    var deps = skyKey instanceof Key ? collectQueryDependencies(target) : null;
+    return computeTarget(target, skyKey instanceof Key, env);
+  }
+
+  @Nullable
+  private PackageHashes computePackage(PackageIdentifier id, Environment env)
+      throws DirectTargetHashFunctionException, InterruptedException {
+    PackageValue packageValue;
+    try {
+      packageValue = (PackageValue) env.getValueOrThrow(id, NoSuchThingException.class);
+    } catch (NoSuchThingException e) {
+      throw new DirectTargetHashFunctionException(e);
+    }
+    if (packageValue == null) {
+      return null;
+    }
+    var pkg = packageValue.getPackage();
+    // Avoid making large packages a serial evaluator task. Errored packages fall back to
+    // individual keys, whose diagnostics distinguish every affected selected label.
+    var targets = pkg.getTargets();
+    if (pkg.containsErrors() || targets.size() > MAX_TARGETS_PER_BATCHED_PACKAGE) {
+      return new PackageHashes(ImmutableMap.of());
+    }
+    var hashes = ImmutableMap.<String, Value>builder();
+    for (Target target : targets) {
+      // Slash labels need a containing-package lookup. Toolchains use their individual hash keys.
+      if (!(target instanceof Rule rule)
+          || rule.getName().contains("/")
+          || rule.getRuleClass().equals("toolchain")
+          || rule.getRuleClass().equals("toolchain_type")) {
+        continue;
+      }
+      var deps = collectQueryDependencies(rule);
+      deps.remove(rule.getLabel());
+      hashes.put(
+          rule.getName(),
+          new Value(fingerprintTarget(rule).digestAndReset(), ImmutableList.copyOf(deps)));
+    }
+    return new PackageHashes(hashes.buildOrThrow());
+  }
+
+  @Nullable
+  private Value computeTarget(Target target, boolean query, Environment env)
+      throws DirectTargetHashFunctionException, InterruptedException {
+    Label label = target.getLabel();
+    var deps = query ? collectQueryDependencies(target) : null;
     Map<Label, byte[]> toolchainImplementationDigests = Map.of();
     if (target instanceof Rule rule && rule.getRuleClass().equals("toolchain")) {
       AggregatingAttributeMapper attributes = AggregatingAttributeMapper.of(rule);
@@ -284,22 +358,7 @@ public final class DirectTargetHashFunction implements SkyFunction {
       }
     }
 
-    Fingerprint fp = new Fingerprint();
-    fp.addString(label.getUnambiguousCanonicalForm());
-    fp.addString(target.getTargetKind());
-    if (target instanceof Rule rule) {
-      fp.addString(
-          SyntheticAttributeHashCalculator.compute(
-              rule,
-              /* serializedAttributes= */ pathIndependentAttributes(rule),
-              /* extraDataForAttrHash= */ "",
-              Hashing.sha256(),
-              /* includeAttributeSourceAspects= */ false,
-              /* includeStarlarkRuleEnv= */ true,
-              /* canonicalizeLabelSelects= */ true));
-    } else if (target instanceof PackageGroup packageGroup) {
-      fp.addStrings(packageGroup.getContainedPackages(/* includeDoubleSlash= */ true));
-    }
+    var fp = fingerprintTarget(target);
     for (var implementation : toolchainImplementationDigests.entrySet()) {
       fp.addString("<toolchain implementation>");
       fp.addString(implementation.getKey().getUnambiguousCanonicalForm());
@@ -320,6 +379,26 @@ public final class DirectTargetHashFunction implements SkyFunction {
         fp.digestAndReset(),
         deps == null ? ImmutableList.of() : ImmutableList.copyOf(deps),
         target instanceof Rule rule && rule.getRuleClass().equals("toolchain_type"));
+  }
+
+  private Fingerprint fingerprintTarget(Target target) {
+    Fingerprint fp = new Fingerprint();
+    fp.addString(target.getLabel().getUnambiguousCanonicalForm());
+    fp.addString(target.getTargetKind());
+    if (target instanceof Rule rule) {
+      fp.addString(
+          SyntheticAttributeHashCalculator.compute(
+              rule,
+              /* serializedAttributes= */ pathIndependentAttributes(rule),
+              /* extraDataForAttrHash= */ "",
+              Hashing.sha256(),
+              /* includeAttributeSourceAspects= */ false,
+              /* includeStarlarkRuleEnv= */ true,
+              /* canonicalizeLabelSelects= */ true));
+    } else if (target instanceof PackageGroup packageGroup) {
+      fp.addStrings(packageGroup.getContainedPackages(/* includeDoubleSlash= */ true));
+    }
+    return fp;
   }
 
   /** Returns false while Skyframe evaluates the source directory's dependencies. */

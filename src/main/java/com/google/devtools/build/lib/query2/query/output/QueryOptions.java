@@ -69,6 +69,18 @@ public abstract class QueryOptions extends CommonQueryOptions {
   public abstract boolean getGenerateHashes();
 
   @Option(
+      name = "experimental_query_batch_direct_rule_hashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "With --experimental_generate_hashes, group direct rule hashes by main repository package"
+              + " for queries returning at least 1024 targets. This may reduce evaluation overhead"
+              + " without changing the generated hashes.")
+  public abstract boolean getQueryBatchDirectRuleHashes();
+
+  @Option(
       name = "experimental_query_hash_failure_impact",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
