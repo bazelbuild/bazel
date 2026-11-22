@@ -50,7 +50,7 @@ public interface BuildEventArtifactUploader extends ReferenceCounted {
     @Nullable
     OutputStream getOutputStream();
 
-    /** The future URI of the completed upload. */
+    /** The future URI of the completed upload as an internal string. */
     ListenableFuture<String> uriFuture();
   }
 

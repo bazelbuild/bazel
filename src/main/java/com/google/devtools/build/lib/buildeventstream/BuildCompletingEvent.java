@@ -85,7 +85,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
             .setFinishTimeMillis(finishTimeMillis);
 
     if (detailedExitCode != null && detailedExitCode.getFailureDetail() != null) {
-      finished.setFailureDetail(detailedExitCode.getFailureDetail());
+      finished.setFailureDetail(DetailedExitCode.toUnicode(detailedExitCode.getFailureDetail()));
     }
 
     return GenericBuildEvent.protoChaining(this).setFinished(finished.build()).build();

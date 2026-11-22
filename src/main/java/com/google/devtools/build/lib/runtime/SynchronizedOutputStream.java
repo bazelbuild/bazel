@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.runtime;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -44,7 +44,7 @@ public class SynchronizedOutputStream extends OutputStream {
   // {@link write(byte[] buffer, int offset, int count)} method.
   private final int maxBufferedLength;
 
-  private final Splitter maxChunkSizeSplitter;
+  private final int chunkSize;
 
   private final boolean isStderr;
 
@@ -52,6 +52,11 @@ public class SynchronizedOutputStream extends OutputStream {
   private byte[] buf;
 
   private long count;
+
+  // The bytes of an incomplete UTF-8 sequence at the end of the last read, which are prepended to
+  // the next read.
+  @GuardedBy("this")
+  private byte[] incompleteSuffix = new byte[0];
 
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
@@ -61,7 +66,7 @@ public class SynchronizedOutputStream extends OutputStream {
     buf = new byte[64];
     count = 0;
     this.maxBufferedLength = maxBufferedLength;
-    this.maxChunkSizeSplitter = Splitter.fixedLength(Math.max(maxChunkSize, maxBufferedLength));
+    this.chunkSize = Math.max(maxChunkSize, maxBufferedLength);
     this.isStderr = isStderr;
   }
 
@@ -72,12 +77,57 @@ public class SynchronizedOutputStream extends OutputStream {
   /**
    * Read the contents of the stream and simultaneously clear them. Also, reset the amount of memory
    * retained to a constant amount.
+   *
+   * <p>Unless {@code isFinal} is true, an incomplete UTF-8 sequence at the end of the contents is
+   * held back until the next call.
    */
-  public synchronized Iterable<String> readAndReset() {
-    String content = new String(buf, 0, (int) count, UTF_8);
+  public synchronized Iterable<String> readAndReset(boolean isFinal) {
+    var bytes = buf;
+    var length = (int) count;
+    if (incompleteSuffix.length > 0) {
+      bytes = new byte[incompleteSuffix.length + length];
+      System.arraycopy(incompleteSuffix, 0, bytes, 0, incompleteSuffix.length);
+      System.arraycopy(buf, 0, bytes, incompleteSuffix.length, length);
+      length = bytes.length;
+    }
+    var completeLength = isFinal ? length : lengthWithoutIncompleteUtf8Suffix(bytes, length);
+    String content = new String(bytes, 0, completeLength, UTF_8);
+    incompleteSuffix = Arrays.copyOfRange(bytes, completeLength, length);
     buf = new byte[64];
     count = 0;
-    return content.isEmpty() ? ImmutableList.of() : maxChunkSizeSplitter.split(content);
+    return split(content);
+  }
+
+  private ImmutableList<String> split(String content) {
+    var chunks = ImmutableList.<String>builder();
+    var start = 0;
+    while (start < content.length()) {
+      var end = start + Math.min(chunkSize, content.length() - start);
+      if (end < content.length()
+          && Character.isSurrogatePair(content.charAt(end - 1), content.charAt(end))) {
+        // Don't split a surrogate pair, but always make progress.
+        end += end - start > 1 ? -1 : 1;
+      }
+      chunks.add(content.substring(start, end));
+      start = end;
+    }
+    return chunks.build();
+  }
+
+  private static int lengthWithoutIncompleteUtf8Suffix(byte[] bytes, int length) {
+    // A UTF-8 sequence is at most four bytes long.
+    for (var i = length - 1; i >= Math.max(0, length - 3); i--) {
+      var b = bytes[i] & 0xFF;
+      if (b < 0x80 || b == 0xC0 || b == 0xC1 || b > 0xF4) {
+        // Not part of a valid multi-byte sequence.
+        return length;
+      }
+      if (b >= 0xC2) {
+        var sequenceLength = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2;
+        return length - i < sequenceLength ? i : length;
+      }
+    }
+    return length;
   }
 
   @Override

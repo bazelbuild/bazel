@@ -144,6 +144,7 @@ java_library(
     srcs = ["ServerLogPathServiceImpl.java"],
     deps = [
         ":server_log_path_service",
+        ":string_encoding",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
@@ -487,6 +488,7 @@ java_library(
     name = "custom_exit_code_publisher",
     srcs = ["CustomExitCodePublisher.java"],
     deps = [
+        ":string_encoding",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
         "//third_party/java/jsr305_annotations",
@@ -497,6 +499,8 @@ java_library(
     name = "custom_failure_detail_publisher",
     srcs = ["CustomFailureDetailPublisher.java"],
     deps = [
+        ":detailed_exit_code",
+        ":string_encoding",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:annotations",
         "//third_party/java/jsr305_annotations",
@@ -508,6 +512,7 @@ java_library(
     srcs = ["DetailedExitCode.java"],
     deps = [
         ":exit_code",
+        ":string_encoding",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",

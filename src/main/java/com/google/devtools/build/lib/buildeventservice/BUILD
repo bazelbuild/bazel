@@ -137,6 +137,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/google/protobuf:any_java_proto",
         "//third_party/java/auth_kit:credentials",

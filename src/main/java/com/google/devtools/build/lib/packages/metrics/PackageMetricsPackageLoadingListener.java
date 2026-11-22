@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.protobuf.util.Durations;
 import javax.annotation.concurrent.GuardedBy;
@@ -79,7 +80,7 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
     currentRecorder.recordBzlMetrics(
         BzlFileMetrics.newBuilder()
-            .setPath(path.getRootRelativePath().getPathString())
+            .setPath(StringEncoding.internalToUnicode(path.getRootRelativePath().getPathString()))
             .setSize(fileSize)
             .build());
   }

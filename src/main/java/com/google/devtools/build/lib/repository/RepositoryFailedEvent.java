@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.repository;
 
 import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicodeLenient;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -69,7 +70,7 @@ public final class RepositoryFailedEvent implements BuildEvent {
         .setAborted(
             BuildEventStreamProtos.Aborted.newBuilder()
                 .setReason(BuildEventStreamProtos.Aborted.AbortReason.LOADING_FAILURE)
-                .setDescription(message)
+                .setDescription(internalToUnicodeLenient(message))
                 .build())
         .build();
   }
