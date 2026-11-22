@@ -34,10 +34,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -47,8 +45,8 @@ import javax.annotation.Nullable;
 /**
  * Writes a protobom SBOM of the configured targets reachable from the requested targets.
  *
- * <p>The document is deterministic: nodes are sorted by id and edges by {@code (from, to)}, and the
- * timestamp honors {@code SOURCE_DATE_EPOCH}.
+ * <p>The document is deterministic: nodes are sorted by id, edges by {@code (from, to)}, and roots
+ * by id, and the timestamp honors {@code SOURCE_DATE_EPOCH}.
  *
  * <p>Fields Bazel does not model are omitted rather than fabricated: supplier, license, and hash.
  * Version is only available for targets that belong to a bzlmod module.
@@ -95,7 +93,7 @@ public final class SbomWriter {
 
     Deque<ConfiguredTargetKey> queue = new ArrayDeque<>();
     Set<ConfiguredTargetKey> seen = new LinkedHashSet<>();
-    List<String> roots = new ArrayList<>();
+    Set<String> roots = new TreeSet<>();
     for (ConfiguredTarget target : result.getActualTargets()) {
       roots.add(target.getLabel().getCanonicalForm());
       ConfiguredTargetKey key = ConfiguredTargetKey.fromConfiguredTarget(target);
@@ -171,7 +169,7 @@ public final class SbomWriter {
         });
   }
 
-  private static byte[] nodeList(Map<String, Node> nodes, Set<Edge> edges, List<String> roots)
+  private static byte[] nodeList(Map<String, Node> nodes, Set<Edge> edges, Set<String> roots)
       throws IOException {
     return msg(
         out -> {
