@@ -201,11 +201,13 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       throws IOException {
     int oldMode = stat(path, true).getPermissions();
     int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
-    var comp = Blocker.begin();
-    try {
-      NativePosixFiles.chmod(path.toString(), newMode);
-    } finally {
-      Blocker.end(comp);
+    if (newMode != oldMode) {
+      var comp = Blocker.begin();
+      try {
+        NativePosixFiles.chmod(path.toString(), newMode);
+      } finally {
+        Blocker.end(comp);
+      }
     }
   }
 
