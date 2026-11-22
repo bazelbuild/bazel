@@ -14,14 +14,12 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
 import java.util.Map;
@@ -103,7 +101,14 @@ public record FeatureSet(ImmutableSet<String> on, ImmutableSet<String> off) {
   }
 
   public final ImmutableList<String> toStringList() {
-    return Streams.concat(on().stream(), off().stream().map(s -> "-" + s))
-        .collect(toImmutableList());
+    if (off().isEmpty()) {
+      return on().asList();
+    }
+    var result = ImmutableList.<String>builderWithExpectedSize(on().size() + off().size());
+    result.addAll(on());
+    for (String feature : off()) {
+      result.add("-" + feature);
+    }
+    return result.build();
   }
 }
