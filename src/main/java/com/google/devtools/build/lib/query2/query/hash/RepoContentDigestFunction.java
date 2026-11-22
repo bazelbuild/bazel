@@ -50,9 +50,8 @@ import javax.annotation.Nullable;
  * toolchain repos with hundreds of thousands of files, which Bazel would otherwise check for
  * changes on every command. Edits made by hand inside such a repo are not seen.
  *
- * <p>The executable bit of files is not part of the digest: the same repo reports different
- * executable bits depending on whether it was fetched locally or is served lazily from the remote
- * repo contents cache.
+ * <p>Regular files include their executable bit. The repository contents cache preserves this bit
+ * in its Tree metadata.
  *
  * <p>Repo rules often create absolute symlinks into the output base or the workspace, and Bazel
  * only makes them relative for reproducible repos. To keep the digest independent of where the
@@ -205,7 +204,7 @@ public final class RepoContentDigestFunction implements SkyFunction {
           addSymlinkTarget(fp, path, bases);
         }
         case FILE -> {
-          fp.addString("<file>");
+          fp.addString(path.isExecutable() ? "<executable file>" : "<file>");
           fp.addBytes(path.getDigest());
         }
         default -> fp.addString("<special>");
