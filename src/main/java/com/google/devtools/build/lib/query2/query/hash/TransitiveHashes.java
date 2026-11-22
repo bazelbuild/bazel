@@ -118,7 +118,7 @@ public final class TransitiveHashes {
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
     // Keep scheduled labels in the graph map so every label is evaluated at most once.
-    State<Label> pending = new State<>(null, null, false);
+    State<Label> pending = new State<>(null, null, null, false);
     rootSet.forEach(label -> graph.put(label, pending));
     int resolved = 0;
     Collection<Label> frontier = rootSet;
@@ -158,7 +158,7 @@ public final class TransitiveHashes {
             continue;
           }
         }
-        graph.put(label, new State<>(label, new Node<>(value.getDirectHash(), value.getDeps()), false));
+        graph.put(label, new State<>(label, value.getDirectHash(), value.getDeps(), false));
         resolved++;
         for (Label dep : value.getDeps()) {
           if (graph.putIfAbsent(dep, pending) == null) {
@@ -351,7 +351,9 @@ public final class TransitiveHashes {
       Function<? super K, String> name,
       Set<K> failedKeys) {
     Map<K, State<K>> states = HashMap.newHashMap(graph.size());
-    graph.forEach((key, node) -> states.put(key, new State<>(key, node, failedKeys.contains(key))));
+    graph.forEach(
+        (key, node) ->
+            states.put(key, new State<>(key, node.directHash(), node.deps(), failedKeys.contains(key))));
     combineStates(states, order, name, key -> failedKeys.contains(key) ? 1 : 0);
     Map<K, byte[]> hashes = HashMap.newHashMap(states.size());
     states.forEach(
@@ -381,8 +383,8 @@ public final class TransitiveHashes {
       push(root, nextIndex++, stack, work);
       while (!work.isEmpty()) {
         State<K> state = work.peek();
-        if (state.nextDep < state.node.deps().size()) {
-          K depKey = state.node.deps().get(state.nextDep++);
+        if (state.nextDep < state.deps.size()) {
+          K depKey = state.deps.get(state.nextDep++);
           State<K> dep = states.get(depKey);
           if (dep == null) {
             state.failures |= failedMask.applyAsLong(depKey);
@@ -428,7 +430,8 @@ public final class TransitiveHashes {
 
   private static final class State<K> {
     final K key;
-    final Node<K> node;
+    final byte[] directHash;
+    final List<K> deps;
     int index = -1;
     int lowLink;
     int component = -1;
@@ -438,9 +441,10 @@ public final class TransitiveHashes {
     byte[] hash;
     @Nullable String displayName;
 
-    State(K key, Node<K> node, boolean failed) {
+    State(K key, byte[] directHash, List<K> deps, boolean failed) {
       this.key = key;
-      this.node = node;
+      this.directHash = directHash;
+      this.deps = deps;
       this.failures = failed ? 1 : 0;
     }
 
@@ -467,7 +471,7 @@ public final class TransitiveHashes {
       Fingerprint fp) {
     State<K> first = component.getFirst();
     if (component.size() == 1 && !first.selfEdge) {
-      fp.addBytes(first.node.directHash());
+      fp.addBytes(first.directHash);
       addDeps(fp, first, states, name);
       first.hash = fp.digestAndReset();
       return;
@@ -476,7 +480,7 @@ public final class TransitiveHashes {
     fp.addString("<cycle>");
     for (State<K> member : component) {
       fp.addString(member.displayName(name));
-      fp.addBytes(member.node.directHash());
+      fp.addBytes(member.directHash);
       addDeps(fp, member, states, name);
     }
     byte[] componentHash = fp.digestAndReset();
@@ -490,7 +494,7 @@ public final class TransitiveHashes {
       State<K> state,
       Map<K, State<K>> states,
       Function<? super K, String> name) {
-    for (K key : state.node.deps()) {
+    for (K key : state.deps) {
       State<K> dep = states.get(key);
       fp.addString(dep == null ? name.apply(key) : dep.displayName(name));
       if (dep != null && dep.component == state.component) {
