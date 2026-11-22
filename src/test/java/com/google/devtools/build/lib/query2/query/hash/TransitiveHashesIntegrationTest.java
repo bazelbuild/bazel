@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.util.HexFormat;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -228,7 +230,11 @@ public final class TransitiveHashesIntegrationTest extends BuildViewTestCase {
   private ImmutableMap<Label, String> hashes(Label... roots) throws Exception {
     TransitiveHashes.Result result = compute(roots);
     assertThat(result.errors()).isEmpty();
-    return result.hashes();
+    return result.hashes().entrySet().stream()
+        .collect(
+            ImmutableMap.toImmutableMap(
+                Map.Entry::getKey,
+                entry -> HexFormat.of().formatHex(entry.getValue().toByteArray())));
   }
 
   private TransitiveHashes.Result compute(Label... roots) throws Exception {

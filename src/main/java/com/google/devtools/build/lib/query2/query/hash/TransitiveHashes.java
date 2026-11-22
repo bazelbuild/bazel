@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.protobuf.ByteString;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,7 +35,6 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,8 +62,6 @@ import javax.annotation.Nullable;
  * type.
  */
 public final class TransitiveHashes {
-  private static final HexFormat HEX_FORMAT = HexFormat.of();
-
   /**
    * The hashes of the requested targets, and the errors that make hashes missing or unreliable.
    *
@@ -74,7 +72,7 @@ public final class TransitiveHashes {
    * @param timing elapsed time for the computation phases
    */
   public record Result(
-      ImmutableMap<Label, String> hashes,
+      ImmutableMap<Label, ByteString> hashes,
       ImmutableMap<Label, ErrorInfo> errors,
       ImmutableMap<String, FailureImpact> failureImpact,
       int unlistedFailureImpact,
@@ -176,12 +174,12 @@ public final class TransitiveHashes {
         failureImpact == null ? label -> failed.contains(label) ? 1L : 0L : failureImpact::mask;
     combineStates(graph, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm, failedMask);
     long assembleStart = System.nanoTime();
-    ImmutableMap.Builder<Label, String> rootHashes =
+    ImmutableMap.Builder<Label, ByteString> rootHashes =
         ImmutableMap.builderWithExpectedSize(roots.size());
     for (Label root : rootSet) {
       State<Label> state = graph.get(root);
       if (state != null && state.hash != null) {
-        rootHashes.put(root, HEX_FORMAT.formatHex(state.hash));
+        rootHashes.put(root, ByteString.copyFrom(state.hash));
       } else if (failureImpact != null) {
         failureImpact.record(state == null ? failureImpact.mask(root) : state.failures);
       }

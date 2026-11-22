@@ -17,10 +17,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -30,6 +32,8 @@ import javax.annotation.Nullable;
  */
 public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter
     implements HashOutputFormatter {
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
+
   @Override
   public String getName() {
     return "streamed_jsonproto";
@@ -48,7 +52,10 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter
   /** Writes a snapshot row even if the target's transitive hash is unknown. */
   @Override
   public void writeHashedTargets(
-      Iterable<Target> targets, LabelPrinter labelPrinter, Map<Label, String> hashes, OutputStream out)
+      Iterable<Target> targets,
+      LabelPrinter labelPrinter,
+      Map<Label, ByteString> hashes,
+      OutputStream out)
       throws IOException, InterruptedException {
     for (Target target : targets) {
       writeHashedTarget(target, labelPrinter, hashes.get(target.getLabel()), out);
@@ -56,10 +63,11 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter
   }
 
   private void writeHashedTarget(
-      Target target, LabelPrinter labelPrinter, @Nullable String digest, OutputStream out)
+      Target target, LabelPrinter labelPrinter, @Nullable ByteString digest, OutputStream out)
       throws IOException, InterruptedException {
     // Hashes contain only hex digits. Target labels and attributes use the normal JSON printer.
-    String hash = digest == null ? "null" : "\"" + digest + "\"";
+    String hash =
+        digest == null ? "null" : "\"" + HEX_FORMAT.formatHex(digest.toByteArray()) + "\"";
     out.write(("{\"hash\":" + hash + ",\"target\":").getBytes(StandardCharsets.UTF_8));
     writeTargetJson(target, labelPrinter, out);
     out.write('}');

@@ -38,6 +38,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/truth",
     ],
 )

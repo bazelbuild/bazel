@@ -64,7 +64,10 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter
 
   @Override
   public void writeHashedTargets(
-      Iterable<Target> targets, LabelPrinter labelPrinter, Map<Label, String> hashes, OutputStream out)
+      Iterable<Target> targets,
+      LabelPrinter labelPrinter,
+      Map<Label, ByteString> hashes,
+      OutputStream out)
       throws IOException, InterruptedException {
     CodedOutputStream codedOut = CodedOutputStream.newInstance(out);
     for (Target target : targets) {
@@ -72,9 +75,9 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter
         throw new InterruptedException();
       }
       Build.Target record = toTargetProtoBuffer(target, labelPrinter);
-      String digest = hashes.get(target.getLabel());
+      ByteString digest = hashes.get(target.getLabel());
       if (digest != null) {
-        record = record.toBuilder().setTransitiveHash(ByteString.fromHex(digest)).build();
+        record = record.toBuilder().setTransitiveHash(digest).build();
       }
       codedOut.writeMessageNoTag(record);
     }

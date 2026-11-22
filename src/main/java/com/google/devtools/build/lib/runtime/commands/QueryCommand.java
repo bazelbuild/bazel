@@ -64,6 +64,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -86,6 +87,7 @@ import javax.annotation.Nullable;
     binaryStdOut = true,
     completion = "label")
 public final class QueryCommand extends QueryEnvironmentBasedCommand {
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   @Override
   protected Either<BlazeCommandResult, QueryEvalResult> doQuery(
@@ -322,9 +324,14 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     } else {
       for (Target target : targets) {
         Label label = target.getLabel();
-        String hash = result.hashes().get(label);
+        var hash = result.hashes().get(label);
         if (hash != null) {
-          out.write((labelPrinter.toString(label) + " " + hash + lineTerminator).getBytes(UTF_8));
+          out.write(
+              (labelPrinter.toString(label)
+                      + " "
+                      + HEX_FORMAT.formatHex(hash.toByteArray())
+                      + lineTerminator)
+                  .getBytes(UTF_8));
         }
       }
     }
