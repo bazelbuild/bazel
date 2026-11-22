@@ -17,6 +17,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/sbom:srcs",
     ],
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )

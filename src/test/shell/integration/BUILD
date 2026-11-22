@@ -78,6 +78,17 @@ sh_test(
 )
 
 sh_test(
+    name = "sbom_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["sbom_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "aspect_test",
     size = "large",
     srcs = ["aspect_test.sh"],

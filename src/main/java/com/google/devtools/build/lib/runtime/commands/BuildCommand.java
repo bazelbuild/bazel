@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
+import com.google.devtools.build.lib.bazel.sbom.SbomOptions;
+import com.google.devtools.build.lib.bazel.sbom.SbomWriter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -34,9 +37,11 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
-import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -57,6 +62,7 @@ import java.util.List;
       LoadingPhaseThreadsOption.class,
       BuildEventProtocolOptions.class,
       RemoteAnalysisCachingOptions.class,
+      SbomOptions.class,
     },
     usesConfigurationOptions = true,
     shortDescription = "Builds the specified targets.",
@@ -103,8 +109,24 @@ public final class BuildCommand implements BlazeCommand {
               .setStartTimeMillis(env.getCommandStartTime())
               .build();
     }
-    DetailedExitCode detailedExitCode =
-        new BuildTool(env).processRequest(request, null, options).getDetailedExitCode();
-    return BlazeCommandResult.detailedExitCode(detailedExitCode);
+    BuildResult result = new BuildTool(env).processRequest(request, null, options);
+    PathFragment sbomOutput = options.getOptions(SbomOptions.class).getSbomOutput();
+    if (sbomOutput != null) {
+      try {
+        SbomWriter.write(env, result, sbomOutput);
+      } catch (IOException e) {
+        String message = "Could not write SBOM: " + e.getMessage();
+        env.getReporter().handle(Event.error(message));
+        return BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder().setMessage(message).build());
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        String message = "Interrupted while writing SBOM";
+        env.getReporter().handle(Event.error(message));
+        return BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder().setMessage(message).build());
+      }
+    }
+    return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
   }
 }
