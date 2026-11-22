@@ -114,9 +114,13 @@ public final class TransitiveHashes {
     long discoveryStart = System.nanoTime();
     Map<Label, State<Label>> graph = CompactHashMap.createWithExpectedSize(roots.size());
     Set<Label> failed = new HashSet<>();
+    List<Label> absent = new ArrayList<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
-    Set<Label> discovered = new HashSet<>();
+    // Keep scheduled labels in the graph map so every label is evaluated at most once.
+    State<Label> pending = new State<>(null, null, false);
+    rootSet.forEach(label -> graph.put(label, pending));
+    int resolved = 0;
     Collection<Label> frontier = rootSet;
     // Breadth-first so that each Skyframe evaluation covers a whole level of the graph.
     int level = 0;
@@ -142,6 +146,8 @@ public final class TransitiveHashes {
             if (error != null) {
               errors.put(label, error);
             }
+          } else {
+            absent.add(label);
           }
           continue;
         }
@@ -153,8 +159,9 @@ public final class TransitiveHashes {
           }
         }
         graph.put(label, new State<>(label, new Node<>(value.getDirectHash(), value.getDeps()), false));
+        resolved++;
         for (Label dep : value.getDeps()) {
-          if (!rootSet.contains(dep) && discovered.add(dep)) {
+          if (graph.putIfAbsent(dep, pending) == null) {
             next.add(dep);
           }
         }
@@ -163,10 +170,12 @@ public final class TransitiveHashes {
       progress.accept(
           String.format(
               "Hashing: visited %d targets (depth %d, %d pending)",
-              graph.size(), ++level, frontier.size()));
+              resolved, ++level, frontier.size()));
     }
 
-    progress.accept(String.format("Hashing: combining hashes of %d targets", graph.size()));
+    failed.forEach(graph::remove);
+    absent.forEach(graph::remove);
+    progress.accept(String.format("Hashing: combining hashes of %d targets", resolved));
     long combineStart = System.nanoTime();
     var failureImpact =
         reportFailureImpact && !failed.isEmpty() ? new FailureImpactCollector(failed) : null;
