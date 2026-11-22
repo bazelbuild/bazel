@@ -123,6 +123,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   /** Non-null if and only if --proto:rule_classes option is set. */
   @Nullable private RuleClassInfoFormatter ruleClassInfoFormatter;
 
+  final boolean includesRuleClassInfo() {
+    return ruleClassInfoFormatter != null;
+  }
+
   @Override
   public String getName() {
     return "proto";

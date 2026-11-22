@@ -238,7 +238,8 @@ public abstract class QueryOptions extends CommonQueryOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, --output=streamed_proto serializes targets in parallel while preserving output"
-              + " order. Has no effect when --proto:rule_classes is enabled.")
+              + " order. With --experimental_generate_hashes, serialization uses up to four workers"
+              + " regardless of this flag. --proto:rule_classes uses a single thread.")
   public abstract boolean getParallelStreamedProtoOutput();
 
   /** Return the current options as a set of QueryEnvironment settings. */

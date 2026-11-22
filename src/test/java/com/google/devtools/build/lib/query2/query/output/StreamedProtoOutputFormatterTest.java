@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.ByteArrayInputStream;
@@ -163,6 +167,109 @@ public final class StreamedProtoOutputFormatterTest extends PackageLoadingTestCa
 
     assertThat(parallel).isEqualTo(serial);
     assertNoParallelOutputThreads();
+  }
+
+  @Test
+  public void hashedOutputPreservesSerialRecords(@TestParameter boolean ruleClasses)
+      throws Exception {
+    QueryOptions queryOptions =
+        options(
+            "--noexperimental_parallel_streamed_proto_output",
+            "--proto:rule_classes=" + ruleClasses);
+    ImmutableList<Target> targets =
+        ImmutableList.<Target>builder()
+            .addAll(repeatTargets(StreamedProtoOutputFormatter.TARGETS_PER_CHUNK, ruleA))
+            .add(ruleB, ruleA)
+            .build();
+    ByteString digest = ByteString.fromHex("0080ff");
+    Set<Thread> hashThreads = ConcurrentHashMap.newKeySet();
+    var hashes =
+        Maps.asMap(
+            ImmutableSet.of(ruleA.getLabel()),
+            unused -> {
+              hashThreads.add(Thread.currentThread());
+              return digest;
+            });
+    var formatter = hashedFormatter(queryOptions);
+    var output = new ByteArrayOutputStream();
+    formatter.writeHashedTargets(targets, LabelPrinter.legacy(), hashes, output);
+
+    if (ruleClasses || Runtime.getRuntime().availableProcessors() == 1) {
+      assertThat(hashThreads).containsExactly(Thread.currentThread());
+    } else {
+      assertThat(hashThreads).hasSize(2);
+      assertThat(hashThreads).doesNotContain(Thread.currentThread());
+    }
+    var expected =
+        parseTargets(
+            format(
+                new StreamedProtoOutputFormatter(),
+                queryOptions,
+                AspectResolver.Mode.CONSERVATIVE,
+                targets));
+    var actual = parseTargets(output.toByteArray());
+    assertThat(actual).hasSize(targets.size());
+    for (int i = 0; i < targets.size(); i++) {
+      Build.Target record = expected.get(i);
+      if (targets.get(i).equals(ruleA)) {
+        record = record.toBuilder().setTransitiveHash(digest).build();
+      }
+      assertThat(actual.get(i)).isEqualTo(record);
+    }
+  }
+
+  @Test
+  public void interruptBetweenCompletedHashChunksStopsWriting() throws Exception {
+    int workers = Math.min(4, Runtime.getRuntime().availableProcessors());
+    assumeTrue(workers > 1);
+    int targetsPerGroup = workers * StreamedProtoOutputFormatter.TARGETS_PER_CHUNK;
+    var targets =
+        ImmutableList.<Target>builder()
+            .addAll(repeatTargets(targetsPerGroup, ruleA))
+            .addAll(repeatTargets(targetsPerGroup, ruleB))
+            .build();
+    var laterChunks = new CountDownLatch(workers);
+    var hashes =
+        Maps.asMap(
+            ImmutableSet.of(ruleB.getLabel()),
+            unused -> {
+              // Once every worker reaches a ruleB chunk, every ruleA chunk has completed.
+              laterChunks.countDown();
+              assertThat(awaitUninterruptibly(laterChunks, TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                  .isTrue();
+              return ByteString.EMPTY;
+            });
+    var output =
+        new ByteArrayOutputStream() {
+          @Override
+          public void write(byte[] bytes, int offset, int length) {
+            assertThat(size()).isEqualTo(0);
+            assertThat(awaitUninterruptibly(laterChunks, TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            super.write(bytes, offset, length);
+            Thread.currentThread().interrupt();
+          }
+        };
+
+    var formatter = hashedFormatter(options());
+    try {
+      assertThrows(
+          InterruptedException.class,
+          () -> formatter.writeHashedTargets(targets, LabelPrinter.legacy(), hashes, output));
+    } finally {
+      Thread.interrupted();
+    }
+    assertThat(output.size()).isGreaterThan(0);
+  }
+
+  private StreamedProtoOutputFormatter hashedFormatter(QueryOptions queryOptions) {
+    var formatter = new StreamedProtoOutputFormatter();
+    formatter.setOptions(
+        queryOptions,
+        AspectResolver.Mode.CONSERVATIVE.createResolver(getPackageManager(), reporter),
+        DigestHashFunction.SHA256.getHashFunction());
+    formatter.setEventHandler(reporter);
+    return formatter;
   }
 
   @Test
