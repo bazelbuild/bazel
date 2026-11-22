@@ -45,7 +45,7 @@ public class EvaluationResult<T extends SkyValue> {
   private final WalkableGraph walkableGraph;
 
   /**
-   * Constructor for the "completed" case. Used only by {@link Builder}.
+   * Constructor for the completed result.
    */
   private EvaluationResult(
       Map<SkyKey, T> result,
@@ -56,6 +56,11 @@ public class EvaluationResult<T extends SkyValue> {
     this.errorMap = Preconditions.checkNotNull(errorMap);
     this.catastrophe = catastrophe;
     this.walkableGraph = walkableGraph;
+  }
+
+  /** Attaches the graph to a completed result whose builder is no longer used. */
+  EvaluationResult<T> withWalkableGraph(WalkableGraph graph) {
+    return new EvaluationResult<>(resultMap, errorMap, catastrophe, graph);
   }
 
   /**

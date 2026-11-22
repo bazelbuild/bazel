@@ -185,10 +185,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                 getKeepGoingPredicate(evaluationContext));
         result = evaluator.eval(roots);
       }
-      return EvaluationResult.<T>builder()
-          .mergeFrom(result)
-          .setWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()))
-          .build();
+      return result.withWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()));
     } finally {
       if (keepEdges) {
         lastGraphVersion = (IntVersion) graphVersion;
