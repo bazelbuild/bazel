@@ -29,6 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",

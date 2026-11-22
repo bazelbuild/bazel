@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -113,7 +114,7 @@ public final class TransitiveHashes {
       boolean reportFailureImpact)
       throws InterruptedException {
     long discoveryStart = System.nanoTime();
-    Map<Label, State<Label>> graph = HashMap.newHashMap(roots.size());
+    Map<Label, State<Label>> graph = CompactHashMap.createWithExpectedSize(roots.size());
     Set<Label> failed = new HashSet<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
