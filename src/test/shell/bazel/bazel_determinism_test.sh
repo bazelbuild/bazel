@@ -77,6 +77,7 @@ function test_determinism()  {
       -e '/^common.*@llvm\/\//d' \
       -e '/^common.*\/\/src:llvm_rc_toolchain/d' \
       -e '/^common.*\/\/:linux_host_platform/d' \
+      -e '/^common.*\/\/:windows_host_platform/d' \
       .bazelrc
     rm .bazelrc.bak
 

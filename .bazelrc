@@ -37,6 +37,19 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 common --extra_toolchains=@llvm//toolchain:all
 common --extra_toolchains=//src:llvm_rc_toolchain
 
+# Required by @windows_support (used by @llvm's MSVC ABI toolchain) to fetch
+# the MSVC runtime and Windows SDK headers/libraries.
+common --repo_env=BAZEL_MSVC_RUNTIME_VISUAL_STUDIO_EULA=1
+common --repo_env=BAZEL_WINDOWS_SDK_EULA=1
+
+# Link the static MSVC CRT (/MT) for Windows targets (no-op on other platforms)
+# so that cross-compiled and native Windows binaries do not depend on the VC++
+# redistributable at runtime.
+common --features=-dynamic_link_msvcrt
+common --features=static_link_msvcrt
+common --host_features=-dynamic_link_msvcrt
+common --host_features=static_link_msvcrt
+
 # Enables the `linux` and `windows` configs below on these hosts.
 common --enable_platform_specific_config
 
@@ -44,20 +57,16 @@ common --enable_platform_specific_config
 # that the binaries run on old distributions. See //:linux_host_platform.
 common:linux --host_platform=//:linux_host_platform
 
-# On Windows, pair the hermetic MinGW LLVM toolchain with `windows-gnullvm` Rust
+# On Windows, pair the hermetic MSVC LLVM toolchain with `windows-msvc` Rust
 # and shorten platform output dir names to keep generated Rust sysroot `.rlib`
 # paths under Windows's 260-character MAX_PATH limit.
+# --extra_execution_platforms is needed so //:windows_host_platform takes
+# precedence over register_execution_platforms("//:default_host_platform") in
+# MODULE.bazel for exec-configuration tools.
 common:windows --extra_execution_platforms=//:windows_host_platform
 common:windows --host_platform=//:windows_host_platform
 common:windows --experimental_override_name_platform_in_output_dir=//:windows_host_platform=w
 common:windows --experimental_override_name_platform_in_output_dir=//:windows_arm64=wa
-
-# With the LLVM toolchains, layering_check reports errors for generated headers
-# of grpc when the build runs on a Windows host (still the case with llvm
-# 0.8.27).
-# TODO: Remove once this is fixed.
-common:windows --features=-layering_check
-common:windows --host_features=-layering_check
 
 # The Bazel client only talks to the server via 127.0.0.1/[::1], so it never
 # needs a DNS resolver. Disable gRPC's c-ares based resolver to avoid building
