@@ -138,7 +138,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
 
   private final BlazeDirectories directories;
   private final CombinedCache cache;
-  // Bound the number of repository workers suspended on ActionCache reads.
+  // Bound the number of unfinished ActionCache reads that can yield per command.
   private final Semaphore pendingActionReads = new Semaphore(MAX_YIELDED_ACTION_RESULT_READS);
   private final String buildRequestId;
   private final String commandId;
@@ -562,13 +562,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
         cache.downloadActionResultAsync(
             context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
     if (!future.isDone() && pendingActionReads.tryAcquire()) {
+      future.addListener(pendingActionReads::release, directExecutor());
       try (var span = profile(repoName, "Yield pending action result")) {
         WorkerSkyKeyComputeState.yieldForFuture(env, future);
       } catch (InterruptedException e) {
         future.cancel(true);
         throw e;
-      } finally {
-        pendingActionReads.release();
       }
     }
     return getFromFuture(future);
