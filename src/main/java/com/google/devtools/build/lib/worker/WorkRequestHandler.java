@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.IntConsumer;
 
 /**
  * A helper class that handles WorkRequests (https://bazel.build/docs/persistent-workers), including
@@ -123,11 +124,12 @@ public class WorkRequestHandler implements AutoCloseable {
 
   private final BiConsumer<Integer, Thread> cancelCallback;
   /**
-   * A scheduler that runs garbage collection after a certain amount of CPU time has passed. In our
-   * experience, explicit GC reclaims much more than implicit GC. This scheduler helps make sure
-   * very busy workers don't grow ridiculously large.
+   * Runs garbage collection after a certain amount of CPU time has passed, given the number of
+   * other requests that are still active when a request finishes. In our experience, explicit GC
+   * reclaims much more than implicit GC. This scheduler helps make sure very busy workers don't
+   * grow ridiculously large.
    */
-  private final CpuTimeBasedGcScheduler gcScheduler;
+  @VisibleForTesting IntConsumer cpuTimeBasedGcCheck;
   /**
    * A scheduler that runs garbage collection after a certain amount of time without any activity.
    * In our experience, explicit GC reclaims much more than implicit GC. This scheduler helps make
@@ -161,7 +163,7 @@ public class WorkRequestHandler implements AutoCloseable {
     this.callback = callback;
     this.stderr = stderr;
     this.messageProcessor = messageProcessor;
-    this.gcScheduler = new CpuTimeBasedGcScheduler(cpuUsageBeforeGc);
+    this.cpuTimeBasedGcCheck = new CpuTimeBasedGcScheduler(cpuUsageBeforeGc)::maybePerformGc;
     this.cancelCallback = cancelCallback;
     this.idleGcScheduler = new IdleGcScheduler(idleTimeBeforeGc);
   }
@@ -221,6 +223,11 @@ public class WorkRequestHandler implements AutoCloseable {
     /**
      * Sets the minimum amount of CPU time between explicit garbage collection calls. Pass
      * Duration.ZERO to not do explicit garbage collection (the default).
+     *
+     * <p>The CPU time is that of the whole process. So in a multiplex worker, the amount is
+     * multiplied by {@code 1 + 4 *} the number of other requests that are still active when a
+     * request finishes. With 8 requests at once, a busy worker then collects after 29 times the
+     * amount instead of after each amount, and a worker that drains collects as before.
      */
     @CanIgnoreReturnValue
     public WorkRequestHandlerBuilder setCpuUsageBeforeGc(Duration cpuUsageBeforeGc) {
@@ -340,8 +347,14 @@ public class WorkRequestHandler implements AutoCloseable {
                 idleGcScheduler.markActivity(!activeRequests.isEmpty());
                 return;
               }
+              boolean singleplex = request.getRequestId() == 0;
               try {
                 respondToRequest(workerIO, request, requestInfo);
+                // A singleplex request checks before it leaves activeRequests, so that the next
+                // one, which waits for that, can't be paused by the GC.
+                if (singleplex) {
+                  cpuTimeBasedGcCheck.accept(0);
+                }
               } catch (IOException e) {
                 // IOExceptions here means a problem talking to the server, so we must shut down.
                 if (!shutdownWorker.compareAndSet(false, true)) {
@@ -349,9 +362,15 @@ public class WorkRequestHandler implements AutoCloseable {
                   e.printStackTrace(stderr);
                   currentThread.interrupt();
                 }
+                return;
               } finally {
                 activeRequests.remove(request.getRequestId());
                 idleGcScheduler.markActivity(!activeRequests.isEmpty());
+              }
+              if (!singleplex) {
+                // Counted after this request left activeRequests, so that of several requests
+                // that finish together, the last one sees no others.
+                cpuTimeBasedGcCheck.accept(activeRequests.size());
               }
             },
             threadName);
@@ -421,7 +440,6 @@ public class WorkRequestHandler implements AutoCloseable {
         messageProcessor.writeWorkResponse(response);
       }
     }
-    gcScheduler.maybePerformGc();
   }
 
   /**
@@ -528,6 +546,15 @@ public class WorkRequestHandler implements AutoCloseable {
   }
 
   /**
+   * Returns the CPU time before a GC when a request finishes while {@code otherActiveRequests}
+   * other requests are still active: {@code cpuUsageBeforeGc} times {@code 1 + 4 *} the others.
+   */
+  @VisibleForTesting
+  static Duration threshold(Duration cpuUsageBeforeGc, int otherActiveRequests) {
+    return cpuUsageBeforeGc.multipliedBy(1 + 4L * otherActiveRequests);
+  }
+
+  /**
    * Class that performs GC occasionally, based on how much CPU time has passed. This strikes a
    * compromise between blindly doing GC after e.g. every request, which takes too much CPU, and not
    * doing explicit GC at all, which causes poor garbage collection in some cases.
@@ -561,13 +588,17 @@ public class WorkRequestHandler implements AutoCloseable {
           : Duration.ZERO;
     }
 
-    /** Call occasionally to perform a GC if enough CPU time has been used. */
-    private void maybePerformGc() {
+    /**
+     * Call when a request finishes to perform a GC if enough CPU time has been used, given the
+     * number of other requests that are still active.
+     */
+    private void maybePerformGc(int otherActiveRequests) {
       if (!cpuUsageBeforeGc.isZero()) {
         Duration currentCpuTime = getCpuTime();
         Duration lastCpuTime = cpuTimeAtLastGc.get();
+        Duration threshold = threshold(cpuUsageBeforeGc, otherActiveRequests);
         // Do GC when enough CPU time has been used, but only if nobody else beat us to it.
-        if (currentCpuTime.minus(lastCpuTime).compareTo(cpuUsageBeforeGc) > 0
+        if (currentCpuTime.minus(lastCpuTime).compareTo(threshold) > 0
             && cpuTimeAtLastGc.compareAndSet(lastCpuTime, currentCpuTime)) {
           System.gc();
           // Avoid counting GC CPU time against CPU time before next GC.
