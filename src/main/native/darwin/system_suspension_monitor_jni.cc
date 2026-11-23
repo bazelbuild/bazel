@@ -87,8 +87,8 @@ static void SleepCallBack(void *refcon, io_service_t service,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerSuspensionNative(
-    JNIEnv* env, jobject, jobject callback) {
+Java_com_google_devtools_build_lib_platform_SystemSuspensionModule_registerSuspensionNative(
+    JNIEnv* env, jclass, jobject callback) {
   if (!blaze_jni::RegisterIntConsumerCallback(
           env, callback, &g_suspend_callback, "system suspension")) {
     return;

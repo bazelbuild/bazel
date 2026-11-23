@@ -23,9 +23,9 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SleepPreventionModule}. */
 @RunWith(JUnit4.class)
-public final class PlatformNativeDepsServiceImplTest {
+public final class SleepPreventionModuleTest {
 
-  private static boolean haveSleepPreventionSupport() throws Exception {
+  private static boolean haveSleepPreventionSupport() {
     switch (OS.getCurrent()) {
       case DARWIN:
       case WINDOWS:
@@ -40,40 +40,21 @@ public final class PlatformNativeDepsServiceImplTest {
   }
 
   @Test
-  public void testSleepPrevention() throws Exception {
-    var service = new PlatformNativeDepsServiceImpl();
+  public void testSleepPrevention() {
     if (haveSleepPreventionSupport()) {
       // Assert standard push pop works.
-      assertThat(service.pushDisableSleep()).isEqualTo(0);
-      assertThat(service.popDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.pushDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(0);
 
       // Assert that nested push pop works, and that re-enabling after disabling (above)
       // works.
-      assertThat(service.pushDisableSleep()).isEqualTo(0);
-      assertThat(service.pushDisableSleep()).isEqualTo(0);
-      assertThat(service.popDisableSleep()).isEqualTo(0);
-      assertThat(service.popDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.pushDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.pushDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(0);
+      assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(0);
     } else {
-      assertThat(service.pushDisableSleep()).isEqualTo(-1);
-      assertThat(service.popDisableSleep()).isEqualTo(-1);
+      assertThat(SleepPreventionModule.pushDisableSleep()).isEqualTo(-1);
+      assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(-1);
     }
-  }
-
-  @Test
-  public void testTelemetryNoOpsOnNonDarwin() {
-    if (OS.getCurrent() == OS.DARWIN) {
-      return;
-    }
-    var service = new PlatformNativeDepsServiceImpl();
-    service.registerCPUSpeedJni(ignored -> {});
-    service.registerDiskSpaceJni(ignored -> {});
-    service.registerLoadAdvisoryJni(ignored -> {});
-    service.registerMemoryPressureJni(ignored -> {});
-    service.registerSuspensionJni(ignored -> {});
-    service.registerThermalJni(ignored -> {});
-    assertThat(service.cpuSpeed()).isEqualTo(-1);
-    assertThat(service.systemLoadAdvisory()).isEqualTo(0);
-    assertThat(service.systemMemoryPressure()).isEqualTo(0);
-    assertThat(service.thermalLoad()).isEqualTo(0);
   }
 }

@@ -14,40 +14,56 @@
 
 package com.google.devtools.build.lib.platform;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.util.OS;
+import java.util.function.IntConsumer;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Detects load advisory events. */
 public final class SystemLoadAdvisoryModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final boolean IS_DARWIN = OS.getCurrent() == OS.DARWIN;
+
+  static {
+    JniLoader.loadJni();
+  }
 
   @GuardedBy("this")
   @Nullable
   private Reporter reporter;
 
-  private PlatformNativeDepsService service;
+  static void registerLoadAdvisoryJni(IntConsumer callback) {
+    if (IS_DARWIN) {
+      registerLoadAdvisoryNative(callback);
+    }
+  }
+
+  private static native void registerLoadAdvisoryNative(IntConsumer callback);
+
+  static int systemLoadAdvisory() {
+    return IS_DARWIN ? systemLoadAdvisoryNative() : 0;
+  }
+
+  private static native int systemLoadAdvisoryNative();
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
-    service.registerLoadAdvisoryJni(this::systemLoadAdvisoryCallback);
+    registerLoadAdvisoryJni(this::systemLoadAdvisoryCallback);
   }
 
   @Override
   public synchronized void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
-    reportSystemLoadAdvisoryEvent(true, service.systemLoadAdvisory());
+    reportSystemLoadAdvisoryEvent(true, systemLoadAdvisory());
   }
 
   @Override

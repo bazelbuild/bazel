@@ -59,8 +59,8 @@ static int GetSystemLoadAdvisory() {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerLoadAdvisoryNative(
-    JNIEnv* env, jobject, jobject callback) {
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_registerLoadAdvisoryNative(
+    JNIEnv* env, jclass, jobject callback) {
   if (!blaze_jni::RegisterIntConsumerCallback(env, callback,
                                               &g_system_load_advisory_callback,
                                               "system load advisory")) {
@@ -93,8 +93,8 @@ Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_regist
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemLoadAdvisoryNative(
-    JNIEnv*, jobject) {
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_systemLoadAdvisoryNative(
+    JNIEnv*, jclass) {
   return GetSystemLoadAdvisory();
 }
 

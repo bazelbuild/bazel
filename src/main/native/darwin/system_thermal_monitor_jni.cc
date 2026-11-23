@@ -68,8 +68,8 @@ static int thermal_load_from_token(int token) {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerThermalNative(
-    JNIEnv* env, jobject, jobject callback) {
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerThermalNative(
+    JNIEnv* env, jclass, jobject callback) {
   if (!blaze_jni::RegisterIntConsumerCallback(env, callback,
                                               &g_thermal_callback, "thermal")) {
     return;
@@ -106,8 +106,8 @@ Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_regist
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_thermalLoadNative(
-    JNIEnv*, jobject) {
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoadNative(
+    JNIEnv*, jclass) {
   return thermal_load_from_token(gThermalNotifyToken);
 }
 

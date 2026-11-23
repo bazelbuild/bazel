@@ -37,8 +37,8 @@ enum DiskSpaceLevel {
 static jobject g_disk_space_callback = nullptr;
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerDiskSpaceNative(
-    JNIEnv* env, jobject, jobject callback) {
+Java_com_google_devtools_build_lib_platform_SystemDiskSpaceModule_registerDiskSpaceNative(
+    JNIEnv* env, jclass, jobject callback) {
   if (!blaze_jni::RegisterIntConsumerCallback(
           env, callback, &g_disk_space_callback, "disk space")) {
     return;

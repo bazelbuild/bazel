@@ -14,39 +14,56 @@
 
 package com.google.devtools.build.lib.platform;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.util.OS;
+import java.util.function.IntConsumer;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Detects suspension events. */
 public final class SystemThermalModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private PlatformNativeDepsService service;
+  private static final boolean IS_DARWIN = OS.getCurrent() == OS.DARWIN;
+
+  static {
+    JniLoader.loadJni();
+  }
 
   @GuardedBy("this")
   @Nullable
   private Reporter reporter;
 
+  static void registerThermalJni(IntConsumer callback) {
+    if (IS_DARWIN) {
+      registerThermalNative(callback);
+    }
+  }
+
+  private static native void registerThermalNative(IntConsumer callback);
+
+  static int thermalLoad() {
+    return IS_DARWIN ? thermalLoadNative() : 0;
+  }
+
+  private static native int thermalLoadNative();
+
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
-    service.registerThermalJni(this::thermalCallback);
+    registerThermalJni(this::thermalCallback);
   }
 
   @Override
   public synchronized void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
-    reportThermalEvent(true, service.thermalLoad());
+    reportThermalEvent(true, thermalLoad());
   }
 
   @Override
