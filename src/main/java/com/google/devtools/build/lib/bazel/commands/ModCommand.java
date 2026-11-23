@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleRegistrations;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -153,6 +154,18 @@ public final class ModCommand implements BlazeCommand {
                       "Invalid --output '%s' for the 'show_repo' subcommand. Only 'text',"
                           + " 'streamed_jsonproto', and 'streamed_proto' are supported.",
                       modOptions.getOutputFormat()),
+                  Code.INVALID_ARGUMENTS);
+        }
+      }
+      case SHOW_TOOLCHAINS, SHOW_EXECUTION_PLATFORMS -> {
+        switch (modOptions.getOutputFormat()) {
+          case TEXT, JSON -> {} // supported
+          default ->
+              throw new InvalidArgumentException(
+                  String.format(
+                      "Invalid --output '%s' for the '%s' subcommand. Only 'text' and 'json' are"
+                          + " supported.",
+                      modOptions.getOutputFormat(), subcommand),
                   Code.INVALID_ARGUMENTS);
         }
       }
@@ -566,7 +579,28 @@ public final class ModCommand implements BlazeCommand {
     }
 
     ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions = null;
+    ImmutableList<ModuleRegistrations> registrations = null;
     try {
+      registrations =
+          switch (subcommand) {
+            case SHOW_TOOLCHAINS ->
+                new ToolchainCollector(
+                        skyframeExecutor,
+                        threadsOption.getThreads(),
+                        env.getReporter(),
+                        depGraphValue,
+                        baseModuleKey,
+                        modOptions.getToolchainTypes())
+                    .collect(argsAsModules);
+            case SHOW_EXECUTION_PLATFORMS ->
+                new ExecutionPlatformCollector(
+                        skyframeExecutor,
+                        threadsOption.getThreads(),
+                        env.getReporter(),
+                        depGraphValue)
+                    .collect(argsAsModules);
+            default -> null;
+          };
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
             argsAsRepos.values().stream().map(RepoDefinitionValue::key).collect(toImmutableSet());
@@ -594,6 +628,8 @@ public final class ModCommand implements BlazeCommand {
         }
         targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
+    } catch (RegistrationCollector.ResolutionException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
@@ -635,12 +671,26 @@ public final class ModCommand implements BlazeCommand {
                     .getOutputBase()
                     .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION));
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
+        case SHOW_TOOLCHAINS, SHOW_EXECUTION_PLATFORMS ->
+            modExecutor.showRegistrations(registrations);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     }
 
+    if (registrations != null) {
+      int errors = registrations.stream().mapToInt(ModuleRegistrations::errorCount).sum();
+      if (errors > 0) {
+        return reportAndCreateFailureResult(
+            env,
+            String.format(
+                "Results are incomplete as %d registered pattern%s or target%s couldn't be"
+                    + " analyzed.",
+                errors, errors == 1 ? "" : "s", errors == 1 ? "" : "s"),
+            Code.ERROR_DURING_GRAPH_INSPECTION);
+      }
+    }
     if (moduleInspector.errors().isEmpty()) {
       return BlazeCommandResult.success();
     } else {

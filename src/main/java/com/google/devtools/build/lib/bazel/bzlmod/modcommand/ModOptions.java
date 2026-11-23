@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
 
 /** Options for ModCommand */
 @OptionsClass
@@ -199,7 +200,8 @@ public abstract class ModOptions extends OptionsBase {
           `graph`, `streamed_proto` and `streamed_jsonproto`, but each subcommand supports only a
           subset: the graph subcommands (`all_paths`, `deps`, `explain`, `graph` and `path`)
           support `text`, `json` and `graph`; `show_repo` supports `text`, `streamed_proto` and
-          `streamed_jsonproto`; `show_extension` supports only `text`.
+          `streamed_jsonproto`; `show_toolchains` and `show_execution_platforms` support `text`
+          and `json`; `show_extension` supports only `text`.
           """)
   public abstract OutputFormat getOutputFormat();
 
@@ -231,6 +233,21 @@ public abstract class ModOptions extends OptionsBase {
 
   public abstract void setAllVisibleRepos(boolean value);
 
+  @Option(
+      name = "toolchain_type",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          """
+          For `mod show_toolchains`: only display the toolchains of this toolchain type, which is
+          interpreted relative to the chosen base module. Can be specified multiple times.
+          """)
+  public abstract List<String> getToolchainTypes();
+
+  public abstract void setToolchainTypes(List<String> value);
+
   /** Possible subcommands that can be specified for the `mod` command. */
   public enum ModSubcommand {
     DEPS(true),
@@ -240,6 +257,8 @@ public abstract class ModOptions extends OptionsBase {
     EXPLAIN(true),
     SHOW_REPO(false),
     SHOW_EXTENSION(false),
+    SHOW_TOOLCHAINS(false),
+    SHOW_EXECUTION_PLATFORMS(false),
     DUMP_REPO_MAPPING(false),
     TIDY(false);
 
@@ -303,7 +322,7 @@ public abstract class ModOptions extends OptionsBase {
     // Default
     TEXT,
 
-    // For graph commands:
+    // For graph commands, show_toolchains and show_execution_platforms:
     JSON,
     GRAPH,
 

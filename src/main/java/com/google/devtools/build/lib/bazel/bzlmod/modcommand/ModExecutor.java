@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -40,10 +41,17 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsExpanded;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.IsIndirect;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode.NodeMetadata;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleRegistrations.RegisteredTarget;
+import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleRegistrations.Registration;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -193,6 +201,91 @@ public class ModExecutor {
       displayExtension(extension, fromUsages);
     }
     printer.flush();
+  }
+
+  /** Prints the given registrations, as text or as one JSON object per module. */
+  public void showRegistrations(ImmutableList<ModuleRegistrations> modules) {
+    if (options.getOutputFormat() == OutputFormat.JSON) {
+      var gson = new GsonBuilder().disableHtmlEscaping().create();
+      for (ModuleRegistrations module : modules) {
+        printer.println(gson.toJson(registrationsToJson(module)));
+      }
+    } else {
+      for (ModuleRegistrations module : modules) {
+        printer.println(registrationsToText(module));
+      }
+    }
+    printer.flush();
+  }
+
+  private static String registrationsToText(ModuleRegistrations module) {
+    var text = new StringBuilder();
+    text.append("## %s:\n".formatted(module.module()));
+    for (var registration : module.registrations()) {
+      switch (registration) {
+        case Registration.Failed(String pattern, String error) ->
+            text.append("%s\n  error: %s\n".formatted(pattern, error));
+        case Registration.Expanded(String pattern, ImmutableList<RegisteredTarget> targets) -> {
+          text.append(pattern).append('\n');
+          for (var target : targets) {
+            text.append(
+                switch (target) {
+                  case RegisteredTarget.Platform(Label label) ->
+                      "  %s\n".formatted(label.getUnambiguousCanonicalForm());
+                  case RegisteredTarget.Toolchain(Label label, Label type, ModuleKey owner) ->
+                      "  %s (type %s%s)\n"
+                          .formatted(
+                              label.getUnambiguousCanonicalForm(),
+                              type.getUnambiguousCanonicalForm(),
+                              module.module().equals(owner) ? "" : " from " + owner);
+                  case RegisteredTarget.Unresolved(Label label, String error) ->
+                      "  %s (error: %s)\n".formatted(label.getUnambiguousCanonicalForm(), error);
+                });
+          }
+        }
+      }
+    }
+    return text.toString();
+  }
+
+  private static JsonObject registrationsToJson(ModuleRegistrations module) {
+    var registrations = new JsonArray();
+    for (var registration : module.registrations()) {
+      var json = new JsonObject();
+      switch (registration) {
+        case Registration.Failed(String pattern, String error) -> {
+          json.addProperty("pattern", pattern);
+          json.addProperty("error", error);
+        }
+        case Registration.Expanded(String pattern, ImmutableList<RegisteredTarget> targets) -> {
+          var targetsJson = new JsonArray();
+          for (var target : targets) {
+            var targetJson = new JsonObject();
+            switch (target) {
+              case RegisteredTarget.Platform(Label label) ->
+                  targetJson.addProperty("label", label.getUnambiguousCanonicalForm());
+              case RegisteredTarget.Toolchain(Label label, Label type, ModuleKey owner) -> {
+                targetJson.addProperty("label", label.getUnambiguousCanonicalForm());
+                targetJson.addProperty("toolchain_type", type.getUnambiguousCanonicalForm());
+                targetJson.addProperty("toolchain_type_owner", owner.toString());
+              }
+              case RegisteredTarget.Unresolved(Label label, String error) -> {
+                targetJson.addProperty("label", label.getUnambiguousCanonicalForm());
+                targetJson.addProperty("error", error);
+              }
+            }
+            targetsJson.add(targetJson);
+          }
+          json.addProperty("pattern", pattern);
+          json.add("targets", targetsJson);
+        }
+      }
+      registrations.add(json);
+    }
+    var json = new JsonObject();
+    json.addProperty("module", module.module().toString());
+    json.add("registrations", registrations);
+    return json;
   }
 
   /**
