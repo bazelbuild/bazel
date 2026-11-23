@@ -2478,6 +2478,64 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo("second build");
   }
 
+  @Test
+  public void testRuleTransitionMovesAwayFromInvalidConfiguration() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _invalid_suffix_impl(settings, attr):
+            return {"//command_line_option:platform_suffix": "//invalid:suffix"}
+
+        _invalid_suffix_transition = transition(
+            implementation = _invalid_suffix_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platform_suffix"],
+        )
+
+        def _valid_suffix_impl(settings, attr):
+            return {"//command_line_option:platform_suffix": "valid"}
+
+        _valid_suffix_transition = transition(
+            implementation = _valid_suffix_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platform_suffix"],
+        )
+
+        parent = rule(
+            implementation = lambda ctx: [],
+            attrs = {"dep": attr.label(cfg = _invalid_suffix_transition)},
+        )
+
+        child = rule(implementation = lambda ctx: [], cfg = _valid_suffix_transition)
+
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "child", "parent", "string_flag")
+
+        parent(
+            name = "parent",
+            dep = ":child",
+        )
+
+        child(name = "child")
+
+        string_flag(
+            name = "flag",
+            build_setting_default = "",
+        )
+        """);
+    // Flag scoping only kicks in with Starlark flags set.
+    useConfiguration("--//test:flag=value");
+
+    assertThat(getConfiguredTarget("//test:parent")).isNotNull();
+  }
+
   private static class AnalysisRootCauseCollector {
     private final ArrayList<AnalysisRootCauseEvent> rootCauses = new ArrayList<>();
 

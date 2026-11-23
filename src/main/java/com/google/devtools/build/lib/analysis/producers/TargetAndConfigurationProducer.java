@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.producers.RuleTransitionApplier.IdempotencyState;
@@ -240,9 +241,12 @@ public final class TargetAndConfigurationProducer
 
     // Read the flag scopes the rule transition needs off the configuration rather than having it
     // look them up per configured target. Without a rule transition, this is the configuration
-    // requested below anyway. Errors surface when the configuration is requested again, and if the
-    // value isn't ready in time, the transition looks up the details itself.
-    if (mayHaveStarlarkFlagDetails(configurationKey.getOptions())) {
+    // requested below anyway and errors surface then. With one, the target may never use this
+    // configuration and requesting it could fail the build, so the transition looks up the details
+    // itself.
+    if (NoTransition.isInstance(
+            target.getAssociatedRule().getRuleClassObject().getTransitionFactory())
+        && mayHaveStarlarkFlagDetails(configurationKey.getOptions())) {
       tasks.lookUp(
           configurationKey,
           InvalidConfigurationException.class,
