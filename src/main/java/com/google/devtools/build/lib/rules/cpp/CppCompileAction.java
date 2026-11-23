@@ -1314,6 +1314,13 @@ public class CppCompileAction extends AbstractAction
     return allowedDerivedInputs;
   }
 
+  @Override
+  public boolean allowedDerivedInputsMayDependOnOutputs() {
+    // The C++20 module files include those of other module interfaces in the same target, which
+    // may import the module compiled by this action.
+    return moduleFiles != null && !moduleFiles.isEmpty();
+  }
+
   /**
    * {@inheritDoc}
    *

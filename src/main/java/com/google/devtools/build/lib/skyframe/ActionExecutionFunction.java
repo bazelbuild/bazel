@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -619,25 +620,46 @@ public class ActionExecutionFunction implements SkyFunction {
     // the full set of original inputs. We'll request them later on if there is no action cache hit.
     NestedSet<Artifact> allKnownInputs =
         action.prunedInputs() ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : action.getInputs();
-    return new AllInputs(allKnownInputs, actionCacheInputs);
+    // With Bazel's remote action file system, all allowed derived inputs are requested as a single
+    // nested set instead of the inputs from the action cache. This also makes the metadata of all
+    // inputs discovered by C++ compilations without include scanning available, which would
+    // otherwise be requested individually.
+    NestedSet<Artifact> allowedDerivedInputs =
+        skyframeActionExecutor.actionFileSystemType() == ActionFileSystemType.REMOTE_FILE_SYSTEM
+                && !action.allowedDerivedInputsMayDependOnOutputs()
+            ? action.getAllowedDerivedInputs()
+            : null;
+    return new AllInputs(allKnownInputs, actionCacheInputs, allowedDerivedInputs);
   }
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
     @Nullable final List<Artifact> actionCacheInputs;
+    @Nullable final NestedSet<Artifact> allowedDerivedInputs;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = null;
+      this.allowedDerivedInputs = null;
     }
 
-    AllInputs(NestedSet<Artifact> defaultInputs, List<Artifact> actionCacheInputs) {
+    AllInputs(
+        NestedSet<Artifact> defaultInputs,
+        List<Artifact> actionCacheInputs,
+        @Nullable NestedSet<Artifact> allowedDerivedInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
+      this.allowedDerivedInputs = allowedDerivedInputs;
     }
 
     /** Compute the inputs to request from Skyframe. */
     NestedSet<Artifact> getAllInputs() {
+      if (allowedDerivedInputs != null) {
+        return NestedSetBuilder.<Artifact>newBuilder(Order.STABLE_ORDER)
+            .addTransitive(defaultInputs)
+            .addTransitive(allowedDerivedInputs)
+            .build();
+      }
       if (actionCacheInputs == null || actionCacheInputs.isEmpty()) {
         return defaultInputs;
       }
