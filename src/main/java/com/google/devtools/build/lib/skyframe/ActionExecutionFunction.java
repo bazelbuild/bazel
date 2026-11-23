@@ -954,10 +954,18 @@ public class ActionExecutionFunction implements SkyFunction {
     // successors of the discovered inputs keeps this cheap for actions that discover a small
     // subset of their scheduling dependencies, such as with include scanning.
     NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
-    if (!schedulingDependencies.isEmpty()
-        && (state.discoveredInputs.shallowEquals(schedulingDependencies)
-            || state.discoveredInputs.getNonLeaves().stream()
-                .anyMatch(schedulingDependencies::shallowEquals))) {
+    boolean containsSchedulingDependencies =
+        !schedulingDependencies.isEmpty()
+            && state.discoveredInputs.shallowEquals(schedulingDependencies);
+    if (!containsSchedulingDependencies && !schedulingDependencies.isEmpty()) {
+      for (NestedSet<Artifact> nonLeaf : state.discoveredInputs.getNonLeaves()) {
+        if (nonLeaf.shallowEquals(schedulingDependencies)) {
+          containsSchedulingDependencies = true;
+          break;
+        }
+      }
+    }
+    if (containsSchedulingDependencies) {
       for (Artifact input : schedulingDependencies.toList()) {
         if (state.getKnownDiscoveredInputMetadata(input) == null) {
           // The value is only missing if the input was rewound and completed with an error after
