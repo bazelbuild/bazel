@@ -1,0 +1,34 @@
+--- a/build/wabt_build.bzl
++++ b/build/wabt_build.bzl
+@@ -4,7 +4,11 @@
+ visibility(["//..."])
+ 
+ _DETECT_COMPILER = """
+-#if defined(__clang__)
++#if defined(_MSC_VER)
++#  define COMPILER_IS_CLANG 0
++#  define COMPILER_IS_GNU 0
++#  define COMPILER_IS_MSVC 1
++#elif defined(__clang__)
+ #  define COMPILER_IS_CLANG 1
+ #  define COMPILER_IS_GNU 0
+ #  define COMPILER_IS_MSVC 0
+@@ -12,10 +16,6 @@ _DETECT_COMPILER = """
+ #  define COMPILER_IS_CLANG 0
+ #  define COMPILER_IS_GNU 1
+ #  define COMPILER_IS_MSVC 0
+-#elif defined(_MSC_VER)
+-#  define COMPILER_IS_CLANG 0
+-#  define COMPILER_IS_GNU 0
+-#  define COMPILER_IS_MSVC 1
+ #endif
+ """
+ 
+@@ -129,6 +129,7 @@ _WABT_CXXOPTS_CLANG_GCC = [
+ 
+ WABT_CXXOPTS = select({
+     Label("@rules_cc//cc/compiler:msvc-cl"): _WABT_CXXOPTS_MSVC,
++    Label("@rules_cc//cc/compiler:clang-cl"): _WABT_CXXOPTS_MSVC,
+     Label("@rules_cc//cc/compiler:clang"): _WABT_CXXOPTS_CLANG_GCC,
+     Label("@rules_cc//cc/compiler:gcc"): _WABT_CXXOPTS_CLANG_GCC,
+ })

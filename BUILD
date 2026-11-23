@@ -325,27 +325,27 @@ platform(
     parents = [":default_host_platform"],
 )
 
-# Default Windows host/execution platform: pairs the default hermetic MinGW
-# LLVM toolchain (MSVCRT) with the matching `windows-gnullvm` Rust toolchain
+# Default Windows host/execution platform: pairs the hermetic MSVC LLVM
+# toolchain (Microsoft STL) with the matching `windows-msvc` Rust toolchain
 # while inheriting host capabilities from `:default_host_platform`.
 platform(
     name = "windows_host_platform",
     constraint_values = [
-        "@llvm//constraints/windows/abi:gnullvm",
-        "@llvm//constraints/windows/crt:msvcrt",
+        "@llvm//constraints/windows/abi:msvc",
+        "@llvm//constraints/cxxstdlib:msvcstl",
     ],
     parents = [":default_host_platform"],
 )
 
-# Standalone Windows x86_64 target platform for cross-compiling
-# //src:bazel_windows_llvm from any host OS.
+# Standalone Windows x86_64 target platform (MSVC ABI + Microsoft STL) for
+# cross-compiling //src:bazel_windows_llvm from any host OS.
 platform(
     name = "windows_x86_64",
     constraint_values = [
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
-        "@llvm//constraints/windows/abi:gnullvm",
-        "@llvm//constraints/windows/crt:msvcrt",
+        "@llvm//constraints/windows/abi:msvc",
+        "@llvm//constraints/cxxstdlib:msvcstl",
     ],
     visibility = ["//visibility:public"],
 )
@@ -356,6 +356,7 @@ platform(
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
         "@llvm//constraints/windows/abi:msvc",
+        "@llvm//constraints/cxxstdlib:msvcstl",
     ],
 )
 
