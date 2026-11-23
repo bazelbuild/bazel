@@ -428,6 +428,15 @@ public class RemoteExecutionService {
   private final Semaphore remoteActionBuildingSemaphore =
       new Semaphore(Runtime.getRuntime().availableProcessors(), true);
 
+  /**
+   * Semaphore for limiting the number of actions that upload their inputs concurrently.
+   *
+   * <p>Uploads mostly wait on the network. They don't share a semaphore with buildRemoteAction() so
+   * that actions that only check the remote cache don't have to wait for them.
+   */
+  private final Semaphore inputUploadSemaphore =
+      new Semaphore(Runtime.getRuntime().availableProcessors(), true);
+
   @Nullable
   private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
@@ -438,23 +447,22 @@ public class RemoteExecutionService {
         : null;
   }
 
-  private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
-      throws InterruptedException {
+  private void maybeAcquire(Semaphore semaphore, ProfilerTask task) throws InterruptedException {
     if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
     try (var c = Profiler.instance().profile(task, "acquiring semaphore")) {
-      remoteActionBuildingSemaphore.acquire();
+      semaphore.acquire();
     }
   }
 
-  private void maybeReleaseRemoteActionBuildingSemaphore() {
+  private void maybeRelease(Semaphore semaphore) {
     if (!remoteOptions.getThrottleRemoteActionBuilding()) {
       return;
     }
 
-    remoteActionBuildingSemaphore.release();
+    semaphore.release();
   }
 
   private boolean useOutputPaths() {
@@ -531,7 +539,7 @@ public class RemoteExecutionService {
   public RemoteAction buildRemoteAction(
       Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.BlobPolicy blobPolicy)
       throws IOException, ExecException, InterruptedException {
-    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
+    maybeAcquire(remoteActionBuildingSemaphore, ProfilerTask.REMOTE_SETUP);
     try {
       // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
       // the paths of the inputs and outputs as well as paths appearing in the command line for
@@ -616,7 +624,7 @@ public class RemoteExecutionService {
           action,
           actionKey);
     } finally {
-      maybeReleaseRemoteActionBuildingSemaphore();
+      maybeRelease(remoteActionBuildingSemaphore);
     }
   }
 
@@ -2091,7 +2099,7 @@ public class RemoteExecutionService {
     // concurrency. This prevents memory exhaustion. We assume that
     // ensureInputsPresent() provides enough parallelism to saturate the
     // network connection.
-    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
+    maybeAcquire(inputUploadSemaphore, ProfilerTask.UPLOAD_TIME);
     try {
       MerkleTree.Uploadable merkleTree;
       if (action.getMerkleTree() instanceof MerkleTree.Uploadable uploadable && !force) {
@@ -2123,7 +2131,7 @@ public class RemoteExecutionService {
           additionalInputs,
           force);
     } finally {
-      maybeReleaseRemoteActionBuildingSemaphore();
+      maybeRelease(inputUploadSemaphore);
     }
   }
 
