@@ -5,6 +5,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//scripts:rust_bootstrap.bzl", "rust_bootstrap_bundle")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
@@ -488,6 +489,12 @@ genrule(
     toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
+)
+
+rust_bootstrap_bundle(
+    name = "bootstrap-rust",
+    visibility = ["//:__pkg__"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 # config_setting alias left here because bazel-only third_party code is pointing to it
