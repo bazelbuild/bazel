@@ -21,6 +21,9 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions;
+import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -146,6 +149,16 @@ final class RemoteActionContextProvider {
     return checkNotNull(actionInputFetcher);
   }
 
+  static boolean reportsBuildEvents(CommandEnvironment env) {
+    var bes = env.getOptions().getOptions(BuildEventServiceOptions.class);
+    var bepFiles = env.getOptions().getOptions(BuildEventStreamOptions.class);
+    return (bes != null && !bes.getBesBackend().isEmpty())
+        || (bepFiles != null
+            && (!bepFiles.getBuildEventTextFile().isEmpty()
+                || !bepFiles.getBuildEventBinaryFile().isEmpty()
+                || !bepFiles.getBuildEventJsonFile().isEmpty()));
+  }
+
   private RemoteExecutionService getRemoteExecutionService() {
     if (remoteExecutionService == null) {
       Path workingDirectory = env.getWorkingDirectory();
@@ -159,10 +172,17 @@ final class RemoteActionContextProvider {
 
       boolean verboseFailures =
           checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).getVerboseFailures();
+      var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+      // Build events can use host paths (including when upload falls back to local). Without
+      // action finalization, the output service also cannot materialize a deferred test.log.
+      boolean requireLocalLogPaths =
+          reportsBuildEvents(env)
+              || (buildRequestOptions != null && !buildRequestOptions.getFinalizeActions());
       remoteExecutionService =
           new RemoteExecutionService(
               env.getReporter(),
               verboseFailures,
+              requireLocalLogPaths,
               env.getExecRoot(),
               createRemotePathResolver(),
               env.getBuildRequestId(),

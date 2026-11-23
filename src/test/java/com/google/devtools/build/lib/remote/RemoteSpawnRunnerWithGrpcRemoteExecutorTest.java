@@ -352,6 +352,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         new RemoteExecutionService(
             reporter,
             /* verboseFailures= */ true,
+            /* requireLocalLogPaths= */ false,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",

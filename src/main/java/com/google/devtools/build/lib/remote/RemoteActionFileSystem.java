@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifact
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -69,7 +71,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -114,6 +118,7 @@ public class RemoteActionFileSystem extends FileSystem {
   private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
   // Concurrent access is rare and most builds don't have lost inputs.
+  private final Set<PathFragment> deferredLogs = ConcurrentHashMap.newKeySet();
   private final List<LostArtifacts> lostInputs = Collections.synchronizedList(new ArrayList<>(0));
 
   @Nullable private ActionExecutionMetadata action = null;
@@ -329,6 +334,15 @@ public class RemoteActionFileSystem extends FileSystem {
         FileArtifactValue.createForRemoteFileWithMaterializationData(
             digest, size, /* locationIndex= */ 1, expirationTime, inMemoryOutput);
     remoteOutputTree.injectFile(path, metadata);
+    deferredLogs.remove(path);
+  }
+
+  void injectRemoteLog(PathFragment path, byte[] digest, long size, Instant expirationTime)
+      throws IOException {
+    checkArgument(isOutput(path), "path must be an output path");
+    injectRemoteFile(path, digest, size, expirationTime, /* inMemoryOutput= */ false);
+    deferredLogs.add(path);
+    inputFetcher.invalidateDownloads(ImmutableList.of(path.relativeTo(execRoot)));
   }
 
   @Override
@@ -385,6 +399,7 @@ public class RemoteActionFileSystem extends FileSystem {
     boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
+      deferredLogs.remove(path);
     }
 
     return deleted;
@@ -413,28 +428,63 @@ public class RemoteActionFileSystem extends FileSystem {
       if (!isRemote(path)) {
         return immediateVoidFuture();
       }
+      PathFragment execPath = path.relativeTo(execRoot);
+      ActionInput input = inputArtifactData.getInput(execPath);
+      InputMetadataProvider metadataProvider = inputArtifactData;
+      if (input == null) {
+        if (deferredLogs.isEmpty()) {
+          return immediateVoidFuture();
+        }
+        path = resolveSymbolicLinks(path).asFragment();
+        if (!deferredLogs.contains(path)) {
+          return immediateVoidFuture();
+        }
+        // Captured test logs are not necessarily declared action inputs.
+        var status = remoteOutputTree.statIfFound(path, /* followSymlinks= */ false);
+        if (!(status instanceof FileStatusWithMetadata statusWithMetadata)) {
+          return immediateVoidFuture();
+        }
+        input = ActionInputHelper.fromPath(path.relativeTo(execRoot));
+        metadataProvider =
+            new StaticInputMetadataProvider(Map.of(input, statusWithMetadata.getMetadata()));
+      }
+      ActionInput inputToFetch = input;
+      return inputFetcher.prefetchFiles(
+          action,
+          /* spawn= */ null,
+          () -> ImmutableList.of(inputToFetch),
+          metadataProvider,
+          Priority.CRITICAL,
+          Reason.INPUTS);
     } catch (IOException e) {
       return immediateFailedFuture(e);
     }
-    PathFragment execPath = path.relativeTo(execRoot);
-    ActionInput input = inputArtifactData.getInput(execPath);
-    if (input == null) {
-      // TODO(tjgq): Also look up the remote output tree.
-      return immediateVoidFuture();
-    }
-    return inputFetcher.prefetchFiles(
-        action,
-        /* spawn= */ null,
-        () -> ImmutableList.of(input),
-        inputArtifactData,
-        Priority.CRITICAL,
-        Reason.INPUTS);
   }
 
   @Override
   public OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
-    return localFs.getPath(path).getOutputStream(append, internal);
+    if (!deferredLogs.contains(path)) {
+      return localFs.getPath(path).getOutputStream(append, internal);
+    }
+    if (append) {
+      // Appending must retain the remotely stored prefix, even if it has never been read locally.
+      try {
+        getFromFuture(downloadIfRemote(path));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IOException("Interrupted while fetching output to append: " + path, e);
+      }
+    }
+    Path localPath = localFs.getPath(path);
+    if (localPath.exists()) {
+      localPath.setWritable(true);
+    }
+    OutputStream stream = localPath.getOutputStream(append, internal);
+    // Future metadata queries must describe the modified local file, not the original CAS blob.
+    remoteOutputTree.getPath(path).delete();
+    deferredLogs.remove(path);
+    return stream;
   }
 
   @Override
@@ -654,7 +704,6 @@ public class RemoteActionFileSystem extends FileSystem {
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
-
   /**
    * Internal stat implementation.
    *
@@ -767,7 +816,7 @@ public class RemoteActionFileSystem extends FileSystem {
     };
   }
 
-  private boolean isOutput(PathFragment path) {
+  boolean isOutput(PathFragment path) {
     return path.startsWith(outputBase);
   }
 
@@ -783,10 +832,18 @@ public class RemoteActionFileSystem extends FileSystem {
     // there's no risk of a race condition below.
     pathCanonicalizer.clearPrefix(srcPath);
     pathCanonicalizer.clearPrefix(dstPath);
+    if (deferredLogs.contains(srcPath) || deferredLogs.contains(dstPath)) {
+      inputFetcher.invalidateDownloads(
+          ImmutableList.of(srcPath.relativeTo(execRoot), dstPath.relativeTo(execRoot)));
+    }
 
     FileNotFoundException remoteException = null;
     try {
       remoteOutputTree.renameTo(srcPath, dstPath);
+      deferredLogs.remove(dstPath);
+      if (deferredLogs.remove(srcPath)) {
+        deferredLogs.add(dstPath);
+      }
     } catch (FileNotFoundException e) {
       remoteException = e;
     }

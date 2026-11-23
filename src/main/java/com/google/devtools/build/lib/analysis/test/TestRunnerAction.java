@@ -134,6 +134,7 @@ public class TestRunnerAction extends AbstractAction
   @Nullable private final PathFragment testShard;
   private final PathFragment testExitSafe;
   private final PathFragment testStderr;
+  private final PathFragment testStdout;
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
 
@@ -263,6 +264,15 @@ public class TestRunnerAction extends AbstractAction
     this.testWarningsPath = baseDir.getChild("test.warnings");
     this.unusedRunfilesLogPath = baseDir.getChild("test.unused_runfiles_log");
     this.testStderr = baseDir.getChild("test.err");
+    // Keep the scratch stream outside the target-name-based testlogs tree. Mirroring the
+    // declared log's relative path gives each test, run, and shard its own stable file.
+    this.testStdout =
+        testLog
+            .getRoot()
+            .getExecPath()
+            .getParentDirectory()
+            .getChild("_testlogs_tmp")
+            .getRelative(testLog.getRootRelativePath());
     this.shExecutable = shExecutable;
     this.splitLogsDir = baseDir.getChild("test.raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
@@ -298,6 +308,7 @@ public class TestRunnerAction extends AbstractAction
                 testWarningsPath,
                 unusedRunfilesLogPath,
                 testStderr,
+                testStdout,
                 testExitSafe,
                 testInfrastructureFailure,
                 // We cannot use coverageData artifact since it may be null. Generate coverage name
@@ -895,6 +906,11 @@ public class TestRunnerAction extends AbstractAction
 
   public PathFragment getTestStderrPath() {
     return testStderr;
+  }
+
+  /** Raw test stdout, before stderr and coverage logs are merged into {@link #getTestLog()}. */
+  public PathFragment getTestStdoutPath() {
+    return testStdout;
   }
 
   public PathFragment getTestWarningsPath() {
