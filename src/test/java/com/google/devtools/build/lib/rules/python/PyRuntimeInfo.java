@@ -95,8 +95,8 @@ public final class PyRuntimeInfo {
     }
   }
 
-  public PythonVersion getPythonVersion() throws EvalException {
-    return PythonVersion.parseTargetValue(info.getValue("python_version", String.class));
+  public String getPythonVersion() throws EvalException {
+    return info.getValue("python_version", String.class);
   }
 
   private static class BaseProvider extends StarlarkProviderWrapper<PyRuntimeInfo> {

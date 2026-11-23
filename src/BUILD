@@ -5,6 +5,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//scripts:rust_bootstrap.bzl", "rust_bootstrap_bundle")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
@@ -80,6 +81,7 @@ py_library(
 py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
+    legacy_create_init = 0,
     deps = [":create_embedded_tools_lib"],
 )
 
@@ -374,17 +376,16 @@ genrule(
 windows_llvm_alias(
     name = "bazel_windows_llvm",
     actual = ":bazel.exe",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Keep wildcard builds from cross-compiling Bazel for Windows.
     tags = ["manual"],
 )
 
 # Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
-# Not registered by default; it is only used with the `llvm` config in .bazelrc
-# and by :bazel_windows_llvm.
+# Enabled by default in .bazelrc and used by :bazel_windows_llvm.
 windows_resource_compiler_toolchain(
     name = "llvm_rc",
     rc_exe = "@llvm//tools:llvm-rc",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Only necessary for builds that target Windows.
     tags = ["manual"],
 )
 
@@ -418,6 +419,7 @@ filegroup(
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
+        "//src/rust:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
@@ -487,6 +489,12 @@ genrule(
     toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
+)
+
+rust_bootstrap_bundle(
+    name = "bootstrap-rust",
+    visibility = ["//:__pkg__"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
 )
 
 # config_setting alias left here because bazel-only third_party code is pointing to it

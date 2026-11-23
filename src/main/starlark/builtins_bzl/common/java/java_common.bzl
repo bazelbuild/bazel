@@ -35,7 +35,6 @@ def _internal_exports() -> struct:
         expand_java_opts = _java_common_internal.expand_java_opts,
         get_runtime_classpath_for_archive = _java_common_internal.get_runtime_classpath_for_archive,
         google_legacy_api_enabled = _java_common_internal._google_legacy_api_enabled,
-        incompatible_disable_non_executable_java_binary = _java_common_internal.incompatible_disable_non_executable_java_binary,
         incompatible_java_info_merge_runtime_module_flags = _java_common_internal._incompatible_java_info_merge_runtime_module_flags,
         target_kind = _java_common_internal.target_kind,
     )

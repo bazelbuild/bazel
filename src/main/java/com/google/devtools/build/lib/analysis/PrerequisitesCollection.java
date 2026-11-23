@@ -119,28 +119,9 @@ public final class PrerequisitesCollection {
     if (attribute == null) {
       return ImmutableList.of();
     }
-
-    List<ConfiguredTargetAndData> prerequisiteConfiguredTargets;
-    // android_binary, android_test, and android_binary_internal override deps to use a split
-    // transition.
-    if ((rule.getRuleClass().equals("android_binary")
-            || rule.getRuleClass().equals("android_test")
-            || rule.getRuleClass().equals("android_binary_internal"))
-        && attributeName.equals("deps")
-        && attribute.getTransitionFactory().isSplit()) {
-      // TODO(b/168038145): Restore legacy behavior of returning the prerequisites from the first
-      // portion of the split transition.
-      // Callers should be identified, cleaned up, and this check removed.
-      Map<Optional<String>, List<ConfiguredTargetAndData>> map =
-          getSplitPrerequisites(attributeName);
-      prerequisiteConfiguredTargets =
-          map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
-    } else {
-      prerequisiteConfiguredTargets = getPrerequisiteConfiguredTargets(attributeName);
-    }
-
     return Lists.transform(
-        prerequisiteConfiguredTargets, ConfiguredTargetAndData::getConfiguredTarget);
+        getPrerequisiteConfiguredTargets(attributeName),
+        ConfiguredTargetAndData::getConfiguredTarget);
   }
 
   /**

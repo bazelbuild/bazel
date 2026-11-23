@@ -22,6 +22,8 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
     CPU_HEAVY,
     // Reserved for execution-phase tasks.
     EXECUTION_PHASE,
+    // Reserved for post-analysis tasks.
+    POST_ANALYSIS,
     REGULAR,
   }
 
@@ -30,36 +32,17 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
    *
    * <p>WARNING: it is the developer's responsibility to check that the appropriate thread pool is
    * present.
-   *
-   * @param shouldStallAwaitingSignal whether the execution of the runnable should be stalled. No-op
-   *     if the go ahead signal is already given.
    */
-  void execute(Runnable runnable, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal);
-
-  default void execute(Runnable runnable, ThreadPoolType threadPoolType) {
-    execute(runnable, threadPoolType, /* shouldStallAwaitingSignal= */ false);
-  }
+  void execute(Runnable runnable, ThreadPoolType threadPoolType);
 
   /**
    * Execute the {@link QuiescingTask}, taking into consideration the preferred thread pool type.
    */
-  void execute(
-      QuiescingTask task, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal);
-
-  default void execute(QuiescingTask task, ThreadPoolType threadPoolType) {
-    execute(task, threadPoolType, /* shouldStallAwaitingSignal= */ false);
-  }
-
-  /**
-   * Begin executing execution phase tasks.
-   *
-   * <p>The execution phase tasks sent to this executor will be queued up until this method is
-   * called. This is called exactly once per build.
-   *
-   * <p>Skymeld-only.
-   */
-  void launchQueuedUpExecutionPhaseTasks();
+  void execute(QuiescingTask task, ThreadPoolType threadPoolType);
 
   /** Only true when in Skymeld mode. */
   boolean hasSeparatePoolForExecutionTasks();
+
+  /** Returns whether a separate non-priority pool is available for post-analysis tasks. */
+  boolean hasSeparatePoolForPostAnalysisTasks();
 }

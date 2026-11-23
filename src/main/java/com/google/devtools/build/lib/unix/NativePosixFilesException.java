@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.unix;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** Exception thrown when a POSIX filesystem operation fails. */
-@SkybridgeInterface
 public final class NativePosixFilesException extends Exception {
 
   /** Typesafe representation of POSIX error codes. */

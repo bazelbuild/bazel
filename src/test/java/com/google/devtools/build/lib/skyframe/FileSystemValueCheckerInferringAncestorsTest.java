@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FileStateValue.DIRECTORY_FILE_STATE_NODE;
 import static com.google.devtools.build.lib.actions.FileStateValue.NONEXISTENT_FILE_STATE_NODE;
+import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.directory;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.file;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.symlink;
 import static org.junit.Assert.assertThrows;
@@ -31,6 +32,10 @@ import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtines
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.util.CaseInsensitiveFileSystem;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
@@ -726,6 +731,82 @@ public final class FileSystemValueCheckerInferringAncestorsTest
                 fsvcThreads,
                 syscallCache,
                 skyValueDirtinessChecker));
+  }
+
+  @Test
+  public void getDiffWithInferredAncestors_caseOnlyDirectoryRename_returnsParentListing()
+      throws Exception {
+    Root caseInsensitiveRoot =
+        Root.fromPath(new CaseInsensitiveFileSystem(scratch.getFileSystem()).getPath("/src"));
+    scratch.file("foobar/BUILD");
+    FileStateKey oldDirKey = fileStateKey(caseInsensitiveRoot, "foobar");
+    FileStateKey oldBuildFileKey = fileStateKey(caseInsensitiveRoot, "foobar/BUILD");
+    FileStateKey newDirKey = fileStateKey(caseInsensitiveRoot, "fooBar");
+    FileStateKey newBuildFileKey = fileStateKey(caseInsensitiveRoot, "fooBar/BUILD");
+    DirectoryListingStateValue.Key rootListingKey =
+        DirectoryListingStateValue.key(
+            RootedPath.toRootedPath(caseInsensitiveRoot, PathFragment.EMPTY_FRAGMENT));
+    FileStateValue buildFileValue =
+        FileStateValue.create(oldBuildFileKey.argument(), SyscallCache.NO_CACHE, /* tsgm= */ null);
+    addDoneNodes(
+        ImmutableMap.of(
+            oldDirKey,
+            DIRECTORY_FILE_STATE_NODE,
+            oldBuildFileKey,
+            buildFileValue,
+            newDirKey,
+            DIRECTORY_FILE_STATE_NODE,
+            newBuildFileKey,
+            buildFileValue,
+            rootListingKey,
+            directoryListingStateValue(directory("foobar"))));
+    scratch.getFileSystem().getPath("/src/foobar").renameTo(scratch.resolve("/src/fooBar"));
+
+    ImmutableDiff diff =
+        FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
+            /* tsgm= */ null,
+            inMemoryGraph,
+            /* modifiedKeys= */ ImmutableSet.of(
+                oldBuildFileKey, oldDirKey, newDirKey, newBuildFileKey),
+            fsvcThreads,
+            syscallCache,
+            skyValueDirtinessChecker);
+
+    assertThat(diff.changedKeysWithoutNewValues()).containsExactly(rootListingKey);
+  }
+
+  @Test
+  public void getDiffWithInferredAncestors_caseInsensitiveUnlistedFileStillMissing_returnsEmpty()
+      throws Exception {
+    Root caseInsensitiveRoot =
+        Root.fromPath(new CaseInsensitiveFileSystem(scratch.getFileSystem()).getPath("/src"));
+    scratch.file("file");
+    FileStateKey tempFileKey = fileStateKey(caseInsensitiveRoot, "file.tmp");
+    DirectoryListingStateValue.Key rootListingKey =
+        DirectoryListingStateValue.key(
+            RootedPath.toRootedPath(caseInsensitiveRoot, PathFragment.EMPTY_FRAGMENT));
+    addDoneNodes(
+        ImmutableMap.of(
+            tempFileKey,
+            NONEXISTENT_FILE_STATE_NODE,
+            rootListingKey,
+            directoryListingStateValue(file("file"))));
+
+    ImmutableDiff diff =
+        FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
+            /* tsgm= */ null,
+            inMemoryGraph,
+            /* modifiedKeys= */ ImmutableSet.of(tempFileKey),
+            fsvcThreads,
+            syscallCache,
+            skyValueDirtinessChecker);
+
+    assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
+    assertThat(diff.changedKeysWithNewValues()).isEmpty();
+  }
+
+  private static FileStateKey fileStateKey(Root root, String relativePath) {
+    return FileStateValue.key(RootedPath.toRootedPath(root, PathFragment.create(relativePath)));
   }
 
   private Delta fileStateValueDelta(String relativePath) throws IOException {

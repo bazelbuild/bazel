@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.util.Optional;
 
 /** A {@link BlazeService} to retrieve the path to the server info log. */
-@SkybridgeInterface
 public interface ServerLogPathService extends BlazeService {
   /**
    * Returns the path to the server info log, or empty if it is not yet available.

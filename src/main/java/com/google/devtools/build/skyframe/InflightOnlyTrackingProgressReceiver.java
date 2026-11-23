@@ -79,6 +79,11 @@ public class InflightOnlyTrackingProgressReceiver implements InflightTrackingPro
   }
 
   @Override
+  public final void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+    progressReceiver.committing(skyKey, value, directDeps);
+  }
+
+  @Override
   public final void evaluated(
       SkyKey skyKey,
       EvaluationState state,

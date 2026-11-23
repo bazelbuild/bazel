@@ -78,6 +78,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:concurrent",
     ],
 )
@@ -96,6 +97,7 @@ java_library(
     name = "frontier_node_version",
     srcs = ["FrontierNodeVersion.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:base",
@@ -129,14 +131,18 @@ java_library(
             "StarlarkSetCodec.java",
             "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
+            "WireType.java",
             "WriteStatus.java",
             "WriteStatuses.java",
         ],
     ),
     add_opens = [
+        "java.base/java.lang",
         "java.base/java.lang.invoke",
+        "java.base/java.time",
         # For VarHandle access to private fields of ArrayList and EnumMap.
         "java.base/java.util",
+        "java.base/java.util.concurrent.atomic",
     ],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__subpackages__",
@@ -148,6 +154,7 @@ java_library(
         ":fingerprint_value_store",
         ":frontier_node_version",
         ":key_bytes_provider",
+        ":wire_type",
         ":write_status",
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -203,6 +210,15 @@ java_library(
 java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "wire_type",
+    srcs = ["WireType.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 java_library(
@@ -288,7 +304,6 @@ java_library(
         "WriteStatus.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/guava:concurrent",
     ],
 )
@@ -311,9 +326,6 @@ java_library(
 java_library(
     name = "skycache_metadata_params",
     srcs = ["SkycacheMetadataParams.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
 )
 
 java_library(
@@ -322,7 +334,6 @@ java_library(
     deps = [
         ":key_bytes_provider",
         ":write_status",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//third_party/java/guava:base",
         "//third_party/java/guava:concurrent",
@@ -348,7 +359,6 @@ java_library(
 java_library(
     name = "key_bytes_provider",
     srcs = ["KeyBytesProvider.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(

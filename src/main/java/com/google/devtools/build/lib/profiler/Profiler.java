@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.profiler;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -51,7 +50,6 @@ import javax.annotation.Nullable;
  * profiler API should mirror the existing methods: a delegating implementation falling back to a
  * no-op, with the actual implementation in {@link TraceProfilerServiceImpl}.
  */
-@SkybridgeInterface
 @SuppressWarnings("GoodTime") // This code is very performance sensitive.
 public final class Profiler implements TraceProfilerService {
   private static final Profiler instance = new Profiler();

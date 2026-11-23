@@ -213,7 +213,10 @@ public final class ObjectCodecsTest {
     MyException exception = new MyException();
     // Force initialization of stack trace.
     StackTraceElement[] stackTrace = exception.getStackTrace();
-    ObjectCodecs underTest = new ObjectCodecs(AutoRegistry.get(), ImmutableClassToInstanceMap.of());
+    ObjectCodecs underTest =
+        new ObjectCodecs(
+            AutoRegistry.get().getBuilder().addClassName(MyException.class.getName()).build(),
+            ImmutableClassToInstanceMap.of());
     assertThat(
             ((MyException) underTest.deserializeMemoized(underTest.serializeMemoized(exception)))
                 .getStackTrace())

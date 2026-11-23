@@ -41,12 +41,7 @@ import java.util.ArrayList;
 import java.util.Random;
 import javax.annotation.Nullable;
 
-/**
- * Utility for testing serialization of given subjects.
- *
- * <p>Differs from {@link ObjectCodecTester} in that this uses the context to perform serialization
- * deserialization instead of a specific codec.
- */
+/** Utility for testing serialization of given subjects. */
 public class SerializationTester {
   public static final int DEFAULT_JUNK_INPUTS = 20;
   public static final int JUNK_LENGTH_UPPER_BOUND = 20;

@@ -16,7 +16,6 @@
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
 
 #include <algorithm>
-#include <deque>
 #include <set>
 #include <string>
 #include <vector>
@@ -35,11 +34,6 @@ namespace internal {
 // omitted.
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths);
-
-// Given the set of already-ready files, warns if any of the newly loaded_rcs
-// are duplicates. All paths are expected to be canonical.
-void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
-                               const std::deque<std::string>& loaded_rcs);
 
 blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error);
 

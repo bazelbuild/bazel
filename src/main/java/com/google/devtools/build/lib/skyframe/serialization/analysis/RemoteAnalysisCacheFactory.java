@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
@@ -163,7 +164,6 @@ public final class RemoteAnalysisCacheFactory {
             nullToEmpty(options.getAnalysisCacheKeyDistinguisherForTesting()),
             env.getUseFakeStampData(),
             workspaceInfoFromDiff.getSnapshot());
-    env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
     env.getRemoteAnalysisCachingEventListener().setClientId(clientId);
     env.getRemoteAnalysisCachingEventListener()
         .setUntrimmedConfigurationChecksum(untrimmedConfigurationChecksum);
@@ -182,7 +182,11 @@ public final class RemoteAnalysisCacheFactory {
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     try {
       servicesSupplier.configure(
-          env.getOptions(), options.getMode(), clientId, env.getCommandId().toString());
+          env.getOptions(),
+          options.getMode(),
+          clientId,
+          env.getCommandId().toString(),
+          env.getOriginatingUser());
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
@@ -202,10 +206,7 @@ public final class RemoteAnalysisCacheFactory {
     if (skycacheMetadataParams != null) {
       skycacheMetadataParams.init(
           frontierNodeVersion.getEvaluatingVersion(),
-          String.format(
-              "%s-%s",
-              BlazeVersionInfo.instance().getReleaseName(),
-              frontierNodeVersion.getBlazeInstallMD5()),
+          frontierNodeVersion.getReleaseVersionAndInstallationHash(BlazeVersionInfo.instance()),
           topLevelTargets.stream().map(Label::toString).collect(toImmutableList()),
           frontierNodeVersion.getUseFakeStampData(),
           userOptions,
@@ -259,6 +260,7 @@ public final class RemoteAnalysisCacheFactory {
             analysisCacheInvalidator,
             topLevelTargets,
             options.getSkycacheMinimizeMemory(),
+            env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
             platformConfigurationProvider);
 
     // Bail out if needed
@@ -279,12 +281,12 @@ public final class RemoteAnalysisCacheFactory {
             RemoteAnalysisCacheDeps.createDisabled(),
             RemoteAnalysisCacheDeps.createDisabled());
       }
-      return new AnalysisDeps(manager, deps, deps);
-    } else if (options.getMode().serializesValues()) {
-      return new AnalysisDeps(manager, deps, deps);
-    } else {
+    } else if (!options.getMode().serializesValues()) {
       throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
     }
+
+    env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
+    return new AnalysisDeps(manager, deps, deps);
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(

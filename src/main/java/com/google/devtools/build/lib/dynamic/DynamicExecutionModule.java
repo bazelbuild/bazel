@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.local.AllowedLocalActions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -171,7 +172,7 @@ public class DynamicExecutionModule extends BlazeModule {
         new DynamicSpawnStrategy(
             executorService,
             options,
-            this::getExecutionPolicy,
+            this::getEffectiveExecutionPolicy,
             this::getPostProcessingSpawnForLocalExecution,
             numCpus,
             jobs,
@@ -215,6 +216,18 @@ public class DynamicExecutionModule extends BlazeModule {
     }
 
     return ExecutionPolicy.ANYWHERE;
+  }
+
+  @VisibleForTesting
+  final ExecutionPolicy getEffectiveExecutionPolicy(Spawn spawn) {
+    ExecutionPolicy policy = getExecutionPolicy(spawn);
+    if (policy.canRunLocally()
+        && policy.canRunRemotely()
+        && localOptions != null
+        && !AllowedLocalActions.isAllowed(localOptions, spawn.getResourceOwner().getMnemonic())) {
+      return ExecutionPolicy.REMOTE_EXECUTION_ONLY;
+    }
+    return policy;
   }
 
   /**

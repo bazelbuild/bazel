@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -21,7 +20,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * on an aggregate in-flight request capacity threshold derived from the Bandwidth-Delay Product
  * (BDP).
  */
-@SkybridgeInterface
 public class SkycacheChannelStateAdvisor {
   public static final SkycacheChannelStateAdvisor DISABLED =
       new SkycacheChannelStateAdvisor(/* maxInFlightRequests= */ 0) {

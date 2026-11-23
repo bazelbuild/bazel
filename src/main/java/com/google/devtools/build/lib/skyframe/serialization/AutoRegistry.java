@@ -43,9 +43,17 @@ public class AutoRegistry {
   }
 
   /** Class name prefixes to forbid for {@link DynamicCodec}. */
-  private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
+  private static final ImmutableList<String> CLASS_NAME_PREFIX_DENYLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
+          // Concurrency infrastructure, never serialized. Some classes extend JDK classes (e.g.
+          // ForkJoinTask, AbstractQueuedSynchronizer) whose packages are not opened for reflective
+          // field access.
+          "com.google.devtools.build.lib.concurrent",
+          "com.google.devtools.build.lib.skyframe.serialization",
+          // Console, log and process I/O plumbing, never serialized. Some classes extend JDK stream
+          // classes (e.g. PrintStream) whose packages are not opened for reflective field access.
+          "com.google.devtools.build.lib.util.io",
           "com.google.devtools.build.lib.vfs",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
@@ -58,12 +66,10 @@ public class AutoRegistry {
           "java.io.IOException",
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
-          "java.lang.ref.SoftReference",
           "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
           // Implementation class for com.google.common.base.Optional.
           "com.google.common.base.Present",
-          "com.google.common.collect.ImmutableEntry",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
@@ -104,7 +110,7 @@ public class AutoRegistry {
       for (Object constant : REFERENCE_CONSTANTS_TO_REGISTER) {
         registry.addReferenceConstant(constant);
       }
-      for (String classNamePrefix : CLASS_NAME_PREFIX_BLACKLIST) {
+      for (String classNamePrefix : CLASS_NAME_PREFIX_DENYLIST) {
         registry.excludeClassNamePrefix(classNamePrefix);
       }
       return registry.build();

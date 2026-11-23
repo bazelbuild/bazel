@@ -76,8 +76,7 @@ public class LocationExpanderTest {
         ImmutableMap.<String, LocationFunction>of(
             "location", f1,
             "locations", f2),
-        RepositoryMapping.EMPTY,
-        "workspace");
+        RepositoryMapping.EMPTY);
   }
 
   private String expand(String input) throws Exception {
@@ -141,8 +140,7 @@ public class LocationExpanderTest {
         new LocationExpander(
             new Capture(),
             ImmutableMap.<String, LocationFunction>of("location", f1),
-            RepositoryMapping.create(repositoryMapping, RepositoryName.MAIN),
-            "workspace");
+            RepositoryMapping.create(repositoryMapping, RepositoryName.MAIN));
 
     String value = locationExpander.expand("$(location @foo//a)");
     assertThat(value).isEqualTo("src/a");

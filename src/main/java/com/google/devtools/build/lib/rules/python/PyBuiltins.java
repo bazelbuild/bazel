@@ -223,7 +223,6 @@ public abstract class PyBuiltins implements StarlarkValue {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName(),
                 ruleContext
                     .getConfiguration()
                     .getOptions()
@@ -254,10 +253,7 @@ public abstract class PyBuiltins implements StarlarkValue {
       // around this, require that there is *something* in the runfiles.
       throw Starlark.errorf("input runfiles cannot be empty");
     }
-    return new Runfiles.Builder(starlarkCtx.getWorkspaceName())
-        .setEmptyFilesSupplier(emptyFilesSupplier)
-        .merge(runfiles)
-        .build();
+    return new Runfiles.Builder().setEmptyFilesSupplier(emptyFilesSupplier).merge(runfiles).build();
   }
 
   @StarlarkMethod(

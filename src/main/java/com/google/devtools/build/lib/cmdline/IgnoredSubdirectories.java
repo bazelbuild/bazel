@@ -171,8 +171,14 @@ public final class IgnoredSubdirectories {
       }
     }
 
+    ImmutableList<String> retainedPatterns = filteredPatterns.build();
+    if (filteredPrefixes.size() == prefixes.size()
+        && retainedPatterns.size() == patterns.size()
+        && filteredTraversalExclusions.size() == traversalExclusions.size()) {
+      return this;
+    }
     return new IgnoredSubdirectories(
-        filteredPrefixes, filteredPatterns.build(), filteredTraversalExclusions);
+        filteredPrefixes, retainedPatterns, filteredTraversalExclusions);
   }
 
   public ImmutableSet<PathFragment> prefixes() {

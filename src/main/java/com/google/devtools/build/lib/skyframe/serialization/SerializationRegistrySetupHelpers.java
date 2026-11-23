@@ -74,14 +74,12 @@ public final class SerializationRegistrySetupHelpers {
       ImmutableList.of("k8-opt", "k8-fastbuild", "k8-debug");
 
   public static ImmutableList<Object> makeReferenceConstants(
-      BlazeDirectories directories,
-      ConfiguredRuleClassProvider ruleClassProvider,
-      String workspaceName) {
+      BlazeDirectories directories, ConfiguredRuleClassProvider ruleClassProvider) {
     ImmutableList.Builder<Object> referenceConstants =
         ImmutableList.builder()
             .add(directories)
             .add(directories.getExecRootBase().getFileSystem())
-            .add(directories.getBuildDataDirectory(workspaceName))
+            .add(directories.getBuildDataDirectory())
             .add(ruleClassProvider.getFragmentRegistry().getAllFragments())
             // Commonly referenced if --trim_test_configuration is enabled.
             .add(
@@ -103,7 +101,7 @@ public final class SerializationRegistrySetupHelpers {
 
     for (OutputDirectory outputDirectory : OutputDirectory.values()) {
       for (String outputPath : OUTPUT_PATHS) {
-        referenceConstants.add(outputDirectory.getRoot(outputPath, directories, workspaceName));
+        referenceConstants.add(outputDirectory.getRoot(outputPath, directories));
       }
     }
     return referenceConstants.build();

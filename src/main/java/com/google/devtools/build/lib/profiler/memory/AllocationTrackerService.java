@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.profiler.memory;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /** A {@link BlazeService} providing support for allocation tracking. */
-@SkybridgeInterface
 public interface AllocationTrackerService extends BlazeService {
 
   /** Consumes an allocation sample. */

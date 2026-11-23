@@ -50,6 +50,9 @@ cc_library(
         ],
         # System libraries needed on Windows:
         #   advapi32: GetUserNameW
+        #   ntdll, synchronization: Rust libstd (passed directly rather than via
+        #       -DEFAULTLIB: because rules_rs v0.2.4 omits them from msvc
+        #       stdlib_linkflags and MSVC link.exe needs explicit .lib inputs)
         #   ole32:    CoTaskMemFree
         #   shell32:  SHGetKnownFolderPath
         #   uuid:     FOLDERID_Profile (MinGW only, MSVC defines it inline)
@@ -59,6 +62,8 @@ cc_library(
             "-DEFAULTLIB:ole32.lib",
             "-DEFAULTLIB:shell32.lib",
             "-DEFAULTLIB:ws2_32.lib",
+            "ntdll.lib",
+            "synchronization.lib",
         ],
         "//src/conditions:windows_gcc_like": [
             "-ladvapi32",
@@ -66,6 +71,11 @@ cc_library(
             "-lshell32",
             "-luuid",
             "-lws2_32",
+        ],
+        "//src/conditions:linux": [
+            "-ldl",
+            "-lpthread",
+            "-lrt",
         ],
         "//conditions:default": [
             "-lrt",
@@ -77,12 +87,13 @@ cc_library(
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
+        "//src/rust/util:util_ffi",
         "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [
@@ -142,9 +153,10 @@ cc_library(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/time",
     ],
 )
@@ -208,12 +220,12 @@ cc_binary(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:port",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [":resources"],
@@ -268,9 +280,12 @@ cc_library(
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:strings",
         "@abseil-cpp//absl/strings",
-    ],
+        "@abseil-cpp//absl/strings:str_format",
+    ] + select({
+        "//src/conditions:windows": ["//src/main/cpp/util:strings"],
+        "//conditions:default": [],
+    }),
 )
 
 genrule(
@@ -305,8 +320,9 @@ cc_library(
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
-        "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
     ],
 )

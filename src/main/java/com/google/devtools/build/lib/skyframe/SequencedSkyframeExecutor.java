@@ -317,16 +317,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     } else {
       var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
       if (buildRequestOptions != null) {
-        Label target = buildRequestOptions.getBustActionCachesTarget();
-        if (target != null) {
-          invalidate(
-              key ->
-                  switch (key) {
-                    case ActionLookupData lookupData -> target.equals(lookupData.getLabel());
-                    case ActionLookupSummaryKey summaryKey ->
-                        target.equals(summaryKey.argument().getLabel());
-                    default -> false;
-                  });
+        ImmutableSet<Label> targets = buildRequestOptions.getBustActionCachesTargets();
+        if (!targets.isEmpty()) {
+          invalidate(key ->
+              switch (key) {
+                case ActionLookupData lookupData -> targets.contains(lookupData.getLabel());
+                case ActionLookupSummaryKey summaryKey ->
+                    targets.contains(summaryKey.argument().getLabel());
+                default -> false;
+              });
         }
       }
     }

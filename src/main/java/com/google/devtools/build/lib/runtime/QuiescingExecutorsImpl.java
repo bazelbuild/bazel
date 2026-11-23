@@ -43,6 +43,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   private static final String SKYFRAME_EVALUATOR = "skyframe-evaluator";
   private static final String SKYFRAME_EVALUATOR_CPU_HEAVY = "skyframe-evaluator-cpu-heavy";
   private static final String SKYFRAME_EVALUATOR_EXECUTION = "skyframe-evaluator-execution";
+  private static final String SKYFRAME_EVALUATOR_POST_ANALYSIS = "skyframe-evaluator-post-analysis";
 
   private int analysisParallelism;
   private int executionParallelism;
@@ -185,6 +186,10 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
                 Thread.ofVirtual().name(SKYFRAME_EVALUATOR_EXECUTION + "-", 0).factory())
             : AbstractQueueVisitor.createExecutorService(
                 /* parallelism= */ executionParallelism, SKYFRAME_EVALUATOR_EXECUTION),
+        loadingAndAnalysisDfsScheduling
+            ? AbstractQueueVisitor.createExecutorService(
+                /* parallelism= */ analysisParallelism, SKYFRAME_EVALUATOR_POST_ANALYSIS)
+            : null,
         ExceptionHandlingMode.FAIL_FAST,
         ParallelEvaluatorErrorClassifier.instance());
   }

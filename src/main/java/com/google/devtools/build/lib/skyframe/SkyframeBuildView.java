@@ -639,8 +639,7 @@ public final class SkyframeBuildView {
       QuiescingExecutors executors,
       boolean shouldDiscardAnalysisCache,
       boolean shouldClearSyscallCache,
-      BuildDriverKeyTestContext buildDriverKeyTestContext,
-      int skymeldAnalysisOverlapPercentage)
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws InterruptedException,
           ViewCreationFailedException,
           BuildFailedException,
@@ -711,8 +710,6 @@ public final class SkyframeBuildView {
         AnalysisOperationWatcher.createAndRegisterWithEventBus(
             topLevelKeys,
             eventBus,
-            /* lowerThresholdToSignalForExecution= */ (float)
-                (topLevelKeys.size() * skymeldAnalysisOverlapPercentage / 100.0),
             /* finisher= */ () -> {
               buildResultListener.stopAnalysisTimer();
               analysisFinishedCallback(
@@ -724,10 +721,6 @@ public final class SkyframeBuildView {
                   /* shouldClearSyscallCache= */ shouldClearSyscallCache,
                   /* measuredAnalysisTime= */ buildResultListener.getAnalysisPhaseTimeInMillis(),
                   /* conflictCheckingMode= */ conflictCheckingMode);
-            },
-            /* executionGoAheadCallback= */ () -> {
-              buildResultListener.setExecutionTimer(Stopwatch.createStarted());
-              executor.launchQueuedUpExecutionPhaseTasks();
             })) {
 
       try {
@@ -1584,6 +1577,7 @@ public final class SkyframeBuildView {
       actionCount.set(0);
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
+      actionCountByMnemonic.clear();
     }
   }
 

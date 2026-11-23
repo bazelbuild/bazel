@@ -108,7 +108,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
         "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi:srcs",

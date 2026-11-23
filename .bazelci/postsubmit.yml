@@ -306,3 +306,11 @@ tasks:
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
     index_upload_policy: Always
     index_upload_gcs: True
+  docs_ubuntu2404:
+    platform: ubuntu2404
+    name: "Docs"
+    build_flags:
+      - "--config=docs"
+    build_targets:
+      - "//scripts/docs:gen_mdx_release_docs"
+      - "//src/main/java/com/google/devtools/build/lib:gen_mdx_reference_docs"

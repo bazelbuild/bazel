@@ -75,13 +75,15 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/port.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/protobuf/command_server.grpc.pb.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 
 using blaze_util::GetLastErrorString;
@@ -307,21 +309,21 @@ static void AddLoggingArgs(
     vector<string> *args) {
   // The time in ms the launcher spends before sending the request to the blaze
   // server.
-  args->push_back("--startup_time=" +
-                  blaze_util::ToString(client_startup_duration.millis));
+  args->push_back(
+      absl::StrCat("--startup_time=", client_startup_duration.millis));
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
   if (command_wait_duration.has_value()) {
-    args->push_back("--command_wait_time=" +
-                    blaze_util::ToString(command_wait_duration->millis));
+    args->push_back(
+        absl::StrCat("--command_wait_time=", command_wait_duration->millis));
   }
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
   if (extract_data_duration.has_value()) {
-    args->push_back("--extract_data_time=" +
-                    blaze_util::ToString(extract_data_duration->millis));
+    args->push_back(
+        absl::StrCat("--extract_data_time=", extract_data_duration->millis));
   }
 
   if (logging_info.restart_reason != NO_RESTART) {
@@ -672,7 +674,8 @@ static bool KillRunningServerIfDifferentStartupOptions(
   // command lines are truncated, the last 4 bytes are replaced with
   // "..." + NUL.
   blaze_util::ReadFile(cmdline_path, &old_joined_arguments);
-  vector<string> old_arguments = blaze_util::Split(old_joined_arguments, '\0');
+  vector<string> old_arguments =
+      absl::StrSplit(old_joined_arguments, '\0', absl::SkipEmpty());
 
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
@@ -685,16 +688,10 @@ static bool KillRunningServerIfDifferentStartupOptions(
     logging_info->restart_reason = NEW_OPTIONS;
 
     string different_startup_options_message;
-
-    string old_options_str;
-    blaze_util::JoinStrings(old_server_options, ' ', &old_options_str);
-    different_startup_options_message +=
-        "\n  - Only in old server: " + old_options_str;
-
-    string new_options_str;
-    blaze_util::JoinStrings(new_server_options, ' ', &new_options_str);
-    different_startup_options_message +=
-        "\n  - Only in new server: " + new_options_str;
+    absl::StrAppend(
+        &different_startup_options_message,
+        "\n  - Only in old server: ", absl::StrJoin(old_server_options, " "),
+        "\n  - Only in new server: ", absl::StrJoin(new_server_options, " "));
 
     BAZEL_LOG(WARNING)
         << "Running " << startup_options.product_name
@@ -832,7 +829,7 @@ static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
       return blaze_exit_code::INTERNAL_ERROR;
     }
     int custom_exit_code;
-    if (!blaze_util::safe_strto32(content, &custom_exit_code)) {
+    if (!absl::SimpleAtoi(content, &custom_exit_code)) {
       BAZEL_LOG(INFO) << "Content of custom exit-code file not an int: "
                       << content << "Exiting with an INTERNAL_ERROR.";
       return blaze_exit_code::INTERNAL_ERROR;
@@ -1413,7 +1410,6 @@ unsigned int BlazeServer::Communicate(
   for (const auto &startup_option : original_startup_options) {
     command_server::StartupOption *proto_option_field =
         request.add_startup_options();
-    request.add_startup_options();
     proto_option_field->set_source(startup_option.source);
     proto_option_field->set_option(startup_option.value);
   }

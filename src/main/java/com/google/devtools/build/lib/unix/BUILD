@@ -52,7 +52,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/jsr305_annotations",
     ],
 )
@@ -66,7 +65,6 @@ java_library(
         ":native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//third_party/java/jsr305_annotations",
     ],
 )

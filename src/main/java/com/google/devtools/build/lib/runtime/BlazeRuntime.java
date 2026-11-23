@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -452,7 +453,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.
               && profilerTask != ProfilerTask.CRITICAL_PATH
-              && profilerTask != ProfilerTask.SKYFUNCTION) {
+              && profilerTask != ProfilerTask.SKYFUNCTION
+              && profilerTask != ProfilerTask.REPO_CONTENTS_CACHE) {
             profiledTasksBuilder.add(profilerTask);
           }
         }
@@ -1219,7 +1221,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               delayedJniLinkingError,
               /* abruptShutdownHandler= */ null);
       startupOptions = runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
-      policy = InvocationPolicyParser.parsePolicy(startupOptions.getInvocationPolicy());
+      policy =
+          InvocationPolicyParser.parsePolicy(
+              StringEncoding.internalToUnicode(startupOptions.getInvocationPolicy()));
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
@@ -1462,6 +1466,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     OptionsParsingResult options =
         parseStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
+
+    // Install user-specified redactions before anything logs a command line.
+    SafeRequestLogging.setRedactedClientEnvNames(startupOptions.getRedactClientEnv());
 
     // Set up the failure detail path first, so that it can communicate problems with other flags
     // and module initialization.
@@ -2181,7 +2188,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       if (daemonizeExists) {
         try {
           AsyncDirectoryCleaner.spawnDaemonizedDeletion(
-              daemonize, tempPath.getParentDirectory(), tempPath.getBaseName(), System.getenv());
+              daemonize,
+              tempPath.getParentDirectory(),
+              tempPath.getBaseName(),
+              System.getenv().entrySet().stream()
+                  .collect(
+                      toImmutableMap(
+                          e -> StringEncoding.platformToInternal(e.getKey()),
+                          e -> StringEncoding.platformToInternal(e.getValue()))));
           return;
         } catch (CommandException e) {
           logger.atWarning().withCause(e).log(

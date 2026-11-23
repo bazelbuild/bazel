@@ -39,4 +39,40 @@ function test_bzl_srcs() {
   done
 }
 
+function test_toolchain_types_in_rules() {
+  local -r toolchain_types=(
+    tools/cpp:toolchain_type
+    tools/cpp:cc_runtimes_toolchain_type
+    tools/cpp:test_runner_toolchain_type
+    tools/jdk:toolchain_type
+    tools/jdk:runtime_toolchain_type
+    tools/jdk:bootstrap_runtime_toolchain_type
+    tools/python:toolchain_type
+  )
+  local -r actual_toolchain_types=(
+    @@rules_cc+//cc:toolchain_type
+    @@rules_cc+//cc:cc_runtimes_toolchain_type
+    @@rules_cc+//cc:test_runner_toolchain_type
+    @@rules_java+//toolchains:toolchain_type
+    @@rules_java+//toolchains:runtime_toolchain_type
+    @@rules_java+//toolchains:bootstrap_runtime_toolchain_type
+    @@rules_python+//python:toolchain_type
+  )
+  local -r query="set(${toolchain_types[*]/#/@bazel_tools//})"
+
+  bazel query --output=label_kind "$query" >& "$TEST_log" \
+    || fail "Expected query to succeed"
+  for toolchain_type in "${toolchain_types[@]}"; do
+    expect_log "^toolchain_type rule .*bazel_tools//$toolchain_type\$"
+  done
+
+  for i in "${!toolchain_types[@]}"; do
+    bazel query --repo_env=BAZEL_INCOMPATIBLE_TOOLCHAIN_TYPES_IN_RULES=1 \
+      --output=build --consistent_labels "@bazel_tools//${toolchain_types[i]}" \
+      >& "$TEST_log" || fail "Expected query to succeed"
+    expect_log "^alias(\$"
+    expect_log "^  actual = \"${actual_toolchain_types[i]}\",\$"
+  done
+}
+
 run_suite "bazel_tools test suite"

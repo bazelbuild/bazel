@@ -60,6 +60,9 @@ public final class QueryExpressionResolver {
         QueryParser.validateTargetLiteral(value);
         yield new TargetLiteral(value);
       }
+      case QueryAst.Placeholder placeholder ->
+          throw new QuerySyntaxException(
+              "placeholders are not supported: '@(" + placeholder.name() + ")'");
       case QueryAst.Parenthesized(QueryAst inner) -> resolveExpression(inner);
       case QueryAst.BinaryOperator(Lexer.TokenKind operator, ImmutableList<QueryAst> operands) -> {
         List<QueryExpression> resolvedOperands = new ArrayList<>(operands.size());

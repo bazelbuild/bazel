@@ -78,15 +78,12 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.ForOverride;
-import com.google.errorprone.annotations.FormatMethod;
-import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -1160,83 +1157,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @CanIgnoreReturnValue
     public Builder setProgressMessage(@CompileTimeConstant String progressMessage) {
-      this.progressMessage = progressMessage;
-      return this;
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setProgressMessage(@FormatString String progressMessage, Object subject) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject);
-            }
-          });
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject0 Passed to {@link String#format}
-     * @param subject1 Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setProgressMessage(
-        @FormatString String progressMessage, Object subject0, Object subject1) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject0, subject1);
-            }
-          });
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject0 Passed to {@link String#format}
-     * @param subject1 Passed to {@link String#format}
-     * @param subject2 Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder setProgressMessage(
-        @FormatString String progressMessage, Object subject0, Object subject1, Object subject2) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject0, subject1, subject2);
-            }
-          });
-    }
-
-    /**
-     * Sets a lazily computed progress message.
-     *
-     * <p>When possible, prefer use of one of the overloads that use {@link String#format}. If you
-     * do use this overload, take care not to capture anything expensive.
-     */
-    @CanIgnoreReturnValue
-    private Builder setProgressMessage(OnDemandString progressMessage) {
       this.progressMessage = progressMessage;
       return this;
     }

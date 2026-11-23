@@ -14,9 +14,12 @@
 package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,4 +42,24 @@ public class PrintingEventHandlerTest extends EventTestTemplate {
     assertThat(recordingOutErr.outAsLatin1()).isEmpty();
   }
 
+  @Test
+  public void nonAsciiLocationAndMessages() {
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    PrintingEventHandler handler = new PrintingEventHandler(recordingOutErr, EventKind.ALL_EVENTS);
+    Location location = Location.fromFileLineColumn(unicodeToInternal("/wörkspace/BUILD"), 3, 4);
+
+    handler.handle(Event.error(location, unicodeToInternal("internal: Grüße 🌱")));
+    handler.handle(Event.error(location, "not internal: ☃"));
+    handler.handle(Event.of(EventKind.STDERR, "stderr: ☃\n"));
+    handler.handle(Event.of(EventKind.STDOUT, unicodeToInternal("stdout: Grüße 🌱\n")));
+
+    assertThat(recordingOutErr.getErrorStream().toString(UTF_8))
+        .isEqualTo(
+            """
+            ERROR: /wörkspace/BUILD:3:4: internal: Grüße 🌱
+            ERROR: /wörkspace/BUILD:3:4: not internal: ☃
+            stderr: ☃
+            """);
+    assertThat(recordingOutErr.getOutputStream().toString(UTF_8)).isEqualTo("stdout: Grüße 🌱\n");
+  }
 }

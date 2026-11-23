@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -660,7 +661,7 @@ public class RemoteExecutionServiceTest {
         dir(
             ImmutableList.of(),
             ImmutableMap.of(
-                TestConstants.WORKSPACE_NAME,
+                LabelConstants.MAIN_REPO_DIR_NAME,
                 dir(
                     ImmutableList.of(
                         file("root_file1", "content of root_file1"),
@@ -3038,7 +3039,7 @@ public class RemoteExecutionServiceTest {
         Directory.newBuilder()
             .addDirectories(
                 DirectoryNode.newBuilder()
-                    .setName(TestConstants.WORKSPACE_NAME)
+                    .setName(LabelConstants.MAIN_REPO_DIR_NAME)
                     .setDigest(digestUtil.compute(runfilesSubDirectory))
                     .build())
             .build();
@@ -3433,7 +3434,6 @@ public class RemoteExecutionServiceTest {
         remotePathResolver,
         "none",
         "none",
-        TestConstants.WORKSPACE_NAME,
         digestUtil,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
@@ -3461,7 +3461,7 @@ public class RemoteExecutionServiceTest {
                 toImmutableSortedMap(
                     naturalOrder(),
                     artifact ->
-                        PathFragment.create(TestConstants.WORKSPACE_NAME)
+                        PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME)
                             .getRelative(artifact.getRunfilesPath()),
                     identity(),
                     (a, b) -> b));
@@ -3480,11 +3480,6 @@ public class RemoteExecutionServiceTest {
       @Override
       public boolean isBuildRunfileLinks() {
         return false;
-      }
-
-      @Override
-      public String getWorkspaceName() {
-        return TestConstants.WORKSPACE_NAME;
       }
 
       @Override

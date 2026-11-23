@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 // TODO(bazel-team) - remove the transition-period waive of compatibility requirements.
 /**
  * These tags should describe the intent and effects of an option.
@@ -54,7 +52,6 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
  * file a bug against flag owners or go through them yourself. This is not meant to block you from
  * adding tags, just to keep the end state sane.
  */
-@SkybridgeInterface
 public enum OptionEffectTag {
   /**
    * This option's effect or intent is unknown.

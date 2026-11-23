@@ -1686,6 +1686,21 @@ message BuildMetrics {
       int64 await_writes_micros = 4;
     }
     UploadPhaseTimings upload_phase_timings = 31;
+
+    // Version identity of cached SkyValues in this invocation. Unset unless
+    // remote analysis caching was active.
+    message NodeVersion {
+      // Evaluating version of the workspace (for example, changelist number).
+      int64 evaluating_version = 1;
+      // Combined SHA-256 hash of top-level configuration and Starlark
+      // semantics.
+      string configuration_hash = 2;
+      // Bazel release name and install MD5 hash ("<release_name>-<md5>").
+      string bazel_version = 3;
+      // Whether fake data was used for volatile stamping information.
+      bool use_fake_stamp_data = 4;
+    }
+    NodeVersion node_version = 32;
   }
 
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;

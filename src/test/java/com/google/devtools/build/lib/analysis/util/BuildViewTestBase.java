@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.events.OutputFilter.RegexOutputFilter;
-import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.DeterministicHelper;
@@ -152,17 +151,5 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
 
     public final List<AnalysisFailureEvent> events = new ArrayList<>();
     public final List<AnalysisRootCauseEvent> causes = new ArrayList<>();
-  }
-
-  /**
-   * Record loading failures.
-   */
-  public static class LoadingFailureRecorder {
-    @Subscribe
-    public void loadingFailure(LoadingFailureEvent event) {
-      events.add(event);
-    }
-
-    public final List<LoadingFailureEvent> events = new ArrayList<>();
   }
 }

@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.runtime.MemoryPressureModule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
@@ -63,6 +65,7 @@ import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -70,6 +73,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
@@ -205,6 +209,54 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(totalActionsCreated).isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
     assertThat(totalActionsExecuted)
         .isEqualTo(buildMetrics.getActionSummary().getActionsExecuted());
+  }
+
+  @Test
+  public void testActionsCreatedForIndividualMnemonicsDoNotAccumulateAcrossBuilds()
+      throws Exception {
+    write(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "bar")
+        bar(name = "bar")
+        """);
+    write(
+        "bar/bar.bzl",
+        """
+        def _impl(ctx):
+            output1 = ctx.actions.declare_file(ctx.attr.name + ".out1")
+            output2 = ctx.actions.declare_file(ctx.attr.name + ".out2")
+            ctx.actions.write(output1, "foo")
+            ctx.actions.write(output2, "bar")
+            return [DefaultInfo(files = depset([output1, output2]))]
+
+        bar = rule(
+            implementation = _impl,
+        )
+        """);
+    buildTarget("//bar:bar");
+
+    // Building a different target must not report the first build's FileWrite actions, and the
+    // per-mnemonic counts must add up to this build's total.
+    buildTarget("//foo:foo");
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    assertThat(actionData.stream().map(ActionData::getMnemonic).collect(toImmutableList()))
+        .doesNotContain("FileWrite");
+    ImmutableList<ActionData> genruleActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("Genrule"))
+            .collect(toImmutableList());
+    assertThat(genruleActions).hasSize(1);
+    assertThat(genruleActions.get(0).getActionsCreated()).isEqualTo(1);
+    assertThat(actionData.stream().mapToLong(ActionData::getActionsCreated).sum())
+        .isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
+
+    // A null build creates and executes no actions, so no per-mnemonic data is reported.
+    buildTarget("//foo:foo");
+    buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getActionSummary().getActionsCreated()).isEqualTo(0);
+    assertThat(buildMetrics.getActionSummary().getActionDataList()).isEmpty();
   }
 
   @Test
@@ -1382,5 +1434,46 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(stats.getPeers(0).getServiceName()).isEqualTo("skycache.AnalysisCacheService");
     assertThat(stats.getPeers(0).getId()).isEqualTo("test-user@wj/10.0.0.1:8080");
     assertThat(stats.getPeers(0).getRequestCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void remoteAnalysisCacheStats_nodeVersion_unsetWhenInactive() throws Exception {
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    assertThat(buildMetrics.getRemoteAnalysisCacheStatistics().hasNodeVersion()).isFalse();
+  }
+
+  @Test
+  public void remoteAnalysisCacheStats_nodeVersion_populatedWhenActive() throws Exception {
+    runtimeWrapper.newCommand();
+    var version =
+        new FrontierNodeVersion(
+            "checksum",
+            HashCode.fromString("0123456789abcdef0123456789abcdef"),
+            new byte[] {1, 2, 3},
+            IntVersion.of(9000),
+            "distinguisher",
+            /* useFakeStampData= */ true,
+            Optional.empty());
+    getCommandEnvironment().getRemoteAnalysisCachingEventListener().recordSkyValueVersion(version);
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.hasNodeVersion()).isTrue();
+    assertThat(stats.getNodeVersion())
+        .isEqualTo(
+            RemoteAnalysisCacheStatistics.NodeVersion.newBuilder()
+                .setEvaluatingVersion(9000L)
+                // SHA-256 of length-prefixed ("checksum", {1, 2, 3}).
+                .setConfigurationHash(
+                    "14b9089202021c2a94e356d091b7801ce728065113063c0c805b0289dc1293cc")
+                .setBazelVersion("development version-0123456789abcdef0123456789abcdef")
+                .setUseFakeStampData(true)
+                .build());
   }
 }

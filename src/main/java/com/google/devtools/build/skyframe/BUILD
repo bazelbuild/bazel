@@ -53,7 +53,6 @@ java_library(
     srcs = VERSION_SRCS,
     visibility = ["//visibility:public"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party:auto_value",
     ],
 )
@@ -62,11 +61,15 @@ java_library(
     name = "skyframe",
     srcs = glob(
         ["**/*.java"],
-        exclude = SKYFRAME_OBJECT_SRCS + VERSION_SRCS + ["CPUHeavySkyKey.java"],
+        exclude = SKYFRAME_OBJECT_SRCS + VERSION_SRCS + [
+            "CPUHeavySkyKey.java",
+            "PostAnalysisPhaseSkyKey.java",
+        ],
     ),
     deps = [
         ":cpu_heavy_skykey",
         ":graph_inconsistency_java_proto",
+        ":post_analysis_phase_skykey",
         ":skyframe-objects",
         ":version",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -120,15 +123,15 @@ java_library(
 )
 
 java_library(
-    name = "execution_phase_skykey",
-    srcs = ["ExecutionPhaseSkyKey.java"],
+    name = "post_analysis_phase_skykey",
+    srcs = ["PostAnalysisPhaseSkyKey.java"],
     visibility = ["//visibility:public"],
     deps = [":skyframe-objects"],
 )
 
 java_library(
-    name = "stallable_skykey",
-    srcs = ["StallableSkykey.java"],
+    name = "execution_phase_skykey",
+    srcs = ["ExecutionPhaseSkyKey.java"],
     visibility = ["//visibility:public"],
     deps = [":skyframe-objects"],
 )

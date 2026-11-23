@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.common.options.Options;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -77,7 +78,8 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   private ImmutableList<String> getOutput(String queryExpression) throws Exception {
     QueryExpression expression =
-        QueryExpressionResolver.resolve(QueryParser.parse(queryExpression), getDefaultFunctions());
+        QueryExpressionResolver.resolve(
+            QueryParser.parse(queryExpression, ParserOptions.DEFAULT), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);

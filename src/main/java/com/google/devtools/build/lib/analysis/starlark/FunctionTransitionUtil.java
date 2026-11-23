@@ -703,25 +703,19 @@ public final class FunctionTransitionUtil {
           optionValue = null;
         } else if (optionValue instanceof StarlarkInt starlarkInt) {
           optionValue = starlarkInt.toIntUnchecked();
-        } else if (optionValue instanceof List<?>) {
-          // Converting back to the Java-native type makes it easier to check if a Starlark
-          // transition set the same value a native transition would. This is important for
-          // ExecutionTransitionFactory#ComparingTransition.
-          // TODO(b/288258583): remove this case when ComparingTransition is no longer needed for
-          // debugging. Production code just iterates over the lists, which both Starlark and
-          // native List types implement.
-          optionValue = ImmutableList.copyOf((List<?>) optionValue);
-        } else if (optionValue instanceof Map<?, ?>) {
-          // TODO(b/288258583): remove this case when ComparingTransition is no longer needed for
-          // debugging. See above TODO.
-          optionValue = ImmutableMap.copyOf(((Map<?, ?>) optionValue));
+        } else if (optionValue instanceof Map<?, ?> map) {
+          // Convert Starlark Dicts to ImmutableMap so FragmentOptions never stores a Starlark Dict
+          // (whose repr-style toString() differs from Java Map formatting in
+          // FragmentOptions.addValueToFingerprint).
+          optionValue = ImmutableMap.copyOf(map);
         }
         try {
           OptionDefinition def = optionInfo.getDefinition();
           Object defaultValue = def.getDefaultValue(null);
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
-          if (def.getType() == List.class && optionValue instanceof List<?> optionValueAsList) {
+          if (List.class.isAssignableFrom(def.getType())
+              && optionValue instanceof List<?> optionValueAsList) {
             // This is possible with Starlark code like "{ //command_line_option:foo: ["a", "b"] }".
             // In that case def.getType() == List.class while optionValue.type == StarlarkList.
             // Unfortunately we can't check the *element* types because OptionDefinition won't tell
@@ -761,7 +755,7 @@ public final class FunctionTransitionUtil {
               }
               convertedValue = valueBuilder.build();
             }
-          } else if (def.getType() == List.class && optionValue == null) {
+          } else if (List.class.isAssignableFrom(def.getType()) && optionValue == null) {
             throw ValidationException.format(
                 "'None' value not allowed for List-type option '%s'. Please use '[]' instead if"
                     + " trying to set option to empty value.",

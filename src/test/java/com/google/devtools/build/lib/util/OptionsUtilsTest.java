@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
@@ -193,6 +194,37 @@ public class OptionsUtilsTest {
     assertThat(convertOne("foo")).isEqualTo(fragment("foo"));
     assertThat(convertOne("foo/bar/baz")).isEqualTo(fragment("foo/bar/baz"));
     assertThat(convertOne("~/foo")).isEqualTo(fragment(System.getProperty("user.home") + "/foo"));
+  }
+
+  @Test
+  public void tildeOnlyExpandedAtStart() throws Exception {
+    assertThat(convertOne("~/foo/~bar"))
+        .isEqualTo(fragment(System.getProperty("user.home") + "/foo/~bar"));
+    assertThat(convertOne("~/foo/~/bar"))
+        .isEqualTo(fragment(System.getProperty("user.home") + "/foo/~/bar"));
+    assertThat(convertOne("foo/~/bar")).isEqualTo(fragment("foo/~/bar"));
+    assertThat(convertOne("~foo")).isEqualTo(fragment("~foo"));
+    assertThat(convertOne("~")).isEqualTo(fragment("~"));
+  }
+
+  @Test
+  public void tildeBackslashNotExpandedOnUnix() throws Exception {
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
+    assertThat(convertOne("~\\foo")).isEqualTo(fragment("~\\foo"));
+  }
+
+  @Test
+  public void nonAsciiHome() throws Exception {
+    String oldHome = System.getProperty("user.home");
+    System.setProperty(
+        "user.home",
+        StringEncoding.internalToPlatform(StringEncoding.unicodeToInternal("/home/jörg 🌱")));
+    try {
+      assertThat(convertOne("~/foo"))
+          .isEqualTo(fragment(StringEncoding.unicodeToInternal("/home/jörg 🌱/foo")));
+    } finally {
+      System.setProperty("user.home", oldHome);
+    }
   }
 
   @Test

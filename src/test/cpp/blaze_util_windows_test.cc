@@ -24,8 +24,11 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/ascii.h"
 
 namespace blaze {
 
@@ -39,20 +42,20 @@ using std::wstring;
 // are case-insensitive on Windows).
 //
 // This is a macro so the assertions will have the correct line number.
-#define ASSERT_ENVVAR_UNSET(/* const char* */ key)                          \
-  {                                                                         \
-    ASSERT_EQ(::GetEnvironmentVariableA(key, nullptr, 0), (DWORD)0);        \
-    ASSERT_EQ(::GetEnvironmentVariableA(blaze_util::ToLower(key).c_str(),   \
-                                        nullptr, 0),                        \
-              (DWORD)0);                                                    \
-    ASSERT_EQ(::GetEnvironmentVariableW(                                    \
-                  blaze_util::CstringToWstring(key).c_str(), nullptr, 0),   \
-              (DWORD)0);                                                    \
-    ASSERT_EQ(                                                              \
-        ::GetEnvironmentVariableW(                                          \
-            blaze_util::CstringToWstring(blaze_util::ToLower(key)).c_str(), \
-            nullptr, 0),                                                    \
-        (DWORD)0);                                                          \
+#define ASSERT_ENVVAR_UNSET(/* const char* */ key)                            \
+  {                                                                           \
+    ASSERT_EQ(::GetEnvironmentVariableA(key, nullptr, 0), (DWORD)0);          \
+    ASSERT_EQ(::GetEnvironmentVariableA(absl::AsciiStrToLower(key).c_str(),   \
+                                        nullptr, 0),                          \
+              (DWORD)0);                                                      \
+    ASSERT_EQ(::GetEnvironmentVariableW(                                      \
+                  blaze_util::CstringToWstring(key).c_str(), nullptr, 0),     \
+              (DWORD)0);                                                      \
+    ASSERT_EQ(                                                                \
+        ::GetEnvironmentVariableW(                                            \
+            blaze_util::CstringToWstring(absl::AsciiStrToLower(key)).c_str(), \
+            nullptr, 0),                                                      \
+        (DWORD)0);                                                            \
   }
 
 // Asserts that the envvar named `key` is set to the `expected` value.
@@ -76,7 +79,7 @@ using std::wstring;
     ASSERT_EQ(string(buf.get()), expected);                               \
                                                                           \
     /* Assert that envvar keys are case-insensitive. */                   \
-    string lkey(blaze_util::ToLower(key));                                \
+    string lkey(absl::AsciiStrToLower(key));                              \
     ASSERT_EQ(::GetEnvironmentVariableA(lkey.c_str(), buf.get(), size),   \
               size - 1);                                                  \
     ASSERT_EQ(string(buf.get()), expected);                               \
@@ -157,6 +160,111 @@ TEST(BlazeUtilWindowsTest, TestUnsetEnv) {
   ASSERT_ENVVAR(long_key.c_str(), long_value.c_str());
   UnsetEnv(long_key);
   ASSERT_ENVVAR_UNSET(long_key.c_str());
+}
+
+class FindBashInPathTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    root_ = blaze_util::JoinPath(GetPathEnv("TEST_TMPDIR"), "find_bash");
+    windir_ = blaze_util::JoinPath(root_, "Windows");
+    system32_ = blaze_util::JoinPath(windir_, "System32");
+    git_ = blaze_util::JoinPath(root_, "Git\\usr\\bin");
+    ASSERT_TRUE(blaze_util::MakeDirectories(system32_, 0777));
+    ASSERT_TRUE(blaze_util::MakeDirectories(git_, 0777));
+  }
+
+  // Lowercases `path` and uses backslashes as the only separator.
+  static string Normalize(const string& path) {
+    string result = absl::AsciiStrToLower(path);
+    std::replace(result.begin(), result.end(), '/', '\\');
+    return result;
+  }
+
+  void WriteBash(const string& dir) {
+    ASSERT_TRUE(
+        blaze_util::WriteFile("", blaze_util::JoinPath(dir, "bash.exe")));
+  }
+
+  string root_;
+  string windir_;
+  string system32_;
+  string git_;
+};
+
+TEST_F(FindBashInPathTest, SkipsBashUnderWindir) {
+  WriteBash(system32_);
+  WriteBash(git_);
+  string result = FindBashInPath(system32_ + ";" + git_, windir_, "");
+  EXPECT_EQ(Normalize(result),
+            Normalize(blaze_util::JoinPath(git_, "bash.exe")));
+}
+
+TEST_F(FindBashInPathTest, EmptyWhenOnlyBashIsUnderWindir) {
+  string only = blaze_util::JoinPath(root_, "OnlyWsl");
+  string only_windir = blaze_util::JoinPath(only, "Windows");
+  string only_system32 = blaze_util::JoinPath(only_windir, "System32");
+  ASSERT_TRUE(blaze_util::MakeDirectories(only_system32, 0777));
+  WriteBash(only_system32);
+  EXPECT_EQ(FindBashInPath(only_system32, only_windir, ""), "");
+}
+
+TEST_F(FindBashInPathTest, KeepsBashWhenWindirIsEmpty) {
+  WriteBash(system32_);
+  EXPECT_NE(FindBashInPath(system32_, "", ""), "");
+}
+
+TEST_F(FindBashInPathTest, SkipsWindowsAppsAlias) {
+  string local_app_data = blaze_util::JoinPath(root_, "LocalAppData");
+  string windows_apps =
+      blaze_util::JoinPath(local_app_data, "Microsoft\\WindowsApps");
+  ASSERT_TRUE(blaze_util::MakeDirectories(windows_apps, 0777));
+  WriteBash(windows_apps);
+  WriteBash(git_);
+  string result =
+      FindBashInPath(windows_apps + ";" + git_, windir_, local_app_data);
+  EXPECT_EQ(Normalize(result),
+            Normalize(blaze_util::JoinPath(git_, "bash.exe")));
+}
+
+TEST_F(FindBashInPathTest, SkipsWindowsAppsAliasWithTrailingSeparator) {
+  string local_app_data = blaze_util::JoinPath(root_, "LocalAppData");
+  string windows_apps =
+      blaze_util::JoinPath(local_app_data, "Microsoft\\WindowsApps");
+  ASSERT_TRUE(blaze_util::MakeDirectories(windows_apps, 0777));
+  WriteBash(windows_apps);
+  EXPECT_EQ(FindBashInPath(windows_apps, windir_, local_app_data + "\\"), "");
+}
+
+TEST_F(FindBashInPathTest, SkipsWindowsAppsAliasUnderNonAsciiPath) {
+  // "Jörg" in the directory on disk and on PATH, "JÖRG" in LOCALAPPDATA.
+  string local_app_data =
+      blaze_util::JoinPath(root_, "J\xc3\xb6rg\\LocalAppData");
+  string upper_local_app_data =
+      blaze_util::JoinPath(root_, "J\xc3\x96RG\\LocalAppData");
+  string windows_apps =
+      blaze_util::JoinPath(local_app_data, "Microsoft\\WindowsApps");
+  ASSERT_TRUE(blaze_util::MakeDirectories(windows_apps, 0777));
+  WriteBash(windows_apps);
+  WriteBash(git_);
+  string result =
+      FindBashInPath(windows_apps + ";" + git_, windir_, upper_local_app_data);
+  EXPECT_EQ(Normalize(result),
+            Normalize(blaze_util::JoinPath(git_, "bash.exe")));
+}
+
+TEST_F(FindBashInPathTest, FindsBashUnderNonAsciiPath) {
+  string dir = blaze_util::JoinPath(root_, "J\xc3\xb6rg\\bin");
+  ASSERT_TRUE(blaze_util::MakeDirectories(dir, 0777));
+  WriteBash(dir);
+  EXPECT_EQ(Normalize(FindBashInPath(dir, windir_, "")),
+            Normalize(blaze_util::JoinPath(dir, "bash.exe")));
+}
+
+TEST_F(FindBashInPathTest, KeepsWindowsAppsBashWhenLocalAppDataIsEmpty) {
+  string windows_apps = blaze_util::JoinPath(root_, "Microsoft\\WindowsApps");
+  ASSERT_TRUE(blaze_util::MakeDirectories(windows_apps, 0777));
+  WriteBash(windows_apps);
+  EXPECT_NE(FindBashInPath(windows_apps, windir_, ""), "");
 }
 
 }  // namespace blaze

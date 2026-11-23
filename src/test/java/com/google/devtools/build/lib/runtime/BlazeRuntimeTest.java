@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
@@ -314,16 +313,7 @@ public class BlazeRuntimeTest {
     // scope against a potential regression of scoping the updater to the long-lived workspace:
     // its dedup map never evicts, so a reused updater would skip restaging a tree that changed
     // between commands.
-    BlazeRuntime runtime =
-        createRuntime(
-            ImmutableList.of(
-                new BlazeModule() {
-                  @Override
-                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    builder.setRunfilesPrefix("_main");
-                  }
-                }),
-            ImmutableList.of());
+    BlazeRuntime runtime = createRuntime();
     BlazeWorkspace workspace =
         runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
     CommandEnvironment firstEnv = createCommandEnvironment(runtime, workspace);

@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,16 +45,20 @@ import javax.annotation.Nullable;
  *     platforms it must take care of that directly.
  * @param resolutionDiagnostic Human-readable diagnostic explaining why candidate toolchains failed
  *     resolution when no matching toolchain was found, or null if resolution succeeded.
+ * @param toolchainResolutionFlags Starlark flags read by the {@code target_settings} of the
+ *     registered toolchains of this type. Resolution depends on their values.
  */
 @AutoCodec
 public record SingleToolchainResolutionValue(
     ToolchainTypeInfo toolchainType,
     ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels,
-    @Nullable String resolutionDiagnostic)
+    @Nullable String resolutionDiagnostic,
+    ImmutableSet<Label> toolchainResolutionFlags)
     implements SkyValue {
   public SingleToolchainResolutionValue {
     requireNonNull(toolchainType, "toolchainType");
     requireNonNull(availableToolchainLabels, "availableToolchainLabels");
+    requireNonNull(toolchainResolutionFlags, "toolchainResolutionFlags");
   }
 
   // A key representing the input data.
@@ -130,7 +135,7 @@ public record SingleToolchainResolutionValue(
   public static SingleToolchainResolutionValue create(
       ToolchainTypeInfo toolchainType,
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {
-    return new SingleToolchainResolutionValue(toolchainType, availableToolchainLabels, null);
+    return create(toolchainType, availableToolchainLabels, null);
   }
 
   @VisibleForTesting
@@ -139,7 +144,13 @@ public record SingleToolchainResolutionValue(
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels,
       @Nullable String resolutionDiagnostic) {
     return new SingleToolchainResolutionValue(
-        toolchainType, availableToolchainLabels, resolutionDiagnostic);
+        toolchainType, availableToolchainLabels, resolutionDiagnostic, ImmutableSet.of());
   }
 
+  /** Returns a copy of this value with the given {@link #toolchainResolutionFlags}. */
+  public SingleToolchainResolutionValue withToolchainResolutionFlags(
+      ImmutableSet<Label> toolchainResolutionFlags) {
+    return new SingleToolchainResolutionValue(
+        toolchainType, availableToolchainLabels, resolutionDiagnostic, toolchainResolutionFlags);
+  }
 }

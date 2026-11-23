@@ -30,10 +30,11 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
-#include "src/main/cpp/util/strings.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 
 #ifdef _WIN32
+#include <share.h>
 #define popen _popen
 #define pclose _pclose
 #endif
@@ -100,16 +101,13 @@ string OutputFilePath(const string& relpath) {
 }
 
 int VerifyZip(const string& zip_path) {
-  string verify_command;
-  blaze_util::StringPrintf(&verify_command, "zip -Tv %s", zip_path.c_str());
+  string verify_command = absl::StrCat("zip -Tv ", zip_path);
   return system(verify_command.c_str());
 }
 
 string GetEntryContents(const string& zip_path, const string& entry_name) {
   string contents;
-  string command;
-  blaze_util::StringPrintf(&command, "unzip -p %s %s", zip_path.c_str(),
-                           entry_name.c_str());
+  string command = absl::StrCat("unzip -p ", zip_path, " ", entry_name);
 #ifdef _WIN32
   // "b" is Microsoft-specific. It's necessary, because without it the popen
   // implementation will strip "\r\n" to "\n" and make many tests fail.

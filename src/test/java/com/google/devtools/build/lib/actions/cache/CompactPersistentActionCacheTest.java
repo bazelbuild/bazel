@@ -21,6 +21,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -173,6 +174,56 @@ public class CompactPersistentActionCacheTest {
     ActionCache.Entry readentry = newCache.get(key);
     assertThat(readentry).isNotNull();
     assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
+  }
+
+  @Test
+  public void testDiscoveredInputsRoundTrip() throws Exception {
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, "a.h");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b.h");
+    Artifact c = ActionsTestUtil.createArtifact(artifactRoot, "c.h");
+    Artifact d = ActionsTestUtil.createArtifact(artifactRoot, "d.h");
+    FileArtifactValue metadata = createRemoteMetadata(a, "content");
+
+    // Assign indices in the order a, b, c so that the next entry lists its inputs out of index
+    // order and has to be sorted when encoded.
+    cache.put(
+        "first",
+        builder("first", /* discoversInputs= */ true)
+            .addInputFile(a, metadata, /* saveExecPath= */ true)
+            .addInputFile(b, metadata, /* saveExecPath= */ true)
+            .addInputFile(c, metadata, /* saveExecPath= */ true)
+            .build());
+    cache.put(
+        "second",
+        builder("second", /* discoversInputs= */ true)
+            .addInputFile(d, metadata, /* saveExecPath= */ true)
+            .addInputFile(c, metadata, /* saveExecPath= */ true)
+            .addInputFile(a, metadata, /* saveExecPath= */ true)
+            .addInputFile(c, metadata, /* saveExecPath= */ true)
+            .build());
+
+    ImmutableList<String> expectedFirst =
+        ImmutableList.of(a.getExecPathString(), b.getExecPathString(), c.getExecPathString());
+    ImmutableList<String> expectedSecond =
+        ImmutableList.of(
+            d.getExecPathString(),
+            c.getExecPathString(),
+            a.getExecPathString(),
+            c.getExecPathString());
+    assertThat(cache.get("first").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedFirst);
+    assertThat(cache.get("second").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedSecond);
+
+    cache.save();
+    CompactPersistentActionCache newCache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newCache.get("first").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedFirst);
+    assertThat(newCache.get("second").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedSecond);
   }
 
   @Test

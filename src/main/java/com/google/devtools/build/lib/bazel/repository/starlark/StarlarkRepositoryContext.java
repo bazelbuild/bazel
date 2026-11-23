@@ -75,7 +75,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final RepoDefinition repoDefinition;
   private final PathPackageLocator packageLocator;
   private final IgnoredSubdirectories ignoredSubdirectories;
-  private final SyscallCache syscallCache;
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -114,7 +113,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.repoDefinition = repoDefinition;
     this.packageLocator = packageLocator;
     this.ignoredSubdirectories = ignoredSubdirectories;
-    this.syscallCache = syscallCache;
   }
 
   @Override
@@ -193,7 +191,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         || path.startsWith(workingDirectory)) {
       return starlarkPath;
     }
-    Path workspaceRoot = packageLocator.getWorkspaceFile(syscallCache).getParentDirectory();
+    Path workspaceRoot = directories.getWorkspace();
     PathFragment relativePath = path.relativeTo(workspaceRoot);
     if (ignoredSubdirectories.matchingEntry(relativePath) != null) {
       return starlarkPath;

@@ -198,7 +198,6 @@ public class PackageTest {
             /* filename= */ RootedPath.toRootedPath(
                 Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
                 PathFragment.create(name + "/BUILD")),
-            "workspace",
             Optional.empty(),
             Optional.empty(),
             /* noImplicitFileExport= */ true,

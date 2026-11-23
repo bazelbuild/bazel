@@ -24,8 +24,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -79,6 +82,8 @@ public final class RequiredFragmentsUtil {
    *     out which transitions are attached to the target. {@link TransitionFactory}, which
    *     determines the transitions, may read the target's attributes.
    * @param prerequisites all prerequisites of {@code target}
+   * @param toolchainContexts the target's toolchain contexts, or {@code null} if it has none. The
+   *     build settings read by toolchain resolution are added to the result.
    * @param starlarkExecTransition the Starlark transition implementing the exec transition
    * @return {@link RequiredConfigFragmentsProvider} or {@code null} if not enabled
    */
@@ -89,6 +94,7 @@ public final class RequiredFragmentsUtil {
       FragmentClassSet universallyRequiredFragments,
       ConfigConditions configConditions,
       Iterable<ConfiguredTarget> prerequisites,
+      @Nullable ToolchainCollection<?> toolchainContexts,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition) {
     IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
     if (mode == IncludeConfigFragmentsEnum.OFF) {
@@ -104,7 +110,8 @@ public final class RequiredFragmentsUtil {
             universallyRequiredFragments,
             ruleClass.getConfigurationFragmentPolicy(),
             configConditions,
-            prerequisites);
+            prerequisites,
+            toolchainContexts);
     if (!ruleClass.isStarlark()) {
       ruleClass
           .getConfiguredTargetFactory(RuleConfiguredTargetFactory.class)
@@ -122,8 +129,17 @@ public final class RequiredFragmentsUtil {
     // We consider build settings (which are both targets and configuration) to require themselves.
     if (target.isBuildSetting()) {
       requiredFragments.addStarlarkOption(target.getLabel());
+      if (attributes.has("scope", Type.STRING)) {
+        String scope = attributes.get("scope", Type.STRING);
+        if (scope != null && scope.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+          requiredFragments.addStarlarkOption(
+              Label.parseCanonicalUnchecked(
+                  scope.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length())));
+        }
+      }
     }
 
+    addCustomExecScopeFlags(requiredFragments, configuration);
     return requiredFragments.build();
   }
 
@@ -139,6 +155,8 @@ public final class RequiredFragmentsUtil {
    * @param configConditions <code>config_settings</code> required by <code>select</code>s on the
    *     associated target. Used for figuring out which transitions are attached to the target.
    * @param prerequisites all prerequisites of {@code aspect}
+   * @param toolchainContexts the aspect's toolchain contexts, or {@code null} if it has none. The
+   *     build settings read by toolchain resolution are added to the result.
    * @param starlarkExecTransition the Starlark transition implementing the exec transition
    * @return {@link RequiredConfigFragmentsProvider} or {@code null} if not enabled
    */
@@ -151,6 +169,7 @@ public final class RequiredFragmentsUtil {
       FragmentClassSet universallyRequiredFragments,
       ConfigConditions configConditions,
       Iterable<ConfiguredTarget> prerequisites,
+      @Nullable ToolchainCollection<?> toolchainContexts,
       StarlarkAttributeTransitionProvider starlarkExecTransition) {
     IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
     if (mode == IncludeConfigFragmentsEnum.OFF) {
@@ -163,7 +182,8 @@ public final class RequiredFragmentsUtil {
             universallyRequiredFragments,
             aspect.getDefinition().getConfigurationFragmentPolicy(),
             configConditions,
-            prerequisites);
+            prerequisites,
+            toolchainContexts);
     if (mode != IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY) {
       aspectFactory.addAspectImplSpecificRequiredConfigFragments(requiredFragments);
     }
@@ -174,7 +194,24 @@ public final class RequiredFragmentsUtil {
             associatedTarget, configConditions.asProviders(), configuration),
         configuration.getBuildOptionDetails(),
         starlarkExecTransition);
+    addCustomExecScopeFlags(requiredFragments, configuration);
     return requiredFragments.build();
+  }
+
+  /**
+   * When a build setting with {@code scope = "exec:--<flag>"} is required, its partner flag is
+   * required too: exec transitions copy the partner flag's value into the scoped setting, and
+   * {@code FunctionTransitionUtil#getExecPropagatingStarlarkFlags} requires the partner flag to be
+   * present in {@code BuildOptions} whenever the scoped setting is.
+   */
+  private static void addCustomExecScopeFlags(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      BuildConfigurationValue configuration) {
+    for (var entry : configuration.starlarkFlagDetails().customExecScopeValues().values()) {
+      if (requiredFragments.requiresStarlarkOption(entry.flag())) {
+        requiredFragments.addStarlarkOption(entry.hostFlag());
+      }
+    }
   }
 
   /** Internal implementation that handles requirements common to both rules and aspects. */
@@ -184,7 +221,8 @@ public final class RequiredFragmentsUtil {
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       ConfigConditions configConditions,
-      Iterable<ConfiguredTarget> prerequisites) {
+      Iterable<ConfiguredTarget> prerequisites,
+      @Nullable ToolchainCollection<?> toolchainContexts) {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder(
             mode == IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY);
@@ -221,6 +259,14 @@ public final class RequiredFragmentsUtil {
     for (ConfiguredTargetAndData targetAndData : configConditions.asConfiguredTargets().values()) {
       requiredFragments.merge(
           targetAndData.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class));
+    }
+    // Build settings read by toolchain target_settings for the toolchain types this target
+    // requests. They choose which toolchain is selected for those types, even when the selected
+    // toolchain itself doesn't read them.
+    if (toolchainContexts != null) {
+      for (ToolchainContext toolchainContext : toolchainContexts.contextMap().values()) {
+        requiredFragments.addStarlarkOptions(toolchainContext.toolchainResolutionFlags());
+      }
     }
     return requiredFragments;
   }

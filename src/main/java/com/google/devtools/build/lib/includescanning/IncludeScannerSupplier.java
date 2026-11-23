@@ -103,20 +103,19 @@ public class IncludeScannerSupplier {
             // want to keep blaze memory usage deterministic and to guarantee collection before
             // blaze initiated-OOMs.
             .weakValues()
-            .build(
-                key ->
-                    new LegacyIncludeScanner(
-                        includeParser,
-                        includePool,
-                        includeParseCache,
-                        pathCache,
-                        key.quoteIncludePaths,
-                        key.includePaths,
-                        key.frameworkIncludePaths,
-                        directories.getOutputPath(execRoot.getBaseName()),
-                        execRoot,
-                        artifactFactory,
-                        spawnIncludeScannerSupplier));
+            .build(key ->
+                new LegacyIncludeScanner(
+                    includeParser,
+                    includePool,
+                    includeParseCache,
+                    pathCache,
+                    key.quoteIncludePaths,
+                    key.includePaths,
+                    key.frameworkIncludePaths,
+                    directories.getOutputPath(),
+                    execRoot,
+                    artifactFactory,
+                    spawnIncludeScannerSupplier));
   }
 
   /**

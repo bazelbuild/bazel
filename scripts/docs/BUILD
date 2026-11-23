@@ -82,6 +82,7 @@ py_library(
 py_binary(
     name = "docs2mdx",
     srcs = ["docs2mdx.py"],
+    legacy_create_init = 0,
     main = "docs2mdx.py",
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__pkg__",

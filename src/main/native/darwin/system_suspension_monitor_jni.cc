@@ -14,6 +14,7 @@
 
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <jni.h>
 #include <notify.h>
 
 #include "src/main/cpp/util/logging.h"
@@ -21,6 +22,17 @@
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/platform/SystemSuspensionEvent.java
+enum SuspensionReason {
+  SuspensionReasonSIGTSTP = 0,
+  SuspensionReasonSIGCONT = 1,
+  SuspensionReasonSleep = 2,
+  SuspensionReasonWake = 3,
+};
+
+static jobject g_suspend_callback = nullptr;
 
 typedef struct {
   // Port used to relay sleep call back messages.
@@ -38,7 +50,8 @@ static void SleepCallBack(void *refcon, io_service_t service,
 
     case kIOMessageSystemWillSleep:
       BAZEL_LOG(USER) << "suspend anomaly due to kIOMessageSystemWillSleep";
-      suspend_callback(SuspensionReasonSleep);
+      blaze_jni::PerformIntegerValueCallback(g_suspend_callback,
+                                             SuspensionReasonSleep);
       // This needs to be acknowledged to allow sleep.
       IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
       break;
@@ -58,7 +71,8 @@ static void SleepCallBack(void *refcon, io_service_t service,
       // I don't think we really care. Over reporting "suspensions" is better
       // than under reporting them.
       BAZEL_LOG(USER) << "suspend anomaly due to kIOMessageSystemHasPoweredOn";
-      suspend_callback(SuspensionReasonWake);
+      blaze_jni::PerformIntegerValueCallback(g_suspend_callback,
+                                             SuspensionReasonWake);
       break;
 
     case kIOMessageSystemWillPowerOn:
@@ -72,7 +86,13 @@ static void SleepCallBack(void *refcon, io_service_t service,
   }
 }
 
-void portable_start_suspend_monitoring() {
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemSuspensionModule_registerSuspensionNative(
+    JNIEnv* env, jclass, jobject callback) {
+  if (!blaze_jni::RegisterIntConsumerCallback(
+          env, callback, &g_suspend_callback, "system suspension")) {
+    return;
+  }
   static dispatch_once_t once_token;
   static SuspendState suspend_state;
   dispatch_once(&once_token, ^{
@@ -106,7 +126,8 @@ void portable_start_suspend_monitoring() {
       if (signal_source != nullptr) {
         dispatch_source_set_event_handler(signal_source, ^{
           BAZEL_LOG(USER) << "suspend anomaly due to SIGCONT";
-          suspend_callback(SuspensionReasonSIGCONT);
+          blaze_jni::PerformIntegerValueCallback(g_suspend_callback,
+                                                 SuspensionReasonSIGCONT);
         });
         dispatch_resume(signal_source);
       } else {
@@ -121,7 +142,8 @@ void portable_start_suspend_monitoring() {
     if (tstp_source != nullptr) {
       dispatch_source_set_event_handler(tstp_source, ^{
         BAZEL_LOG(USER) << "suspend anomaly due to SIGTSTP";
-        suspend_callback(SuspensionReasonSIGTSTP);
+        blaze_jni::PerformIntegerValueCallback(g_suspend_callback,
+                                               SuspensionReasonSIGTSTP);
       });
       dispatch_resume(tstp_source);
     } else {

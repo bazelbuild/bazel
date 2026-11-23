@@ -241,7 +241,9 @@ final class Eval {
         rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
 
     StarlarkFunction fn = fn(fr);
-    @Nullable CallableType functionType = fn.getChildFunctionType(rfn);
+    // Used only for dynamic type checking of parameter default values; if there are no type
+    // annotations on the function's signature, there's nothing to type check.
+    @Nullable CallableType annotatedFunctionType = fn.getAnnotatedChildFunctionType(rfn);
     boolean dynamicTypeCheckingEnabled =
         fr.thread
             .getSemantics()
@@ -257,9 +259,9 @@ final class Eval {
       Object defaultValue = expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
       defaults[i - (nparams - defaults.length)] = defaultValue;
 
-      if (dynamicTypeCheckingEnabled && functionType != null) {
+      if (dynamicTypeCheckingEnabled && annotatedFunctionType != null) {
         // Typecheck the default value
-        StarlarkType parameterType = functionType.getParameterType(i);
+        StarlarkType parameterType = annotatedFunctionType.getParameterType(i);
         if (!TypeChecker.isValueSubtypeOf(
             defaultValue, parameterType, fr.thread.getSemantics(), fr.thread.getTypeContext())) {
           throw Starlark.errorf(

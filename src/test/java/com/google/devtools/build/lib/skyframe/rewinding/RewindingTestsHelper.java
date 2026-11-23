@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -2845,7 +2846,8 @@ public class RewindingTestsHelper {
             "test/tool.sh",
             "#!/bin/bash",
             String.format(
-                "cat ${0}.runfiles/%s/test/intermediate_1.inlined", TestConstants.WORKSPACE_NAME),
+                "cat ${0}.runfiles/%s/test/intermediate_1.inlined",
+                LabelConstants.MAIN_REPO_DIR_NAME),
             "echo 'from tool'")
         .setExecutable(true);
 

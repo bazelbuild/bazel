@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /**
  * Represents future success or failure of a write operation.
@@ -33,5 +32,4 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 // The ImmediateWriteStatus class should be singleton, so it's cleaner to not derive it from
 // AbstractFuture.
 @SuppressWarnings("ShouldNotSubclass")
-@SkybridgeInterface
 public interface WriteStatus extends ListenableFuture<Boolean> {}

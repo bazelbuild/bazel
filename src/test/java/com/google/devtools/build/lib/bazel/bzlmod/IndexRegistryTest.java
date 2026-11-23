@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
@@ -771,6 +772,33 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetModuleFilePinnedNotFound() throws Exception {
+    downloadCache.setPath(scratch.dir("cache"));
+    server.start();
+
+    String url = server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel";
+    ModuleKey fooKey = createModuleKey("foo", "1.0");
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl() + "/myreg",
+            LockfileMode.UPDATE,
+            ImmutableMap.of(url, Optional.of(sha256("original"))),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    var e =
+        assertThrows(
+            IOException.class, () -> registry.getModuleFile(fooKey, reporter, downloadManager));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            ("Failed to fetch registry file %s recorded in MODULE.bazel.lock: GET returned 404 Not"
+                    + " Found. If this file was intentionally removed from the registry, delete"
+                    + " its entry from MODULE.bazel.lock and run `bazel mod deps`.")
+                .formatted(url));
+  }
+
+  @Test
   public void testGetModuleFileChecksumMismatchIgnoredWithLockfileModeOff() throws Exception {
     downloadCache.setPath(scratch.dir("cache"));
 
@@ -963,6 +991,43 @@ public class IndexRegistryTest extends FoundationTestCase {
                     server.getUrl() + "/bazel_registry.json",
                     sha256(maliciousRegistryJson),
                     sha256(registryJson)));
+  }
+
+  @Test
+  public void testBazelRegistryJsonPinnedNotFound() throws Exception {
+    downloadCache.setPath(scratch.dir("cache"));
+    String sourceJson = "{\"type\": \"local_path\", \"path\": \"../bar/project_x\"}";
+    server.serve("/modules/foo/1.0/source.json", sourceJson.getBytes(UTF_8));
+    server.start();
+
+    String registryJsonUrl = server.getUrl() + "/bazel_registry.json";
+    ModuleKey fooKey = createModuleKey("foo", "1.0");
+    ImmutableMap<String, Optional<Checksum>> emptyModuleHashes = ImmutableMap.of();
+    var knownFiles =
+        ImmutableMap.of(
+            registryJsonUrl,
+            Optional.of(sha256("{\"module_base_path\": \"/hello/foo\"}")),
+            server.getUrl() + "/modules/foo/1.0/source.json",
+            Optional.of(sha256(sourceJson)));
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            knownFiles,
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    var e =
+        assertThrows(
+            IOException.class,
+            () -> registry.getRepoSpec(fooKey, emptyModuleHashes, reporter, downloadManager));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            ("Failed to fetch registry file %s recorded in MODULE.bazel.lock: GET returned 404 Not"
+                    + " Found. If this file was intentionally removed from the registry, delete"
+                    + " its entry from MODULE.bazel.lock and run `bazel mod deps`.")
+                .formatted(registryJsonUrl));
   }
 
   @Test
@@ -1226,7 +1291,8 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   private static Checksum sha256(String content) throws Checksum.InvalidChecksumException {
     return Checksum.fromString(
-        DownloadCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
+        DownloadCache.KeyType.SHA256,
+        Hashing.sha256().hashBytes(StringUnsafe.getInternalStringBytes(content)).toString());
   }
 
   @Test

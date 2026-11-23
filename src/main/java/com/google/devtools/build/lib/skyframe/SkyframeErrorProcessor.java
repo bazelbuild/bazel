@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
 import static java.util.Objects.requireNonNull;
@@ -23,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -54,7 +52,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -184,8 +181,8 @@ public final class SkyframeErrorProcessor {
    * @param cause the exception that failed the key, or null if it failed because of a cycle.
    * @param executionDetailedExitCode non-null iff {@code reportingPriority} is {@link
    *     ReportingPriority#EXECUTION}.
-   * @param loadingRootCauses the labels of the {@link LoadingFailedCause}s among {@code
-   *     analysisRootCauses}, de-duplicated.
+   * @param isLoadingError whether {@code analysisRootCauses} contains any {@link
+   *     LoadingFailedCause}.
    */
   private record ClassifiedError(
       SkyKey normalizedKey,
@@ -193,7 +190,7 @@ public final class SkyframeErrorProcessor {
       ReportingPriority reportingPriority,
       @Nullable DetailedExitCode executionDetailedExitCode,
       NestedSet<Cause> analysisRootCauses,
-      ImmutableSet<Label> loadingRootCauses) {
+      boolean isLoadingError) {
 
     static ClassifiedError execution(
         SkyKey normalizedKey,
@@ -206,7 +203,7 @@ public final class SkyframeErrorProcessor {
           ReportingPriority.EXECUTION,
           executionDetailedExitCode,
           analysisRootCauses,
-          /* loadingRootCauses= */ ImmutableSet.of());
+          /* isLoadingError= */ false);
     }
 
     static ClassifiedError analysis(
@@ -219,13 +216,7 @@ public final class SkyframeErrorProcessor {
               : ReportingPriority.TARGET_ANALYSIS,
           /* executionDetailedExitCode= */ null,
           analysisRootCauses,
-          // A Cause carries a message as well as a label, so the same label can appear more
-          // than once. The pre-BEP LoadingFailureEvent protocol only knows about labels, so
-          // de-duplicate. TODO(ulfjack): Remove this once we've migrated to the BEP.
-          analysisRootCauses.toList().stream()
-              .filter(LoadingFailedCause.class::isInstance)
-              .map(Cause::getLabel)
-              .collect(toImmutableSet()));
+          analysisRootCauses.toList().stream().anyMatch(LoadingFailedCause.class::isInstance));
     }
 
     /** A cycle is the only way for a key to fail without an exception. */
@@ -236,10 +227,6 @@ public final class SkyframeErrorProcessor {
     /** True for all non-execution errors, including loading errors. */
     boolean isAnalysisError() {
       return reportingPriority != ReportingPriority.EXECUTION;
-    }
-
-    boolean isLoadingError() {
-      return !loadingRootCauses.isEmpty();
     }
 
     @Nullable
@@ -540,15 +527,6 @@ public final class SkyframeErrorProcessor {
         };
     if (attributedTo == null) {
       return;
-    }
-
-    // For loading errors, we expect both LoadingFailureEvent and AnalysisFailureEvent.
-    if (error.isLoadingError()) {
-      for (Label loadingRootCause : error.loadingRootCauses()) {
-        // This event is only for backwards compatibility with the old event protocol. Remove
-        // once we've migrated to the build event protocol.
-        eventBus.post(new LoadingFailureEvent(attributedTo.getLabel(), loadingRootCause));
-      }
     }
 
     if (error.isAnalysisError()) {

@@ -846,10 +846,13 @@ public class BuildEventStreamer {
     return newState != ProgressBufferState.REQUIRE_FLUSH;
   }
 
+  /**
+   * Reports all buffered stdout and stderr as progress events. Does nothing if nothing is buffered.
+   */
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
   // will be running under the synchronized block.
   @SuppressWarnings("GuardedBy")
-  void flush() {
+  public void flush() {
     List<BuildEvent> updateEvents = null;
     synchronized (this) {
       Iterable<String> allOut = ImmutableList.of();

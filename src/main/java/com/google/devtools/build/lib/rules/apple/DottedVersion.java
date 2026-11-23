@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -211,8 +210,6 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
       throw new InvalidDottedVersionException(String.format(ILLEGAL_VERSION, version));
     }
 
-    int numOriginalComponents = components.size();
-
     // Remove trailing (but not the first or middle) zero components for easier comparison and
     // hashcoding.
     for (int i = components.size() - 1; i > 0; i--) {
@@ -223,7 +220,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
       }
     }
 
-    return new DottedVersion(ImmutableList.copyOf(components), version, numOriginalComponents);
+    return new DottedVersion(ImmutableList.copyOf(components), version);
   }
 
   // Some of special build versions contains descriptive components like "experimental" or
@@ -268,13 +265,10 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
 
   private final ImmutableList<Component> components;
   private final String stringRepresentation;
-  private final int numOriginalComponents;
 
-  private DottedVersion(
-      ImmutableList<Component> components, String stringRepresentation, int numOriginalComponents) {
+  private DottedVersion(ImmutableList<Component> components, String stringRepresentation) {
     this.components = components;
     this.stringRepresentation = stringRepresentation;
-    this.numOriginalComponents = numOriginalComponents;
   }
 
   @Override
@@ -299,70 +293,6 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   @Override
   public int compareTo_starlark(DottedVersion other) {
     return compareTo(other);
-  }
-
-  /**
-   * Returns the string representation of this dotted version, padded or truncated to the specified
-   * number of components.
-   *
-   * <p>For example, a dotted version of "7.3.0" will return "7" if one is requested, "7.3" if two
-   * are requested, "7.3.0" if three are requested, and "7.3.0.0" if four are requested.
-   *
-   * @param numComponents a positive number of dot-separated numbers that should be present in the
-   *     returned string representation
-   */
-  public String toStringWithComponents(int numComponents) {
-    Preconditions.checkArgument(numComponents > 0,
-        "Can't serialize as a version with %s components", numComponents);
-    ImmutableList.Builder<Component> stringComponents = ImmutableList.builder();
-    if (numComponents <= components.size()) {
-      stringComponents.addAll(components.subList(0, numComponents));
-    } else {
-      stringComponents.addAll(components);
-      for (int i = components.size(); i < numComponents; i++) {
-        stringComponents.add(ZERO_COMPONENT);
-      }
-    }
-    return Joiner.on('.').join(stringComponents.build());
-  }
-
-  /**
-   * Returns the string representation of this dotted version, padded to a minimum number of
-   * components if the string representation does not already contain that many components.
-   *
-   * <p>For example, a dotted version of "7.3" will return "7.3" with either one or two components
-   * requested, "7.3.0" if three are requested, and "7.3.0.0" if four are requested.
-   *
-   * <p>Trailing zero components at the end of a string representation will not be removed. For
-   * example, a dotted version of "1.0.0" will return "1.0.0" if only one or two components are
-   * requested.
-   *
-   * @param numMinComponents the minimum number of dot-separated numbers that should be present in
-   *     the returned string representation
-   */
-  public String toStringWithMinimumComponents(int numMinComponents) {
-    return toStringWithComponents(Math.max(this.numOriginalComponents, numMinComponents));
-  }
-
-  /**
-   * Returns true if this version number has any alphabetic characters, such as 'alpha' in
-   * "7.3alpha.2".
-   */
-  public boolean hasAlphabeticCharacters() {
-    for (Component component : components) {
-      if (!Objects.equals(component.alphaSequence, NO_ALPHA_SEQUENCE)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns the number of components in this version number. For example, "7.3.0" has three
-   * components.
-   */
-  public int numComponents() {
-    return components.size();
   }
 
   @Override

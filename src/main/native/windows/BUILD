@@ -28,14 +28,6 @@ cc_library(
         "file.h",
         "util.h",
     ],
-    # RegGetValueW. This package is embedded into @bazel_tools, so it can't use
-    # the conditions in //src/conditions.
-    linkopts = select({
-        "@rules_cc//cc/compiler:clang": ["-ladvapi32"],
-        "@rules_cc//cc/compiler:gcc": ["-ladvapi32"],
-        "@rules_cc//cc/compiler:mingw-gcc": ["-ladvapi32"],
-        "//conditions:default": ["-DEFAULTLIB:advapi32.lib"],
-    }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/cpp:__subpackages__",
@@ -69,13 +61,6 @@ cc_binary(
         "jni-util.h",
         "processes-jni.cc",
         "sleep_prevention_jni.cc",
-        "system_cpu_speed_monitor_jni.cc",
-        "system_disk_space_monitor_jni.cc",
-        "system_load_advisory_monitor_jni.cc",
-        "system_memory_pressure_jni.cc",
-        "system_network_stats.cc",
-        "system_suspension_monitor_jni.cc",
-        "system_thermal_monitor_jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],

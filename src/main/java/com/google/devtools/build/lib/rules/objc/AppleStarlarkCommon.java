@@ -14,38 +14,17 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
 public class AppleStarlarkCommon
     implements AppleCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
 
-  @VisibleForTesting
-  public static final String BAD_KEY_ERROR =
-      "Argument %s not a recognized key, 'strict_include', or 'providers'.";
-
-  @VisibleForTesting
-  public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
-
-  @Nullable private StructImpl platform;
-
   public AppleStarlarkCommon() {}
-
-  @Override
-  public StructImpl getPlatformStruct() {
-    if (platform == null) {
-      platform = ApplePlatform.getStarlarkStruct();
-    }
-    return platform;
-  }
 
   @Override
   public DottedVersion dottedVersion(String version) throws EvalException {

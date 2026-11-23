@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.List;
 import java.util.stream.Stream;
@@ -34,6 +35,9 @@ import org.junit.runners.JUnit4;
 /** Tests of parser and pretty-printer. */
 @RunWith(JUnit4.class)
 public final class QueryParserTest {
+  private static final ParserOptions ALLOW_PLACEHOLDERS =
+      ParserOptions.builder().setAllowPlaceholders(true).build();
+
   private static class MockFunction implements QueryFunction {
     private final String name;
     private final int mandatoryArguments;
@@ -88,19 +92,30 @@ public final class QueryParserTest {
   }
 
   // Asserts that 'query' parses, and that when pretty-printed, yields
-  // 'expectedPrettyPrintOutput'.
+  // 'expectedPrettyPrintOutput' (both with and without placeholder parsing enabled).
   private static String checkPrettyPrint(String expectedPrettyPrintOutput, String query)
       throws Exception {
-    assertThat(QueryExpression.parse(query, mockEnvironment()).toString())
+    QueryEnvironment<?> env = mockEnvironment();
+    assertThat(QueryExpression.parse(query, env).toString()).isEqualTo(expectedPrettyPrintOutput);
+    QueryAst astWithoutPlaceholders = QueryParser.parse(query, ParserOptions.DEFAULT);
+    QueryAst astWithPlaceholders = QueryParser.parse(query, ALLOW_PLACEHOLDERS);
+    assertThat(astWithPlaceholders).isEqualTo(astWithoutPlaceholders);
+    assertThat(QueryExpressionResolver.resolve(astWithPlaceholders, env).toString())
         .isEqualTo(expectedPrettyPrintOutput);
     return expectedPrettyPrintOutput;
   }
 
   public static void checkParseFails(String query, String expectedError) {
+    QueryEnvironment<?> env = mockEnvironment();
     QuerySyntaxException e =
-        assertThrows(
-            QuerySyntaxException.class, () -> QueryExpression.parse(query, mockEnvironment()));
+        assertThrows(QuerySyntaxException.class, () -> QueryExpression.parse(query, env));
     assertThat(e).hasMessageThat().isEqualTo(expectedError);
+    QuerySyntaxException eWithPlaceholders =
+        assertThrows(
+            QuerySyntaxException.class,
+            () ->
+                QueryExpressionResolver.resolve(QueryParser.parse(query, ALLOW_PLACEHOLDERS), env));
+    assertThat(eWithPlaceholders).hasMessageThat().isEqualTo(expectedError);
   }
 
   @Test
@@ -348,7 +363,9 @@ public final class QueryParserTest {
 
   @Test
   public void testAstParsesUnresolvedFunctions() throws Exception {
-    QueryAst ast = QueryParser.parse("custom_func('*pattern', //foo + //bar, 3)");
+    String query = "custom_func('*pattern', //foo + //bar, 3)";
+    QueryAst ast = QueryParser.parse(query, ParserOptions.DEFAULT);
+    assertThat(QueryParser.parse(query, ALLOW_PLACEHOLDERS)).isEqualTo(ast);
     assertThat(ast).isInstanceOf(QueryAst.FunctionCall.class);
     QueryAst.FunctionCall call = (QueryAst.FunctionCall) ast;
     assertThat(call.functionName()).isEqualTo("custom_func");
@@ -364,7 +381,9 @@ public final class QueryParserTest {
 
   @Test
   public void testAstStructureForLetSetAndParenthesized() throws Exception {
-    QueryAst ast = QueryParser.parse("let x = set(//a //b) in ($x intersect //c)");
+    String query = "let x = set(//a //b) in ($x intersect //c)";
+    QueryAst ast = QueryParser.parse(query, ParserOptions.DEFAULT);
+    assertThat(QueryParser.parse(query, ALLOW_PLACEHOLDERS)).isEqualTo(ast);
     assertThat(ast)
         .isEqualTo(
             new QueryAst.Let(
@@ -413,10 +432,12 @@ public final class QueryParserTest {
     assertThat(call1).isNotEqualTo(differentCallArgs);
 
     // Parsed FunctionCall nodes with different surrounding tokens remain equal.
-    QueryAst.FunctionCall standalone = (QueryAst.FunctionCall) QueryParser.parse("deps(//foo)");
+    QueryAst.FunctionCall standalone =
+        (QueryAst.FunctionCall) QueryParser.parse("deps(//foo)", ParserOptions.DEFAULT);
     QueryAst.FunctionCall inUnion =
         (QueryAst.FunctionCall)
-            ((QueryAst.BinaryOperator) QueryParser.parse("deps(//foo) union //bar"))
+            ((QueryAst.BinaryOperator)
+                    QueryParser.parse("deps(//foo) union //bar", ParserOptions.DEFAULT))
                 .operands()
                 .get(0);
     assertThat(standalone.closeParenContextForErrorMessages())
@@ -428,12 +449,322 @@ public final class QueryParserTest {
 
   @Test
   public void testResolverValidatesWordAndIntegerArguments() throws Exception {
-    QueryAst resolvedWord = QueryParser.parse("filter('*_test', //foo)");
+    QueryAst resolvedWord = QueryParser.parse("filter('*_test', //foo)", ParserOptions.DEFAULT);
+    assertThat(QueryParser.parse("filter('*_test', //foo)", ALLOW_PLACEHOLDERS))
+        .isEqualTo(resolvedWord);
     assertThat(QueryExpressionResolver.resolve(resolvedWord, mockEnvironment()).toString())
         .isEqualTo("filter('*_test', //foo)");
 
     checkParseFails("deps('*_test')", "target literal must not begin with (*): *_test");
     checkParseFails("kind(('rule'), //foo)", "syntax error at '( rule )'");
     checkParseFails("deps(//foo, (1))", "syntax error at '( 1 )'");
+  }
+
+  @Test
+  public void testAtTargetLiteralsUnchangedWhenPlaceholdersEnabled() throws Exception {
+    checkPrettyPrint("@foo");
+    checkPrettyPrint("@foo//:bar");
+    checkPrettyPrint("@//pkg:target");
+    checkPrettyPrint("@@foo");
+    checkPrettyPrint(
+        "\"@@rules_jvm_external++maven+maven//:bar\"", "@@rules_jvm_external++maven+maven//:bar");
+    checkPrettyPrint("(@foo + @bar)", "@foo+@bar");
+    checkPrettyPrint("set(@foo @bar)");
+    checkPrettyPrint("\"@(foo)\"", "'@(foo)'");
+    checkPrettyPrint("\"@(foo)\"");
+    checkPrettyPrint("@");
+  }
+
+  @Test
+  public void testPlaceholdersParsedWhenEnabled() throws Exception {
+    assertThat(QueryParser.parse("@(foo)", ParserOptions.DEFAULT))
+        .isEqualTo(
+            new QueryAst.FunctionCall(
+                "@",
+                ImmutableList.of(new QueryAst.FunctionArgument(new QueryAst.Word("foo"), "", "")),
+                "",
+                ""));
+
+    String query =
+        "let x = @(init) in rdeps(@(universe), $x) intersect (@(filter) + '@(literal)' + @repo"
+            + " + @//a:b)";
+    QueryAst ast = QueryParser.parse(query, ALLOW_PLACEHOLDERS);
+
+    QueryAst.Let letAst = (QueryAst.Let) ast;
+    assertThat(letAst.varName()).isEqualTo("x");
+    assertThat(letAst.varExpr()).isEqualTo(new QueryAst.Placeholder("init", 8, 15));
+    assertThat(query.substring(8, 15)).isEqualTo("@(init)");
+
+    QueryAst.BinaryOperator intersect = (QueryAst.BinaryOperator) letAst.bodyExpr();
+    assertThat(intersect.operator()).isEqualTo(Lexer.TokenKind.INTERSECT);
+    assertThat(intersect.operands()).hasSize(2);
+
+    QueryAst.FunctionCall rdepsCall = (QueryAst.FunctionCall) intersect.operands().get(0);
+    assertThat(rdepsCall.functionName()).isEqualTo("rdeps");
+    assertThat(rdepsCall.arguments()).hasSize(2);
+    QueryAst.Placeholder universe = (QueryAst.Placeholder) rdepsCall.arguments().get(0).expr();
+    assertThat(universe).isEqualTo(new QueryAst.Placeholder("universe", 25, 36));
+    assertThat(query.substring(universe.startOffset(), universe.endOffset()))
+        .isEqualTo("@(universe)");
+    assertThat(rdepsCall.arguments().get(1).expr()).isEqualTo(new QueryAst.Word("$x"));
+
+    assertThat(intersect.operands().get(1))
+        .isEqualTo(
+            new QueryAst.Parenthesized(
+                new QueryAst.BinaryOperator(
+                    Lexer.TokenKind.PLUS,
+                    ImmutableList.of(
+                        new QueryAst.Placeholder("filter", 53, 62),
+                        new QueryAst.Word("@(literal)"),
+                        new QueryAst.Word("@repo"),
+                        new QueryAst.Word("@//a:b")))));
+    assertThat(query.substring(53, 62)).isEqualTo("@(filter)");
+
+    // Reserved words inside '@(...)' are valid identifier-shaped placeholder names.
+    assertThat(QueryParser.parse("@(union) + @(in) + @(set)", ALLOW_PLACEHOLDERS))
+        .isEqualTo(
+            new QueryAst.BinaryOperator(
+                Lexer.TokenKind.PLUS,
+                ImmutableList.of(
+                    new QueryAst.Placeholder("union", 0, 8),
+                    new QueryAst.Placeholder("in", 11, 16),
+                    new QueryAst.Placeholder("set", 19, 25))));
+  }
+
+  @Test
+  public void testPlaceholdersRejectedInInvalidGrammarPositions() {
+    QuerySyntaxException inSet =
+        assertThrows(
+            QuerySyntaxException.class, () -> QueryParser.parse("set(@(foo))", ALLOW_PLACEHOLDERS));
+    assertThat(inSet).hasMessageThat().isEqualTo("syntax error at '@(foo) )'");
+
+    QuerySyntaxException inLetVarName =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryParser.parse("let @(x) = //a in //b", ALLOW_PLACEHOLDERS));
+    assertThat(inLetVarName).hasMessageThat().isEqualTo("syntax error at '@(x) = //a'");
+
+    QuerySyntaxException asFunctionName =
+        assertThrows(
+            QuerySyntaxException.class, () -> QueryParser.parse("@(foo)(//a)", ALLOW_PLACEHOLDERS));
+    assertThat(asFunctionName)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '(' after query expression '@(foo)'");
+
+    QuerySyntaxException trailingPlaceholder =
+        assertThrows(
+            QuerySyntaxException.class, () -> QueryParser.parse("//a @(b)", ALLOW_PLACEHOLDERS));
+    assertThat(trailingPlaceholder)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '@(b)' after query expression '//a'");
+
+    QuerySyntaxException attachedAfterWord =
+        assertThrows(
+            QuerySyntaxException.class, () -> QueryParser.parse("a@(b)", ALLOW_PLACEHOLDERS));
+    assertThat(attachedAfterWord)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '@(b)' after query expression 'a'");
+
+    QuerySyntaxException doubleAtBeforeParens =
+        assertThrows(
+            QuerySyntaxException.class, () -> QueryParser.parse("@@(b)", ALLOW_PLACEHOLDERS));
+    assertThat(doubleAtBeforeParens)
+        .hasMessageThat()
+        .isEqualTo("unexpected token '@(b)' after query expression '@'");
+  }
+
+  @Test
+  public void testResolverRejectsPlaceholders() throws Exception {
+    QueryAst ast = QueryParser.parse("deps(@(targets))", ALLOW_PLACEHOLDERS);
+    QuerySyntaxException e =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryExpressionResolver.resolve(ast, mockEnvironment()));
+    assertThat(e).hasMessageThat().isEqualTo("placeholders are not supported: '@(targets)'");
+  }
+
+  @Test
+  public void testIdentifierAndVariableReferenceHelpers() {
+    assertThat(QueryAst.isValidIdentifier("foo")).isTrue();
+    assertThat(QueryAst.isValidIdentifier("_foo_123")).isTrue();
+    assertThat(QueryAst.isValidIdentifier("")).isFalse();
+    assertThat(QueryAst.isValidIdentifier("1foo")).isFalse();
+    assertThat(QueryAst.isValidIdentifier("foo-bar")).isFalse();
+
+    QueryAst.Word varRef = new QueryAst.Word("$my_var");
+    assertThat(varRef.isVariableReference()).isTrue();
+    assertThat(varRef.variableName()).isEqualTo("my_var");
+
+    assertThat(new QueryAst.Word("$").isVariableReference()).isFalse();
+    assertThat(new QueryAst.Word("$1").isVariableReference()).isFalse();
+    assertThat(new QueryAst.Word("jar$").isVariableReference()).isFalse();
+    assertThat(new QueryAst.Word("//pkg:target").isVariableReference()).isFalse();
+  }
+
+  @Test
+  public void testParserOptionsDefaultsAndValidation() {
+    ParserOptions defaults = ParserOptions.builder().build();
+    assertThat(defaults).isEqualTo(ParserOptions.DEFAULT);
+    assertThat(defaults.allowPlaceholders()).isFalse();
+    assertThat(defaults.maxQueryDepth()).isEqualTo(Integer.MAX_VALUE);
+
+    ParserOptions custom =
+        ParserOptions.builder().setAllowPlaceholders(true).setMaxQueryDepth(25).build();
+    assertThat(custom.allowPlaceholders()).isTrue();
+    assertThat(custom.maxQueryDepth()).isEqualTo(25);
+    assertThat(custom.toBuilder().setMaxQueryDepth(10).build())
+        .isEqualTo(new ParserOptions(/* allowPlaceholders= */ true, /* maxQueryDepth= */ 10));
+
+    ParserOptions.Builder negativeDepthBuilder = ParserOptions.builder().setMaxQueryDepth(-1);
+    assertThrows(IllegalArgumentException.class, negativeDepthBuilder::build);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ParserOptions(/* allowPlaceholders= */ false, /* maxQueryDepth= */ -1));
+    assertThrows(NullPointerException.class, () -> QueryParser.parse(null, ParserOptions.DEFAULT));
+    assertThrows(NullPointerException.class, () -> QueryParser.parse("//a", null));
+  }
+
+  @Test
+  public void testMaxQueryDepthZeroAllowsOnlyUnnestedLeaves() throws Exception {
+    ParserOptions depthZero = ParserOptions.builder().setMaxQueryDepth(0).build();
+    ParserOptions depthZeroWithPlaceholders =
+        depthZero.toBuilder().setAllowPlaceholders(true).build();
+
+    assertThat(QueryParser.parse("//a", depthZero)).isEqualTo(new QueryAst.Word("//a"));
+    assertThat(QueryParser.parse("@(foo)", depthZeroWithPlaceholders))
+        .isEqualTo(new QueryAst.Placeholder("foo", /* startOffset= */ 0, /* endOffset= */ 6));
+
+    for (String nestedQuery :
+        ImmutableList.of(
+            "(//a)", "deps(//a)", "opt()", "set()", "set(//a)", "let x = //a in $x", "//a + //b")) {
+      QuerySyntaxException e =
+          assertThrows(
+              QuerySyntaxException.class,
+              () -> QueryParser.parse(nestedQuery, depthZeroWithPlaceholders));
+      assertThat(e).hasMessageThat().isEqualTo("query exceeds maximum nesting depth of 0");
+    }
+  }
+
+  @Test
+  public void testMaxQueryDepthExactBoundariesAcrossConstructs() throws Exception {
+    // Nested parentheses: depth 5.
+    assertExactDepthBoundary("(".repeat(5) + "//a" + ")".repeat(5), /* exactDepth= */ 5);
+
+    // Nested function calls: depth 5.
+    assertExactDepthBoundary("deps(".repeat(5) + "//a" + ")".repeat(5), /* exactDepth= */ 5);
+
+    // Multi-argument function where second argument determines depth: 1 (rdeps) + 4 (deps) = 5.
+    assertExactDepthBoundary(
+        "rdeps(//a, " + "deps(".repeat(4) + "//b" + ")".repeat(4) + ")", /* exactDepth= */ 5);
+
+    // set(...) has depth 1; wrapped inside parens or a function call it reaches depth 2.
+    assertExactDepthBoundary("set(//a //b)", /* exactDepth= */ 1);
+    assertExactDepthBoundary("(set(//a))", /* exactDepth= */ 2);
+    assertExactDepthBoundary("deps(set(//a))", /* exactDepth= */ 2);
+
+    // Nested let bindings in bodyExpr and varExpr: depth 5.
+    assertExactDepthBoundary("let x = //a in ".repeat(5) + "$x", /* exactDepth= */ 5);
+    assertExactDepthBoundary(
+        "let x = " + "(".repeat(4) + "//a" + ")".repeat(4) + " in $x", /* exactDepth= */ 5);
+
+    // Alternating binary operators: each distinct operator group adds 1 to left-spine depth.
+    assertExactDepthBoundary("//a + //b", /* exactDepth= */ 1);
+    assertExactDepthBoundary("//a + //b - //c", /* exactDepth= */ 2);
+    assertExactDepthBoundary("//a + //b0 - //c0 + //b1 - //c1 + //b2", /* exactDepth= */ 5);
+
+    // Mixed deep subexpressions and binary operator alternations:
+    // 1. Deep LHS wrapped by binary operators: deps(deps(//a)) has depth 2, + //b -> 3, - //c -> 4.
+    assertExactDepthBoundary("deps(deps(//a)) + //b", /* exactDepth= */ 3);
+    assertExactDepthBoundary("deps(deps(//a)) + //b - //c", /* exactDepth= */ 4);
+
+    // 2. Deep RHS in first group followed by alternation: + group has depth 3, - wraps it -> 4.
+    assertExactDepthBoundary("//a + deps(deps(//b)) - //c", /* exactDepth= */ 4);
+
+    // 3. Deep RHS in second group (left-associative): (//a + //b) has depth 1, deps(deps(//c)) has
+    // depth 2, so outer - group has depth max(1, 2) + 1 = 3.
+    assertExactDepthBoundary("//a + //b - deps(deps(//c))", /* exactDepth= */ 3);
+
+    // 4. Function argument starting with word or function call followed by alternating binary tail.
+    assertExactDepthBoundary("deps(//a + //b - //c)", /* exactDepth= */ 3);
+    assertExactDepthBoundary("deps(kind('rule', //a) + //b - //c)", /* exactDepth= */ 4);
+  }
+
+  @Test
+  public void testMaxQueryDepthWideFlatExpressionsAllowed() throws Exception {
+    ParserOptions depthOne = ParserOptions.builder().setMaxQueryDepth(1).build();
+    ParserOptions depthTwo = ParserOptions.builder().setMaxQueryDepth(2).build();
+
+    // 5,000 uniform '+' operators flatten into a single BinaryOperator node of depth 1.
+    String uniformSum = "//a" + " + //b".repeat(5000);
+    QueryAst sumAst = QueryParser.parse(uniformSum, depthOne);
+    assertThat(((QueryAst.BinaryOperator) sumAst).operands()).hasSize(5001);
+
+    // 5,000 words in set(...) have depth 1.
+    String largeSet = "set(//a" + " //b".repeat(5000) + ")";
+    QueryAst setAst = QueryParser.parse(largeSet, depthOne);
+    assertThat(((QueryAst.Set) setAst).words()).hasSize(5001);
+
+    // Sibling subexpressions do not accumulate depth across '+' or ','.
+    String siblingParens = "(//a)" + " + (//b)".repeat(1000);
+    assertThat(QueryParser.parse(siblingParens, depthTwo))
+        .isInstanceOf(QueryAst.BinaryOperator.class);
+
+    String siblingLetsInFunctionArgs = "rdeps(let x = //a in $x, let y = //b in $y)";
+    assertThat(QueryParser.parse(siblingLetsInFunctionArgs, depthTwo))
+        .isInstanceOf(QueryAst.FunctionCall.class);
+  }
+
+  @Test
+  public void testMaxQueryDepthRejectsDeepInputsWithoutStackOverflow() throws Exception {
+    ParserOptions maxDepth1000 = ParserOptions.builder().setMaxQueryDepth(1000).build();
+
+    // Alternating binary operator chain with 10,000 alternations.
+    StringBuilder alternatingOps = new StringBuilder("//a");
+    for (int i = 0; i < 5000; i++) {
+      alternatingOps.append(" + //b").append(i).append(" - //c").append(i);
+    }
+    String deepParens = "(".repeat(20_000) + "//a" + ")".repeat(20_000);
+    String unclosedDeepParens = "(".repeat(20_000);
+    String deepFunctionCalls = "deps(".repeat(20_000) + "//a" + ")".repeat(20_000);
+    String unclosedDeepFunctionCalls = "deps(".repeat(20_000);
+    String deepLetBodies = "let x = //a in ".repeat(20_000) + "$x";
+    String unclosedDeepLetValues = "let x = ".repeat(20_000) + "//a";
+
+    for (String deepQuery :
+        ImmutableList.of(
+            alternatingOps.toString(),
+            deepParens,
+            unclosedDeepParens,
+            deepFunctionCalls,
+            unclosedDeepFunctionCalls,
+            deepLetBodies,
+            unclosedDeepLetValues)) {
+      QuerySyntaxException e =
+          assertThrows(
+              QuerySyntaxException.class, () -> QueryParser.parse(deepQuery, maxDepth1000));
+      assertThat(e).hasMessageThat().isEqualTo("query exceeds maximum nesting depth of 1000");
+    }
+
+    // Verify an alternating binary operator chain right at depth 1000 parses and resolves cleanly.
+    StringBuilder atLimitAlternating = new StringBuilder("//a");
+    for (int i = 0; i < 500; i++) {
+      atLimitAlternating.append(" + //b").append(i).append(" - //c").append(i);
+    }
+    QueryAst atLimitAst = QueryParser.parse(atLimitAlternating.toString(), maxDepth1000);
+    QueryExpression resolved = QueryExpressionResolver.resolve(atLimitAst, mockEnvironment());
+    assertThat(resolved.toString()).contains("//b499");
+  }
+
+  private static void assertExactDepthBoundary(String query, int exactDepth) throws Exception {
+    ParserOptions atLimit = ParserOptions.builder().setMaxQueryDepth(exactDepth).build();
+    assertThat(QueryParser.parse(query, atLimit))
+        .isEqualTo(QueryParser.parse(query, ParserOptions.DEFAULT));
+
+    ParserOptions oneBelowLimit = ParserOptions.builder().setMaxQueryDepth(exactDepth - 1).build();
+    QuerySyntaxException e =
+        assertThrows(QuerySyntaxException.class, () -> QueryParser.parse(query, oneBelowLimit));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("query exceeds maximum nesting depth of " + (exactDepth - 1));
   }
 }

@@ -2128,11 +2128,6 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
           public ImmutableSet<String> getReservedActionMnemonics() {
             return ImmutableSet.of();
           }
-
-          @Override
-          public String getRunfilesPrefix() {
-            return "bleh";
-          }
         },
         new FragmentFactory());
   }

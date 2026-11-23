@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.
 import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.writeShort;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext.FieldSetter;
 
@@ -43,14 +44,15 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
   private final Class<?> type;
   private final FieldHandler[] handlers;
 
-  public DynamicCodec(Class<?> type) {
-    this(type, getFieldHandlers(type));
-  }
-
   @SuppressWarnings("AvoidObjectArrays") // less overhead
   private DynamicCodec(Class<?> type, FieldHandler[] handlers) {
     this.type = type;
     this.handlers = handlers;
+  }
+
+  /** Creates a codec instance for {@code type}. */
+  public static DynamicCodec create(Class<?> type) {
+    return new DynamicCodec(type, getFieldHandlers(type));
   }
 
   /** Creates a codec instance with custom handlers for specified fields. */
@@ -403,7 +405,13 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     return handlers;
   }
 
-  private static <T> List<Field> getSerializableFields(Class<T> type) {
+  /**
+   * Returns the fields of {@code type} that are serialized, in wire order: non-static,
+   * non-transient fields declared by {@code type} and its superclasses, ordered by {@link
+   * FieldComparator}.
+   */
+  @VisibleForTesting
+  static <T> List<Field> getSerializableFields(Class<T> type) {
     ArrayList<Field> fields = new ArrayList<>();
     for (Class<? super T> next = type; next != null; next = next.getSuperclass()) {
       for (Field field : next.getDeclaredFields()) {

@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import org.junit.Test;
@@ -33,16 +34,16 @@ public class LocationFunctionTest {
   public void absoluteAndRelativeLabels() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/src/bar").build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("src/bar");
-    assertThat(func.apply(":foo", RepositoryMapping.EMPTY, null)).isEqualTo("src/bar");
-    assertThat(func.apply("foo", RepositoryMapping.EMPTY, null)).isEqualTo("src/bar");
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY)).isEqualTo("src/bar");
+    assertThat(func.apply(":foo", RepositoryMapping.EMPTY)).isEqualTo("src/bar");
+    assertThat(func.apply("foo", RepositoryMapping.EMPTY)).isEqualTo("src/bar");
   }
 
   @Test
   public void pathUnderExecRootUsesDotSlash() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/bar").build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("./bar");
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY)).isEqualTo("./bar");
   }
 
   @Test
@@ -50,7 +51,7 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", false).build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class, () -> func.apply("//bar", RepositoryMapping.EMPTY, null));
+            IllegalStateException.class, () -> func.apply("//bar", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -63,7 +64,7 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", false).add("//foo").build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("label '//foo:foo' in $(location) expression expands to no files");
@@ -75,7 +76,7 @@ public class LocationFunctionTest {
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/1", "/exec/2").build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -93,7 +94,7 @@ public class LocationFunctionTest {
             .build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -111,7 +112,7 @@ public class LocationFunctionTest {
             .build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -129,14 +130,15 @@ public class LocationFunctionTest {
             .build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class,
-            () -> func.apply("//foo", RepositoryMapping.EMPTY, "workspace"));
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
-            "label '//foo:foo' in $(rlocationpath) expression expands to more than one file, "
-                + "please use $(rlocationpaths //foo:foo) instead.  Files (at most 5 shown) are: "
-                + "[workspace/1, workspace/2]");
+            String.format(
+                "label '//foo:foo' in $(rlocationpath) expression expands to more than one file, "
+                    + "please use $(rlocationpaths //foo:foo) instead.  Files (at most 5 shown) "
+                    + "are: [%1$s/1, %1$s/2]",
+                LabelConstants.MAIN_REPO_DIR_NAME));
   }
 
   @Test
@@ -144,7 +146,7 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", true).build();
     IllegalStateException expected =
         assertThrows(
-            IllegalStateException.class, () -> func.apply("//bar", RepositoryMapping.EMPTY, null));
+            IllegalStateException.class, () -> func.apply("//bar", RepositoryMapping.EMPTY));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -156,7 +158,7 @@ public class LocationFunctionTest {
   public void fileWithSpace() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/file/with space").build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("'file/with space'");
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY)).isEqualTo("'file/with space'");
   }
 
   @Test
@@ -165,7 +167,7 @@ public class LocationFunctionTest {
         new LocationFunctionBuilder("//foo", true)
             .add("//foo", "/exec/foo/bar", "/exec/out/foo/foobar")
             .build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("foo/bar foo/foobar");
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY)).isEqualTo("foo/bar foo/foobar");
   }
 
   @Test
@@ -174,7 +176,7 @@ public class LocationFunctionTest {
         new LocationFunctionBuilder("//foo", true)
             .add("//foo", "/exec/file/with space", "/exec/file/with spaces ")
             .build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null))
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY))
         .isEqualTo("'file/with space' 'file/with spaces '");
   }
 
@@ -185,7 +187,7 @@ public class LocationFunctionTest {
             .setPathType(LocationFunction.PathType.EXEC)
             .add("//foo", "/exec/bar", "/exec/out/foobar")
             .build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, null)).isEqualTo("./bar out/foobar");
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY)).isEqualTo("./bar out/foobar");
   }
 
   @Test
@@ -195,8 +197,8 @@ public class LocationFunctionTest {
             .setPathType(LocationFunction.PathType.RLOCATION)
             .add("//foo", "/exec/bar", "/exec/out/foobar")
             .build();
-    assertThat(func.apply("//foo", RepositoryMapping.EMPTY, "workspace"))
-        .isEqualTo("workspace/bar workspace/foobar");
+    assertThat(func.apply("//foo", RepositoryMapping.EMPTY))
+        .isEqualTo(String.format("%1$s/bar %1$s/foobar", LabelConstants.MAIN_REPO_DIR_NAME));
   }
 
   @Test
@@ -205,7 +207,7 @@ public class LocationFunctionTest {
     var repositoryMapping = RepositoryMapping.create(ImmutableMap.of("a", b), RepositoryName.MAIN);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
-    assertThat(func.apply("@a//foo", repositoryMapping, null)).isEqualTo("src/bar");
+    assertThat(func.apply("@a//foo", repositoryMapping)).isEqualTo("src/bar");
   }
 
   @Test
@@ -214,6 +216,6 @@ public class LocationFunctionTest {
     var repositoryMapping = RepositoryMapping.create(ImmutableMap.of("a", b), RepositoryName.MAIN);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@@potato//foo", "/exec/src/bar").build();
-    assertThat(func.apply("@@potato//foo", repositoryMapping, null)).isEqualTo("src/bar");
+    assertThat(func.apply("@@potato//foo", repositoryMapping)).isEqualTo("src/bar");
   }
 }

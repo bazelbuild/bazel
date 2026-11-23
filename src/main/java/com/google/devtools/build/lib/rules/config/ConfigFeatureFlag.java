@@ -28,11 +28,13 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -104,6 +106,14 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       RuleDefinitionEnvironment env) {
     return Allowlist.getAttributeFromAllowlistName(SETTER_ALLOWLIST_NAME)
         .value(env.getToolsLabel(SETTER_ALLOWLIST_LABEL));
+  }
+
+  @Override
+  public void addRuleImplSpecificRequiredConfigFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      AttributeMap attributes,
+      BuildConfigurationValue configuration) {
+    requiredFragments.addStarlarkOption(attributes.getLabel());
   }
 
   @Override

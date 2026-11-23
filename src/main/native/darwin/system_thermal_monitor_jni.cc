@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <TargetConditionals.h>
+#include <jni.h>
 #include <libkern/OSThermalNotification.h>
 #include <notify.h>
 
@@ -25,6 +26,7 @@
 namespace blaze_jni {
 
 static int gThermalNotifyToken = 0;
+static jobject g_thermal_callback = nullptr;
 
 static int thermal_load_from_token(int token) {
   uint64_t state;
@@ -65,7 +67,13 @@ static int thermal_load_from_token(int token) {
   return load;
 }
 
-void portable_start_thermal_monitoring() {
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_registerThermalNative(
+    JNIEnv* env, jclass, jobject callback) {
+  if (!blaze_jni::RegisterIntConsumerCallback(env, callback,
+                                              &g_thermal_callback, "thermal")) {
+    return;
+  }
   // To test use:
   //   sudo thermal simulate cpu {nominal|moderate|heavy|trapping|sleeping}
   // Note that we install the test notification as well that can be used for
@@ -74,8 +82,8 @@ void portable_start_thermal_monitoring() {
   dispatch_once(&once_token, ^{
     dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
     notify_handler_t handler = (^(int token) {
-      int value = thermal_load_from_token(token);
-      thermal_callback(value);
+      blaze_jni::PerformIntegerValueCallback(g_thermal_callback,
+                                             thermal_load_from_token(token));
     });
     int status =
         notify_register_dispatch(kOSThermalNotificationPressureLevelName,
@@ -97,7 +105,9 @@ void portable_start_thermal_monitoring() {
   });
 }
 
-int portable_thermal_load() {
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemThermalModule_thermalLoadNative(
+    JNIEnv*, jclass) {
   return thermal_load_from_token(gThermalNotifyToken);
 }
 

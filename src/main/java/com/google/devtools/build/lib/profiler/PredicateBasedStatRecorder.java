@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -24,7 +23,6 @@ import java.util.function.Predicate;
  * <p>Note that the predicates are evaluated in order and delegated only to the first one. That
  * means that the most specific and cheapest predicates should be passed first.
  */
-@ScOnly
 public class PredicateBasedStatRecorder implements StatRecorder {
 
   private final Predicate<? super String>[] predicates;

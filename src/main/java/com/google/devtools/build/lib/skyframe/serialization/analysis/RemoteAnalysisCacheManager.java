@@ -49,6 +49,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   private boolean bailedOut;
 
   private final boolean minimizeMemory;
+  private final boolean keepGoing;
 
   private final SettablePlatformConfigurationProvider platformConfigurationProvider;
 
@@ -71,6 +72,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.analysisCacheInvalidator = null;
     this.topLevelTargets = ImmutableList.of();
     this.minimizeMemory = false;
+    this.keepGoing = false;
     this.eventHandler = null;
     this.skycacheMetadataParams = null;
     this.platformConfigurationProvider = null;
@@ -85,11 +87,34 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       Collection<Label> topLevelTargets,
       boolean minimizeMemory,
       SettablePlatformConfigurationProvider platformConfigurationProvider) {
+    this(
+        mode,
+        eventHandler,
+        skycacheMetadataParams,
+        analysisCacheClient,
+        analysisCacheInvalidator,
+        topLevelTargets,
+        minimizeMemory,
+        /* keepGoing= */ false,
+        platformConfigurationProvider);
+  }
+
+  RemoteAnalysisCacheManager(
+      RemoteAnalysisCacheMode mode,
+      ExtendedEventHandler eventHandler,
+      SkycacheMetadataParams skycacheMetadataParams,
+      Future<? extends RemoteAnalysisCacheClient> analysisCacheClient,
+      Future<? extends AnalysisCacheInvalidator> analysisCacheInvalidator,
+      Collection<Label> topLevelTargets,
+      boolean minimizeMemory,
+      boolean keepGoing,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
     this.mode = mode;
     this.analysisCacheClient = analysisCacheClient;
     this.analysisCacheInvalidator = analysisCacheInvalidator;
     this.topLevelTargets = topLevelTargets;
     this.minimizeMemory = minimizeMemory;
+    this.keepGoing = keepGoing;
     this.eventHandler = eventHandler;
     this.skycacheMetadataParams = skycacheMetadataParams;
     this.platformConfigurationProvider = platformConfigurationProvider;
@@ -183,7 +208,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   @Override
   public void computeSelectionAndMinimizeMemory(InMemoryGraph graph) {
     checkEnabled();
-    FrontierSerializer.computeSelectionAndMinimizeMemory(graph, topLevelTargets);
+    FrontierSerializer.computeSelectionAndMinimizeMemory(graph, topLevelTargets, keepGoing);
   }
 
   @Override

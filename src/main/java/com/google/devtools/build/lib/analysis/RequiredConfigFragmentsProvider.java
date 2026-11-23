@@ -133,6 +133,10 @@ public record RequiredConfigFragmentsProvider(
       return starlarkOnly;
     }
 
+    boolean requiresStarlarkOption(Label starlarkOption) {
+      return starlarkOptions.contains(starlarkOption);
+    }
+
     @CanIgnoreReturnValue
     public Builder addOptionsClass(Class<? extends FragmentOptions> optionsClass) {
       if (!starlarkOnly) {

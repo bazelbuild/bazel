@@ -164,6 +164,18 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_profile_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["bazel_profile_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 6,
+)
+
+sh_test(
     name = "bazel_query_test",
     size = "medium",
     timeout = "long",
@@ -292,6 +304,27 @@ sh_test(
 )
 
 sh_test(
+    name = "blaze_nouse_action_cache_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["blaze_nouse_action_cache_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "blaze_query_invalidate_test",
+    size = "medium",
+    srcs = ["blaze_query_invalidate_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "build_event_stream_test",
     size = "medium",
     timeout = "long",
@@ -357,6 +390,15 @@ sh_test(
     tags = [
         # Bazel test requires sandboxing
         "no_windows",
+    ],
+)
+
+sh_test(
+    name = "configured_attr_integ_test",
+    srcs = ["configured_attr_integ_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -451,6 +493,18 @@ sh_test(
 )
 
 sh_test(
+    name = "execution_graph_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["execution_graph_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib/runtime:execution_graph_proto_to_text",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "execution_strategies_test",
     size = "medium",
     srcs = ["execution_strategies_test.sh"],
@@ -493,6 +547,17 @@ sh_test(
 )
 
 sh_test(
+    name = "incremental_analysis_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["incremental_analysis_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "info_test",
     srcs = ["info_test.sh"],
     data = [
@@ -516,6 +581,18 @@ sh_test(
     shard_count = 6,
     tags = ["no_windows"],
     toolchains = ["@rules_java//toolchains:current_java_runtime"],
+)
+
+sh_test(
+    name = "java_resources_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["java_resources_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 2,
 )
 
 sh_test(
@@ -832,6 +909,18 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "skyframe_integration_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["skyframe_integration_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 4,
+)
+
 cc_binary(
     name = "spend_cpu_time",
     testonly = 1,
@@ -862,6 +951,18 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 5,
+)
+
+sh_test(
+    name = "starlark_custom_args_test",
+    size = "small",
+    timeout = "long",
+    srcs = ["starlark_custom_args_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 8,
 )
 
 sh_test(
@@ -963,6 +1064,24 @@ sh_test(
     tags = ["no_windows"],
 )
 
+cc_binary(
+    name = "futimens",
+    testonly = 1,
+    srcs = ["futimens.cc"],
+)
+
+sh_test(
+    name = "timestamp_granularity_test",
+    timeout = "long",
+    srcs = ["timestamp_granularity_test.sh"],
+    data = [
+        ":futimens",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
 sh_test(
     name = "toolchain_test",
     size = "large",
@@ -1020,6 +1139,18 @@ sh_test(
     ],
     shard_count = 2,
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "warnings_as_errors_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["warnings_as_errors_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 2,
 )
 
 sh_test(

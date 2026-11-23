@@ -36,11 +36,6 @@ java_library(
 )
 
 java_library(
-    name = "equivalence_relation",
-    srcs = ["EquivalenceRelation.java"],
-)
-
-java_library(
     name = "extrema",
     srcs = ["Extrema.java"],
     deps = [
@@ -82,6 +77,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party/java/guava:collect",
         "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "object_to_int_map",
+    srcs = ["ObjectToIntMap.java"],
+    deps = [
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
     ],
 )
 

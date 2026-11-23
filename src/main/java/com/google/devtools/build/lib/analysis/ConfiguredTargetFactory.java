@@ -442,6 +442,7 @@ public final class ConfiguredTargetFactory {
                     configConditions,
                     Iterables.transform(
                         prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
+                    toolchainContexts,
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .setConflictFinder(conflictFinder)
@@ -741,6 +742,7 @@ public final class ConfiguredTargetFactory {
                         Iterables.transform(
                             prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
                         ImmutableList.of(configuredTarget)),
+                    toolchainContexts,
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .setConflictFinder(conflictFinder)

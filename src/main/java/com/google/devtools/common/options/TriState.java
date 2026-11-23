@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** Enum used to represent tri-state options (yes/no/auto). */
-@SkybridgeInterface
 public enum TriState {
   YES,
   NO,

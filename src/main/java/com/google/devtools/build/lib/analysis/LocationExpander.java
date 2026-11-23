@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -71,18 +70,15 @@ public final class LocationExpander {
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ImmutableMap<String, LocationFunction> functions;
   private final RepositoryMapping repositoryMapping;
-  private final String workspaceRunfilesDirectory;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Map<String, LocationFunction> functions,
-      RepositoryMapping repositoryMapping,
-      String workspaceRunfilesDirectory) {
+      RepositoryMapping repositoryMapping) {
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.functions = ImmutableMap.copyOf(functions);
     this.repositoryMapping = repositoryMapping;
-    this.workspaceRunfilesDirectory = workspaceRunfilesDirectory;
   }
 
   private LocationExpander(
@@ -91,11 +87,7 @@ public final class LocationExpander {
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
       RepositoryMapping repositoryMapping) {
-    this(
-        ruleContext,
-        allLocationFunctions(root, locationMap, execPaths),
-        repositoryMapping,
-        ruleContext.getWorkspaceName());
+    this(ruleContext, allLocationFunctions(root, locationMap, execPaths), repositoryMapping);
   }
 
   /**
@@ -208,10 +200,7 @@ public final class LocationExpander {
       // (2) Call appropriate function to obtain string replacement.
       String functionValue = value.substring(nextWhitespace + 1, end).trim();
       try {
-        String replacement =
-            functions
-                .get(fname)
-                .apply(functionValue, repositoryMapping, workspaceRunfilesDirectory);
+        String replacement = functions.get(fname).apply(functionValue, repositoryMapping);
         result.append(replacement);
       } catch (IllegalStateException ise) {
         reporter.report(ise.getMessage());
@@ -271,12 +260,9 @@ public final class LocationExpander {
      *
      * @param arg The label-like string to be expanded, e.g. ":foo" or "//foo:bar"
      * @param repositoryMapping map of apparent repository names to {@code RepositoryName}s
-     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
-     *     repository
      * @return The expanded value
      */
-    public String apply(
-        String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory) {
+    public String apply(String arg, RepositoryMapping repositoryMapping) {
       Label label;
       try {
         label =
@@ -286,13 +272,12 @@ public final class LocationExpander {
         throw new IllegalStateException(
             String.format("invalid label in %s expression: %s", functionName(), e.getMessage()), e);
       }
-      Set<String> paths = resolveLabel(label, workspaceRunfilesDirectory);
+      Set<String> paths = resolveLabel(label);
       return joinPaths(paths);
     }
 
     /** Returns all target location(s) of the given label. */
-    private Set<String> resolveLabel(Label unresolved, String workspaceRunfilesDirectory)
-        throws IllegalStateException {
+    private Set<String> resolveLabel(Label unresolved) throws IllegalStateException {
       Collection<Artifact> artifacts = locationMapSupplier.get().get(unresolved);
 
       if (artifacts == null) {
@@ -302,7 +287,7 @@ public final class LocationExpander {
                 unresolved, functionName()));
       }
 
-      Set<String> paths = getPaths(artifacts, workspaceRunfilesDirectory);
+      Set<String> paths = getPaths(artifacts);
       if (paths.isEmpty()) {
         throw new IllegalStateException(
             String.format(
@@ -328,15 +313,12 @@ public final class LocationExpander {
      * Extracts list of all executables associated with given collection of label artifacts.
      *
      * @param artifacts to get the paths of
-     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
-     *     repository
      * @return all associated executable paths
      */
-    private Set<String> getPaths(
-        Collection<Artifact> artifacts, String workspaceRunfilesDirectory) {
+    private Set<String> getPaths(Collection<Artifact> artifacts) {
       TreeSet<String> paths = Sets.newTreeSet();
       for (Artifact artifact : artifacts) {
-        PathFragment path = getPath(artifact, workspaceRunfilesDirectory);
+        PathFragment path = getPath(artifact);
         if (path != null) {
           paths.add(path.getCallablePathString());
         }
@@ -344,18 +326,11 @@ public final class LocationExpander {
       return paths;
     }
 
-    private PathFragment getPath(Artifact artifact, String workspaceRunfilesDirectory) {
+    private PathFragment getPath(Artifact artifact) {
       return switch (pathType) {
         case LOCATION -> artifact.getRunfilesPath();
         case EXEC -> artifact.getExecPath();
-        case RLOCATION -> {
-          PathFragment runfilesPath = artifact.getRunfilesPath();
-          if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
-            yield runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
-          } else {
-            yield PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
-          }
-        }
+        case RLOCATION -> artifact.getRlocationPath();
       };
     }
 

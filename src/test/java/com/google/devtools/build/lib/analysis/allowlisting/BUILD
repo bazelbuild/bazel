@@ -21,6 +21,7 @@ java_library(
     testonly = 1,
     srcs = ["AllowlistDummyRule.java"],
     visibility = [
+        "//src/test/java/com/google/devtools/build/lib/query2:__pkg__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",

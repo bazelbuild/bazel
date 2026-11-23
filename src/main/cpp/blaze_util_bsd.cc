@@ -56,7 +56,7 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
-#include "src/main/cpp/util/strings.h"
+#include "absl/strings/match.h"
 
 namespace blaze {
 
@@ -215,7 +215,7 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 }
 
 bool IsSharedLibrary(const string &filename) {
-  return blaze_util::ends_with(filename, ".so");
+  return absl::EndsWith(filename, ".so");
 }
 
 string GetSystemJavabase() {
