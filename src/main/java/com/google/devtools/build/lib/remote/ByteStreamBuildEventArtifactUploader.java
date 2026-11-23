@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMess
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -67,12 +66,6 @@ import javax.annotation.Nullable;
 /** A {@link BuildEventArtifactUploader} backed by {@link CombinedCache}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
-  // Exec paths of the files that --remote_build_event_upload=minimal still uploads.
-  private static final String OUTPUT_DIRECTORY_PREFIX = "bazel-out/";
-  private static final String TEST_LOG_DIRECTORY = "/testlogs/";
-  private static final String ACTION_STDOUT_PREFIX = "bazel-out/_tmp/actions/stdout-";
-  private static final String ACTION_STDERR_PREFIX = "bazel-out/_tmp/actions/stderr-";
-
   private final Executor executor;
   private final ExtendedEventHandler reporter;
   private final boolean verboseFailures;
@@ -281,7 +274,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         digest,
         /* directory= */ false,
         /* symlink= */ false,
-        isRemoteFile(path),
+        // A log from a remote action result is a local file now, but its contents (as just
+        // hashed) are known to be in the remote CAS, so it needn't be queried or uploaded.
+        isRemoteFile(path) || combinedCache.isRemoteLogDigest(digest),
         isBuildToolLog,
         /* specialFile= */ false,
         digestFunction);
@@ -327,22 +322,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private boolean isBuildOrTestLog(PathMetadata path) {
     PathFragment fragment = path.getPath().asFragment();
-    return fragment.startsWith(execRoot) && isBuildOrTestLog(fragment.relativeTo(execRoot));
-  }
-
-  /** Returns whether {@code execPath} is a test log or the stdout or stderr file of an action. */
-  @VisibleForTesting
-  static boolean isBuildOrTestLog(PathFragment execPath) {
-    String path = execPath.getPathString();
-    if (!path.startsWith(OUTPUT_DIRECTORY_PREFIX)) {
-      return false;
-    }
-    if (path.startsWith(ACTION_STDOUT_PREFIX) || path.startsWith(ACTION_STDERR_PREFIX)) {
-      return true;
-    }
-    // Test logs are in bazel-out/<configuration>/testlogs.
-    int configurationEnd = path.indexOf('/', OUTPUT_DIRECTORY_PREFIX.length());
-    return configurationEnd != -1 && path.startsWith(TEST_LOG_DIRECTORY, configurationEnd);
+    return fragment.startsWith(execRoot)
+        && BuildOrTestLogs.isBuildOrTestLog(fragment.relativeTo(execRoot));
   }
 
   private Single<List<PathMetadata>> queryCombinedCache(

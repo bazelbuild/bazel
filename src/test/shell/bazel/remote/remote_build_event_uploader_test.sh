@@ -465,6 +465,64 @@ EOF
   expect_bes_file_uploaded command.profile.gz
 }
 
+function setup_remote_test_with_downloaded_logs() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = 'test',
+  srcs = ['test.sh'],
+)
+EOF
+  cat > a/test.sh <<EOF
+echo 'it works!'
+EOF
+  chmod +x a/test.sh
+}
+
+# Runs //a:test with the test logs downloaded and asserts that the build event
+# uploader makes no call to the remote cache: the logs come from a remote
+# action result, so they are known to be in the remote cache already.
+function assert_remote_test_logs_not_queried() {
+  rm -f grpc.log
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --remote_download_regex='.*/test\.(log|xml)' \
+      --nogenerate_json_trace_profile \
+      --build_event_json_file=$BEP_JSON \
+      --remote_grpc_log=grpc.log \
+      "$@" \
+      //a:test >& $TEST_log || fail "Failed to test //a:test"
+
+  [[ -f bazel-testlogs/a/test/test.log ]] || fail "test.log was not downloaded"
+  [[ -f bazel-testlogs/a/test/test.xml ]] || fail "test.xml was not downloaded"
+  expect_bes_file_uploaded test.log
+  expect_bes_file_uploaded test.xml
+
+  # Every call the build event uploader makes carries this action id.
+  cat grpc.log > $TEST_log
+  expect_not_log "bes-upload"
+}
+
+function test_upload_minimal_remote_executed_testlogs_not_queried() {
+  setup_remote_test_with_downloaded_logs
+
+  assert_remote_test_logs_not_queried --remote_build_event_upload=minimal
+}
+
+function test_upload_minimal_remote_cached_testlogs_not_queried() {
+  setup_remote_test_with_downloaded_logs
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:test >& $TEST_log || fail "Failed to test //a:test"
+  bazel clean >& $TEST_log
+
+  assert_remote_test_logs_not_queried --remote_build_event_upload=minimal
+}
+
 function test_upload_minimal_upload_buildlogs() {
   mkdir -p a
   cat > a/BUILD <<EOF

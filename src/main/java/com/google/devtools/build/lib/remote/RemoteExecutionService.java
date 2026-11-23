@@ -664,6 +664,14 @@ public class RemoteExecutionService {
       this.cacheName = cacheName;
     }
 
+    /**
+     * Returns whether this result came from remote execution or the remote action cache, as
+     * opposed to the disk cache. If it did, the blobs it references are in the remote CAS.
+     */
+    boolean isFromRemote() {
+      return executeResponse != null || CachedActionResult.REMOTE_CACHE_NAME.equals(cacheName);
+    }
+
     /** Returns the exit code of remote executed action. */
     public int getExitCode() {
       return actionResult.getExitCode();
@@ -1498,6 +1506,26 @@ public class RemoteExecutionService {
     } else {
       moveOutputsToFinalLocation(
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
+    }
+
+    if (result.isFromRemote()) {
+      // Build events reference build and test logs without artifact metadata, so the build event
+      // uploader can't otherwise tell that these are in the remote cache already. Only logs are
+      // recorded, to keep memory bounded when many outputs are downloaded.
+      for (FileMetadata file : finishedDownloads) {
+        var execPath = file.path().relativeTo(execRoot);
+        if (BuildOrTestLogs.isBuildOrTestLog(execPath)) {
+          combinedCache.addRemoteLogDigest(file.digest());
+        }
+      }
+      // The stdout and stderr of an action are logs too. In particular, the stdout of a test
+      // action is its test.log.
+      if (result.actionResult.hasStdoutDigest()) {
+        combinedCache.addRemoteLogDigest(result.actionResult.getStdoutDigest());
+      }
+      if (result.actionResult.hasStderrDigest()) {
+        combinedCache.addRemoteLogDigest(result.actionResult.getStderrDigest());
+      }
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();

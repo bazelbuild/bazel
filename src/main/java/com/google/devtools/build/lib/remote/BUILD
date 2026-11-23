@@ -820,6 +820,7 @@ java_library(
 java_library(
     name = "combined_cache",
     srcs = [
+        "BuildOrTestLogs.java",
         "ChunkLocationMap.java",
         "ChunkedBlobDownloader.java",
         "ChunkedBlobUploader.java",
