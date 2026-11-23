@@ -2721,9 +2721,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   /**
-   * ActionExecutionFunction requests discovered inputs via the direct children of their nested set,
-   * which only avoids requesting the headers of dependencies individually if the discovered inputs
-   * are or directly contain the scheduling dependencies of the action.
+   * ActionExecutionFunction only avoids requesting each discovered header individually if the
+   * discovered inputs are or directly contain the scheduling dependencies of the action.
    */
   @Test
   public void testDiscoveredInputsWithoutIncludeScanningContainSchedulingDependencies()

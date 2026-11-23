@@ -925,7 +925,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * ActionInputMap} is not thread-safe, so mutating it at that point would race with those reads.
    */
   private void addDiscoveredInputs(
-      InputDiscoveryState state, Environment env, Action actionForError, boolean afterExecution)
+      InputDiscoveryState state, Environment env, Action action, boolean afterExecution)
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
@@ -949,22 +949,31 @@ public class ActionExecutionFunction implements SkyFunction {
             : state.inputArtifactData;
 
     // Like the inputs in getInputDepKeys, the discovered inputs are requested via the direct
-    // children of their nested set. A nested set shared between actions, such as the scheduling
-    // dependencies discovered by C++ compilations without include scanning, thus adds a single edge
+    // children of their nested set, so that a nested set shared between actions adds a single edge
     // instead of one per input.
     List<Artifact> directInputs = new ArrayList<>();
     List<SkyKey> nestedSetKeys = new ArrayList<>();
-    ArtifactNestedSetKey.visitDirectDeps(
-        state.discoveredInputs,
-        input -> {
-          if (state.getKnownDiscoveredInputMetadata(input) == null) {
-            directInputs.add(input);
-          }
-        },
-        nestedSetKeys::add);
+    NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
+    if (!schedulingDependencies.isSingleton()
+        && state.discoveredInputs.shallowEquals(schedulingDependencies)) {
+      // C++ compilations without include scanning discover exactly their scheduling dependencies,
+      // whose direct children include the headers of the target itself. The action already depends
+      // on the nested set of the scheduling dependencies (see getInputDepKeys), so requesting it
+      // again adds no edge at all.
+      nestedSetKeys.add(ArtifactNestedSetKey.create(schedulingDependencies));
+    } else {
+      ArtifactNestedSetKey.visitDirectDeps(
+          state.discoveredInputs,
+          input -> {
+            if (state.getKnownDiscoveredInputMetadata(input) == null) {
+              directInputs.add(input);
+            }
+          },
+          nestedSetKeys::add);
+    }
     SkyframeLookupResult result =
         env.getValuesAndExceptions(Iterables.concat(Artifact.keys(directInputs), nestedSetKeys));
-    addRequestedDiscoveredInputs(directInputs, result, inputData, env, actionForError);
+    addRequestedDiscoveredInputs(directInputs, result, inputData, env, action);
     if (nestedSetKeys.isEmpty() || env.valuesMissing()) {
       return;
     }
@@ -989,7 +998,7 @@ public class ActionExecutionFunction implements SkyFunction {
           env.getValuesAndExceptions(Artifact.keys(undoneInputs)),
           inputData,
           env,
-          actionForError);
+          action);
     }
   }
 

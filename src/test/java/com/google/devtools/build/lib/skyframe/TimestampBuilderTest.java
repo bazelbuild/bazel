@@ -375,7 +375,8 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     Artifact ownHeader = createSourceFile("own.h");
     Artifact depFirst = createSourceFile("dep_first.h");
     Artifact depSecond = createSourceFile("dep_second.h");
-    NestedSet<Artifact> depHeaders = NestedSetBuilder.create(Order.STABLE_ORDER, depFirst, depSecond);
+    NestedSet<Artifact> depHeaders =
+        NestedSetBuilder.create(Order.STABLE_ORDER, depFirst, depSecond);
     NestedSet<Artifact> schedulingDependencies =
         NestedSetBuilder.<Artifact>stableOrder().add(ownHeader).addTransitive(depHeaders).build();
     Artifact oneHeader = createSourceFile("one.h");
@@ -423,14 +424,14 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
             Artifact.key(depSecond),
             Artifact.key(oneNestedFirst),
             Artifact.key(oneNestedSecond));
-    // The direct children of the scheduling dependencies are requested themselves.
     ImmutableSet<SkyKey> twoDeps = actionDeps.get(Artifact.key(two));
+    assertThat(twoDeps).contains(ArtifactNestedSetKey.create(schedulingDependencies));
     assertThat(twoDeps)
-        .containsAtLeast(
-            ArtifactNestedSetKey.create(schedulingDependencies),
-            ArtifactNestedSetKey.create(depHeaders),
-            Artifact.key(ownHeader));
-    assertThat(twoDeps).containsNoneOf(Artifact.key(depFirst), Artifact.key(depSecond));
+        .containsNoneOf(
+            Artifact.key(ownHeader),
+            Artifact.key(depFirst),
+            Artifact.key(depSecond),
+            ArtifactNestedSetKey.create(depHeaders));
 
     // Without the direct edges, a change to a discovered input beneath a nested set must still
     // invalidate the actions in the same Skyframe graph.
@@ -439,19 +440,24 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertThat(oneExecutions.get()).isEqualTo(2);
     assertThat(twoExecutions.get()).isEqualTo(2);
 
-    modifySourceFile(oneHeader);
+    modifySourceFile(ownHeader);
     buildArtifacts(builder, one, two);
     assertThat(oneExecutions.get()).isEqualTo(3);
-    assertThat(twoExecutions.get()).isEqualTo(2);
+    assertThat(twoExecutions.get()).isEqualTo(3);
+
+    modifySourceFile(oneHeader);
+    buildArtifacts(builder, one, two);
+    assertThat(oneExecutions.get()).isEqualTo(4);
+    assertThat(twoExecutions.get()).isEqualTo(3);
 
     modifySourceFile(oneNestedSecond);
     buildArtifacts(builder, one, two);
-    assertThat(oneExecutions.get()).isEqualTo(4);
-    assertThat(twoExecutions.get()).isEqualTo(2);
+    assertThat(oneExecutions.get()).isEqualTo(5);
+    assertThat(twoExecutions.get()).isEqualTo(3);
 
     buildArtifacts(builder, one, two);
-    assertThat(oneExecutions.get()).isEqualTo(4);
-    assertThat(twoExecutions.get()).isEqualTo(2);
+    assertThat(oneExecutions.get()).isEqualTo(5);
+    assertThat(twoExecutions.get()).isEqualTo(3);
   }
 
   private Artifact createSourceFile(String name) throws IOException {
