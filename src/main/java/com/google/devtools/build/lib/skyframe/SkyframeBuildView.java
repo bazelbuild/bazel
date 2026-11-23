@@ -141,6 +141,12 @@ import javax.annotation.Nullable;
 public final class SkyframeBuildView {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  /**
+   * The maximum length of an option value shown when reporting which options caused the analysis
+   * cache to be discarded. Longer values (e.g. of list-valued options) are truncated.
+   */
+  private static final int MAX_OPTION_VALUE_LENGTH_TO_SHOW = 100;
+
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
@@ -249,13 +255,29 @@ public final class SkyframeBuildView {
       return "Build options have changed";
     }
 
+    // Each entry is the option name followed by its old and new values, e.g.
+    // "--compilation_mode ('fastbuild' -> 'opt')".
     ImmutableList<String> relevantDifferences =
         Streams.concat(
-                diff.getChangedStarlarkOptions().stream().map(Label::getCanonicalForm),
-                nativeCacheInvalidatingDifferences.stream().map(OptionDefinition::getOptionName))
-            .map(s -> "--" + s)
+                diff.getChangedStarlarkOptions().stream()
+                    .map(
+                        label ->
+                            describeOptionChange(
+                                label.getCanonicalForm(),
+                                describeStarlarkOptionValue(oldOptions, label),
+                                describeStarlarkOptionValue(newOptions, label))),
+                nativeCacheInvalidatingDifferences.stream()
+                    .map(
+                        definition ->
+                            describeOptionChange(
+                                definition.getOptionName(),
+                                describeOptionValue(diff.getFirst().get(definition)),
+                                describeOptionValue(
+                                    Iterables.getOnlyElement(diff.getSecond().get(definition))))))
             // Sorting the list to ensure that (if truncated through maxDifferencesToShow) the
-            // options in the message remain stable.
+            // options in the message remain stable. Every entry starts with the option name
+            // followed by a space, which sorts before any character that can appear in a name, so
+            // this orders the entries by option name.
             .sorted()
             .collect(toImmutableList());
 
@@ -277,6 +299,30 @@ public final class SkyframeBuildView {
           Joiner.on(", ").join(relevantDifferences.subList(0, relevantDifferences.size() - 1)),
           Iterables.getLast(relevantDifferences));
     }
+  }
+
+  private static String describeOptionChange(String name, String oldValue, String newValue) {
+    return String.format("--%s (%s -> %s)", name, oldValue, newValue);
+  }
+
+  /**
+   * Describes the value of a Starlark option, which is absent from the {@link BuildOptions} if it
+   * is set to its default value.
+   */
+  private static String describeStarlarkOptionValue(BuildOptions options, Label buildSetting) {
+    Object value = options.getStarlarkOptions().get(buildSetting);
+    return value == null ? "<default>" : describeOptionValue(value);
+  }
+
+  private static String describeOptionValue(@Nullable Object value) {
+    if (value == null) {
+      return "null";
+    }
+    String description = value.toString();
+    if (description.length() > MAX_OPTION_VALUE_LENGTH_TO_SHOW) {
+      description = description.substring(0, MAX_OPTION_VALUE_LENGTH_TO_SHOW) + "...";
+    }
+    return "'" + description + "'";
   }
 
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
