@@ -23,7 +23,7 @@ inputs:
   gemini_model:
     description: 'Gemini model name'
     required: false
-    default: 'gemini-4-carbon'
+    default: 'gemini-4-neon'
 
 runs:
   using: 'composite'
@@ -69,8 +69,8 @@ runs:
       id: install_agy
       shell: bash
       env:
-        AGY_TARBALL_URL: 'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.11-6132547114106880/linux-x64/cli_linux_x64.tar.gz'
-        AGY_TARBALL_SHA512: 'dad3c015e8964fcdc1639b13b7152f4cb84cb1bde385707e2bcdf095d6f1831f4f6521199aec499cc052f9e99906b7fdbc52c273df064d5cb7c84b068ba3ce50'
+        AGY_TARBALL_URL: 'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.15-5514532022517760/linux-x64/cli_linux_x64.tar.gz'
+        AGY_TARBALL_SHA512: 'af3f0be58b8475940d79f9abea19e762ecc3d265ea9f56cff8dd805e27ba299b44a305a79504a7ffe6ebdfa29a294c56edc4caed1875990bfaf2fef1508ec8b0'
       run: |-
         set -euo pipefail
         AGY_BIN_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/agy-bin.XXXXXX")"

@@ -80,4 +80,4 @@ jobs:
           pr_number: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
           additional_context: ${{ inputs.additional_context }}
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-4-carbon' }}
+          gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-4-neon' }}
