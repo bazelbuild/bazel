@@ -40,6 +40,9 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
   @Override
   public native void link(String oldpath, String newpath) throws NativePosixFilesException;
 
+  /** Clones a regular file on macOS using clonefile(2); not available on other platforms. */
+  public native void clonefile(String source, String target) throws NativePosixFilesException;
+
   @Override
   public Stat stat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException {
     return stat(path, errorHandling.getCode());

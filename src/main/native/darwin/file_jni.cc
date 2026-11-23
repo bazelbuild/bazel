@@ -14,8 +14,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <jni.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/clonefile.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/syslimits.h>
@@ -26,9 +28,33 @@
 #include <cstdio>
 #include <string>
 
+#include "src/main/native/latin1_jni_path.h"
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_clonefile(
+    JNIEnv* env, jobject instance, jstring source, jstring target) {
+  JStringLatin1Holder source_chars(env, source);
+  if (env->ExceptionCheck()) {
+    return;
+  }
+  JStringLatin1Holder target_chars(env, target);
+  if (env->ExceptionCheck()) {
+    return;
+  }
+  int result;
+  do {
+    result = ::clonefile(source_chars, target_chars, 0);
+  } while (result == -1 && errno == EINTR);
+  if (result == -1) {
+    PostNativePosixFilesException(
+        env, errno,
+        std::string("clonefile(") + static_cast<const char*>(source_chars) +
+            ", " + static_cast<const char*>(target_chars) + ")");
+  }
+}
 
 using std::string;
 

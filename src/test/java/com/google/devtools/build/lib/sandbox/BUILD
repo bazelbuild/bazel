@@ -53,6 +53,7 @@ java_test(
         [
             "AbstractContainerizingSandboxedSpawnTest.java",
             "AsynchronousTreeDeleterTest.java",
+            "ContainedCopyingSandboxedSpawnTest.java",
             "SandboxHelpersTest.java",
             "SandboxModuleTest.java",
             "SandboxOptionsTest.java",
@@ -77,6 +78,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",

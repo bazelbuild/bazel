@@ -145,11 +145,17 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
       createInputs(inputsToCreate, inputs);
     }
-    if (SandboxStash.gotInstance() && SandboxStash.useInMemoryStashes()) {
+    if (recordSandboxStashTimestamp()
+        && SandboxStash.gotInstance()
+        && SandboxStash.useInMemoryStashes()) {
       SandboxStash.setLastModified(
           sandboxPath,
           SandboxHelpers.takeContentMapTimestamp(sandboxExecRoot.getParentDirectory()));
     }
+  }
+
+  protected boolean recordSandboxStashTimestamp() {
+    return true;
   }
 
   protected void filterInputsAndDirsToCreate(

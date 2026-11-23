@@ -224,6 +224,31 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().getDefaultSandboxAllowNetwork());
 
+    if (getSandboxOptions().getExperimentalDarwinSandboxCloneInputs()) {
+      return new ContainedCopyingSandboxedSpawn(
+          sandboxPath,
+          sandboxExecRoot,
+          commandLine,
+          environment,
+          inputs,
+          outputs,
+          writableDirs,
+          treeDeleter,
+          statisticsPath,
+          spawn.getMnemonic(),
+          spawn.getTargetLabel()) {
+        @Override
+        public void createFileSystem() throws IOException, InterruptedException {
+          super.createFileSystem();
+          writeConfig(
+              sandboxConfigPath,
+              writableDirs,
+              getInaccessiblePaths(),
+              allowNetworkForThisSpawn,
+              statisticsPath);
+        }
+      };
+    }
     return new SymlinkedSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,

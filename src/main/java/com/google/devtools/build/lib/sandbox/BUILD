@@ -73,6 +73,7 @@ java_library(
     name = "sandboxed_spawns",
     srcs = [
         "AbstractContainerizingSandboxedSpawn.java",
+        "ContainedCopyingSandboxedSpawn.java",
         "CopyingSandboxedSpawn.java",
         "HardlinkedSandboxedSpawn.java",
         "SandboxStash.java",
@@ -85,6 +86,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/vfs",

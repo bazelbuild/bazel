@@ -325,6 +325,21 @@ public abstract class SandboxOptions extends OptionsBase {
   public abstract boolean getReuseSandboxDirectories();
 
   @Option(
+      name = "experimental_darwin_sandbox_clone_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Clone regular file inputs into darwin-sandbox using macOS clonefile(2) instead of"
+              + " symlinking them to the host execroot. Requires a clone-capable filesystem on"
+              + " the same volume; unsupported clones fail rather than copying bytes. Symlinks"
+              + " in the staged inputs that escape the sandbox execroot are rejected. Cloned"
+              + " sandboxes can reuse stashes after checking their sources and staged files when"
+              + " sandbox directory reuse is enabled. This does not block undeclared absolute"
+              + " host reads or writes by processes that outlive their actions.")
+  public abstract boolean getExperimentalDarwinSandboxCloneInputs();
+
+  @Option(
       name = "experimental_inmemory_sandbox_stashes",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

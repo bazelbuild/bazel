@@ -32,6 +32,17 @@ public final class SandboxOptionsTest {
   private ImmutableMap.Entry<String, String> pathPair;
 
   @Test
+  public void darwinCopyInputsIsOptIn() throws Exception {
+    assertThat(Options.getDefaults(SandboxOptions.class).getExperimentalDarwinSandboxCloneInputs())
+        .isFalse();
+    assertThat(
+            Options.parse(SandboxOptions.class, "--experimental_darwin_sandbox_clone_inputs")
+                .getOptions()
+                .getExperimentalDarwinSandboxCloneInputs())
+        .isTrue();
+  }
+
+  @Test
   public void testParsingAdditionalMounts_singlePathWithoutColonSucess() throws Exception {
     String source = "/a/bc/def/gh";
     String target = source;

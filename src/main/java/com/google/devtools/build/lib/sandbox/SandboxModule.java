@@ -68,6 +68,7 @@ public final class SandboxModule extends BlazeModule {
       ImmutableSet.of(
           MAC_INDEX_FILE,
           SandboxStash.SANDBOX_STASH_BASE,
+          SandboxStash.CLONE_SANDBOX_STASH_BASE,
           SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,
           AsynchronousTreeDeleter.MOVED_TRASH_DIR);
 

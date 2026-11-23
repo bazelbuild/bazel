@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.sandbox.ContainedCopyingSandboxedSpawn.CloneSnapshot;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -53,11 +54,13 @@ import javax.annotation.Nullable;
 public class SandboxStash {
 
   public static final String SANDBOX_STASH_BASE = "sandbox_stash";
+  public static final String CLONE_SANDBOX_STASH_BASE = "clone_sandbox_stash";
 
   // Used while we gather all the contents asynchronously.
   public static final String TEMPORARY_SANDBOX_STASH_BASE = "tmp_sandbox_stash";
   private static final String TEST_RUNNER_MNEMONIC = "TestRunner";
   private static final String TEST_SRCDIR = "TEST_SRCDIR";
+  private static final int MAX_CLONE_STASHES = 32;
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An incrementing count of stashes to avoid filename clashes. */
@@ -68,6 +71,7 @@ public class SandboxStash {
 
   /** Whether the old sandbox stash directory has already been cleared for this stash instance. */
   private final AtomicBoolean stashCleared = new AtomicBoolean();
+  private final AtomicBoolean cloneStashCleared = new AtomicBoolean();
 
   /** If true, we have already warned about an error causing us to turn off reuse. */
   private final AtomicBoolean warnedAboutTurningOffReuse = new AtomicBoolean();
@@ -83,7 +87,11 @@ public class SandboxStash {
 
   private final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Set<Path>> readyStashes = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, Set<Path>> readyCloneStashes = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Path> mnemonicStashDirs = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, Path> mnemonicCloneStashDirs = new ConcurrentHashMap<>();
+  private final Map<Path, CloneSnapshot> cloneSnapshots = new ConcurrentHashMap<>();
+  private final Set<Path> cloneStashReservations = ConcurrentHashMap.newKeySet();
 
   public final Map<Path, SandboxContents> pathToContents = new ConcurrentHashMap<>();
   private final Map<Path, Label> sandboxToTarget = new ConcurrentHashMap<>();
@@ -107,6 +115,74 @@ public class SandboxStash {
       return null;
     }
     return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, outputs, target);
+  }
+
+  @Nullable
+  static CloneSnapshot takeClonedSandbox(
+      Path sandboxPath,
+      String mnemonic,
+      SandboxOutputs outputs,
+      Label target) {
+    SandboxStash current = instance;
+    if (current == null || !current.inMemoryStashes) {
+      return null;
+    }
+    return current.takeClonedSandboxInternal(sandboxPath, mnemonic, outputs, target);
+  }
+
+  @Nullable
+  private CloneSnapshot takeClonedSandboxInternal(
+      Path sandboxPath, String mnemonic, SandboxOutputs outputs, Label target) {
+    if (isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
+      return null;
+    }
+    Set<Path> ready = readyCloneStashes.get(mnemonic);
+    if (ready == null || ready.isEmpty()) {
+      return null;
+    }
+    for (Path stash : sortStashesByMatchingTargetSegments(target, ImmutableList.copyOf(ready))) {
+      if (isTestAction(mnemonic) && !Objects.equals(target, sandboxToTarget.get(stash))) {
+        continue;
+      }
+      if (!ready.remove(stash)) {
+        continue;
+      }
+      if (!cloneSnapshots.containsKey(stash)) {
+        // A clone without its snapshot must never be handed to a caller.
+        forgetStash(stash);
+        cleanDir(stash, /* treeDeleter= */ null);
+        continue;
+      }
+      Path sandboxExecroot = sandboxPath.getChild("execroot");
+      boolean moved = false;
+      try {
+        if (sandboxExecroot.exists()) {
+          sandboxExecroot.deleteTree();
+        }
+        stash.getChild("execroot").renameTo(sandboxExecroot);
+        moved = true;
+        CloneSnapshot snapshot = cloneSnapshots.remove(stash);
+        if (snapshot == null) {
+          throw new IOException("Missing snapshot for cloned sandbox stash " + stash);
+        }
+        forgetStash(stash);
+        // The renamed execroot no longer belongs to the stash directory.
+        cleanDir(stash, /* treeDeleter= */ null);
+        return snapshot;
+      } catch (IOException e) {
+        forgetStash(stash);
+        cleanDir(stash, /* treeDeleter= */ null);
+        if (moved) {
+          cleanDir(sandboxExecroot, /* treeDeleter= */ null);
+        }
+        if (e instanceof FileNotFoundException) {
+          continue;
+        }
+        turnOffReuse("Error taking cloned sandbox stash %s for %s: %s", stash, sandboxPath, e);
+        return null;
+      }
+    }
+    return null;
   }
 
   @Nullable
@@ -209,6 +285,62 @@ public class SandboxStash {
     sandboxToTarget.remove(stash);
     pathToContents.remove(stash);
     stashPathToRunfilesDir.remove(stash.getChild("execroot"));
+    cloneSnapshots.remove(stash);
+    cloneStashReservations.remove(stash);
+  }
+
+  static void stashClonedSandbox(
+      Path path,
+      String mnemonic,
+      SandboxOutputs outputs,
+      TreeDeleter treeDeleter,
+      Label target,
+      CloneSnapshot snapshot) {
+    SandboxStash current = instance;
+    if (current == null || !current.inMemoryStashes) {
+      return;
+    }
+    if (isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
+      return;
+    }
+    Path sandboxes = current.getCloneStashDir(mnemonic, path.getFileSystem());
+    if (sandboxes == null) {
+      return;
+    }
+    try {
+      if (!path.exists()) {
+        return;
+      }
+    } catch (IOException e) {
+      return;
+    }
+
+    Path stashPath = sandboxes.getChild(Integer.toString(stash.incrementAndGet()));
+    synchronized (current.cloneStashReservations) {
+      if (current.cloneStashReservations.size() >= MAX_CLONE_STASHES) {
+        return;
+      }
+      current.cloneStashReservations.add(stashPath);
+    }
+    try {
+      stashPath.createDirectory();
+      path.getChild("execroot").renameTo(stashPath.getChild("execroot"));
+      current.cloneSnapshots.put(stashPath, snapshot);
+      if (target != null) {
+        current.sandboxToTarget.put(stashPath, target);
+      }
+      current.readyCloneStashes
+          .computeIfAbsent(mnemonic, k -> ConcurrentHashMap.newKeySet())
+          .add(stashPath);
+    } catch (IOException | RuntimeException e) {
+      Set<Path> ready = current.readyCloneStashes.get(mnemonic);
+      if (ready != null) {
+        ready.remove(stashPath);
+      }
+      current.forgetStash(stashPath);
+      cleanDir(stashPath, treeDeleter);
+      current.turnOffReuse("Error stashing cloned sandbox at %s: %s", stashPath, e);
+    }
   }
 
   /** Atomically moves the sandboxPath directory aside for later reuse. */
@@ -357,7 +489,7 @@ public class SandboxStash {
     Path stashDir = getStashBase(fileSystem.getPath(this.sandboxBase.getPathString()));
     try {
       stashDir.createDirectory();
-      if (!maybeClearExistingStash(stashDir)) {
+      if (!maybeClearExistingStash(stashDir, stashCleared)) {
         return null;
       }
     } catch (IOException e) {
@@ -377,6 +509,29 @@ public class SandboxStash {
     }
   }
 
+  @Nullable
+  private Path getCloneStashDir(String mnemonic, FileSystem fileSystem) {
+    Path cached = mnemonicCloneStashDirs.get(mnemonic);
+    if (cached != null && cached.getFileSystem().equals(fileSystem)) {
+      return cached;
+    }
+    Path stashDir =
+        fileSystem.getPath(sandboxBase.getPathString()).getChild(CLONE_SANDBOX_STASH_BASE);
+    try {
+      stashDir.createDirectory();
+      if (!maybeClearExistingStash(stashDir, cloneStashCleared)) {
+        return null;
+      }
+      Path mnemonicDir = stashDir.getChild(mnemonic);
+      mnemonicDir.createDirectory();
+      mnemonicCloneStashDirs.put(mnemonic, mnemonicDir);
+      return mnemonicDir;
+    } catch (IOException e) {
+      turnOffReuse("Error creating clone sandbox stash dir %s: %s", stashDir, e);
+      return null;
+    }
+  }
+
   private static Path getStashBase(Path sandboxBase) {
     return sandboxBase.getChild(SANDBOX_STASH_BASE);
   }
@@ -388,15 +543,15 @@ public class SandboxStash {
    * @param stashPath Path of the stashes.
    * @return True unless there was an error deleting sandbox stashes.
    */
-  private boolean maybeClearExistingStash(Path stashPath) {
-    if (!stashCleared.get()) {
+  private boolean maybeClearExistingStash(Path stashPath, AtomicBoolean cleared) {
+    if (!cleared.get()) {
       synchronized (stashClearLock) {
-        if (!stashCleared.get()) {
+        if (!cleared.get()) {
           try {
             for (Path directoryEntry : stashPath.getDirectoryEntries()) {
               directoryEntry.deleteTree();
             }
-            stashCleared.set(true);
+            cleared.set(true);
           } catch (IOException e) {
             turnOffReuse("Unable to clear old sandbox stash %s: %s\n", stashPath, e.getMessage());
             return false;
@@ -480,17 +635,23 @@ public class SandboxStash {
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.clean")) {
       Path stashDir = getStashBase(sandboxBase);
       cleanDir(stashDir, treeDeleter);
+      cleanDir(sandboxBase.getChild(CLONE_SANDBOX_STASH_BASE), treeDeleter);
       Path tmpStashDir = sandboxBase.getChild(TEMPORARY_SANDBOX_STASH_BASE);
       cleanDir(tmpStashDir, treeDeleter);
 
       if (instance != null) {
         instance.stashPathToRunfilesDir.clear();
         instance.pathToContents.clear();
+        instance.cloneSnapshots.clear();
+        instance.cloneStashReservations.clear();
         instance.sandboxToTarget.clear();
         instance.pathToLastModified.clear();
         instance.readyStashes.clear();
+        instance.readyCloneStashes.clear();
         instance.mnemonicStashDirs.clear();
+        instance.mnemonicCloneStashDirs.clear();
         instance.stashCleared.set(false);
+        instance.cloneStashCleared.set(false);
       }
     }
   }
@@ -585,4 +746,3 @@ public class SandboxStash {
     currentStashContents.dirMap().put(currentRunfilesSegments.getLast(), runfilesStashContents);
   }
 }
-
