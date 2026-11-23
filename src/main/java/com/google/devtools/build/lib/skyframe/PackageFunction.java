@@ -759,6 +759,49 @@ public abstract class PackageFunction implements SkyFunction {
     return ImmutableMap.copyOf(loadedModules);
   }
 
+  /**
+   * Returns whether the prelude identified by the label has to be loaded, or null for a Skyframe
+   * restart. A prelude whose package or file doesn't exist is empty.
+   */
+  @Nullable
+  private static Boolean shouldLoadPrelude(Environment env, Label preludeLabel)
+      throws InterruptedException {
+    // Errors are reported by loading the prelude.
+    PackageLookupValue packageLookupValue;
+    try {
+      packageLookupValue =
+          (PackageLookupValue)
+              env.getValueOrThrow(
+                  PackageLookupValue.key(preludeLabel.getPackageIdentifier()),
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
+      return true;
+    }
+    if (packageLookupValue == null) {
+      return null;
+    }
+    if (!packageLookupValue.packageExists()) {
+      return false;
+    }
+    FileValue fileValue;
+    try {
+      fileValue =
+          (FileValue)
+              env.getValueOrThrow(
+                  FileValue.key(
+                      RootedPath.toRootedPath(
+                          packageLookupValue.getRoot(), preludeLabel.toPathFragment())),
+                  IOException.class);
+    } catch (IOException e) {
+      return true;
+    }
+    if (fileValue == null) {
+      return null;
+    }
+    return fileValue.exists();
+  }
+
   // Loads the prelude identified by the label. Returns null for a skyframe restart.
   @Nullable
   private static Module loadPrelude(
@@ -1029,6 +1072,20 @@ public abstract class PackageFunction implements SkyFunction {
     IgnoredSubdirectoriesValue repositoryIgnoredSubdirectories =
         (IgnoredSubdirectoriesValue)
             env.getValue(IgnoredSubdirectoriesValue.key(packageId.getRepository()));
+    Label preludeLabel = null;
+    Boolean hasPrelude = false;
+    // Can be null in tests.
+    if (packageFactory != null) {
+      // Load the prelude from the same repository as the package being loaded.
+      Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
+      if (rawPreludeLabel != null) {
+        PackageIdentifier preludePackage =
+            PackageIdentifier.create(
+                packageId.getRepository(), rawPreludeLabel.getPackageFragment());
+        preludeLabel = Label.createUnvalidated(preludePackage, rawPreludeLabel.getName());
+        hasPrelude = shouldLoadPrelude(env, preludeLabel);
+      }
+    }
     RepoPackageArgsValue repoPackageArgsValue;
     if (shouldUseRepoDotBazel) {
       try {
@@ -1051,25 +1108,15 @@ public abstract class PackageFunction implements SkyFunction {
 
     RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
     RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
-    Label preludeLabel = null;
 
     // Load (optional) prelude, which determines environment.
     ImmutableMap<String, Object> preludeBindings = null;
-    // Can be null in tests.
-    if (packageFactory != null) {
-      // Load the prelude from the same repository as the package being loaded.
-      Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
-      if (rawPreludeLabel != null) {
-        PackageIdentifier preludePackage =
-            PackageIdentifier.create(
-                packageId.getRepository(), rawPreludeLabel.getPackageFragment());
-        preludeLabel = Label.createUnvalidated(preludePackage, rawPreludeLabel.getName());
-        Module prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
-        if (prelude == null) {
-          return null; // skyframe restart
-        }
-        preludeBindings = prelude.getGlobals();
+    if (hasPrelude) {
+      Module prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
+      if (prelude == null) {
+        return null; // skyframe restart
       }
+      preludeBindings = prelude.getGlobals();
     }
 
     // TODO(adonovan): opt: evaluate splitting this part out as a separate Skyframe
