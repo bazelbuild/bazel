@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
-import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.SomePathFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -140,11 +139,11 @@ public final class CqueryCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
+    CqueryOptions cqueryOptions = options.getOptions(CqueryOptions.class);
     String query = null;
     try {
       query =
-          QueryOptionHelper.readQuery(
-              options.getOptions(CqueryOptions.class), options, env, /* allowEmptyQuery= */ false);
+          QueryOptionHelper.readQuery(cqueryOptions, options, env, /* allowEmptyQuery= */ false);
     } catch (QueryException e) {
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
@@ -160,7 +159,7 @@ public final class CqueryCommand implements BlazeCommand {
     try {
       expr =
           QueryExpressionResolver.resolve(
-              QueryParser.parse(query, ParserOptions.DEFAULT), functions);
+              QueryParser.parse(query, cqueryOptions.toParserOptions()), functions);
     } catch (QuerySyntaxException e) {
       String message =
           String.format(
@@ -169,7 +168,7 @@ public final class CqueryCommand implements BlazeCommand {
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
 
-    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).getUniverseScope();
+    List<String> topLevelTargets = cqueryOptions.getUniverseScope();
     LinkedHashSet<String> targetPatternSet = new LinkedHashSet<>();
     ImmutableList<String> targetsForProjectResolution = null;
     if (topLevelTargets.isEmpty()) {

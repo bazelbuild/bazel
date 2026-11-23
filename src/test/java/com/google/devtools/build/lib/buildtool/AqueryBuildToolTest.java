@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -474,5 +476,82 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     String outputText = stdout.toString(UTF_8);
     assertThat(outputText).contains("tree_test/dir");
     assertThat(outputText).doesNotContain("we should never see");
+  }
+
+  @Test
+  public void testMaxQueryExpressionDepthExceededFails() throws Exception {
+    write(
+        "depth_test/defs.bzl",
+        """
+        def _write_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.write(output = out, content = "hello")
+            return [DefaultInfo(files = depset([out]))]
+
+        write_rule = rule(implementation = _write_impl)
+        """);
+    write(
+        "depth_test/BUILD",
+        """
+        load(":defs.bzl", "write_rule")
+
+        write_rule(name = "my_target")
+        """);
+    getRuntime().getCommandMap().put("aquery", new AqueryCommand());
+    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(getRuntime());
+    RecordingOutErr outErr = new RecordingOutErr();
+
+    BlazeCommandResult result =
+        dispatcher.exec(
+            ImmutableList.<String>builder()
+                .add("aquery")
+                .addAll(runtimeWrapper.getOptions())
+                .add("--max_query_expression_depth=1", "deps(deps(//depth_test:my_target))")
+                .build(),
+            "test",
+            outErr);
+
+    assertThat(result.isSuccess()).isFalse();
+    assertThat(result.getDetailedExitCode().getFailureDetail().getActionQuery().getCode())
+        .isEqualTo(Code.EXPRESSION_PARSE_FAILURE);
+    assertThat(result.getDetailedExitCode().getFailureDetail().getMessage())
+        .contains("query exceeds maximum nesting depth of 1");
+  }
+
+  @Test
+  public void testMaxQueryExpressionDepthWithinLimitSucceeds() throws Exception {
+    write(
+        "depth_test/defs.bzl",
+        """
+        def _write_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.write(output = out, content = "hello")
+            return [DefaultInfo(files = depset([out]))]
+
+        write_rule = rule(implementation = _write_impl)
+        """);
+    write(
+        "depth_test/BUILD",
+        """
+        load(":defs.bzl", "write_rule")
+
+        write_rule(name = "my_target")
+        """);
+    getRuntime().getCommandMap().put("aquery", new AqueryCommand());
+    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(getRuntime());
+    RecordingOutErr outErr = new RecordingOutErr();
+
+    BlazeCommandResult result =
+        dispatcher.exec(
+            ImmutableList.<String>builder()
+                .add("aquery")
+                .addAll(runtimeWrapper.getOptions())
+                .add("--max_query_expression_depth=2", "deps(deps(//depth_test:my_target))")
+                .build(),
+            "test",
+            outErr);
+
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(outErr.outAsLatin1()).contains("FileWrite");
   }
 }

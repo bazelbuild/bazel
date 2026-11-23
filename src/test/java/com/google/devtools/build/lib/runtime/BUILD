@@ -27,6 +27,7 @@ java_library(
             "ExecutionGraphProtoToTextMain.java",
             "TargetSummaryPublisherIntegrationTest.java",
             "commands/ConfigCommandTest.java",
+            "commands/CqueryCommandTest.java",
             "commands/DumpCommandTest.java",
             "commands/RunCommandLineTest.java",
         ],
@@ -225,6 +226,22 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party/java/gson",
         "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "CqueryCommandTest",
+    srcs = ["commands/CqueryCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",
