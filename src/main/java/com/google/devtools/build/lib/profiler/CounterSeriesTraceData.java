@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.NO_INDE
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.time.Duration;
@@ -31,7 +30,6 @@ import javax.annotation.Nullable;
  * these could be used to represent CPU or memory usages over the course of an invocation (as
  * opposed to individual tasks such as executing an action).
  */
-@ScOnly
 final class CounterSeriesTraceData implements TraceData {
   @VisibleForTesting static final long PROCESS_ID = 1;
   private final Map<CounterSeriesTask, double[]> counterSeriesMap;

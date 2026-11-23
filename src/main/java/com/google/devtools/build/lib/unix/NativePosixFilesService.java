@@ -15,11 +15,9 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 
 /** A {@link BlazeService} providing access to POSIX filesystem calls. */
-@SkybridgeInterface
 public interface NativePosixFilesService extends BlazeService {
   /**
    * Native wrapper around Linux readlink(2) call.

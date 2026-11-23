@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.time.Duration;
 
 /**
@@ -21,7 +20,6 @@ import java.time.Duration;
  * nanoseconds for it to be recorded as separate event and not just be aggregated into the parent
  * event.
  */
-@SkybridgeInterface
 public enum ProfilerTask {
   PHASE("build phase marker"),
   ACTION("action processing"),

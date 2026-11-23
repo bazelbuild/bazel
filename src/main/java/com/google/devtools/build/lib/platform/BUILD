@@ -145,7 +145,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",
     ],
 )
@@ -159,7 +158,6 @@ java_library(
     deps = [
         ":platform_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
     ],
 )

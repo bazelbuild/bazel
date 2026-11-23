@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.Bucket;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
@@ -23,14 +22,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /** Interface to the remote analysis cache. */
-@SkybridgeInterface
 public interface RemoteAnalysisCacheClient {
 
   /** Timeout when accessing the future in order to shutdown the client. */
   int SHUTDOWN_TIMEOUT_IN_SECONDS = 5;
 
   /** The key for memoizing top-level targets lookup results. */
-  @SkybridgeInterface
   interface TopLevelTargetsCacheKey {
     long evaluatingVersion();
 
@@ -42,7 +39,6 @@ public interface RemoteAnalysisCacheClient {
   }
 
   /** Usage statistics. */
-  @SkybridgeInterface
   interface Stats {
     long bytesSent();
 

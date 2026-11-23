@@ -18,13 +18,11 @@ import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdException;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 /** The {@link CompressionService} implementation. */
-@ScOnly
 public final class CompressionServiceImpl implements CompressionService {
 
   @Override

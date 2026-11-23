@@ -242,7 +242,6 @@ java_library(
     name = "options_supplier",
     srcs = ["OptionsSupplier.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
@@ -254,7 +253,6 @@ java_library(
     ],
     deps = [
         ":options_supplier",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:serialized_abrupt_exit_exception",
         "//src/main/java/com/google/devtools/common/options",
     ],

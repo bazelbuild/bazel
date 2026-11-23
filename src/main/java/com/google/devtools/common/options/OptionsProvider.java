@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -23,7 +22,6 @@ import javax.annotation.Nullable;
  * A read-only interface for options parser results, which only allows to query the options of a
  * specific class, but not e.g. the residue any other information pertaining to the command line.
  */
-@SkybridgeInterface
 public interface OptionsProvider {
   public static final OptionsProvider EMPTY =
       new OptionsProvider() {

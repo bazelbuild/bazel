@@ -3030,7 +3030,6 @@ java_library(
     srcs = ["FsEventsNativeDepsService.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -3040,7 +3039,6 @@ java_library(
     deps = [
         ":fs_events_native_deps_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 

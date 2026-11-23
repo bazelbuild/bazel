@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.profiler.memory;
 
-import com.google.devtools.build.lib.skybridge.ScOnly;
-
 /** The {@link AllocationTrackerService} implementation. */
-@ScOnly
 public final class AllocationTrackerServiceImpl implements AllocationTrackerService {
 
   @Override

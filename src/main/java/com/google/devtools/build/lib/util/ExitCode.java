@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.Immutable;
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,7 +41,6 @@ import javax.annotation.Nullable;
  * retried or not.
  */
 @Immutable
-@SkybridgeInterface
 public final class ExitCode {
   // Tracks all exit codes defined here and elsewhere in Bazel.
   private static final HashMap<Integer, ExitCode> exitCodeRegistry = new HashMap<>();

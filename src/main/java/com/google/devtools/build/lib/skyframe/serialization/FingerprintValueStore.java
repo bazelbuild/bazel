@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.Bucket;
 import java.io.IOException;
 import java.util.List;
@@ -24,10 +23,8 @@ import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
-@SkybridgeInterface
 public interface FingerprintValueStore {
   /** Usage statistics. */
-  @SkybridgeInterface
   interface Stats {
     long valueBytesReceived();
 
@@ -133,7 +130,6 @@ public interface FingerprintValueStore {
    * @return a future that completes when the write completes
    */
   WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes);
-
 
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.

@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.lib.util.OS;
 import java.util.function.IntConsumer;
 
 /** Implementation of {@link PlatformNativeDepsService}. */
-@ScOnly
 public class PlatformNativeDepsServiceImpl implements PlatformNativeDepsService {
   private static final boolean IS_DARWIN = OS.getCurrent() == OS.DARWIN;
   private static final boolean SUPPORTS_SLEEP_PREVENTION =

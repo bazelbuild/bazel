@@ -53,7 +53,6 @@ java_library(
     srcs = VERSION_SRCS,
     visibility = ["//visibility:public"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party:auto_value",
     ],
 )

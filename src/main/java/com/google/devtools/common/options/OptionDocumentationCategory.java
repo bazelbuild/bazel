@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /**
  * These categories are used to logically group options in generated documentation, both the command
  * line output for the standard HelpCommand and the html output used for command-line-reference on
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
  *       a bug against the owners of these flags.
  * </ul>
  */
-@SkybridgeInterface
 public enum OptionDocumentationCategory {
   /**
    * A category to aid transition, to make it obvious that an option needs to be categorized. Note:

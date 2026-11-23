@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /** A {@link BlazeService} providing a {@link GrpcCommandServer}. */
-@SkybridgeInterface
 public interface GrpcCommandServerService extends BlazeService {
   /**
    * Returns the {@link GrpcCommandServer}.

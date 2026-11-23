@@ -18,7 +18,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
@@ -41,7 +40,6 @@ import javax.annotation.Nullable;
  *
  * <p>Skybridge: this is the main boundary between the SC and the LC for Skycache.
  */
-@SkybridgeInterface
 public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
 
   /**
