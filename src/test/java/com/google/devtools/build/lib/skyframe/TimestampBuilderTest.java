@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -365,7 +364,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   }
 
   /**
-   * The inputs of an action that are also among its scheduling dependencies must not be requested
+   * Discovered inputs that contain the scheduling dependencies of an action must not be requested
    * from Skyframe individually, which would add an edge per action and input. See
    * https://github.com/bazelbuild/bazel/issues/32456.
    */
@@ -375,17 +374,18 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     Artifact second = createSourceFile("second.h");
     NestedSet<Artifact> sharedHeaders = NestedSetBuilder.create(Order.STABLE_ORDER, first, second);
     Artifact oneHeader = createSourceFile("one.h");
-    Artifact twoHeader = createSourceFile("two.h");
     Artifact one = createDerivedArtifact("one");
     Artifact two = createDerivedArtifact("two");
     AtomicInteger oneExecutions = new AtomicInteger();
     AtomicInteger twoExecutions = new AtomicInteger();
+    // The discovered inputs of "one" contain the scheduling dependencies as a nested set, while
+    // those of "two" are exactly the scheduling dependencies.
     registerAction(
         new SchedulingDependencyDiscoveringAction(
             oneExecutions::incrementAndGet, sharedHeaders, oneHeader, one));
     registerAction(
         new SchedulingDependencyDiscoveringAction(
-            twoExecutions::incrementAndGet, sharedHeaders, twoHeader, two));
+            twoExecutions::incrementAndGet, sharedHeaders, /* otherDiscoveredInput= */ null, two));
 
     BuilderWithResult builder =
         createBuilder(
@@ -401,7 +401,6 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     }
     // Discovered inputs that aren't scheduling dependencies are still requested individually.
     assertThat(actionDeps.get(Artifact.key(one))).contains(Artifact.key(oneHeader));
-    assertThat(actionDeps.get(Artifact.key(two))).contains(Artifact.key(twoHeader));
 
     // Without the direct edges, a change to a discovered input that is a scheduling dependency
     // must still invalidate the actions in the same Skyframe graph.
@@ -418,48 +417,6 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     buildArtifacts(builder, one, two);
     assertThat(oneExecutions.get()).isEqualTo(3);
     assertThat(twoExecutions.get()).isEqualTo(2);
-  }
-
-  @Test
-  public void schedulingDependenciesFromActionCache_notRequestedIndividually() throws Exception {
-    // The action cache records discovered derived inputs by exec path and resolves them via
-    // Action#getAllowedDerivedInputs, so this test uses generated headers.
-    artifactResolver = new ArtifactFactory(outputBase.getRelative("execroot"), "out");
-    Artifact first = createDerivedArtifact("first.h");
-    Artifact second = createDerivedArtifact("second.h");
-    registerAction(
-        new TestAction(
-            TestAction.NO_EFFECT,
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            ImmutableSet.of(first)));
-    registerAction(
-        new TestAction(
-            TestAction.NO_EFFECT,
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            ImmutableSet.of(second)));
-    NestedSet<Artifact> sharedHeaders = NestedSetBuilder.create(Order.STABLE_ORDER, first, second);
-    Artifact one = createDerivedArtifact("one");
-    AtomicInteger executions = new AtomicInteger();
-    SchedulingDependencyDiscoveringAction action =
-        registerAction(
-            new SchedulingDependencyDiscoveringAction(
-                executions::incrementAndGet, sharedHeaders, /* otherDiscoveredInput= */ null, one));
-
-    buildArtifacts(cachingBuilder(), one);
-    assertThat(executions.get()).isEqualTo(1);
-
-    // Simulate a server restart: the action is analyzed again and starts out with unknown inputs,
-    // but the action cache still knows about the inputs it discovered.
-    action.resetDiscoveredInputs();
-    buildArtifacts(
-        createBuilder(
-            inMemoryCache, /* threadCount= */ 1, /* keepGoing= */ false, actionDepsRecorder),
-        one);
-
-    assertThat(executions.get()).isEqualTo(1); // action cache hit
-    ImmutableSet<SkyKey> deps = actionDeps.get(Artifact.key(one));
-    assertThat(deps).contains(ArtifactNestedSetKey.create(sharedHeaders));
-    assertThat(deps).containsNoneOf(Artifact.key(first), Artifact.key(second));
   }
 
   private Artifact createSourceFile(String name) throws IOException {
