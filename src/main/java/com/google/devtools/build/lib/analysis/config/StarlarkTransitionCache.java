@@ -155,7 +155,7 @@ public final class StarlarkTransitionCache {
    * @param fromOptions source options before the transition
    * @param transition the transition itself
    * @param details information from packages about Starlark build settings needed by transition
-   * @param sourceFlagDetails the details of the Starlark flags of {@code fromOptions}
+   * @param sourceFlagDetails details that cover the Starlark flags of {@code fromOptions}
    * @param eventHandler handler for errors evaluating the transition.
    * @return transition output
    */
@@ -166,7 +166,9 @@ public final class StarlarkTransitionCache {
       StarlarkBuildSettingsDetailsValue sourceFlagDetails,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
-    Key cacheKey = new Key(transition, fromOptions, details, sourceFlagDetails);
+    // sourceFlagDetails isn't part of the key since all details that cover the flags of
+    // fromOptions agree on their scopes.
+    Key cacheKey = new Key(transition, fromOptions, details);
     Value cachedResult = cache.getIfPresent(cacheKey);
     if (cachedResult != null) {
       if (cachedResult.nonErrorEvents != null) {
@@ -222,14 +224,12 @@ public final class StarlarkTransitionCache {
     private final ConfigurationTransition transition;
     private final BuildOptions fromOptions;
     private final StarlarkBuildSettingsDetailsValue details;
-    private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
     private final int hashCode;
 
     private Key(
         ConfigurationTransition transition,
         BuildOptions fromOptions,
-        StarlarkBuildSettingsDetailsValue details,
-        StarlarkBuildSettingsDetailsValue sourceFlagDetails) {
+        StarlarkBuildSettingsDetailsValue details) {
       // For rule self-transitions, the transition instance encapsulates both the transition logic
       // and attributes of the target it's attached to. This is important: the same transition in
       // the same configuration applied to distinct targets may produce different outputs. See
@@ -237,12 +237,7 @@ public final class StarlarkTransitionCache {
       this.transition = transition;
       this.fromOptions = fromOptions;
       this.details = details;
-      this.sourceFlagDetails = sourceFlagDetails;
-      // Uses the identity of sourceFlagDetails since it covers all flags of the configuration,
-      // which are expensive to hash on every transitioned dependency edge.
-      this.hashCode =
-          Objects.hash(
-              transition, fromOptions, details, System.identityHashCode(sourceFlagDetails));
+      this.hashCode = Objects.hash(transition, fromOptions, details);
     }
 
     @Override
@@ -255,8 +250,7 @@ public final class StarlarkTransitionCache {
       }
       return this.transition.equals(otherKey.transition)
           && this.fromOptions.equals(otherKey.fromOptions)
-          && this.details.equals(otherKey.details)
-          && this.sourceFlagDetails == otherKey.sourceFlagDetails;
+          && this.details.equals(otherKey.details);
     }
 
     @Override

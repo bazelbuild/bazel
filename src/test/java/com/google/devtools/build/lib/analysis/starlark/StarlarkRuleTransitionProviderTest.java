@@ -20,7 +20,9 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -144,6 +147,109 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     ConfiguredTarget tool = getDirectPrerequisite(getConfiguredTarget("//test"), "//test:tool");
 
     assertThat(getConfiguration(tool).getOptions().getStarlarkOptions()).isEmpty();
+  }
+
+  @Test
+  public void platformScope_resetByRuleTransition() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+
+        def _change_platform_impl(settings, attr):
+            return {"//command_line_option:platforms": ["//test:b"]}
+
+        _change_platform = transition(
+            implementation = _change_platform_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = _change_platform)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+        string_flag(
+            name = "platform_flag",
+            build_setting_default = "default",
+            scope = "platform",
+        )
+        platform(name = "a")
+        platform(name = "b")
+        my_rule(name = "test")
+        """);
+    useConfiguration("--platforms=//test:a", "--//test:platform_flag=from_command_line");
+
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .isEmpty();
+  }
+
+  @Test
+  public void platformScope_resetByRuleTransitionForTopLevelAspect() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+
+        def _change_platform_impl(settings, attr):
+            return {"//command_line_option:platforms": ["//test:b"]}
+
+        _change_platform = transition(
+            implementation = _change_platform_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+
+        my_rule = rule(implementation = lambda ctx: [], cfg = _change_platform)
+        my_aspect = aspect(implementation = lambda target, ctx: [])
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+        string_flag(
+            name = "platform_flag",
+            build_setting_default = "default",
+            scope = "platform",
+        )
+        platform(name = "a")
+        platform(name = "b")
+        my_rule(name = "test")
+        """);
+    useConfiguration("--platforms=//test:a", "--//test:platform_flag=from_command_line");
+
+    AnalysisResult result =
+        update(
+            ImmutableList.of("//test"),
+            ImmutableList.of("//test:defs.bzl%my_aspect"),
+            /* keepGoing= */ false,
+            /* loadingPhaseThreads= */ 1,
+            /* doAnalysis= */ true,
+            new EventBus());
+
+    assertThat(
+            getConfiguration(getOnlyElement(result.getTargetsToBuild()))
+                .getOptions()
+                .getStarlarkOptions())
+        .isEmpty();
+    AspectKey aspectKey = getOnlyElement(result.getAspectsMap().keySet());
+    assertThat(
+            aspectKey
+                .getBaseConfiguredTargetKey()
+                .getConfigurationKey()
+                .getOptions()
+                .getStarlarkOptions())
+        .isEmpty();
   }
 
   @Test

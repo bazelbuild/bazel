@@ -60,11 +60,12 @@ final class TransitionApplier
 
   // -------------------- Internal State --------------------
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
+  private StarlarkBuildSettingsDetailsValue sourceFlagDetails;
 
   /**
-   * @param fromConfigurationFlagDetails the details of {@code fromConfiguration}'s Starlark flags
-   *     or {@link StarlarkBuildSettingsDetailsValue#EMPTY}, see {@link
-   *     BuildConfigurationKeyProducer}
+   * @param fromConfigurationFlagDetails the details of {@code fromConfiguration}'s Starlark flags,
+   *     or {@link StarlarkBuildSettingsDetailsValue#EMPTY} if they aren't at hand, in which case
+   *     they are looked up
    */
   TransitionApplier(
       Label label,
@@ -123,21 +124,37 @@ final class TransitionApplier
   }
 
   private StateMachine handleStarlarkTransition(Tasks tasks) throws InterruptedException {
+    CoreOptions coreOptions = fromConfiguration.getOptions().get(CoreOptions.class);
+    // Resetting flags with scope = "platform" requires the scopes of all flags of
+    // fromConfiguration.
+    ImmutableSet<Label> fromBuildSettings =
+        StarlarkBuildSettingsDetailsValue.scopedBuildSettings(
+            fromConfiguration.getOptions().getStarlarkOptions());
+    if (fromConfigurationFlagDetails.covers(fromBuildSettings)) {
+      sourceFlagDetails = fromConfigurationFlagDetails;
+    } else {
+      // Same key as in BuildConfigurationFunction, so the node is shared.
+      tasks.lookUp(
+          StarlarkBuildSettingsDetailsValue.Key.create(
+              fromBuildSettings, coreOptions.getHostFlagAliases()),
+          TransitionException.class,
+          this::acceptSourceFlagDetails);
+    }
+
     ImmutableSet<Label> starlarkBuildSettings =
         transitionCache.getAllStarlarkBuildSettings(
-            transition,
-            fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
+            transition, coreOptions.getCommandLineFlagAliasesMap());
     ImmutableSet<Label> hostFlags;
 
     // If the transition is the exec transition, we want to look up the host flag declared by
     // users in the blazerc/MODULE.bazel files with alias pointing to the starlark definition. This
     // is useful to determine exec propagation for flags with scope that starts with "exec:--".
     if (transition.getName().equals("exec")) {
-      hostFlags = fromConfiguration.getOptions().get(CoreOptions.class).getHostFlagAliases();
+      hostFlags = coreOptions.getHostFlagAliases();
     } else if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
-      return applyStarlarkTransition(tasks);
+      return this::applyStarlarkTransition;
     } else {
       hostFlags = ImmutableSet.of();
     }
@@ -161,8 +178,16 @@ final class TransitionApplier
     throw new IllegalArgumentException("No result received.");
   }
 
+  private void acceptSourceFlagDetails(@Nullable SkyValue value, @Nullable TransitionException e) {
+    if (value != null) {
+      sourceFlagDetails = (StarlarkBuildSettingsDetailsValue) value;
+      return;
+    }
+    sink.acceptTransitionError(e);
+  }
+
   private StateMachine applyStarlarkTransition(Tasks tasks) throws InterruptedException {
-    if (buildSettingsDetailsValue == null) {
+    if (buildSettingsDetailsValue == null || sourceFlagDetails == null) {
       return runAfter; // There was an error.
     }
 
@@ -173,7 +198,7 @@ final class TransitionApplier
               fromConfiguration.getOptions(),
               transition,
               buildSettingsDetailsValue,
-              fromConfigurationFlagDetails,
+              sourceFlagDetails,
               eventHandler);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
@@ -185,7 +210,7 @@ final class TransitionApplier
         this.runAfter,
         transitionedOptions,
         /* forBaseline= */ false,
-        this.fromConfigurationFlagDetails,
+        this.sourceFlagDetails,
         this.label);
   }
 }
