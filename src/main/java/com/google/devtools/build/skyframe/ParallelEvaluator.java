@@ -138,7 +138,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       throws InterruptedException {
     injectErrorTransienceValue();
     try {
-      NodeBatch batch = graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
+      NodeBatch batch =
+          ordered && !doneBeforeEvaluation.isEmpty() && graph.getClass() == InMemoryGraphImpl.class
+              ? ((InMemoryGraphImpl) graph).createIfAbsentOrderedRootBatch(skyKeys)
+              : graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
       int index = 0;
       for (SkyKey skyKey : skyKeys) {
         NodeEntry entry = batch.get(skyKey);

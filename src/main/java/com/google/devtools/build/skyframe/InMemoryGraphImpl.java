@@ -203,6 +203,20 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return createIfAbsentBatch;
   }
 
+  NodeBatch createIfAbsentOrderedRootBatch(Iterable<? extends SkyKey> keys) {
+    for (SkyKey key : keys) {
+      getOrCreateRoot(key);
+    }
+    // The batch is live. A callback may remove a root before the caller retrieves it.
+    return this::getOrCreateRoot;
+  }
+
+  @CanIgnoreReturnValue
+  private InMemoryNodeEntry getOrCreateRoot(SkyKey key) {
+    InMemoryNodeEntry entry = getIfPresent(key);
+    return entry == null ? createIfAbsent(key) : entry;
+  }
+
   @CanIgnoreReturnValue
   private InMemoryNodeEntry createIfAbsent(SkyKey skyKey) {
     SkyKeyInterner<?> interner = skyKey.getSkyKeyInterner();
