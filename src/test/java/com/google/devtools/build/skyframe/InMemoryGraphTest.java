@@ -18,8 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.junit.Test;
 
 /** Tests for {@link InMemoryGraphImpl}. */
@@ -93,6 +98,43 @@ public class InMemoryGraphTest extends GraphTest {
     public SkyKeyInterner<SkyKeyWithSkyKeyInterner> getSkyKeyInterner() {
       return interner;
     }
+  }
+
+  @Test
+  public void collectDoneValues_onlyCallsDoneFilterForMatchingKeysWithUsableValues()
+      throws InterruptedException {
+    SkyKey keep = key("keep");
+    SkyKey omit = key("omit");
+    SkyKey filtered = key("filtered");
+    SkyKey error = key("error");
+    SkyKey dirty = key("dirty");
+    var value = new StringValue("value");
+    var errorValue =
+        ValueWithMetadata.error(
+            ErrorInfo.fromCycle(CycleInfo.cycleInfoNoDetails()),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    var keys = ImmutableList.of(keep, omit, filtered, error, dirty);
+    var batch = graph.createIfAbsentBatch(null, Reason.OTHER, keys);
+    for (SkyKey key : keys) {
+      var entry = batch.get(key);
+      startEvaluation(entry);
+      entry.markRebuilding();
+      entry.setValue(key.equals(error) ? errorValue : value, getStartingVersion(), null);
+    }
+    batch.get(dirty).markDirty(NodeEntry.DirtyType.REWIND);
+
+    Set<SkyKey> visited = ConcurrentHashMap.newKeySet();
+    var result =
+        ((InMemoryGraph) graph)
+            .collectDoneValues(
+                key -> !key.equals(filtered),
+                key -> {
+                  visited.add(key);
+                  return key.equals(keep);
+                });
+
+    assertThat(visited).containsExactly(keep, omit);
+    assertThat(result).containsExactly(keep, value);
   }
 
   @Test
