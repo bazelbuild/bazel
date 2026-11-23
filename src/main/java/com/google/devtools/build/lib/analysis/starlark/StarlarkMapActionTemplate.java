@@ -336,6 +336,8 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     fp.addStringMap(executionRequirements);
     fp.addString(getMnemonic());
     fp.addString(expandedActionsMnemonic);
+    var effectiveOutputPathsMode =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
     PathMappers.addToFingerprint(
         getMnemonic(),
         getExecutionInfo(),
@@ -343,7 +345,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
         actionKeyContext,
         outputPathsMode,
         fp);
-    env.addTo(fp);
+    env.addTo(effectiveOutputPathsMode, fp);
     fp.addString(implementation.getName());
     fp.addBytes(BazelModuleContext.of(implementation.getModule()).bzlTransitiveDigest());
     fp.addBoolean(isSubdirectoryAllowed);
