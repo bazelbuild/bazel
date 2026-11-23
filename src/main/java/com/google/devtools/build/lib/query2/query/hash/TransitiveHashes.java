@@ -46,7 +46,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.ToLongFunction;
 import javax.annotation.Nullable;
 
 /**
@@ -134,14 +133,19 @@ public final class TransitiveHashes {
     long discoveryStart = System.nanoTime();
     Map<Label, State<Label>> graph = CompactHashMap.createWithExpectedSize(roots.size());
     Set<Label> failed = new HashSet<>();
-    List<Label> absent = new ArrayList<>();
     Map<Label, ErrorInfo> errors = new TreeMap<>();
     ImmutableSet<Label> rootSet = ImmutableSet.copyOf(roots);
-    // Keep scheduled labels in the graph map so every label is evaluated at most once.
-    State<Label> pending = new State<>(null, null, null, false);
-    rootSet.forEach(label -> graph.put(label, pending));
+    // Record each node's outgoing edges in dependency order so both combine passes can
+    // follow references directly.
+    var edges = new ArrayList<State<Label>>(rootSet.size());
+    var initial = new ArrayList<State<Label>>(rootSet.size());
+    for (Label label : rootSet) {
+      var state = new State<>(label);
+      graph.put(label, state);
+      initial.add(state);
+    }
     int resolved = 0;
-    List<Label> frontier = rootSet.asList();
+    List<State<Label>> frontier = initial;
     // Breadth-first so that each Skyframe evaluation covers a whole level of the graph.
     int level = 0;
     RegisteredToolchains registeredToolchains = new RegisteredToolchains(evaluator);
@@ -153,9 +157,10 @@ public final class TransitiveHashes {
       ImmutableSet<SkyKey> keys = buildFrontierKeys(frontier, packageHashes);
       var result =
           keys.isEmpty() ? EvaluationResult.<SkyValue>builder().build() : evaluator.evaluate(keys);
-      List<Label> next = new ArrayList<>();
+      List<State<Label>> next = new ArrayList<>();
       var keyIterator = keys.iterator();
-      for (Label label : frontier) {
+      for (State<Label> state : frontier) {
+        Label label = state.key;
         DirectTargetHashFunction.Value value = getPackageHash(packageHashes, label);
         if (value == null) {
           SkyKey key = keyIterator.next();
@@ -169,8 +174,6 @@ public final class TransitiveHashes {
               if (error != null) {
                 errors.put(label, error);
               }
-            } else {
-              absent.add(label);
             }
             continue;
           }
@@ -182,13 +185,20 @@ public final class TransitiveHashes {
             continue;
           }
         }
-        graph.put(label, new State<>(label, value.getDirectHash(), value.getDeps(), false));
-        resolved++;
+        state.directHash = value.getDirectHash();
+        state.depStart = edges.size();
+        state.nextDep = state.depStart;
         for (Label dep : value.getDeps()) {
-          if (graph.putIfAbsent(dep, pending) == null) {
-            next.add(dep);
+          State<Label> child = graph.get(dep);
+          if (child == null) {
+            child = new State<>(dep);
+            graph.put(dep, child);
+            next.add(child);
           }
+          edges.add(child);
         }
+        state.depEnd = edges.size();
+        resolved++;
       }
       packageHashes = Map.of();
       frontier = next;
@@ -198,24 +208,24 @@ public final class TransitiveHashes {
               resolved, ++level, frontier.size()));
     }
 
-    failed.forEach(graph::remove);
-    absent.forEach(graph::remove);
     progress.accept(String.format("Hashing: combining hashes of %d targets", resolved));
     long combineStart = System.nanoTime();
     var failureImpact =
         reportFailureImpact && !failed.isEmpty() ? new FailureImpactCollector(failed) : null;
-    ToLongFunction<Label> failedMask =
-        failureImpact == null ? label -> failed.contains(label) ? 1L : 0L : failureImpact::mask;
-    combineStates(graph, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm, failedMask);
+    for (Label label : failed) {
+      graph.get(label).failures = failureImpact == null ? 1L : failureImpact.mask(label);
+    }
+    combineStates(
+        graph.values(), edges, Comparator.naturalOrder(), Label::getUnambiguousCanonicalForm);
     long assembleStart = System.nanoTime();
     ImmutableMap.Builder<Label, ByteString> rootHashes =
         ImmutableMap.builderWithExpectedSize(roots.size());
     for (Label root : rootSet) {
       State<Label> state = graph.get(root);
-      if (state != null && state.hash != null) {
+      if (state.hash != null) {
         rootHashes.put(root, ByteString.copyFrom(state.hash));
       } else if (failureImpact != null) {
-        failureImpact.record(state == null ? failureImpact.mask(root) : state.failures);
+        failureImpact.record(state.failures);
       }
     }
     var hashes = rootHashes.buildOrThrow();
@@ -239,7 +249,8 @@ public final class TransitiveHashes {
   }
 
   private static ImmutableSet<SkyKey> buildFrontierKeys(
-      List<Label> frontier, Map<PackageIdentifier, DirectTargetHashFunction.PackageHashes> packages)
+      List<State<Label>> frontier,
+      Map<PackageIdentifier, DirectTargetHashFunction.PackageHashes> packages)
       throws InterruptedException {
     if (packages.isEmpty()
         && frontier.size() >= MIN_PARALLEL_FRONTIER_KEYS
@@ -248,16 +259,16 @@ public final class TransitiveHashes {
         throw new InterruptedException();
       }
       SkyKey[] keys = new SkyKey[frontier.size()];
-      Arrays.parallelSetAll(keys, index -> DirectTargetHashFunction.key(frontier.get(index)));
+      Arrays.parallelSetAll(keys, index -> DirectTargetHashFunction.key(frontier.get(index).key));
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       return ImmutableSet.<SkyKey>builderWithExpectedSize(keys.length).add(keys).build();
     }
     ImmutableSet.Builder<SkyKey> keys = ImmutableSet.builderWithExpectedSize(frontier.size());
-    for (Label label : frontier) {
-      if (getPackageHash(packages, label) == null) {
-        keys.add(DirectTargetHashFunction.key(label));
+    for (State<Label> state : frontier) {
+      if (getPackageHash(packages, state.key) == null) {
+        keys.add(DirectTargetHashFunction.key(state.key));
       }
     }
     return keys.build();
@@ -442,10 +453,26 @@ public final class TransitiveHashes {
       Function<? super K, String> name,
       Set<K> failedKeys) {
     Map<K, State<K>> states = HashMap.newHashMap(graph.size());
+    graph.forEach((key, node) -> states.put(key, new State<>(key)));
+    var edges = new ArrayList<State<K>>(graph.size());
     graph.forEach(
-        (key, node) ->
-            states.put(key, new State<>(key, node.directHash(), node.deps(), failedKeys.contains(key))));
-    combineStates(states, order, name, key -> failedKeys.contains(key) ? 1 : 0);
+        (key, node) -> {
+          State<K> state = states.get(key);
+          state.directHash = node.directHash();
+          state.failures = failedKeys.contains(key) ? 1L : 0L;
+          state.depStart = edges.size();
+          state.nextDep = state.depStart;
+          for (K childKey : node.deps()) {
+            State<K> child = states.get(childKey);
+            if (child == null) {
+              child = new State<>(childKey);
+              child.failures = failedKeys.contains(childKey) ? 1L : 0L;
+            }
+            edges.add(child);
+          }
+          state.depEnd = edges.size();
+        });
+    combineStates(states.values(), edges, order, name);
     Map<K, byte[]> hashes = HashMap.newHashMap(states.size());
     states.forEach(
         (key, state) -> {
@@ -457,28 +484,27 @@ public final class TransitiveHashes {
   }
 
   private static <K> void combineStates(
-      Map<K, State<K>> states,
+      Collection<State<K>> states,
+      ArrayList<State<K>> edges,
       Comparator<? super K> order,
-      Function<? super K, String> name,
-      ToLongFunction<? super K> failedMask) {
+      Function<? super K, String> name) {
     Deque<State<K>> stack = new ArrayDeque<>();
     Deque<State<K>> work = new ArrayDeque<>();
     List<State<K>> component = new ArrayList<>();
     Fingerprint fp = new Fingerprint();
     int nextIndex = 0;
 
-    for (State<K> root : states.values()) {
-      if (root.index >= 0) {
+    for (State<K> root : states) {
+      if (root.directHash == null || root.index >= 0) {
         continue;
       }
       push(root, nextIndex++, stack, work);
       while (!work.isEmpty()) {
         State<K> state = work.peek();
-        if (state.nextDep < state.deps.size()) {
-          K depKey = state.deps.get(state.nextDep++);
-          State<K> dep = states.get(depKey);
-          if (dep == null) {
-            state.failures |= failedMask.applyAsLong(depKey);
+        if (state.nextDep < state.depEnd) {
+          State<K> dep = edges.get(state.nextDep++);
+          if (dep.directHash == null) {
+            state.failures |= dep.failures;
           } else if (dep.index < 0) {
             push(dep, nextIndex++, stack, work);
           } else if (dep.component < 0) {
@@ -506,7 +532,7 @@ public final class TransitiveHashes {
               failedMember.failures = failures;
             }
           } else {
-            hashComponent(component, states, order, name, fp);
+            hashComponent(component, edges, order, name, fp);
           }
         }
         if (!work.isEmpty()) {
@@ -521,8 +547,10 @@ public final class TransitiveHashes {
 
   private static final class State<K> {
     final K key;
-    final byte[] directHash;
-    final List<K> deps;
+    // Null for unresolved labels. The failure mask distinguishes errors from known absence.
+    byte[] directHash;
+    int depStart;
+    int depEnd;
     int index = -1;
     int lowLink;
     int component = -1;
@@ -532,11 +560,8 @@ public final class TransitiveHashes {
     byte[] hash;
     @Nullable String displayName;
 
-    State(K key, byte[] directHash, List<K> deps, boolean failed) {
+    State(K key) {
       this.key = key;
-      this.directHash = directHash;
-      this.deps = deps;
-      this.failures = failed ? 1 : 0;
     }
 
     String displayName(Function<? super K, String> name) {
@@ -556,14 +581,14 @@ public final class TransitiveHashes {
 
   private static <K> void hashComponent(
       List<State<K>> component,
-      Map<K, State<K>> states,
+      ArrayList<State<K>> edges,
       Comparator<? super K> order,
       Function<? super K, String> name,
       Fingerprint fp) {
     State<K> first = component.getFirst();
     if (component.size() == 1 && !first.selfEdge) {
       fp.addBytes(first.directHash);
-      addDeps(fp, first, states, name);
+      addDeps(fp, first, edges, name);
       first.hash = fp.digestAndReset();
       return;
     }
@@ -572,7 +597,7 @@ public final class TransitiveHashes {
     for (State<K> member : component) {
       fp.addString(member.displayName(name));
       fp.addBytes(member.directHash);
-      addDeps(fp, member, states, name);
+      addDeps(fp, member, edges, name);
     }
     byte[] componentHash = fp.digestAndReset();
     for (State<K> member : component) {
@@ -583,15 +608,15 @@ public final class TransitiveHashes {
   private static <K> void addDeps(
       Fingerprint fp,
       State<K> state,
-      Map<K, State<K>> states,
+      ArrayList<State<K>> edges,
       Function<? super K, String> name) {
-    for (K key : state.deps) {
-      State<K> dep = states.get(key);
-      fp.addString(dep == null ? name.apply(key) : dep.displayName(name));
-      if (dep != null && dep.component == state.component) {
+    for (int edge = state.depStart; edge < state.depEnd; edge++) {
+      State<K> dep = edges.get(edge);
+      fp.addString(dep.displayName(name));
+      if (dep.component == state.component) {
         continue; // Edges within a cycle are covered by the component hash.
       }
-      byte[] depHash = dep == null ? null : dep.hash;
+      byte[] depHash = dep.hash;
       fp.addString(depHash == null ? "<missing>" : "");
       if (depHash != null) {
         fp.addBytes(depHash);
