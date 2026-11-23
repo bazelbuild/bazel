@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -186,7 +187,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   protected BuilderWithResult createBuilder(ActionCache actionCache) throws Exception {
-    return createBuilder(actionCache, 1, /*keepGoing=*/ false);
+    return createBuilder(actionCache, 1, /* keepGoing= */ false);
   }
 
   /** Create a ParallelBuilder with a DatabaseDependencyChecker using the specified ActionCache. */
@@ -348,7 +349,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             options,
             new ActionCacheChecker(
                 actionCache,
-                null,
+                artifactResolver,
                 actionKeyContext,
                 ALWAYS_EXECUTE_FILTER,
                 ProxyMetadataFactory.NO_PROXIES,
@@ -406,6 +407,13 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   /** A non-persistent cache. */
   protected InMemoryActionCache inMemoryCache;
+
+  /**
+   * Resolves source artifacts recorded in the action cache for actions that discover inputs. Must
+   * be set by tests that build such actions with a populated action cache after calling {@link
+   * com.google.devtools.build.lib.actions.Action#resetDiscoveredInputs}.
+   */
+  @Nullable protected ArtifactResolver artifactResolver;
 
   protected SkyFunction actionTemplateExpansionFunction;
 

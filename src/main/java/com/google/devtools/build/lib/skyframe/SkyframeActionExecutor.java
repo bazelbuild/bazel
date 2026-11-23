@@ -130,7 +130,6 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -740,7 +739,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionState activeAction =
         buildActionMap.computeIfAbsent(
             new OwnerlessArtifactWrapper(action.getPrimaryOutput()),
-            (unusedKey) ->
+            unusedKey ->
                 new ActionExecutionState(
                     actionLookupData,
                     new ActionRunner(
@@ -866,7 +865,7 @@ public final class SkyframeActionExecutor {
       OutputMetadataStore outputMetadataStore,
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
-      List<Artifact> resolvedCacheArtifacts,
+      @Nullable ActionCacheChecker.CachedInputs resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
@@ -1007,7 +1006,7 @@ public final class SkyframeActionExecutor {
   }
 
   @Nullable
-  List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
+  ActionCacheChecker.CachedInputs getActionCachedInputs(Action action, PackageRootResolver resolver)
       throws AlreadyReportedActionExecutionException, InterruptedException {
     try {
       return actionCacheChecker.getCachedInputs(action, resolver);
