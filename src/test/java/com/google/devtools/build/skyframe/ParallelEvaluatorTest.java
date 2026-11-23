@@ -2830,6 +2830,75 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void cachedValueAndErrorReportProgressAndReplayEventsInRequestOrder()
+      throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey valueKey = skyKey("value");
+    SkyKey errorKey = skyKey("error");
+    StringValue value = new StringValue("value");
+    tester.set(valueKey, value);
+    tester.getOrCreate(errorKey).setErrorEvent("cached diagnostic").setHasError(true);
+    EvaluationResult<StringValue> initial = eval(/* keepGoing= */ true, valueKey, errorKey);
+    assertThat(initial.getError(errorKey)).isNotNull();
+
+    reportedEvents.clear();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                reportedEvents.handle(Event.progress(skyKey.argument() + " " + state));
+              }
+            });
+    EvaluationResult<StringValue> cached = eval(/* keepGoing= */ false, valueKey, errorKey);
+
+    assertThat(cached.get(valueKey)).isSameInstanceAs(value);
+    assertThat(cached.getError(errorKey)).isSameInstanceAs(initial.getError(errorKey));
+    assertThatEvents(reportedEvents.getEvents())
+        .containsExactly(
+            "value SUCCESS_VERSION_UNCHANGED", "cached diagnostic", "error FAIL_VERSION_UNCHANGED")
+        .inOrder();
+  }
+
+  @Test
+  public void cachedResultsReflectGraphUpdatesFromLaterProgressCallbacks()
+      throws InterruptedException {
+    var inMemoryGraph = new InMemoryGraphImpl();
+    graph = inMemoryGraph;
+    SkyKey first = skyKey("first");
+    SkyKey second = skyKey("second");
+    set("first", "original");
+    set("second", "second");
+    eval(/* keepGoing= */ true, first, second);
+
+    Version version = graphVersion;
+    StringValue replacement = new StringValue("replacement");
+    var progressReceiver = mock(EvaluationProgressReceiver.class);
+    doAnswer(
+            unused -> {
+              inMemoryGraph.remove(first);
+              ParallelEvaluator.injectValues(
+                  ImmutableMap.of(first, Differencer.DiffWithDelta.Delta.justNew(replacement)),
+                  version,
+                  inMemoryGraph,
+                  revalidationReceiver);
+              return null;
+            })
+        .when(progressReceiver)
+        .evaluated(eq(second), any(), any(), any(), any());
+    revalidationReceiver = new DirtyAndInflightTrackingProgressReceiver(progressReceiver);
+
+    EvaluationResult<StringValue> result = eval(/* keepGoing= */ false, first, second);
+
+    assertThat(result.get(first)).isSameInstanceAs(replacement);
+  }
+
+  @Test
   public void cachedErrorsFromKeepGoingUsedOnNoKeepGoing() throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     tester = new GraphTester();
