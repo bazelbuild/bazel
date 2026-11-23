@@ -162,8 +162,8 @@ public abstract class FileSystem {
    * <ul>
    *   <li>{@link #createSymbolicLink(PathFragment, PathFragment)}
    *   <li>{@link #getFileSize(PathFragment, boolean)} where {@code followSymlinks=false}
-   *   <li>{@link #getLastModifiedTime(PathFragment, boolean)} and {@link
-   *       #getLastModifiedTimeNanos(PathFragment, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #getLastModifiedTimeNanos(PathFragment, boolean)} where {@code
+   *       followSymlinks=false}
    *   <li>{@link #readSymbolicLink(PathFragment)} where the link points to a non-existent file
    * </ul>
    *
@@ -322,20 +322,6 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the last modification time of the file, in milliseconds since the UNIX epoch, of the
-   * file denoted by {@code path}. See {@link Path#getLastModifiedTime(Symlinks)} for specification.
-   *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
-   * returns false, this method will throw an {@link UnsupportedOperationException} if {@code
-   * followSymLinks=false}.
-   */
-  @SuppressWarnings("GoodTime") // performance-sensitive
-  public final long getLastModifiedTime(PathFragment path, boolean followSymlinks)
-      throws IOException {
-    return getLastModifiedTimeNanos(path, followSymlinks) / 1_000_000;
-  }
-
-  /**
    * Returns the last modification time of the file, in nanoseconds since the UNIX epoch, of the
    * file denoted by {@code path}. See {@link Path#getLastModifiedTimeNanos(Symlinks)} for
    * specification.
@@ -347,16 +333,6 @@ public abstract class FileSystem {
   @SuppressWarnings("GoodTime") // performance-sensitive
   public abstract long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
       throws IOException;
-
-  /**
-   * Sets the last modification time of the file, in milliseconds since the UNIX epoch, of the file
-   * denoted by {@code path}. See {@link Path#setLastModifiedTime} for specification.
-   */
-  @SuppressWarnings("GoodTime") // performance-sensitive
-  public final void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    setLastModifiedTimeNanos(
-        path, newTime == Path.NOW_SENTINEL_TIME ? Path.NOW_SENTINEL_TIME : newTime * 1_000_000);
-  }
 
   /**
    * Sets the last modification time of the file, in nanoseconds since the UNIX epoch, of the file
