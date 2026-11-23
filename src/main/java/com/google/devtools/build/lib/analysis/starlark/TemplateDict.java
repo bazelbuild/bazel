@@ -19,6 +19,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -79,7 +80,7 @@ public class TemplateDict implements TemplateDictApi {
         new LazySubstitution(
             key,
             thread.getSemantics(),
-            valuesSet,
+            valuesSet.getSet(),
             mapEach,
             uniquify,
             joinWith,
@@ -94,7 +95,7 @@ public class TemplateDict implements TemplateDictApi {
   private static class LazySubstitution extends ComputedSubstitution {
 
     private final StarlarkSemantics semantics;
-    private final Depset valuesSet;
+    private final NestedSet<?> valuesSet;
     private final StarlarkCallable mapEach;
     private final boolean uniquify;
     private final String joinWith;
@@ -103,7 +104,7 @@ public class TemplateDict implements TemplateDictApi {
     public LazySubstitution(
         String key,
         StarlarkSemantics semantics,
-        Depset valuesSet,
+        NestedSet<?> valuesSet,
         StarlarkCallable mapEach,
         boolean uniquify,
         String joinWith,
