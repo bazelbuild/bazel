@@ -17,12 +17,16 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -30,6 +34,17 @@ import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
+import com.google.devtools.build.skyframe.GroupedDeps;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,6 +55,24 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class TimestampBuilderTest extends TimestampBuilderTestCase {
+  /** The most recently recorded direct Skyframe dependencies of each action. */
+  private final Map<SkyKey, ImmutableSet<SkyKey>> actionDeps = new ConcurrentHashMap<>();
+
+  private final EvaluationProgressReceiver actionDepsRecorder =
+      new EvaluationProgressReceiver() {
+        @Override
+        public void evaluated(
+            SkyKey skyKey,
+            EvaluationState state,
+            @Nullable SkyValue newValue,
+            @Nullable ErrorInfo newError,
+            @Nullable GroupedDeps directDeps) {
+          if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION) && directDeps != null) {
+            actionDeps.put(skyKey, ImmutableSet.copyOf(directDeps.getAllElementsAsIterable()));
+          }
+        }
+      };
+
   private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
     return NestedSetBuilder.create(Order.STABLE_ORDER, artifacts);
   }
@@ -328,5 +361,156 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildArtifacts(amnesiacBuilder(), out));
     assertThat(e).hasMessageThat().contains("1 input file(s) do not exist");
+  }
+
+  /**
+   * Discovered inputs must be requested from Skyframe via the direct children of their nested set,
+   * so that a nested set shared between actions doesn't add an edge per action and input. See
+   * https://github.com/bazelbuild/bazel/issues/32456.
+   */
+  @Test
+  public void discoveredInputs_requestedViaDirectChildren() throws Exception {
+    // Like the scheduling dependencies of a C++ compilation, which contain the headers of the
+    // target itself and the shared nested sets of headers of its dependencies.
+    Artifact ownHeader = createSourceFile("own.h");
+    Artifact depFirst = createSourceFile("dep_first.h");
+    Artifact depSecond = createSourceFile("dep_second.h");
+    NestedSet<Artifact> depHeaders = NestedSetBuilder.create(Order.STABLE_ORDER, depFirst, depSecond);
+    NestedSet<Artifact> schedulingDependencies =
+        NestedSetBuilder.<Artifact>stableOrder().add(ownHeader).addTransitive(depHeaders).build();
+    Artifact oneHeader = createSourceFile("one.h");
+    Artifact oneNestedFirst = createSourceFile("one_nested_first.h");
+    Artifact oneNestedSecond = createSourceFile("one_nested_second.h");
+    NestedSet<Artifact> oneNestedHeaders =
+        NestedSetBuilder.create(Order.STABLE_ORDER, oneNestedFirst, oneNestedSecond);
+    Artifact one = createDerivedArtifact("one");
+    Artifact two = createDerivedArtifact("two");
+    AtomicInteger oneExecutions = new AtomicInteger();
+    AtomicInteger twoExecutions = new AtomicInteger();
+    // The discovered inputs of "one" consist of its scheduling dependencies, another nested set and
+    // a single artifact, while those of "two" are exactly its scheduling dependencies.
+    registerAction(
+        new SchedulingDependencyDiscoveringAction(
+            oneExecutions::incrementAndGet,
+            schedulingDependencies,
+            NestedSetBuilder.<Artifact>stableOrder()
+                .addTransitive(schedulingDependencies)
+                .addTransitive(oneNestedHeaders)
+                .add(oneHeader)
+                .build(),
+            one));
+    registerAction(
+        new SchedulingDependencyDiscoveringAction(
+            twoExecutions::incrementAndGet, schedulingDependencies, schedulingDependencies, two));
+
+    BuilderWithResult builder =
+        createBuilder(
+            inMemoryCache, /* threadCount= */ 1, /* keepGoing= */ false, actionDepsRecorder);
+    buildArtifacts(builder, one, two);
+
+    assertThat(oneExecutions.get()).isEqualTo(1);
+    assertThat(twoExecutions.get()).isEqualTo(1);
+    ImmutableSet<SkyKey> oneDeps = actionDeps.get(Artifact.key(one));
+    assertThat(oneDeps)
+        .containsAtLeast(
+            ArtifactNestedSetKey.create(schedulingDependencies),
+            ArtifactNestedSetKey.create(oneNestedHeaders),
+            Artifact.key(oneHeader));
+    assertThat(oneDeps)
+        .containsNoneOf(
+            Artifact.key(ownHeader),
+            Artifact.key(depFirst),
+            Artifact.key(depSecond),
+            Artifact.key(oneNestedFirst),
+            Artifact.key(oneNestedSecond));
+    // The direct children of the scheduling dependencies are requested themselves.
+    ImmutableSet<SkyKey> twoDeps = actionDeps.get(Artifact.key(two));
+    assertThat(twoDeps)
+        .containsAtLeast(
+            ArtifactNestedSetKey.create(schedulingDependencies),
+            ArtifactNestedSetKey.create(depHeaders),
+            Artifact.key(ownHeader));
+    assertThat(twoDeps).containsNoneOf(Artifact.key(depFirst), Artifact.key(depSecond));
+
+    // Without the direct edges, a change to a discovered input beneath a nested set must still
+    // invalidate the actions in the same Skyframe graph.
+    modifySourceFile(depFirst);
+    buildArtifacts(builder, one, two);
+    assertThat(oneExecutions.get()).isEqualTo(2);
+    assertThat(twoExecutions.get()).isEqualTo(2);
+
+    modifySourceFile(oneHeader);
+    buildArtifacts(builder, one, two);
+    assertThat(oneExecutions.get()).isEqualTo(3);
+    assertThat(twoExecutions.get()).isEqualTo(2);
+
+    modifySourceFile(oneNestedSecond);
+    buildArtifacts(builder, one, two);
+    assertThat(oneExecutions.get()).isEqualTo(4);
+    assertThat(twoExecutions.get()).isEqualTo(2);
+
+    buildArtifacts(builder, one, two);
+    assertThat(oneExecutions.get()).isEqualTo(4);
+    assertThat(twoExecutions.get()).isEqualTo(2);
+  }
+
+  private Artifact createSourceFile(String name) throws IOException {
+    Artifact artifact = createSourceArtifact(name);
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "initial");
+    return artifact;
+  }
+
+  private void modifySourceFile(Artifact artifact) throws IOException {
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), "modified");
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(
+                RootedPath.toRootedPath(
+                    artifact.getRoot().getRoot(), artifact.getRootRelativePath()))));
+  }
+
+  /**
+   * Like a C++ compilation without include scanning, discovers the given inputs, which contain its
+   * scheduling dependencies.
+   */
+  private static final class SchedulingDependencyDiscoveringAction extends TestAction {
+    private final NestedSet<Artifact> schedulingDependencies;
+    private final NestedSet<Artifact> discoveredInputs;
+
+    SchedulingDependencyDiscoveringAction(
+        Runnable effect,
+        NestedSet<Artifact> schedulingDependencies,
+        NestedSet<Artifact> discoveredInputs,
+        Artifact output) {
+      super(effect, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(output));
+      this.schedulingDependencies = schedulingDependencies;
+      this.discoveredInputs = discoveredInputs;
+    }
+
+    @Override
+    public boolean discoversInputs() {
+      return true;
+    }
+
+    @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return schedulingDependencies;
+    }
+
+    @Override
+    public NestedSet<Artifact> getAllowedDerivedInputs() {
+      return discoveredInputs;
+    }
+
+    @Override
+    public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
+      updateInputs(
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(getMandatoryInputs())
+              .addTransitive(discoveredInputs)
+              .build());
+      return discoveredInputs;
+    }
   }
 }
