@@ -15,14 +15,20 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +51,7 @@ public class EvaluationResult<T extends SkyValue> {
   private final WalkableGraph walkableGraph;
 
   /**
-   * Constructor for the "completed" case. Used only by {@link Builder}.
+   * Constructor for the completed result.
    */
   private EvaluationResult(
       Map<SkyKey, T> result,
@@ -58,12 +64,87 @@ public class EvaluationResult<T extends SkyValue> {
     this.walkableGraph = walkableGraph;
   }
 
+  /** Attaches the graph to a completed result whose builder is no longer used. */
+  EvaluationResult<T> withWalkableGraph(WalkableGraph graph) {
+    return new EvaluationResult<>(resultMap, errorMap, catastrophe, graph);
+  }
+
   /**
    * Get a successfully evaluated value.
    */
   public T get(SkyKey key) {
     Preconditions.checkNotNull(resultMap, key);
     return resultMap.get(key);
+  }
+
+  /**
+   * Returns a positional value accessor only when the result preserves this exact root set's order.
+   * An unsuccessful root has a null value and is available in the error map by key.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public IntFunction<T> orderedValuesFor(ImmutableSet<SkyKey> roots) {
+    if (resultMap instanceof OrderedValueMap<?> ordered && ordered.keys == roots) {
+      return position -> (T) ordered.values[position];
+    }
+    return null;
+  }
+
+  /** The ordered values are private and never changed after finalization. */
+  static <T extends SkyValue> EvaluationResult<T> ordered(
+      ImmutableSet<SkyKey> keys,
+      SkyValue[] values,
+      Map<SkyKey, ErrorInfo> errors,
+      @Nullable Exception catastrophe) {
+    Preconditions.checkArgument(keys.size() == values.length);
+    return new EvaluationResult<>(
+        new OrderedValueMap<>(keys, values, values.length - errors.size()),
+        errors,
+        catastrophe,
+        null);
+  }
+
+  private static final class OrderedValueMap<T extends SkyValue>
+      extends AbstractMap<SkyKey, T> {
+    final ImmutableSet<SkyKey> keys;
+    final SkyValue[] values;
+    private final int size;
+    private final Supplier<ImmutableMap<SkyKey, T>> keyed =
+        Suppliers.memoize(this::buildMap);
+
+    OrderedValueMap(ImmutableSet<SkyKey> keys, SkyValue[] values, int size) {
+      this.keys = keys;
+      this.values = values;
+      this.size = size;
+    }
+
+    @Override
+    public T get(Object key) {
+      return keyed.get().get(key);
+    }
+
+    @Override
+    public Set<Entry<SkyKey, T>> entrySet() {
+      return keyed.get().entrySet();
+    }
+
+    @Override
+    public int size() {
+      return size;
+    }
+
+    @SuppressWarnings("unchecked")
+    private ImmutableMap<SkyKey, T> buildMap() {
+      var builder = ImmutableMap.<SkyKey, T>builderWithExpectedSize(size);
+      int position = 0;
+      for (SkyKey key : keys) {
+        SkyValue value = values[position++];
+        if (value != null) {
+          builder.put(key, (T) value);
+        }
+      }
+      return builder.buildOrThrow();
+    }
   }
 
   /**

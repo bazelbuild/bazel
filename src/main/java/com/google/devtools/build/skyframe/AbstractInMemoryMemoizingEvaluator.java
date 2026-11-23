@@ -183,12 +183,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                     : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
                 getKeepGoingPredicate(evaluationContext));
-        result = evaluator.eval(roots);
+        result = evaluator.eval(roots, evaluationContext.orderedRootResults());
       }
-      return EvaluationResult.<T>builder()
-          .mergeFrom(result)
-          .setWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()))
-          .build();
+      return result.withWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()));
     } finally {
       if (keepEdges) {
         lastGraphVersion = (IntVersion) graphVersion;

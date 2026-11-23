@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.query.hash.DirectTargetHashFunction;
 import com.google.devtools.build.lib.query2.query.hash.TransitiveHashes;
 import com.google.devtools.build.lib.query2.query.output.HashOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
@@ -88,6 +89,7 @@ import javax.annotation.Nullable;
     completion = "label")
 public final class QueryCommand extends QueryEnvironmentBasedCommand {
   private static final HexFormat HEX_FORMAT = HexFormat.of();
+  private static final int MIN_ORDERED_HASH_KEYS = 4_096;
 
   @Override
   protected Either<BlazeCommandResult, QueryEvalResult> doQuery(
@@ -298,6 +300,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
                 env.getOptions().getOptions(LoadingPhaseThreadsOption.class).getThreads())
             .setEventHandler(env.getReporter())
             .build();
+    EvaluationContext orderedEvaluationContext =
+        evaluationContext.builder().setOrderedRootResults(true).build();
     Stopwatch skyframeTime = Stopwatch.createUnstarted();
     TransitiveHashes.Result result =
         TransitiveHashes.compute(
@@ -305,7 +309,12 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             keys -> {
               skyframeTime.start();
               try {
-                return env.getSkyframeExecutor().prepareAndGet(keys, evaluationContext);
+                boolean useOrderedValues =
+                    keys.size() >= MIN_ORDERED_HASH_KEYS
+                        && keys.iterator().next() instanceof DirectTargetHashFunction.Key;
+                return env.getSkyframeExecutor()
+                    .prepareAndGet(
+                        keys, useOrderedValues ? orderedEvaluationContext : evaluationContext);
               } finally {
                 skyframeTime.stop();
               }
