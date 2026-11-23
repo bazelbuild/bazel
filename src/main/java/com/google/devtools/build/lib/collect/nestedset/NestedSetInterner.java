@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * Interner for {@link NestedSet} children arrays.
+ * Interner for {@link NestedSet} children arrays and unowned {@link NestedSet}s.
  *
  * <p>We intern only the backing {@code Object[]} children arrays rather than the enclosing {@link
  * NestedSet} instances. {@link Depset} equality and hashing delegate directly to the underlying
@@ -34,9 +34,14 @@ import net.starlark.java.eval.StarlarkValue;
  * equality/hash comparisons in Starlark would become non-deterministic based on cache hits versus
  * evictions (b/544770151). Interning only the backing arrays achieves most of the memory savings
  * while maintaining deterministic instance identity.
+ *
+ * <p>Unowned sets whose elements are {@link NestedSetsShouldBeInternedByEquality} but not {@link
+ * StarlarkValue}s are never wrapped in a {@link Depset} and only compared by Java code, so they are
+ * interned as a whole, including singletons.
  */
 public final class NestedSetInterner {
-  private final Cache<Equivalence.Wrapper<Object[]>, Object[]> cache;
+  // Values are canonical children arrays or, for sets interned as a whole, canonical sets.
+  private final Cache<Equivalence.Wrapper<Object[]>, Object> cache;
   private final Equivalence<Object[]> equivalence;
 
   private NestedSetInterner(int size, Equivalence<Object[]> equivalence) {
@@ -46,7 +51,27 @@ public final class NestedSetInterner {
 
   private Object[] internImpl(Object[] sample) {
     checkNotNull(sample);
-    return cache.get(equivalence.wrap(sample), Equivalence.Wrapper::get);
+    Object canonical = cache.get(equivalence.wrap(sample), Equivalence.Wrapper::get);
+    return canonical instanceof NestedSet<?> set ? (Object[]) set.children : (Object[]) canonical;
+  }
+
+  @SuppressWarnings("unchecked")
+  private <E> NestedSet<E> internImpl(NestedSet<E> set) {
+    // Singleton keys can't collide with children arrays, which have at least two elements.
+    Object[] key = set.children instanceof Object[] array ? array : new Object[] {set.children};
+    Equivalence.Wrapper<Object[]> wrappedKey = equivalence.wrap(key);
+    // Try a lock-free lookup first, since merge locks the entry even if it is present.
+    Object canonical = cache.getIfPresent(wrappedKey);
+    if (!(canonical instanceof NestedSet<?>)) {
+      canonical =
+          cache
+              .asMap()
+              .merge(wrappedKey, set, (old, unused) -> old instanceof Object[] ? set : old);
+    }
+    return canonical instanceof NestedSet<?> canonicalSet
+            && canonicalSet.getOrder() == set.getOrder()
+        ? (NestedSet<E>) canonicalSet
+        : set;
   }
 
   private void clearImpl() {
@@ -129,11 +154,25 @@ public final class NestedSetInterner {
     if (!enabled()) {
       return children;
     }
-    NestedSetInterner interner = getInterner(children);
+    NestedSetInterner interner = getInterner(getElementClass(children));
     if (interner == null) {
       return children;
     }
     return interner.internImpl(children);
+  }
+
+  /** Interns a new unowned {@link NestedSet} if Starlark can't observe its identity. */
+  static <E> NestedSet<E> intern(NestedSet<E> set) {
+    if (!enabled()) {
+      return set;
+    }
+    Class<?> elementClass = getElementClass(set.children);
+    if (elementClass == null
+        || !NestedSetsShouldBeInternedByEquality.class.isAssignableFrom(elementClass)
+        || StarlarkValue.class.isAssignableFrom(elementClass)) {
+      return set;
+    }
+    return equalityInterner.internImpl(set);
   }
 
   public static void clear() {
@@ -141,21 +180,23 @@ public final class NestedSetInterner {
     equalityInterner.clearImpl();
   }
 
+  /** Returns the class of a representative element, or null if the set is empty. */
   @Nullable
-  private static NestedSetInterner getInterner(Object[] array) {
-    // Pick the interner, if any, to use based on a representative element of the nested set.
-    while (array.length > 0 && array[0] instanceof Object[]) {
-      array = (Object[]) array[0];
+  private static Class<?> getElementClass(Object children) {
+    while (children instanceof Object[] array) {
+      if (array.length == 0) {
+        return null;
+      }
+      children = array[0];
     }
-    if (array.length == 0) {
-      // Should never happen in practice via calls from NestedSet.create().
-      return null;
-    }
-    return getInterner(array[0].getClass());
+    return children.getClass();
   }
 
   @Nullable
-  private static NestedSetInterner getInterner(Class<?> elementClass) {
+  private static NestedSetInterner getInterner(@Nullable Class<?> elementClass) {
+    if (elementClass == null) {
+      return null;
+    }
     if (String.class.isAssignableFrom(elementClass)
         || NestedSetsShouldBeInternedByEquality.class.isAssignableFrom(elementClass)) {
       return equalityInterner;
