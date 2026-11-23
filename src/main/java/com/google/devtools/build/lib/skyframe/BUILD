@@ -3392,6 +3392,30 @@ java_library(
 )
 
 java_library(
+    name = "transitive_target_counter",
+    srcs = [
+        "SkyframeTransitiveTargetCounter.java",
+        "TransitiveClosureCounter.java",
+    ],
+    deps = [
+        ":action_lookup_values_traversal",
+        ":aspect_key_creator",
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/collect:object_to_int_map",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "action_lookup_values_traversal",
     srcs = ["ActionLookupValuesTraversal.java"],
     deps = [
@@ -3905,7 +3929,6 @@ java_library(
         "LoadAspectsFunction.java",
         "SkyframeBuildView.java",
         "SkyframeExecutor.java",
-        "SkyframeTransitiveTargetCounter.java",
     ],
     deps = [
         ":about_to_clear_analysis_cache_event",
@@ -4082,7 +4105,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_attribute_transition_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",

@@ -278,6 +278,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_counter",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",

@@ -91,6 +91,19 @@ public final class ObjectToIntMapTest {
   }
 
   @Test
+  public void getUnsynchronized_returnsSameAsGet() {
+    ObjectToIntMap<Key> map = new ObjectToIntMap<>();
+    for (int i = 0; i < 1000; i++) {
+      map.put(collidingKey(i), i);
+    }
+
+    for (int i = 0; i < 1000; i++) {
+      assertThat(map.getUnsynchronized(collidingKey(i))).isEqualTo(i);
+    }
+    assertThat(map.getUnsynchronized(collidingKey(1000))).isEqualTo(-1);
+  }
+
+  @Test
   public void collidingHashCodes() {
     ObjectToIntMap<Key> map = new ObjectToIntMap<>();
     for (int i = 0; i < 1000; i++) {

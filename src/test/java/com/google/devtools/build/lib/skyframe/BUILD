@@ -179,7 +179,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_counter",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -188,6 +188,21 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/mockito",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "TransitiveClosureCounterTest",
+    srcs = ["TransitiveClosureCounterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_counter",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//third_party/java/junit",
         "//third_party/java/truth",
     ],
 )
