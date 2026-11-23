@@ -23,9 +23,11 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -33,6 +35,9 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.TaskGroup;
+import com.google.devtools.build.lib.concurrent.TaskGroup.Joiners;
+import com.google.devtools.build.lib.concurrent.TaskGroup.Policies;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentVariableValue;
@@ -48,6 +53,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -55,12 +62,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -193,13 +203,21 @@ public abstract sealed class RepoRecordedInput {
   public static Optional<String> isAnyValueOutdated(
       Environment env, BlazeDirectories directories, List<WithValue> recordedInputValues)
       throws InterruptedException {
-    prefetch(env, directories, Collections2.transform(recordedInputValues, WithValue::input));
+    var prefetched =
+        prefetch(env, directories, Collections2.transform(recordedInputValues, WithValue::input));
     if (env.valuesMissing()) {
       return UNDECIDED;
     }
+    // Read all files that have to be digested in parallel, but still compare values in order so
+    // that the reported reason doesn't depend on timing.
+    Map<File, MaybeValue> fileValues =
+        File.digestInParallel(requireNonNull(prefetched), directories, recordedInputValues);
     for (var recordedInput : recordedInputValues) {
+      var fileValue = fileValues.get(recordedInput.input());
       Optional<String> reason =
-          recordedInput.input().isOutdated(env, directories, recordedInput.value());
+          fileValue != null
+              ? recordedInput.input().isOutdated(fileValue, recordedInput.value())
+              : recordedInput.input().isOutdated(env, directories, recordedInput.value());
       if (reason.isPresent()) {
         return reason;
       }
@@ -209,15 +227,18 @@ public abstract sealed class RepoRecordedInput {
 
   /**
    * Requests the information from Skyframe that is required by future calls to {@link
-   * #isAnyValueOutdated} for the given set of inputs.
+   * #isAnyValueOutdated} for the given set of inputs and returns the lookup result, or {@code null}
+   * if values were already missing.
    */
-  public static void prefetch(
+  @CanIgnoreReturnValue
+  @Nullable
+  public static SkyframeLookupResult prefetch(
       Environment env, BlazeDirectories directories, Collection<RepoRecordedInput> recordedInputs)
       throws InterruptedException {
     var keys =
         recordedInputs.stream().map(rri -> rri.getSkyKey(directories)).collect(toImmutableSet());
     if (env.valuesMissing()) {
-      return;
+      return null;
     }
     var results = env.getValuesAndExceptions(keys);
     // Per the contract of Environment.getValuesAndExceptions, we need to access the results to
@@ -225,6 +246,7 @@ public abstract sealed class RepoRecordedInput {
     for (SkyKey key : keys) {
       var unused = results.get(key);
     }
+    return results;
   }
 
   /**
@@ -242,6 +264,10 @@ public abstract sealed class RepoRecordedInput {
     if (env.valuesMissing()) {
       return UNDECIDED;
     }
+    return isOutdated(wrappedNewValue, oldValue);
+  }
+
+  private Optional<String> isOutdated(MaybeValue wrappedNewValue, @Nullable String oldValue) {
     return switch (wrappedNewValue) {
       case MaybeValue.Invalid(String reason) -> Optional.of(reason);
       case MaybeValue.Valid(String newValue) ->
@@ -546,12 +572,67 @@ public abstract sealed class RepoRecordedInput {
       if (fileValue == null) {
         return MaybeValue.VALUES_MISSING;
       }
+      return getValue((RootedPath) skyKey.argument(), fileValue);
+    }
+
+    private MaybeValue getValue(RootedPath rootedPath, FileValue fileValue) {
       try {
-        return new MaybeValue.Valid(
-            fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+        return new MaybeValue.Valid(fileValueToMarkerValue(rootedPath, fileValue));
       } catch (IOException e) {
         return new MaybeValue.Invalid("failed to stat %s: %s".formatted(path, e.getMessage()));
       }
+    }
+
+    /**
+     * Computes the values of those file inputs among the given ones that require reading the file,
+     * in parallel, using the {@link FileValue}s looked up by {@link #prefetch}.
+     */
+    private static Map<File, MaybeValue> digestInParallel(
+        SkyframeLookupResult prefetched,
+        BlazeDirectories directories,
+        List<WithValue> recordedInputValues)
+        throws InterruptedException {
+      // Look up all FileValues before forking: only this thread may use the lookup result, and
+      // nothing may throw between forking and joining.
+      var digestTasks = new HashMap<File, Supplier<MaybeValue>>();
+      for (var recordedInput : recordedInputValues) {
+        if (recordedInput.input() instanceof File file) {
+          var skyKey = file.getSkyKey(directories);
+          var fileValue = (FileValue) prefetched.get(skyKey);
+          if (fileValue != null
+              && fileValue.exists()
+              && !fileValue.isDirectory()
+              && fileValue.realFileStateValue().getDigest() == null) {
+            digestTasks.put(file, () -> file.getValue((RootedPath) skyKey.argument(), fileValue));
+          }
+        }
+      }
+      if (digestTasks.isEmpty()) {
+        return ImmutableMap.of();
+      }
+      // Starting a thread per file costs more than digesting a small file, so split the files into
+      // one chunk per processor.
+      var chunks =
+          Iterables.partition(
+              digestTasks.entrySet(),
+              Math.ceilDiv(digestTasks.size(), Runtime.getRuntime().availableProcessors()));
+      var values = ImmutableMap.<File, MaybeValue>builderWithExpectedSize(digestTasks.size());
+      try (var group =
+          TaskGroup.open(
+              Policies.<Map<File, MaybeValue>>allSuccessful(),
+              Joiners.<Map<File, MaybeValue>>allSuccessfulOrThrow())) {
+        for (var chunk : chunks) {
+          group.fork(
+              () ->
+                  chunk.stream()
+                      .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue().get())));
+        }
+        group.join().forEach(values::putAll);
+      } catch (ExecutionException e) {
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(e.getCause());
+      }
+      return values.buildOrThrow();
     }
 
     @Override
