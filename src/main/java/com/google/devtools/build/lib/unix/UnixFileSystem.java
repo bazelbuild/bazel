@@ -201,7 +201,9 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       throws IOException {
     int oldMode = stat(path, /* followSymlinks= */ true).getPermissions();
     int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
-    chmod(path, newMode);
+    if (newMode != oldMode) {
+      chmod(path, newMode);
+    }
   }
 
   @Override
