@@ -122,7 +122,8 @@ public final class RemoteWorker {
           "The specified hash function '" + value + "' is not supported.", e);
     }
     return OS.getCurrent() == OS.WINDOWS
-        ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
+        ? new WindowsFileSystem(
+            hashFunction, /* createSymbolicLinks= */ true, /* createDirectorySymbolicLinks= */ false)
         : new UnixFileSystem(
             hashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
   }

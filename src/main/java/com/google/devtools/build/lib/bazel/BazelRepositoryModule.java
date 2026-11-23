@@ -627,8 +627,8 @@ public class BazelRepositoryModule extends BlazeModule {
               // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
               // To work around this, we create a symlink <external>/bazel-external -> <external>.
               // Directory symlinks resolve through <vendor dir>/bazel-external instead. Keep this
-              // workaround even with --windows_enable_symlinks: ensureSymbolicLink can reuse a
-              // junction created by an older Bazel or with symlinks disabled.
+              // workaround even with directory symlinks enabled: ensureSymbolicLink can reuse a
+              // junction created by an older Bazel or with directory symlinks disabled.
               FileSystemUtils.ensureSymbolicLink(
                   externalRoot.getRelative(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
             }

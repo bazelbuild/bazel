@@ -93,6 +93,25 @@ TEST_F(StartupOptionsTest, JavaLoggingOptions) {
             startup_options_->java_logging_formatter);
 }
 
+TEST_F(StartupOptionsTest, WindowsDirectorySymlinksOption) {
+  std::string error;
+  EXPECT_FALSE(startup_options_->windows_enable_directory_symlinks);
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            startup_options_->ProcessArgs(
+                {RcStartupFlag("somewhere",
+                               "--windows_enable_directory_symlinks")},
+                &error))
+      << error;
+  EXPECT_TRUE(startup_options_->windows_enable_directory_symlinks);
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            startup_options_->ProcessArgs(
+                {RcStartupFlag("somewhere",
+                               "--nowindows_enable_directory_symlinks")},
+                &error))
+      << error;
+  EXPECT_FALSE(startup_options_->windows_enable_directory_symlinks);
+}
+
 TEST_F(StartupOptionsTest, OutputUserRootTildeExpansion) {
 #if defined(_WIN32)
   std::string home_str = "C:/nonexistent/home/";

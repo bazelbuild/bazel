@@ -83,11 +83,18 @@ public class WindowsFileOperationsTest {
 
   @Test
   public void testSymlinkCreationForDirectory() throws Exception {
+    File targetDir = testUtil.scratchDir("dir").toFile();
     testUtil.scratchFile("dir/file.txt", "hello");
     testUtil.createSymlinks(ImmutableMap.of("symlink", "dir"));
     var link = java.nio.file.Path.of(scratchRoot, "symlink");
     assertThat(Files.isSymbolicLink(link)).isTrue();
     assertThat(Files.readString(link.resolve("file.txt"))).isEqualTo("hello\n");
+
+    assertThat(WindowsFileOperations.deletePath(link.toString())).isTrue();
+    assertThat(targetDir.exists()).isTrue();
+    assertThrows(
+        FileNotFoundException.class,
+        () -> WindowsFileOperations.isSymlinkOrJunction(link.toString()));
   }
 
   @Test

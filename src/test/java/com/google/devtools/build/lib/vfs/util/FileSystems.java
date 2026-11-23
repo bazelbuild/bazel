@@ -29,7 +29,10 @@ public final class FileSystems {
   /** Constructs a platform native (Unix or Windows) file system. */
   public static FileSystem getNativeFileSystem(DigestHashFunction digestHashFunction) {
     if (OS.getCurrent() == OS.WINDOWS) {
-      return new WindowsFileSystem(digestHashFunction, /* createSymbolicLinks= */ true);
+      return new WindowsFileSystem(
+          digestHashFunction,
+          /* createSymbolicLinks= */ true,
+          /* createDirectorySymbolicLinks= */ false);
     } else {
       return new UnixFileSystem(
           digestHashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());

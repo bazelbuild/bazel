@@ -64,7 +64,11 @@ public class WindowsFileSystemTest {
 
   @Before
   public void createScratchDir() throws Exception {
-    fs = new WindowsFileSystem(DigestHashFunction.SHA256, createSymbolicLinks);
+    fs =
+        new WindowsFileSystem(
+            DigestHashFunction.SHA256,
+            createSymbolicLinks,
+            /* createDirectorySymbolicLinks= */ false);
     scratchRoot = TestUtils.createUniqueTmpDir(fs);
     testUtil = new WindowsTestUtil(scratchRoot.getPathString());
   }
@@ -301,10 +305,16 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testSymbolicLinkToExistingFile(@TestParameter SymlinkTargetType targetType)
+  public void testSymbolicLinkToExistingFile(
+      @TestParameter SymlinkTargetType targetType,
+      @TestParameter boolean createDirectorySymbolicLinks)
       throws Exception {
-    Path linkPath = scratchRoot.getRelative("link");
-    Path targetPath = scratchRoot.getRelative("target");
+    WindowsFileSystem linkFs =
+        new WindowsFileSystem(
+            DigestHashFunction.SHA256, createSymbolicLinks, createDirectorySymbolicLinks);
+    Path root = linkFs.getPath(scratchRoot.asFragment());
+    Path linkPath = root.getRelative("link");
+    Path targetPath = root.getRelative("target");
     assertThat(targetPath.getParentDirectory().exists()).isTrue();
     assertThat(targetPath.getParentDirectory().isDirectory()).isTrue();
     FileSystemUtils.writeContentAsLatin1(targetPath, "hello");
@@ -328,11 +338,17 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testSymbolicLinkToExistingDirectory(@TestParameter SymlinkTargetType targetType)
+  public void testSymbolicLinkToExistingDirectory(
+      @TestParameter SymlinkTargetType targetType,
+      @TestParameter boolean createDirectorySymbolicLinks)
       throws Exception {
-    Path linkPath = scratchRoot.getRelative("link");
+    WindowsFileSystem linkFs =
+        new WindowsFileSystem(
+            DigestHashFunction.SHA256, createSymbolicLinks, createDirectorySymbolicLinks);
+    Path root = linkFs.getPath(scratchRoot.asFragment());
+    Path linkPath = root.getRelative("link");
     Path linkChildPath = linkPath.getRelative("hello.txt");
-    Path targetPath = scratchRoot.getRelative("target");
+    Path targetPath = root.getRelative("target");
     Path targetChildPath = targetPath.getRelative("hello.txt");
     targetPath.createDirectory();
     FileSystemUtils.writeContentAsLatin1(targetChildPath, "hello");
@@ -353,10 +369,15 @@ public class WindowsFileSystemTest {
   }
 
   @Test
-  public void testRelativeSymlinkUnderDirectoryLink(@TestParameter boolean targetExists)
+  public void testRelativeSymlinkUnderDirectoryLink(
+      @TestParameter boolean targetExists, @TestParameter boolean createDirectorySymbolicLinks)
       throws Exception {
-    Path view = scratchRoot.getRelative("view");
-    Path store = scratchRoot.getRelative("store");
+    WindowsFileSystem linkFs =
+        new WindowsFileSystem(
+            DigestHashFunction.SHA256, createSymbolicLinks, createDirectorySymbolicLinks);
+    Path root = linkFs.getPath(scratchRoot.asFragment());
+    Path view = root.getRelative("view");
+    Path store = root.getRelative("store");
     Path target = store.getRelative("repo");
     Path link = view.getRelative("repo");
     view.createDirectory();
@@ -373,13 +394,16 @@ public class WindowsFileSystemTest {
 
     // The VFS currently makes symlink targets absolute on Windows, so use NIO for the inner link.
     Files.createSymbolicLink(
-        fs.getNioPath(target.getRelative("relative").asFragment()), Paths.get("../marker.txt"));
+        linkFs.getNioPath(target.getRelative("relative").asFragment()), Paths.get("../marker.txt"));
 
     // Read through the alias without explicitly resolving it first. Junctions and directory
     // symlinks are both reported as symlinks by the VFS, but use different parents for the inner
     // link. This also exercises the directory hint when the outer link is dangling.
     assertThat(FileSystemUtils.readContent(link.getRelative("relative"), ISO_8859_1))
-        .isEqualTo(createSymbolicLinks ? "physical parent" : "logical parent");
+        .isEqualTo(
+            createSymbolicLinks && createDirectorySymbolicLinks
+                ? "physical parent"
+                : "logical parent");
   }
 
   @Test

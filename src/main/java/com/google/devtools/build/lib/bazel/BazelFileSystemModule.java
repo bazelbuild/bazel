@@ -89,7 +89,10 @@ public class BazelFileSystemModule extends BlazeModule {
     FileSystem fs =
         switch (OS.getCurrent()) {
           case WINDOWS ->
-              new WindowsFileSystem(digestHashFunction, options.getEnableWindowsSymlinks());
+              new WindowsFileSystem(
+                  digestHashFunction,
+                  options.getEnableWindowsSymlinks(),
+                  options.getEnableWindowsDirectorySymlinks());
           default ->
               new UnixFileSystem(
                   digestHashFunction,

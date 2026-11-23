@@ -41,10 +41,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final boolean createSymbolicLinks;
+  private final boolean createDirectorySymbolicLinks;
 
-  public WindowsFileSystem(DigestHashFunction hashFunction, boolean createSymbolicLinks) {
+  public WindowsFileSystem(
+      DigestHashFunction hashFunction,
+      boolean createSymbolicLinks,
+      boolean createDirectorySymbolicLinks) {
     super(hashFunction);
     this.createSymbolicLinks = createSymbolicLinks;
+    this.createDirectorySymbolicLinks = createDirectorySymbolicLinks;
   }
 
   @Override
@@ -89,6 +94,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     FileStatus stat = statIfFound(targetPath, /* followSymlinks= */ true);
     boolean existingFile = stat != null && stat.isFile();
     boolean existingDirectory = stat != null && stat.isDirectory();
+    // Prefer the existing target's type over the hint for dangling links.
+    boolean directory = existingDirectory || (!existingFile && type == SymlinkTargetType.DIRECTORY);
 
     try {
       Path link = getNioPath(linkPath);
@@ -97,12 +104,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
         Files.copy(target, link);
-      } else if (createSymbolicLinks) {
-        // Prefer the existing target's type over the hint, which is only needed for dangling links.
-        WindowsFileOperations.createSymlink(
-            link.toString(),
-            target.toString(),
-            existingDirectory || (!existingFile && type == SymlinkTargetType.DIRECTORY));
+      } else if (createSymbolicLinks && (!directory || createDirectorySymbolicLinks)) {
+        WindowsFileOperations.createSymlink(link.toString(), target.toString(), directory);
       } else {
         // Otherwise, create a junction.
         WindowsFileOperations.createJunction(link.toString(), target.toString());

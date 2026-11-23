@@ -308,6 +308,9 @@ class StartupOptions {
   // developer mode to be enabled.
   bool windows_enable_symlinks;
 
+  // Whether to create directory symlinks when Windows symlinks are enabled.
+  bool windows_enable_directory_symlinks;
+
   // Whether to use a remote cache to store the contents of reproducible
   // external repositories.
   bool remote_repo_contents_cache;
