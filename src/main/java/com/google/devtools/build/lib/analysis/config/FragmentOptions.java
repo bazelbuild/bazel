@@ -25,7 +25,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -247,19 +246,19 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    * Helper method for subclasses to normalize list of map entries by keeping only the last entry
    * for each key. The order of the entries is preserved.
    */
-  protected static <V> List<Map.Entry<String, V>> normalizeEntries(
-      List<Map.Entry<String, V>> entries) {
-    LinkedHashMap<String, V> normalizedEntries = new LinkedHashMap<>();
-    for (Map.Entry<String, V> entry : entries) {
-      normalizedEntries.put(entry.getKey(), entry.getValue());
+  protected static <K, V> List<Map.Entry<K, V>> normalizeEntries(List<Map.Entry<K, V>> entries) {
+    if (entries.size() <= 1) {
+      return entries;
+    }
+    LinkedHashMap<K, Map.Entry<K, V>> normalizedEntries = new LinkedHashMap<>();
+    for (Map.Entry<K, V> entry : entries) {
+      normalizedEntries.put(entry.getKey(), entry);
     }
     // If we made no changes, return the same instance we got to reduce churn.
     if (normalizedEntries.size() == entries.size()) {
       return entries;
     }
-    return normalizedEntries.entrySet().stream()
-        .map(AbstractMap.SimpleEntry::new)
-        .collect(toImmutableList());
+    return ImmutableList.copyOf(normalizedEntries.values());
   }
 
   /**
