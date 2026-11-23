@@ -326,6 +326,12 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             pip, "rules_python++pip",
             myext, "dep++myext",
             myext2, "dep++myext2");
+    assertThat(value.getModuleExtensionForRepo(RepositoryName.create("dep++myext2+repo")))
+        .hasValue(myext2);
+    assertThat(value.getModuleExtensionForRepo(RepositoryName.create("dep++myext+repo+extra")))
+        .hasValue(myext);
+    assertThat(value.getModuleExtensionForRepo(RepositoryName.create("dep++myext3+repo")))
+        .isEmpty();
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
