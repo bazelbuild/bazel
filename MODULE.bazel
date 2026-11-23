@@ -183,6 +183,9 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//third_party:protobuf.patch",
+        # Avoid LLVM 23 AArch64 Windows SEH backend crash on upb's inline asm
+        # in upb/wire/internal/encoder.c (encode_longvarint).
+        "//third_party:protobuf-upb-win-arm64.patch",
     ],
     version = "36.2",
 )

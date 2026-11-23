@@ -354,6 +354,7 @@ platform(
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
         "@llvm//constraints/windows/abi:msvc",
+        "@llvm//constraints/cxxstdlib:msvcstl",
     ],
 )
 
