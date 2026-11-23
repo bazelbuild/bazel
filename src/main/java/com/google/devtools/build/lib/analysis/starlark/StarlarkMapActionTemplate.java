@@ -225,6 +225,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             spawnActionBuilder,
             () -> repoMapping,
             inputTreeArtifactsToChildren.keySet(),
+            getReadableAdditionalInputs(),
             ImmutableSet.copyOf(outputDirectories.values()),
             getExecutionInfo(),
             isSubdirectoryAllowed,
@@ -286,6 +287,28 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     } finally {
       context.close();
     }
+  }
+
+  /**
+   * Returns the files in {@code additional_inputs} that the implementation function can read.
+   *
+   * <p>Files nested in a depset or {@link FilesToRunProvider} aren't readable since their metadata
+   * isn't available to the template expansion without additional Skyframe lookups. The contents of
+   * directories, symlinks and files with constant metadata either can't be read or wouldn't
+   * invalidate the expansion when they change.
+   */
+  private ImmutableSet<Artifact> getReadableAdditionalInputs() {
+    ImmutableSet.Builder<Artifact> readableAdditionalInputs = ImmutableSet.builder();
+    for (Object value : additionalInputs.values()) {
+      if (value instanceof Artifact artifact
+          && !artifact.isDirectory()
+          && !artifact.isSymlink()
+          && !artifact.isRunfilesTree()
+          && !artifact.isConstantMetadata()) {
+        readableAdditionalInputs.add(artifact);
+      }
+    }
+    return readableAdditionalInputs.build();
   }
 
   @Override

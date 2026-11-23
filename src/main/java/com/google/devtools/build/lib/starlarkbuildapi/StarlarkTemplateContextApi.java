@@ -89,8 +89,12 @@ public interface StarlarkTemplateContextApi extends StarlarkValue {
         @Param(
             name = "file",
             doc =
-                "The file to read. Must be one of the files in the <code>children</code> of one of"
-                    + " the input directories of this template.")
+                "The file to read. Must either be one of the files in the <code>children</code> of"
+                    + " one of the input directories of this template or a file that is a value"
+                    + " of <code>additional_inputs</code>. Files in depsets or"
+                    + " <code>FilesToRunProvider</code>s in <code>additional_inputs</code> can't"
+                    + " be read, and neither can directories, unresolved symlinks or"
+                    + " <code>ctx.version_file</code>.")
       })
   String read(FileApi file) throws EvalException, InterruptedException;
 

@@ -238,6 +238,7 @@ java_library(
     deps = [
         ":action_input_map_helper",
         ":action_template_expansion_value",
+        ":artifact_function",
         ":metadata_consumer_for_metrics",
         ":skyframe_action_executor",
         ":tree_artifact_value",

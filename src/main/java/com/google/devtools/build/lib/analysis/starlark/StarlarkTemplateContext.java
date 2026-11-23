@@ -51,6 +51,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final SpawnAction.Builder spawnActionBuilder;
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
   private final ImmutableSet<TreeArtifact> inputDirectories;
+  private final ImmutableSet<Artifact> readableAdditionalInputs;
   private final ImmutableSet<TreeArtifact> outputDirectories;
   private final ImmutableMap<String, String> executionInfo;
   private final boolean isSubdirectoryAllowed;
@@ -64,6 +65,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       SpawnAction.Builder spawnActionBuilder,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
       ImmutableSet<TreeArtifact> inputDirectories,
+      ImmutableSet<Artifact> readableAdditionalInputs,
       ImmutableSet<TreeArtifact> outputDirectories,
       ImmutableMap<String, String> executionInfo,
       boolean isSubdirectoryAllowed,
@@ -74,6 +76,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     this.spawnActionBuilder = spawnActionBuilder;
     this.repoMappingSupplier = repoMappingSupplier;
     this.inputDirectories = inputDirectories;
+    this.readableAdditionalInputs = readableAdditionalInputs;
     this.outputDirectories = outputDirectories;
     this.executionInfo = executionInfo;
     this.isSubdirectoryAllowed = isSubdirectoryAllowed;
@@ -211,13 +214,21 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
   @Override
   public String read(FileApi file) throws EvalException, InterruptedException {
-    if (!(file instanceof TreeFileArtifact treeFileArtifact)
-        || !inputDirectories.contains(treeFileArtifact.getParent())) {
+    boolean readable =
+        switch (file) {
+          case TreeFileArtifact treeFileArtifact ->
+              inputDirectories.contains(treeFileArtifact.getParent());
+          case Artifact artifact -> readableAdditionalInputs.contains(artifact);
+          default -> false;
+        };
+    if (!readable) {
       throw Starlark.errorf(
-          "Cannot read %s, which is not a file in one of the input directories", file);
+          "Cannot read %s, which is neither a file in one of the input directories nor a regular"
+              + " file passed directly in additional_inputs",
+          file);
     }
     try {
-      return new String(inputFileReader.read(treeFileArtifact), ISO_8859_1);
+      return new String(inputFileReader.read((Artifact) file), ISO_8859_1);
     } catch (IOException e) {
       throw new EvalException("Failed to read %s: %s".formatted(file, e.getMessage()), e);
     }

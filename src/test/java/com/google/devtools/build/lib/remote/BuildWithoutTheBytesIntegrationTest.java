@@ -827,7 +827,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     buildTarget("//a:my");
     waitDownloads();
 
-    assertOutputEquals(getOutputPath("a/my.out/file-hello"), "hello");
+    assertOutputEquals(getOutputPath("a/my.out/file-hello-world"), "hello");
   }
 
   @Test

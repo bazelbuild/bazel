@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -58,6 +61,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -124,7 +128,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
 
     var inputMetadata = new ActionInputMap(inputTreeArtifacts.size());
-    var inputFileReader = new TreeFileArtifactReader(inputMetadata);
+    var inputFileReader = new TemplateInputFileReader(actionTemplate, inputMetadata, result);
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
@@ -215,19 +219,31 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   }
 
   /**
-   * Reads the files in the input tree artifacts of an {@link ActionTemplate} and records the ones
-   * that are no longer available.
+   * Reads the input files of an {@link ActionTemplate} and records the ones that are no longer
+   * available.
    */
-  private final class TreeFileArtifactReader implements InputFileReader {
+  private final class TemplateInputFileReader implements InputFileReader {
+    private final ActionTemplate<?> actionTemplate;
+    // Initially contains the metadata of the files in the input tree artifacts. The metadata of
+    // other files is added when they are read.
     private final ActionInputMap inputMetadata;
+    private final SkyframeLookupResult inputValues;
     @Nullable private ImmutableSetMultimap<String, ActionInput> lostInputs;
 
-    TreeFileArtifactReader(ActionInputMap inputMetadata) {
+    TemplateInputFileReader(
+        ActionTemplate<?> actionTemplate,
+        ActionInputMap inputMetadata,
+        SkyframeLookupResult inputValues) {
+      this.actionTemplate = actionTemplate;
       this.inputMetadata = inputMetadata;
+      this.inputValues = inputValues;
     }
 
     @Override
-    public byte[] read(TreeFileArtifact file) throws IOException, InterruptedException {
+    public byte[] read(Artifact file) throws IOException, InterruptedException {
+      if (!(file instanceof TreeFileArtifact) && inputMetadata.getInputMetadata(file) == null) {
+        addMetadataOfDirectInput(file);
+      }
       try (SilentCloseable c =
           skyframeActionExecutor
               .getOutputService()
@@ -255,6 +271,18 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
         }
         return FileSystemUtils.readContent(file.getPath());
       }
+    }
+
+    private void addMetadataOfDirectInput(Artifact file) throws FileNotFoundException {
+      // Only the keys of the direct inputs of the template have been requested. Since the
+      // expansion depends on them, it's reevaluated when the contents of the file change and the
+      // action generating the file can be rewound if the contents are lost.
+      SkyValue value = inputValues.get(Artifact.key(file));
+      checkArgument(value != null, "%s is not a direct input of %s", file, actionTemplate);
+      if (value instanceof MissingArtifactValue) {
+        throw new FileNotFoundException("missing input file");
+      }
+      ActionInputMapHelper.addToMap(inputMetadata, file, value, MetadataConsumerForMetrics.NO_OP);
     }
   }
 

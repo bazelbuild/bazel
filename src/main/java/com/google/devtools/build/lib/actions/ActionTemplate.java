@@ -75,7 +75,8 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    *     TreeArtifact} the tree file artifact is from.
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
-   * @param inputFileReader provides the contents of the {@code inputTreeFileArtifacts}
+   * @param inputFileReader provides the contents of the {@code inputTreeFileArtifacts} and the
+   *     other files among the direct elements of {@link #getInputs}
    * @param eventHandler the {@link EventHandler} to report events to.
    * @return a list of expanded {@link Action}s to execute
    */
@@ -86,17 +87,19 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException;
 
-  /** Reads the contents of the input {@link TreeFileArtifact}s of an {@link ActionTemplate}. */
+  /** Reads the contents of the input files of an {@link ActionTemplate}. */
   @FunctionalInterface
   interface InputFileReader {
 
     /**
-     * Returns the contents of the given {@link TreeFileArtifact}, downloading it from a remote
-     * cache if necessary.
+     * Returns the contents of the given input file, downloading it from a remote cache if
+     * necessary.
      *
-     * @param file a {@link TreeFileArtifact} passed to {@link #generateActionsForInputArtifacts}
+     * @param file a {@link TreeFileArtifact} passed to {@link #generateActionsForInputArtifacts} or
+     *     a file that is a direct element of {@link #getInputs}, but not a file nested in one of
+     *     its transitive sets
      */
-    byte[] read(TreeFileArtifact file) throws IOException, InterruptedException;
+    byte[] read(Artifact file) throws IOException, InterruptedException;
   }
 
   /** Returns the input TreeArtifacts. */
