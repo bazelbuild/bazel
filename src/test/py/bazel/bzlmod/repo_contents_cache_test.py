@@ -19,12 +19,15 @@ import json
 import os
 import pathlib
 import shutil
+import subprocess
 import tempfile
 import time
 
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
+from src.test.py.bazel.bzlmod.test_utils import integrity
+from src.test.py.bazel.bzlmod.test_utils import read
 
 
 class RepoContentsCacheTest(test_base.TestBase):
@@ -402,6 +405,70 @@ class RepoContentsCacheTest(test_base.TestBase):
     with open(os.path.join(repo_dir_b, 'aaa.sh')) as f:
       self.assertIn('(remotely patched)', f.read())
     self.assertTrue(os.path.exists(os.path.join(repo_dir_b, 'overlay.txt')))
+
+  def testCacheHitAcrossWorkspacesWithWorkspaceRegistry_gitRepository(self):
+    # Two checkouts of a workspace that contains a registry with a module
+    # backed by a git repository outside the workspace.
+    dir_a = self.ScratchDir('a')
+    registry = BazelRegistry(os.path.join(dir_a, 'registry'))
+    git_dir = self.Path('aaa_git')
+    shutil.move(str(registry.generateShSource('aaa', '1.0')), git_dir)
+    for args in [
+        ['init'],
+        ['config', 'user.email', 'example@bazel-dev.org'],
+        ['config', 'user.name', 'example'],
+        ['add', '--all'],
+        ['commit', '-m', 'Initialize'],
+    ]:
+      subprocess.check_output(['git'] + args, cwd=git_dir)
+    commit = subprocess.check_output(
+        ['git', 'rev-parse', 'HEAD'], cwd=git_dir, universal_newlines=True
+    ).strip()
+    patch_file = self.ScratchFile(
+        'a/registry/modules/aaa/1.0/patches/aaa.patch',
+        [
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0"',
+            '+    lib_name="aaa@1.0 (remotely patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
+            ' }',
+        ],
+    )
+    registry.createGitRepoModule(
+        'aaa',
+        '1.0',
+        git_dir,
+        commit=commit,
+        patches={'aaa.patch': integrity(read(patch_file))},
+        patch_strip=1,
+    )
+    self.ScratchFile(
+        'a/MODULE.bazel', ['bazel_dep(name = "aaa", version = "1.0")']
+    )
+    self.ScratchFile('a/BUILD.bazel')
+    self.ScratchFile(
+        'a/.bazelrc',
+        [
+            'common --registry=file:///%workspace%/registry',
+            'common --registry=https://bcr.bazel.build',
+        ],
+    )
+    dir_b = self.Path('b')
+    shutil.copytree(dir_a, dir_b)
+
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_a)
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_b)
+
+    repo_dir_a = self.repoDir('aaa', cwd=dir_a)
+    repo_dir_b = self.repoDir('aaa', cwd=dir_b)
+    self.assertRepoCached(repo_dir_a)
+    self.assertEqual(os.path.realpath(repo_dir_a), os.path.realpath(repo_dir_b))
+    with open(os.path.join(repo_dir_b, 'aaa.sh')) as f:
+      self.assertIn('(remotely patched)', f.read())
 
   def testGc_singleServer_gcAfterCacheHit(self):
     self.ScratchFile(
