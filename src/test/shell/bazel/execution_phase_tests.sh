@@ -144,6 +144,43 @@ EOF
   assert_cache_stats "miss count" 1  # volatile-status.txt
 }
 
+function test_cache_computed_file_digests_used_without_execution() {
+  # Module extensions compute the digests of the files they watch while loading.
+  # A server that never executes actions should cache these digests, too.
+  cat >> MODULE.bazel <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "repo")
+EOF
+  touch BUILD
+  cat > ext.bzl <<'EOF'
+def _repo_impl(rctx):
+    rctx.file("BUILD", "filegroup(name = 'repo')")
+
+_repo = repository_rule(_repo_impl)
+
+def _ext_impl(mctx):
+    mctx.read(Label("//:unchanged.txt"))
+    mctx.read(Label("//:touched.txt"))
+    _repo(name = "repo")
+
+ext = module_extension(_ext_impl)
+EOF
+  echo unchanged > unchanged.txt
+  echo touched > touched.txt
+
+  bazel query @repo//:repo >>"${TEST_log}" 2>&1 || fail "Should query"
+  # Touching a watched file without changing its contents makes Bazel compute
+  # the digests of all files watched by the extension again.
+  touch touched.txt
+  bazel query @repo//:repo >>"${TEST_log}" 2>&1 || fail "Should query"
+
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
+  grep "Cache stats for finished command" "${java_log}" >"${TEST_log}" || true
+  # The digest of unchanged.txt is reused.
+  expect_log "hit count=[1-9]"
+}
+
 function DISABLED_test_cache_computed_file_digests_uncaught_changes() {
   # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
   local timestamp=201703151112.13  # Fixed timestamp to mark our file with.

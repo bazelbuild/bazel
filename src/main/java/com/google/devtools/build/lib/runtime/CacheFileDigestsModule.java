@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.common.options.Options;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */
 public class CacheFileDigestsModule extends BlazeModule {
@@ -51,17 +52,37 @@ public class CacheFileDigestsModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    if (lastKnownCacheSize == null
-        || options.getCacheSizeForComputedFileDigests() != lastKnownCacheSize) {
-      logger.atInfo().log(
-          "Reconfiguring cache with size=%d", options.getCacheSizeForComputedFileDigests());
-      DigestUtils.configureCache(options.getCacheSizeForComputedFileDigests());
-      lastKnownCacheSize = options.getCacheSizeForComputedFileDigests();
+  public void beforeCommand(CommandEnvironment env) {
+    // Repository rules and module extensions compute the digests of watched files while loading,
+    // which happens before executorInit and also for commands that don't execute anything (e.g.
+    // query). Set up the cache if this hasn't happened yet, but otherwise leave its size to
+    // commands that execute so that other commands don't reset it.
+    if (lastKnownCacheSize == null) {
+      ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
+      configureCache(
+          (options != null ? options : Options.getDefaults(ExecutionOptions.class))
+              .getCacheSizeForComputedFileDigests());
     }
+    startStats();
+  }
 
-    if (options.getCacheSizeForComputedFileDigests() == 0) {
+  @Override
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    int cacheSize = request.getOptions(ExecutionOptions.class).getCacheSizeForComputedFileDigests();
+    if (lastKnownCacheSize == null || cacheSize != lastKnownCacheSize) {
+      configureCache(cacheSize);
+      startStats();
+    }
+  }
+
+  private void configureCache(int cacheSize) {
+    logger.atInfo().log("Reconfiguring cache with size=%d", cacheSize);
+    DigestUtils.configureCache(cacheSize);
+    lastKnownCacheSize = cacheSize;
+  }
+
+  private void startStats() {
+    if (lastKnownCacheSize == 0) {
       stats = null;
       logger.atInfo().log("Disabled cache");
     } else {
@@ -77,7 +98,7 @@ public class CacheFileDigestsModule extends BlazeModule {
       Preconditions.checkNotNull(newStats, "The cache is enabled so we must get some stats back");
       logStats("Accumulated cache stats after command", newStats);
       logStats("Cache stats for finished command", newStats.minus(stats));
-      stats = null; // Silence stats until next command that uses the executor.
+      stats = null; // Silence stats until the next command.
     }
   }
 }
