@@ -67,6 +67,9 @@ common:windows --extra_execution_platforms=//:windows_host_platform
 common:windows --host_platform=//:windows_host_platform
 common:windows --experimental_override_name_platform_in_output_dir=//:windows_host_platform=w
 common:windows --experimental_override_name_platform_in_output_dir=//:windows_arm64=wa
+# Link Rust binaries via cc_common.link so clang-cl is invoked as a C++ driver
+# instead of as link.exe (see https://github.com/hermeticbuild/hermetic-llvm/issues/910).
+common:windows --@rules_rust//rust/settings:experimental_use_cc_common_link=true
 
 # The Bazel client only talks to the server via 127.0.0.1/[::1], so it never
 # needs a DNS resolver. Disable gRPC's c-ares based resolver to avoid building

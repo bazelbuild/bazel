@@ -1,0 +1,13 @@
+--- a/rs/toolchains/declare_rustc_toolchains.bzl
++++ b/rs/toolchains/declare_rustc_toolchains.bzl
+@@ -240,6 +240,9 @@ def _declare_rustc_toolchains(
+                     "advapi32.lib",
+                     "ws2_32.lib",
+                     "userenv.lib",
+                     "Bcrypt.lib",
++                    "ntdll.lib",
++                    "synchronization.lib",
++                    "dbghelp.lib",
+                 ],
+                 "//conditions:default": [],
+             }),

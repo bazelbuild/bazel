@@ -144,6 +144,7 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//third_party:rules_rs_0.2.4_host_cargo.patch",
+        "//third_party:rules_rs_0.2.4_windows_msvc_linkflags.patch",
     ],
     version = "0.2.4",
 )
