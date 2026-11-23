@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static java.util.Objects.requireNonNull;
 
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -41,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
@@ -65,7 +68,31 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
     assertThat(result).containsExactlyElementsIn(expectedLabels);
   }
 
-  // TODO: blaze-configurability-team - Test errors
+  @Test
+  public void patternErrorOtherThanTargetParsingException(@TestParameter boolean keepGoing)
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name = 'ext', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext+1.0/BUILD.bazel").getPathString(), "filegroup(name = 'foo')");
+    // TargetPatternFunction doesn't rethrow errors from IgnoredSubdirectoriesValue, so the pattern
+    // fails with this InvalidIgnorePathException rather than a TargetParsingException.
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext+1.0/.bazelignore").getPathString(), "/absolute/path");
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'ext', version = '1.0')");
+    invalidatePackages();
+
+    ExpandTargetPatternKey key =
+        new ExpandTargetPatternKey(ImmutableList.of("@ext//:all"), FilteringPolicies.NO_FILTER);
+    EvaluationResult<ExpandTargetPatternValue> result = expandTargetPattern(key, keepGoing);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(InvalidIgnorePathException.class);
+  }
+
   // TODO: blaze-configurability-team - Test relative labels
   // TODO: blaze-configurability-team - Test filtering policies
 
@@ -181,11 +208,15 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
 
   private EvaluationResult<ExpandTargetPatternValue> expandTargetPattern(ExpandTargetPatternKey key)
       throws InterruptedException {
+    return expandTargetPattern(key, /* keepGoing= */ false);
+  }
+
+  private EvaluationResult<ExpandTargetPatternValue> expandTargetPattern(
+      ExpandTargetPatternKey key, boolean keepGoing) throws InterruptedException {
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
       skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
-      return SkyframeExecutorTestUtils.evaluate(
-          skyframeExecutor, key, /* keepGoing= */ false, reporter);
+      return SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, keepGoing, reporter);
     } finally {
       skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
     }

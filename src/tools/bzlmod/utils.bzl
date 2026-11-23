@@ -118,7 +118,9 @@ def parse_http_artifacts(ctx, lockfile_paths, required_repos):
 
     missing_repos = [repo for repo in required_repos if repo not in found_repos]
     if missing_repos:
-        fail("Could not find all required repos, missing: %s" % missing_repos)
+        fail(("Could not find all required repos, missing: %s. If the lockfile was rewritten " +
+              "by a different version of Bazel, run `bazel mod deps --lockfile_mode=update` to " +
+              "record all of them.") % missing_repos)
 
     return http_artifacts
 

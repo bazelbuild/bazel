@@ -100,7 +100,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPathString()).isNull();
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(info.getPythonVersion()).isEqualTo("PY3");
   }
 
   @Test
@@ -112,7 +112,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(info.getPythonVersion()).isEqualTo("PY3");
   }
 
   @Test

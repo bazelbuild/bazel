@@ -150,6 +150,7 @@ public abstract class BuildEventServiceOptions extends OptionsBase {
           Specifies the maximal size of stdout or stderr to be buffered in BEP, before it is
           reported as a progress event. Individual writes are still reported in a single
           event, even if larger than the specified value up to `--bes_outerr_chunk_size`.
+          Buffered output is reported at least once per second regardless of this value.
           """)
   public abstract int getBesOuterrBufferSize();
 

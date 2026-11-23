@@ -20,6 +20,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",

@@ -44,6 +44,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
@@ -162,6 +163,49 @@ public class NestedSetStore {
       return priorFingerprint;
     }
 
+    // Resolve transitive children first so duplicate child fingerprints can be dropped before
+    // writing the element count. Keeping the first occurrence preserves toList() order for every
+    // Order, including LINK_ORDER.
+    Object[] resolvedContents = new Object[contents.length];
+    int resolvedCount = 0;
+    PutOperation firstChildPut = null;
+    HashSet<PackedFingerprint> seenChildFingerprints = null;
+    ImmutableList.Builder<WriteStatus> futureBuilder = ImmutableList.builder();
+
+    for (int i = 0; i < contents.length; i++) {
+      Object child = contents[i];
+      if (child instanceof Object[] childArray) {
+        PutOperation childPut =
+            computeFingerprintAndStore(childArray, serializationContext, cacheContext);
+        PackedFingerprint childFingerprint = childPut.fingerprint();
+        if (firstChildPut == null) {
+          firstChildPut = childPut;
+        } else if (seenChildFingerprints == null) {
+          if (childFingerprint.equals(firstChildPut.fingerprint())) {
+            continue;
+          }
+          seenChildFingerprints = HashSet.newHashSet(contents.length - i + 1);
+          seenChildFingerprints.add(firstChildPut.fingerprint());
+          seenChildFingerprints.add(childFingerprint);
+        } else if (!seenChildFingerprints.add(childFingerprint)) {
+          continue;
+        }
+        resolvedContents[resolvedCount++] = childFingerprint;
+        futureBuilder.add(childPut.writeStatus());
+      } else {
+        resolvedContents[resolvedCount++] = child;
+      }
+    }
+
+    if (resolvedCount == 1 && firstChildPut != null) {
+      // Every entry collapsed to a single transitive child. Reuse its fingerprint directly so we
+      // never write a length-1 array, which would violate NestedSet's invariant that arrays have
+      // at least two elements.
+      PutOperation existingResult =
+          nestedSetCache.putContentsToFingerprintIfAbsent(contents, firstChildPut);
+      return existingResult != null ? existingResult : firstChildPut;
+    }
+
     // For every fingerprint computation, we need to use a new memoization table.  This is required
     // to guarantee that the same child will always have the same fingerprint - otherwise,
     // differences in memoization context could cause part of a child to be memoized in one
@@ -172,19 +216,10 @@ public class NestedSetStore {
     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
 
-    ImmutableList.Builder<WriteStatus> futureBuilder = ImmutableList.builder();
     try {
-      codedOutputStream.writeInt32NoTag(contents.length);
-      for (Object child : contents) {
-        if (child instanceof Object[]) {
-          PutOperation fingerprintComputationResult =
-              computeFingerprintAndStore((Object[]) child, serializationContext, cacheContext);
-          futureBuilder.add(fingerprintComputationResult.writeStatus());
-          newSerializationContext.serialize(
-              fingerprintComputationResult.fingerprint(), codedOutputStream);
-        } else {
-          newSerializationContext.serialize(child, codedOutputStream);
-        }
+      codedOutputStream.writeInt32NoTag(resolvedCount);
+      for (int i = 0; i < resolvedCount; i++) {
+        newSerializationContext.serialize(resolvedContents[i], codedOutputStream);
       }
       codedOutputStream.flush();
     } catch (IOException e) {

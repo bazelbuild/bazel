@@ -81,7 +81,6 @@ public final class LabelBuildSettings {
   private static RuleClass buildRuleClass(RuleClass.Builder builder, boolean flag) {
     return builder
         .removeAttribute("licenses")
-        .removeAttribute("distribs")
         .removeAttribute(":action_listener")
         .add(attr(":alias", LABEL).value(ACTUAL))
         .add(

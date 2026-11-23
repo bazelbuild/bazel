@@ -149,8 +149,7 @@ public class RunfilesTreeUpdater {
       runfilesDir.createDirectoryAndParents();
     }
 
-    SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifest, outputManifest, runfilesDir, tree.getWorkspaceName());
+    SymlinkTreeHelper helper = new SymlinkTreeHelper(inputManifest, outputManifest, runfilesDir);
 
     switch (tree.getSymlinksMode()) {
       case CREATE -> {

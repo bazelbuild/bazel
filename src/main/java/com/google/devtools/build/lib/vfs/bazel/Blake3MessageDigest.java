@@ -13,10 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.bazel;
 
+import static java.lang.foreign.ValueLayout.ADDRESS;
+import static java.lang.foreign.ValueLayout.JAVA_INT;
+
 import com.google.devtools.build.lib.jni.JniLoader;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemoryLayout;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
+import java.lang.invoke.MethodHandle;
 import java.nio.ByteBuffer;
 import java.security.DigestException;
 import java.security.MessageDigest;
+import java.util.Objects;
 
 /** A {@link MessageDigest} for BLAKE3. */
 public final class Blake3MessageDigest extends MessageDigest {
@@ -29,24 +39,120 @@ public final class Blake3MessageDigest extends MessageDigest {
     JniLoader.loadJni();
   }
 
-  private static final int STATE_SIZE = hasher_size();
-  private static final byte[] INITIAL_STATE = new byte[STATE_SIZE];
+  // All functions are bound with Linker.Option.critical, which avoids the
+  // overhead of a full native call transition. This is safe as they neither
+  // block nor call back into Java. Passing allowHeapAccess as true makes it
+  // possible to pass heap arrays to the native functions directly, without
+  // copying. A critical call delays safepoints until it returns, so each call
+  // hashes at most MAX_CRITICAL_INPUT_LENGTH bytes.
+  private static final Linker LINKER = Linker.nativeLinker();
+  private static final SymbolLookup LOOKUP = SymbolLookup.loaderLookup();
+  private static final MemoryLayout SIZE_T = LINKER.canonicalLayouts().get("size_t");
+  private static final MethodHandle HASHER_UPDATE =
+      LINKER.downcallHandle(
+          findSymbol("blake3_hasher_update"),
+          FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, SIZE_T),
+          Linker.Option.critical(/* allowHeapAccess= */ true));
+  private static final MethodHandle HASHER_FINALIZE =
+      LINKER.downcallHandle(
+          findSymbol("blake3_hasher_finalize"),
+          FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, SIZE_T),
+          Linker.Option.critical(/* allowHeapAccess= */ true));
+  private static final MethodHandle HASH =
+      LINKER.downcallHandle(
+          findSymbol("blaze_blake3_hash"),
+          FunctionDescriptor.ofVoid(ADDRESS, SIZE_T, ADDRESS),
+          Linker.Option.critical(/* allowHeapAccess= */ true));
 
-  static {
-    initialize_hasher(INITIAL_STATE);
+  // Hashing this many bytes takes tens of microseconds. It is a multiple of the
+  // input size that the widest SIMD implementations process in parallel.
+  private static final int MAX_CRITICAL_INPUT_LENGTH = 64 * 1024;
+
+  /**
+   * Looks up a native symbol, throwing {@link UnsatisfiedLinkError} just like a JNI method would if
+   * it is missing. {@link BazelHashFunctions} relies on this error to detect that the native
+   * library was built without the blake3 symbols when bootstrapping Bazel.
+   */
+  private static MemorySegment findSymbol(String name) {
+    return LOOKUP
+        .find(name)
+        .orElseThrow(() -> new UnsatisfiedLinkError("undefined symbol: " + name));
   }
 
-  private final byte[] hasher = new byte[STATE_SIZE];
+  // A blake3_hasher right after blake3_hasher_init. The struct only consists
+  // of integers and arrays, so copies of it are valid hasher states. It
+  // contains uint64_t fields, which the elements of a long[] are aligned for.
+  private static final long[] INITIAL_STATE;
+
+  static {
+    MethodHandle hasherSize =
+        LINKER.downcallHandle(
+            findSymbol("blaze_blake3_hasher_size"),
+            FunctionDescriptor.of(JAVA_INT),
+            Linker.Option.critical(/* allowHeapAccess= */ false));
+    MethodHandle hasherInit =
+        LINKER.downcallHandle(
+            findSymbol("blake3_hasher_init"),
+            FunctionDescriptor.ofVoid(ADDRESS),
+            Linker.Option.critical(/* allowHeapAccess= */ true));
+    try {
+      int stateSize = (int) hasherSize.invokeExact();
+      INITIAL_STATE = new long[(stateSize + Long.BYTES - 1) / Long.BYTES];
+      hasherInit.invokeExact(MemorySegment.ofArray(INITIAL_STATE));
+    } catch (Throwable t) {
+      throw new ExceptionInInitializerError(t);
+    }
+  }
+
+  private final long[] state = INITIAL_STATE.clone();
   private final byte[] oneByteArray = new byte[1];
 
   public Blake3MessageDigest() {
     super("BLAKE3");
-    System.arraycopy(INITIAL_STATE, 0, hasher, 0, STATE_SIZE);
+  }
+
+  /** Returns the BLAKE3 digest of the given range of bytes. */
+  static byte[] hash(byte[] data, int offset, int length) {
+    var input = MemorySegment.ofArray(data).asSlice(offset, length);
+    var out = new byte[OUT_LEN];
+    if (length <= MAX_CRITICAL_INPUT_LENGTH) {
+      try {
+        HASH.invokeExact(input, (long) length, MemorySegment.ofArray(out));
+      } catch (Throwable t) {
+        throw new AssertionError(t);
+      }
+    } else {
+      var state = MemorySegment.ofArray(INITIAL_STATE.clone());
+      update(state, input);
+      writeOutput(state, out);
+    }
+    return out;
+  }
+
+  private static void update(MemorySegment state, MemorySegment input) {
+    long length = input.byteSize();
+    for (long start = 0; start < length; start += MAX_CRITICAL_INPUT_LENGTH) {
+      long sliceLength = Math.min(length - start, MAX_CRITICAL_INPUT_LENGTH);
+      try {
+        HASHER_UPDATE.invokeExact(state, input.asSlice(start, sliceLength), sliceLength);
+      } catch (Throwable t) {
+        throw new AssertionError(t);
+      }
+    }
+  }
+
+  private static void writeOutput(MemorySegment state, byte[] out) {
+    try {
+      HASHER_FINALIZE.invokeExact(state, MemorySegment.ofArray(out), (long) out.length);
+    } catch (Throwable t) {
+      throw new AssertionError(t);
+    }
   }
 
   @Override
   public void engineUpdate(byte[] data, int offset, int length) {
-    blake3_hasher_update(hasher, data, offset, length);
+    Objects.checkFromIndexSize(offset, length, data.length);
+    update(MemorySegment.ofArray(state), MemorySegment.ofArray(data).asSlice(offset, length));
   }
 
   @Override
@@ -60,12 +166,17 @@ public final class Blake3MessageDigest extends MessageDigest {
     super.engineUpdate(input);
   }
 
-  private byte[] getOutput(int outputLength) {
-    byte[] retByteArray = new byte[outputLength];
-    blake3_hasher_finalize(hasher, retByteArray, outputLength);
+  /** Returns the digest of the input so far without resetting this instance. */
+  byte[] digestWithoutReset() {
+    var out = new byte[OUT_LEN];
+    writeOutput(MemorySegment.ofArray(state), out);
+    return out;
+  }
 
+  private byte[] getOutput() {
+    byte[] out = digestWithoutReset();
     engineReset();
-    return retByteArray;
+    return out;
   }
 
   @Override
@@ -75,7 +186,7 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   @Override
   public void engineReset() {
-    System.arraycopy(INITIAL_STATE, 0, hasher, 0, STATE_SIZE);
+    System.arraycopy(INITIAL_STATE, 0, state, 0, state.length);
   }
 
   @Override
@@ -85,7 +196,7 @@ public final class Blake3MessageDigest extends MessageDigest {
 
   @Override
   public byte[] engineDigest() {
-    return getOutput(OUT_LEN);
+    return getOutput();
   }
 
   @Override
@@ -97,17 +208,8 @@ public final class Blake3MessageDigest extends MessageDigest {
       throw new DigestException("insufficient space in the output buffer to store the digest");
     }
 
-    byte[] digestBytes = getOutput(OUT_LEN);
+    byte[] digestBytes = getOutput();
     System.arraycopy(digestBytes, 0, buf, off, digestBytes.length);
     return digestBytes.length;
   }
-
-  public static final native int hasher_size();
-
-  public static final native void initialize_hasher(byte[] hasher);
-
-  public static final native void blake3_hasher_update(
-      byte[] hasher, byte[] input, int offset, int inputLen);
-
-  public static final native void blake3_hasher_finalize(byte[] hasher, byte[] out, int outLen);
 }

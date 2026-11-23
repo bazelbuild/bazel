@@ -29,6 +29,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -154,6 +155,22 @@ public class CoreOptionConverters {
     @Override
     public String getTypeDescription() {
       return "a build target label";
+    }
+  }
+
+  /** A converter from comma-separated strings to an {@link ImmutableSet} of {@link Label}s. */
+  public static class LabelSetConverter implements Converter<ImmutableSet<Label>> {
+    private static final LabelListConverter LABEL_LIST_CONVERTER = new LabelListConverter();
+
+    @Override
+    public ImmutableSet<Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
+      return ImmutableSet.copyOf(LABEL_LIST_CONVERTER.convert(input, conversionContext));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a comma-separated set of build target labels";
     }
   }
 

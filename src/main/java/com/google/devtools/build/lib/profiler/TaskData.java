@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.INDENT_
 import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.NO_INDENT;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +29,6 @@ import javax.annotation.Nullable;
  *
  * <p>Class itself is not thread safe, but all access to it from Profiler methods is.
  */
-@ScOnly
 @ThreadCompatible
 class TaskData implements TraceData {
   final long threadId;

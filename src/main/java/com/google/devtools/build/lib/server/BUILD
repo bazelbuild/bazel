@@ -85,7 +85,6 @@ java_library(
     }),
     deps = [
         ":grpc_command_server",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
@@ -106,7 +105,6 @@ java_library(
 java_library(
     name = "grpc_command_server",
     srcs = ["GrpcCommandServer.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
@@ -115,7 +113,6 @@ java_library(
     deps = [
         ":grpc_command_server",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -126,7 +123,6 @@ java_library(
         ":grpc_command_server",
         ":grpc_command_server_impl",
         ":grpc_command_server_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 

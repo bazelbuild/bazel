@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -97,6 +98,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -730,7 +732,7 @@ public final class StarlarkRuleContext
   @Override
   public String getWorkspaceName() throws EvalException {
     checkMutable("workspace_name");
-    return ruleContext.getWorkspaceName();
+    return LabelConstants.MAIN_REPO_DIR_NAME;
   }
 
   @Override
@@ -884,7 +886,7 @@ public final class StarlarkRuleContext
 
       // When tracking required fragments, use a key-tracking dict to support lookedUpVariables().
       cachedMakeVariables =
-          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+          ruleContext.shouldIncludeMakeVariablesInRequiredConfigFragments()
               ? vars.buildImmutableWithKeyTracking()
               : vars.buildImmutable();
     }
@@ -893,7 +895,8 @@ public final class StarlarkRuleContext
 
   /** Returns the set of variables accessed through {@code ctx.var}. */
   public ImmutableSet<String> lookedUpVariables() {
-    Preconditions.checkState(ruleContext.shouldIncludeRequiredConfigFragmentsProvider(), this);
+    Preconditions.checkState(
+        ruleContext.shouldIncludeMakeVariablesInRequiredConfigFragments(), this);
     return cachedMakeVariables == null
         ? ImmutableSet.of()
         : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();
@@ -1074,9 +1077,17 @@ public final class StarlarkRuleContext
       throws EvalException {
     checkMutable("expand_location");
     try {
+      var locationTargets = Sequence.cast(targets, TransitiveInfoCollection.class, "targets");
+      if (!input.contains("$(")) {
+        validateUniqueLocationTargets(locationTargets);
+        if (shortPaths) {
+          checkPrivateAccess(thread);
+        }
+        return input;
+      }
       ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
           makeLabelMap(
-              Sequence.cast(targets, TransitiveInfoCollection.class, "targets"),
+              locationTargets,
               thread
                   .getSemantics()
                   .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE));
@@ -1097,6 +1108,20 @@ public final class StarlarkRuleContext
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
+  private static void validateUniqueLocationTargets(Sequence<TransitiveInfoCollection> targets)
+      throws EvalException {
+    if (targets.size() < 2) {
+      return;
+    }
+    var labels = HashSet.<Label>newHashSet(targets.size());
+    for (TransitiveInfoCollection target : targets) {
+      Label label = AliasProvider.getDependencyLabel(target);
+      if (!labels.add(label)) {
+        throw duplicateLocationTarget(label);
+      }
+    }
+  }
+
   @Override
   public Runfiles runfiles(
       Sequence<?> files,
@@ -1112,7 +1137,7 @@ public final class StarlarkRuleContext
       checkPrivateAccess(thread);
     }
     checkMutable("runfiles");
-    Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
+    Runfiles.Builder builder = new Runfiles.Builder();
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
       RunfilesSupport.addRunfiles(builder, ruleContext, RunfilesProvider.DATA_RUNFILES);
@@ -1332,9 +1357,7 @@ public final class StarlarkRuleContext
     for (TransitiveInfoCollection current : knownLabels) {
       Label label = AliasProvider.getDependencyLabel(current);
       if (targetsMap.containsKey(label)) {
-        throw Starlark.errorf(
-            "Label %s is found more than once in 'targets' list.",
-            Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
+        throw duplicateLocationTarget(label);
       }
 
       var filesToRunProvider = current.getProvider(FilesToRunProvider.class);
@@ -1356,5 +1379,11 @@ public final class StarlarkRuleContext
     }
 
     return ImmutableMap.copyOf(targetsMap);
+  }
+
+  private static EvalException duplicateLocationTarget(Label label) {
+    return Starlark.errorf(
+        "Label %s is found more than once in 'targets' list.",
+        Starlark.repr(label.toString(), StarlarkSemantics.DEFAULT));
   }
 }

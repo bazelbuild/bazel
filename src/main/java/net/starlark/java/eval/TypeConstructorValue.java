@@ -25,7 +25,7 @@ import net.starlark.java.syntax.Types;
  * certain symbols that represent Starlark-defined types, such as type aliases.
  *
  * <p>Not all Starlark values that can be used as type constructors are instances of this class. For
- * example, builtin symbols like {@code list} and {@code dict} are instead instances of {@link
+ * example, builtin symbols like {@code list} and {@code dict} are instead instances of {@code
  * BuiltinFunction.BuiltinTypeFunction}.
  */
 public final class TypeConstructorValue implements StarlarkTypeValue, TypeConstructor {

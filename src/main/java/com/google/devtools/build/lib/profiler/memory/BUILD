@@ -44,7 +44,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -57,7 +56,6 @@ java_library(
     deps = [
         ":allocation_tracker_installer",
         ":allocation_tracker_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 
@@ -65,7 +63,6 @@ java_library(
     name = "allocation_tracker_installer",
     srcs = ["AllocationTrackerInstaller.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//third_party/java/allocation_instrumenter",
         "//third_party/java/allocation_instrumenter:sampler",
     ],
@@ -96,6 +93,7 @@ java_library(
         ":current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party/java/caffeine",

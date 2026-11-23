@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
-@SkybridgeInterface
 public interface BuildEventServiceClient {
-
-
 
   /** Callback for ACKed build events. */
   @FunctionalInterface

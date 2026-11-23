@@ -72,21 +72,17 @@ public interface InMemoryNodeEntry extends NodeEntry {
   MarkedDirtyResult markDirty(DirtyType dirtyType);
 
   /**
-   * Atomically checks {@link #getLifecycleState} and marks this node changed if in {@link
-   * LifecycleState#CHECK_DEPENDENCIES}.
+   * Atomically promotes this node from {@link DirtyType#DIRTY} to {@link DirtyType#CHANGE} if it is
+   * in {@link LifecycleState#CHECK_DEPENDENCIES} and has not yet been scheduled for evaluation.
    *
-   * <p>Logically equivalent to the following, except executed atomically to avoid a check-then-act
-   * race:
+   * <p>Does nothing if the node is not in {@link LifecycleState#CHECK_DEPENDENCIES} or if it has
+   * already been scheduled for evaluation, in which case the evaluator may already be partway
+   * through checking the node's dependencies.
    *
-   * <pre>{@code
-   * LifecycleState state = entry.getLifecycleState();
-   * if (state == LifecycleState.CHECK_DEPENDENCIES) {
-   *   entry.markDirty(DirtyType.CHANGE);
-   * }
-   * return state;
-   * }</pre>
+   * <p>The check and the promotion are executed atomically so that the node cannot be scheduled in
+   * between.
    *
    * @return the lifecycle state observed before potentially marking this node changed
    */
-  LifecycleState markChangedIfCheckingDependencies();
+  LifecycleState tryPromoteDirtyToChanged();
 }

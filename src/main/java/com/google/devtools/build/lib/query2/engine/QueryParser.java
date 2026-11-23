@@ -14,20 +14,18 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.query2.engine.Lexer.BINARY_OPERATORS;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.util.stream.Collectors.joining;
 
+import com.google.auto.value.AutoBuilder;
+import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * LL(1) recursive descent parser for the Blaze query language, revision 2.
@@ -37,9 +35,10 @@ import java.util.Map;
  *
  * <pre>
  * expr ::= WORD
+ *        | PLACEHOLDER
  *        | LET WORD = expr IN expr
  *        | '(' expr ')'
- *        | WORD '(' expr ( ',' expr ) * ')'
+ *        | WORD '(' ( expr ( ',' expr ) * ) ? ')'
  *        | expr INTERSECT expr
  *        | expr '^' expr
  *        | expr UNION expr
@@ -51,40 +50,114 @@ import java.util.Map;
  */
 public final class QueryParser {
 
+  private static final int MAX_QUERY_EXPRESSION_LOG_CHARS = 1000;
+
+  /**
+   * Configuration options for {@link QueryParser}.
+   *
+   * @param allowPlaceholders whether unquoted {@code @(name)} tokens are parsed as {@link
+   *     QueryAst.Placeholder} nodes
+   * @param maxQueryDepth maximum allowed expression nesting depth. Unnested leaf tokens ({@code
+   *     WORD} and {@code PLACEHOLDER}) have depth {@code 0}; each enclosing parenthesized
+   *     expression, function call, {@code set(...)} expression, {@code let} binding, or distinct
+   *     binary-operator group adds {@code 1} to the nesting depth.
+   */
+  public record ParserOptions(boolean allowPlaceholders, int maxQueryDepth) {
+    /**
+     * Default parser options ({@code allowPlaceholders = false}, {@code maxQueryDepth =
+     * Integer.MAX_VALUE}).
+     */
+    public static final ParserOptions DEFAULT = builder().build();
+
+    public ParserOptions {
+      checkArgument(maxQueryDepth >= 0, "maxQueryDepth must be non-negative: %s", maxQueryDepth);
+    }
+
+    public static Builder builder() {
+      return new AutoBuilder_QueryParser_ParserOptions_Builder()
+          .setAllowPlaceholders(false)
+          .setMaxQueryDepth(Integer.MAX_VALUE);
+    }
+
+    public Builder toBuilder() {
+      return builder().setAllowPlaceholders(allowPlaceholders).setMaxQueryDepth(maxQueryDepth);
+    }
+
+    /** Builder for {@link ParserOptions}. */
+    @AutoBuilder
+    public abstract static class Builder {
+      public abstract Builder setAllowPlaceholders(boolean allowPlaceholders);
+
+      public abstract Builder setMaxQueryDepth(int maxQueryDepth);
+
+      public abstract ParserOptions build();
+    }
+  }
+
+  private record ParsedNode(QueryAst ast, int subtreeDepth) {}
+
   private Lexer.Token token; // current lookahead token
   private final List<Lexer.Token> tokens;
-  private final Iterator<Lexer.Token> tokenIterator;
-  private final Map<String, QueryFunction> functions;
-  private final Map<String, Integer> boundVariables = new HashMap<>();
+  private final ParserOptions options;
+  private int tokenIndex = -1;
 
-  /** Scan and parse the specified query expression. */
-  public static QueryExpression parse(String query, QueryEnvironment<?> env)
-      throws QuerySyntaxException {
-    HashMap<String, QueryFunction> functions = new HashMap<>();
-    for (QueryFunction queryFunction : env.getFunctions()) {
-      functions.put(queryFunction.getName(), queryFunction);
-    }
-    return parse(query, functions);
+  /**
+   * Scans and parses the specified query expression into an unresolved {@link QueryAst} using the
+   * default {@link ParserOptions}.
+   *
+   * @throws QuerySyntaxException if the query has a syntax error.
+   */
+  public static QueryAst parse(String query) throws QuerySyntaxException {
+    return parse(query, ParserOptions.DEFAULT);
   }
 
-  public static QueryExpression parse(String query, Map<String, QueryFunction> functions)
-      throws QuerySyntaxException {
-    QueryParser parser = new QueryParser(Lexer.scan(query), functions);
-    QueryExpression expr = parser.parseExpression();
+  /**
+   * Scans and parses the specified query expression into an unresolved {@link QueryAst} using the
+   * provided {@link ParserOptions}.
+   */
+  public static QueryAst parse(String query, ParserOptions options) throws QuerySyntaxException {
+    checkNotNull(query);
+    checkNotNull(options);
+    List<Lexer.Token> tokens = Lexer.scan(query, options.allowPlaceholders());
+    QueryParser parser = new QueryParser(tokens, options);
+    QueryAst ast = parser.parseExpression(/* currentDepth= */ 0).ast();
     if (parser.token.kind != TokenKind.EOF) {
+      String parsedPrefix =
+          Ascii.truncate(
+              query.substring(
+                  tokens.get(0).startOffset, tokens.get(parser.tokenIndex - 1).endOffset),
+              MAX_QUERY_EXPRESSION_LOG_CHARS,
+              "[truncated]");
       throw new QuerySyntaxException(
           String.format(
-              "unexpected token '%s' after query expression '%s'",
-              parser.token, expr.toTrunctatedString()));
+              "unexpected token '%s' after query expression '%s'", parser.token, parsedPrefix));
     }
-    return expr;
+    return ast;
   }
 
-  public QueryParser(List<Lexer.Token> tokens, Map<String, QueryFunction> functions) {
-    this.functions = functions;
+  private QueryParser(List<Lexer.Token> tokens, ParserOptions options) {
     this.tokens = tokens;
-    this.tokenIterator = tokens.iterator();
+    this.options = options;
     nextToken();
+  }
+
+  @CanIgnoreReturnValue
+  private int incrementDepth(int currentDepth) throws QuerySyntaxException {
+    if (currentDepth >= options.maxQueryDepth()) {
+      throw maxDepthExceeded();
+    }
+    return currentDepth + 1;
+  }
+
+  private void checkSubtreeDepth(int ambientDepth, int subtreeDepth) throws QuerySyntaxException {
+    if (subtreeDepth > options.maxQueryDepth() - ambientDepth) {
+      throw maxDepthExceeded();
+    }
+  }
+
+  private QuerySyntaxException maxDepthExceeded() {
+    return new QuerySyntaxException(
+        "query exceeds maximum nesting depth of " + options.maxQueryDepth());
   }
 
   /** Throws a syntax error exception. */
@@ -92,80 +165,22 @@ public final class QueryParser {
   private QuerySyntaxException syntaxError(Lexer.Token token) throws QuerySyntaxException {
     String message = "premature end of input";
     if (token.kind != TokenKind.EOF) {
-      StringBuilder buf = new StringBuilder("syntax error at '");
-      String sep = "";
-      for (int index = tokens.indexOf(token),
-              max = Math.min(tokens.size() - 1, index + 3); // 3 tokens of context
-          index < max;
-          ++index) {
-        buf.append(sep).append(tokens.get(index));
-        sep = " ";
-      }
-      buf.append("'");
-      message = buf.toString();
+      message = "syntax error at '" + inputContextAt(tokenIndex) + "'";
     }
     throw new QuerySyntaxException(message);
   }
 
-  /** Throws an exception indicating that the current token is an unknown function name. */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException unknownFunctionError(Lexer.Token token) throws QuerySyntaxException {
-    checkArgument(token.kind == TokenKind.WORD);
-    StringBuilder buf = new StringBuilder("unknown function '");
-    buf.append(token);
-    buf.append("' at '");
-    appendInputContext(buf, token);
-    buf.append("'; expected one of ['");
-    buf.append(functions.keySet().stream().sorted().collect(joining("', '")));
-    buf.append("']");
-    throw new QuerySyntaxException(buf.toString());
-  }
-
-  /**
-   * Throws an exception indicating that the current function is being called with the wrong number
-   * of arguments.
-   */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException functionArgumentCountError(
-      QueryFunction function, String description) throws QuerySyntaxException {
-    StringBuilder buf = new StringBuilder(description);
-    buf.append(" arguments to function '");
-    buf.append(function.getName());
-    buf.append("' at '");
-    appendInputContext(buf, token);
-    buf.append("'");
-    throw new QuerySyntaxException(buf.toString());
-  }
-
-  /**
-   * Throws an exception indicating that the current function is being called with too few
-   * arguments.
-   */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException tooFewArgumentsError(QueryFunction function)
-      throws QuerySyntaxException {
-    throw functionArgumentCountError(function, "too few");
-  }
-
-  /**
-   * Throws an exception indicating that the current function is being called with too many
-   * arguments.
-   */
-  @CanIgnoreReturnValue
-  private QuerySyntaxException tooManyArgumentsError(QueryFunction function)
-      throws QuerySyntaxException {
-    throw functionArgumentCountError(function, "too many");
-  }
-
-  private void appendInputContext(StringBuilder buf, Lexer.Token token) {
+  private String inputContextAt(int startTokenIndex) {
+    StringBuilder buf = new StringBuilder();
     String sep = "";
-    for (int index = tokens.indexOf(token),
-            max = min(tokens.size() - 1, index + 3); // 3 tokens of context
+    for (int index = startTokenIndex,
+            max = min(tokens.size() - 1, startTokenIndex + 3); // 3 tokens of context
         index < max;
         ++index) {
       buf.append(sep).append(tokens.get(index));
       sep = " ";
     }
+    return buf.toString();
   }
 
   /**
@@ -182,30 +197,14 @@ public final class QueryParser {
     return word;
   }
 
-  /**
-   * Consumes the current token, which must be a WORD containing an integer literal. Returns that
-   * integer, or throws a {@link QuerySyntaxException} otherwise.
-   */
-  private int consumeIntLiteral() throws QuerySyntaxException {
-    String intString = consume(TokenKind.WORD);
-    try {
-      return Integer.parseInt(intString);
-    } catch (
-        @SuppressWarnings("UnusedException")
-        NumberFormatException e) {
-      throw new QuerySyntaxException("expected an integer literal: '" + intString + "'");
-    }
-  }
-
   private void nextToken() {
     if (token == null || token.kind != TokenKind.EOF) {
-      token = tokenIterator.next();
+      tokenIndex++;
+      token = tokens.get(tokenIndex);
     }
   }
 
   /**
-   *
-   *
    * <pre>
    * expr ::= primary
    *        | expr INTERSECT expr
@@ -216,14 +215,12 @@ public final class QueryParser {
    *        | expr '-' expr
    * </pre>
    */
-  private QueryExpression parseExpression() throws QuerySyntaxException {
+  private ParsedNode parseExpression(int currentDepth) throws QuerySyntaxException {
     // All operators are left-associative and of equal precedence.
-    return parseBinaryOperatorTail(parsePrimary());
+    return parseBinaryOperatorTail(parsePrimary(currentDepth), currentDepth);
   }
 
   /**
-   *
-   *
    * <pre>
    * tail ::= ( <op> <primary> )*
    * </pre>
@@ -231,148 +228,176 @@ public final class QueryParser {
    * <p>All operators have equal precedence. This factoring is required for left-associative binary
    * operators in LL(1).
    */
-  private QueryExpression parseBinaryOperatorTail(QueryExpression lhs) throws QuerySyntaxException {
+  private ParsedNode parseBinaryOperatorTail(ParsedNode lhs, int currentDepth)
+      throws QuerySyntaxException {
     if (!BINARY_OPERATORS.contains(token.kind)) {
       return lhs;
     }
 
-    List<QueryExpression> operands = new ArrayList<>();
-    operands.add(lhs);
+    int operandDepth = incrementDepth(currentDepth);
+    int groupMaxOperandDepth = lhs.subtreeDepth();
+    checkSubtreeDepth(operandDepth, groupMaxOperandDepth);
+
+    List<QueryAst> operands = new ArrayList<>();
+    operands.add(lhs.ast());
     TokenKind lastOperator = token.kind;
 
     while (BINARY_OPERATORS.contains(token.kind)) {
       TokenKind operator = token.kind;
       consume(operator);
       if (operator != lastOperator) {
-        lhs = new BinaryOperatorExpression(lastOperator, operands);
+        lhs =
+            new ParsedNode(
+                new QueryAst.BinaryOperator(lastOperator, operands),
+                /* subtreeDepth= */ 1 + groupMaxOperandDepth);
         operands.clear();
-        operands.add(lhs);
+        operands.add(lhs.ast());
         lastOperator = operator;
+        groupMaxOperandDepth = lhs.subtreeDepth();
+        checkSubtreeDepth(operandDepth, groupMaxOperandDepth);
       }
-      QueryExpression rhs = parsePrimary();
-      operands.add(rhs);
+      ParsedNode rhs = parsePrimary(operandDepth);
+      operands.add(rhs.ast());
+      groupMaxOperandDepth = max(groupMaxOperandDepth, rhs.subtreeDepth());
     }
-    return new BinaryOperatorExpression(lastOperator, operands);
+    return new ParsedNode(
+        new QueryAst.BinaryOperator(lastOperator, operands),
+        /* subtreeDepth= */ 1 + groupMaxOperandDepth);
   }
 
   /**
-   *
-   *
    * <pre>
    * primary ::= WORD
-   *           | WORD '(' arg ( ',' arg ) * ')'
+   *           | WORD '(' ( arg ( ',' arg ) * ) ? ')'
+   *           | PLACEHOLDER
    *           | LET WORD = expr IN expr
    *           | '(' expr ')'
-   *           | SET '(' WORD * ')' arg ::= expr
-   *           | WORD
-   *           | INT
+   *           | SET '(' WORD * ')'
    * </pre>
    */
-  private QueryExpression parsePrimary() throws QuerySyntaxException {
-    switch (token.kind) {
+  private ParsedNode parsePrimary(int currentDepth) throws QuerySyntaxException {
+    return switch (token.kind) {
       case WORD -> {
-        Lexer.Token wordToken = token;
+        int wordTokenIndex = tokenIndex;
         String word = consume(TokenKind.WORD);
         if (token.kind == TokenKind.LPAREN) {
-          QueryFunction function = functions.get(word);
-          if (function == null) {
-            throw unknownFunctionError(wordToken);
-          }
-          List<Argument> args = new ArrayList<>();
-          TokenKind tokenKind = TokenKind.LPAREN;
-          int argsSeen = 0;
-          for (ArgumentType type : function.getArgumentTypes()) {
-            if (token.kind == TokenKind.RPAREN) {
-              // Got rparen instead of argument-separating comma.
-              if (argsSeen >= function.getMandatoryArguments()) {
-                break;
-              } else {
-                throw tooFewArgumentsError(function);
-              }
-            }
-
-            // Consume lparen on first iteration, comma on subsequent iterations.
-            consume(tokenKind);
-            tokenKind = TokenKind.COMMA;
-            if (argsSeen == 0 && token.kind == TokenKind.RPAREN) {
-              // Got rparen instead of mandatory first argument.
-              throw tooFewArgumentsError(function);
-            }
-            switch (type) {
-              case EXPRESSION -> args.add(Argument.of(parseExpression()));
-              case WORD -> {
-                String argWord = consume(TokenKind.WORD);
-                if (LetExpression.isValidVarReference(argWord)) {
-                  String varName = LetExpression.getNameFromReference(argWord);
-                  if (boundVariables.getOrDefault(varName, 0) > 0) {
-                    throw new QuerySyntaxException(
-                        String.format(
-                            "variable '$%s' cannot be used as an argument to function '%s'; "
-                                + "variable references are only allowed in expression arguments",
-                            varName, function.getName()));
-                  }
-                }
-                args.add(Argument.of(argWord));
-              }
-              case INTEGER -> args.add(Argument.of(consumeIntLiteral()));
-            }
-
-            argsSeen++;
-          }
-
-          if (token.kind == TokenKind.COMMA && argsSeen > 0) {
-            throw tooManyArgumentsError(function);
-          }
-          consume(TokenKind.RPAREN);
-          return new FunctionExpression(function, args);
-        } else {
-          return validateTargetLiteral(word);
+          yield parseFunctionCallRest(word, wordTokenIndex, currentDepth);
         }
+        validateTargetLiteral(word);
+        yield new ParsedNode(new QueryAst.Word(word), /* subtreeDepth= */ 0);
+      }
+      case PLACEHOLDER -> {
+        Lexer.Token placeholderToken = token;
+        nextToken();
+        yield new ParsedNode(
+            new QueryAst.Placeholder(
+                placeholderToken.word, placeholderToken.startOffset, placeholderToken.endOffset),
+            /* subtreeDepth= */ 0);
       }
       case LET -> {
         consume(TokenKind.LET);
         String name = consume(TokenKind.WORD);
         consume(TokenKind.EQUALS);
-        QueryExpression varExpr = parseExpression();
+        int innerDepth = incrementDepth(currentDepth);
+        ParsedNode varExpr = parseExpression(innerDepth);
         consume(TokenKind.IN);
-        boundVariables.merge(name, 1, Integer::sum);
-        QueryExpression bodyExpr;
-        try {
-          bodyExpr = parseExpression();
-        } finally {
-          boundVariables.compute(name, (k, v) -> (v == null || v <= 1) ? null : v - 1);
-        }
-        return new LetExpression(name, varExpr, bodyExpr);
+        ParsedNode bodyExpr = parseExpression(innerDepth);
+        yield new ParsedNode(
+            new QueryAst.Let(name, varExpr.ast(), bodyExpr.ast()),
+            /* subtreeDepth= */ 1 + max(varExpr.subtreeDepth(), bodyExpr.subtreeDepth()));
       }
       case LPAREN -> {
         consume(TokenKind.LPAREN);
-        QueryExpression expr = parseExpression();
+        int innerDepth = incrementDepth(currentDepth);
+        ParsedNode expr = parseExpression(innerDepth);
         consume(TokenKind.RPAREN);
-        return expr;
+        yield new ParsedNode(
+            new QueryAst.Parenthesized(expr.ast()), /* subtreeDepth= */ 1 + expr.subtreeDepth());
       }
       case SET -> {
         nextToken();
         consume(TokenKind.LPAREN);
-        List<TargetLiteral> words = new ArrayList<>();
+        incrementDepth(currentDepth);
+        List<QueryAst.Word> words = new ArrayList<>();
         while (token.kind == TokenKind.WORD) {
-          words.add(validateTargetLiteral(consume(TokenKind.WORD)));
+          String word = consume(TokenKind.WORD);
+          validateTargetLiteral(word);
+          words.add(new QueryAst.Word(word));
         }
         consume(TokenKind.RPAREN);
-        return new SetExpression(words);
+        yield new ParsedNode(new QueryAst.Set(words), /* subtreeDepth= */ 1);
       }
       default -> throw syntaxError(token);
+    };
+  }
+
+  private ParsedNode parseFunctionCallRest(
+      String functionName, int functionTokenIndex, int currentDepth) throws QuerySyntaxException {
+    String functionContextForErrorMessages = inputContextAt(functionTokenIndex);
+    int lparenIndex = tokenIndex;
+    consume(TokenKind.LPAREN);
+    int argDepth = incrementDepth(currentDepth);
+    List<QueryAst.FunctionArgument> args = new ArrayList<>();
+    int maxArgSubtreeDepth = 0;
+    if (token.kind != TokenKind.RPAREN) {
+      int sepIndex = lparenIndex;
+      while (true) {
+        String separatorContextForErrorMessages = inputContextAt(sepIndex);
+        String argContextForErrorMessages = inputContextAt(tokenIndex);
+        ParsedNode argExpr = parseFunctionArgumentExpression(argDepth);
+        maxArgSubtreeDepth = max(maxArgSubtreeDepth, argExpr.subtreeDepth());
+        args.add(
+            new QueryAst.FunctionArgument(
+                argExpr.ast(), separatorContextForErrorMessages, argContextForErrorMessages));
+        if (token.kind != TokenKind.COMMA) {
+          break;
+        }
+        sepIndex = tokenIndex;
+        consume(TokenKind.COMMA);
+      }
     }
+    String closeParenContextForErrorMessages = inputContextAt(tokenIndex);
+    consume(TokenKind.RPAREN);
+    return new ParsedNode(
+        new QueryAst.FunctionCall(
+            functionName,
+            ImmutableList.copyOf(args),
+            functionContextForErrorMessages,
+            closeParenContextForErrorMessages),
+        /* subtreeDepth= */ 1 + maxArgSubtreeDepth);
+  }
+
+  /**
+   * Parses an argument inside a function call. A standalone {@code WORD} argument is not checked
+   * against {@link #validateTargetLiteral} here because the function's parameter may have type
+   * {@code WORD} or {@code INTEGER} rather than {@code EXPRESSION}.
+   */
+  private ParsedNode parseFunctionArgumentExpression(int currentDepth) throws QuerySyntaxException {
+    if (token.kind == TokenKind.WORD) {
+      int wordTokenIndex = tokenIndex;
+      String word = consume(TokenKind.WORD);
+      if (token.kind == TokenKind.LPAREN) {
+        return parseBinaryOperatorTail(
+            parseFunctionCallRest(word, wordTokenIndex, currentDepth), currentDepth);
+      }
+      if (!BINARY_OPERATORS.contains(token.kind)) {
+        return new ParsedNode(new QueryAst.Word(word), /* subtreeDepth= */ 0);
+      }
+      validateTargetLiteral(word);
+      return parseBinaryOperatorTail(
+          new ParsedNode(new QueryAst.Word(word), /* subtreeDepth= */ 0), currentDepth);
+    }
+    return parseExpression(currentDepth);
   }
 
   /**
    * Unquoted words may not start with a hyphen or asterisk, even though relative target names may
    * start with those characters.
    */
-  private static TargetLiteral validateTargetLiteral(String word) throws QuerySyntaxException {
+  static void validateTargetLiteral(String word) throws QuerySyntaxException {
     if (word.startsWith("-") || word.startsWith("*")) {
       throw new QuerySyntaxException(
-          "target literal must not begin with " + "(" + word.charAt(0) + "): " + word);
+          "target literal must not begin with (" + word.charAt(0) + "): " + word);
     }
-    return new TargetLiteral(word);
   }
 }

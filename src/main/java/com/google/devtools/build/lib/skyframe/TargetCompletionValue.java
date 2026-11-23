@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.StallableSkykey;
 import java.util.Collection;
 import java.util.Set;
 
@@ -50,8 +49,7 @@ public class TargetCompletionValue implements SkyValue {
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link TargetCompletionValue}. */
   @AutoValue
-  public abstract static class TargetCompletionKey
-      implements TopLevelActionLookupKeyWrapper, StallableSkykey {
+  public abstract static class TargetCompletionKey implements TopLevelActionLookupKeyWrapper {
     static TargetCompletionKey create(
         ConfiguredTargetKey actionLookupKey,
         TopLevelArtifactContext topLevelArtifactContext,

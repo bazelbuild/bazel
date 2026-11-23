@@ -138,15 +138,13 @@ public interface OutputService {
    * Starts the build.
    *
    * @param buildId the build identifier
-   * @param workspaceName the name of the workspace in which the build is running
    * @param eventHandler an {@link EventHandler} to inform of events
    * @param finalizeActions whether this build is finalizing actions so that the output service can
    *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
    */
-  ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
+  ModifiedFileSet startBuild(UUID buildId, EventHandler eventHandler, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Flush and wait for in-progress downloads. */
@@ -286,9 +284,19 @@ public interface OutputService {
     SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
         throws InterruptedException;
 
-    /** Guards an action from the beginning to the end of its {@link Action#execute execution}. */
+    /**
+     * Guards an action from the beginning to the end of its {@link Action#execute execution},
+     * during which it may read its {@link Action#getInputs inputs} and the given discovered inputs.
+     *
+     * <p>The discovered inputs are those returned by {@link Action#discoverInputs}, which aren't
+     * necessarily part of {@link Action#getInputs} yet: {@code CppCompileAction}, for example, only
+     * adds them after execution. They are empty for actions that don't discover inputs.
+     */
     SilentCloseable enterActionExecution(
-        Action action, boolean wasRewound, InputMetadataProvider metadataProvider)
+        Action action,
+        boolean wasRewound,
+        NestedSet<Artifact> discoveredInputs,
+        InputMetadataProvider metadataProvider)
         throws InterruptedException;
 
     /**
@@ -317,7 +325,10 @@ public interface OutputService {
 
           @Override
           public SilentCloseable enterActionExecution(
-              Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+              Action action,
+              boolean wasRewound,
+              NestedSet<Artifact> discoveredInputs,
+              InputMetadataProvider metadataProvider) {
             return () -> {};
           }
 

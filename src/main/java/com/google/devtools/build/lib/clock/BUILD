@@ -22,7 +22,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/guava:annotations",
     ],
 )

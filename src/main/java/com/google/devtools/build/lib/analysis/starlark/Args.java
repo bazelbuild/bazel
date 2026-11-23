@@ -23,12 +23,14 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -321,7 +323,7 @@ public abstract class Args implements CommandLineArgsApi {
             "Args.add() doesn't accept vectorized arguments. Please use Args.add_all() or"
                 + " Args.add_joined() instead.");
       }
-      if (value instanceof Label label && !label.getRepository().isMain()) {
+      if (hasExternalLabel(value)) {
         mayStringifyExternalLabel = true;
       }
       addSingleArg(value, format != Starlark.NONE ? (String) format : null);
@@ -453,9 +455,12 @@ public abstract class Args implements CommandLineArgsApi {
       validateFormatString("format_joined", formatJoined);
       StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof Depset starlarkNestedSet) {
-        if (mapEach == null && Label.class.equals(starlarkNestedSet.getElementClass())) {
+        Class<?> elementClass = starlarkNestedSet.getElementClass();
+        if (mapEach == null
+            && (Label.class.equals(elementClass)
+                || TransitiveInfoCollectionApi.class.equals(elementClass))) {
           // We don't want to eagerly check whether all labels reference targets in the main repo,
-          // so just assume they might not. Nested sets of labels should be rare.
+          // so just assume they might not. Nested sets of labels or targets should be rare.
           mayStringifyExternalLabel = true;
         }
         NestedSet<?> nestedSet = starlarkNestedSet.getSet();
@@ -480,7 +485,7 @@ public abstract class Args implements CommandLineArgsApi {
           // Labels referencing targets in the main repo are stringified as //pkg:name and thus
           // don't require a RepositoryMapping. If a map_each function is provided, default
           // stringification via Label#toString() is not used.
-          if (mapEach == null && object instanceof Label label && !label.getRepository().isMain()) {
+          if (mapEach == null && hasExternalLabel(object)) {
             mayStringifyExternalLabel = true;
           }
         }
@@ -550,6 +555,16 @@ public abstract class Args implements CommandLineArgsApi {
 
     private static boolean isDirectory(Object object) {
       return ((object instanceof Artifact) && ((Artifact) object).isDirectory());
+    }
+
+    private static boolean hasExternalLabel(Object object) {
+      Label label =
+          switch (object) {
+            case Label l -> l;
+            case TransitiveInfoCollection target -> target.getLabel();
+            default -> null;
+          };
+      return label != null && !label.getRepository().isMain();
     }
 
     @CanIgnoreReturnValue
@@ -623,6 +638,12 @@ public abstract class Args implements CommandLineArgsApi {
     @Override
     public Mutability mutability() {
       return mutability;
+    }
+
+    @Override
+    public boolean updateIteratorCount(int delta) {
+      // Not iterable.
+      return false;
     }
 
     @Override

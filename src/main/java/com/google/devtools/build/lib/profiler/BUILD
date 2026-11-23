@@ -82,7 +82,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:concurrent",
@@ -132,7 +131,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/gson",
@@ -177,7 +175,6 @@ java_library(
     srcs = ["SystemNetworkStatsService.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -189,7 +186,6 @@ java_library(
     deps = [
         ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party/java/guava:base",
     ],

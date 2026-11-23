@@ -32,7 +32,9 @@ import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.SomePathFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -156,7 +158,9 @@ public final class CqueryCommand implements BlazeCommand {
     }
     QueryExpression expr;
     try {
-      expr = QueryParser.parse(query, functions);
+      expr =
+          QueryExpressionResolver.resolve(
+              QueryParser.parse(query, ParserOptions.DEFAULT), functions);
     } catch (QuerySyntaxException e) {
       String message =
           String.format(

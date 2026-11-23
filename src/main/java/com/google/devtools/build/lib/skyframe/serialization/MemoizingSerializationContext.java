@@ -218,12 +218,11 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       codedOut.writeUInt32NoTag(tagWithType);
       return;
     }
-    // A new entry was added. Emits typedTag `(CodecWireType.UNSTABLE, 1)` to signal an immediate
-    // value, then serializes the value. Note that this placeholder value is *not actually going to
-    // be decoded later using UNSTABLE codec #1*. We just need an unambiguous signal for an
-    // immediate value.
-    int tagWithType = WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1);
-    codedOut.writeUInt32NoTag(tagWithType);
+    // A new entry was added. Emits `LEAF_IMMEDIATE_TYPED_TAG` (`(CodecWireType.UNSTABLE, 1)`) to
+    // signal an immediate value, then serializes the value. Note that this placeholder value is
+    // *not actually going to be decoded later using UNSTABLE codec #1*. We just need an unambiguous
+    // signal for an immediate value.
+    codedOut.writeUInt32NoTag(WireType.LEAF_IMMEDIATE_TYPED_TAG);
     codec.serialize((LeafSerializationContext) this, obj, codedOut);
     // By necessity, a LeafCodec is treated like MEMOIZE_AFTER because when deserializing, the
     // value will only be available as a backreference after its deserialization is complete.

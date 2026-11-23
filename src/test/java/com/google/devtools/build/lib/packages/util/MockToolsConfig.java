@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -142,12 +143,13 @@ public final class MockToolsConfig {
    */
   public void linkTool(String relativePath, String dest) throws IOException {
     Preconditions.checkState(realFileSystem);
-    Path target = runfilesDirectory.getRelative(TestConstants.WORKSPACE_NAME + "/" + relativePath);
+    Path target =
+        runfilesDirectory.getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/" + relativePath);
     if (!target.exists()) {
       // In some cases we run tests in a special client with a ../READONLY/ path where we may also
       // find the runfiles. Try that, too.
       Path readOnlyClientPath =
-          getPath("../READONLY/" + TestConstants.WORKSPACE_NAME + "/" + relativePath);
+          getPath("../READONLY/" + LabelConstants.MAIN_REPO_DIR_NAME + "/" + relativePath);
       if (!readOnlyClientPath.exists()) {
         throw new IOException("target does not exist " + target);
       } else {
@@ -166,7 +168,7 @@ public final class MockToolsConfig {
 
   public void copyTool(String relativePath, String dest) throws IOException {
     PathFragment rlocationPath =
-        PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+        PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME).getRelative(relativePath);
     copyTool(rlocationPath, dest);
   }
 
@@ -203,7 +205,7 @@ public final class MockToolsConfig {
     copyDirectory(
         PathFragment.create(
             runfiles.rlocation(
-                PathFragment.create(TestConstants.WORKSPACE_NAME)
+                PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME)
                     .getRelative(relativeDirPath)
                     .getPathString())),
         relativeDirPath,
@@ -215,7 +217,10 @@ public final class MockToolsConfig {
       throws IOException {
     // Tests are assumed to be run from the main repository only.
     java.nio.file.Path source = nativeFs.getPath(path).getPathFile().toPath();
-    try (Stream<java.nio.file.Path> stream = Files.walk(source, depth)) {
+    // The source may be a junction on Windows, which is a directory only when following links as
+    // of JDK 26.
+    try (Stream<java.nio.file.Path> stream =
+        Files.walk(source, depth, FileVisitOption.FOLLOW_LINKS)) {
       stream
           .filter(f -> f.toFile().isFile())
           .map(f -> source.relativize(f).toString())

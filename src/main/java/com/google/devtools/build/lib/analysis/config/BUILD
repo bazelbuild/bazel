@@ -143,14 +143,6 @@ java_library(
 )
 
 java_library(
-    name = "config_aware_aspect_builder",
-    srcs = ["ConfigAwareAspectBuilder.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
-java_library(
     name = "config_matching_provider",
     srcs = ["ConfigMatchingProvider.java"],
     deps = [
@@ -323,6 +315,8 @@ java_library(
         ":fragment",
         ":fragment_options",
         ":invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party/java/caffeine",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -424,6 +418,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

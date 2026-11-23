@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
 import static com.google.devtools.build.lib.util.StringUtil.formatCount;
 
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyframeTransitiveTargetCounter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
@@ -79,7 +81,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /** Performs target pattern eval, configuration creation, loading and analysis. */
@@ -271,9 +272,9 @@ public final class AnalysisPhaseRunner {
       ImmutableSet<ConfiguredTargetKey> roots =
           targetsToBuild.stream()
               .map(ConfiguredTargetKey::fromConfiguredTarget)
-              .collect(ImmutableSet.toImmutableSet());
-      var unused =
-          TransitiveTargetCounter.count(
+              .collect(toImmutableSet());
+      var _ =
+          SkyframeTransitiveTargetCounter.count(
               env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(), roots);
     }
   }
@@ -357,7 +358,7 @@ public final class AnalysisPhaseRunner {
                 view.getEvaluatedCounts(),
                 view.getEvaluatedActionsCounts(),
                 view.getEvaluatedActionsCountsByMnemonic(),
-                timer.stop().elapsed(TimeUnit.MILLISECONDS),
+                timer.stop().elapsed().toMillis(),
                 view.getAndClearPkgManagerStatistics(),
                 env.getSkyframeExecutor().wasAnalysisCacheInvalidatedAndResetBit()));
     ImmutableSet<BuildConfigurationKey> configurationKeys =
@@ -371,8 +372,7 @@ public final class AnalysisPhaseRunner {
                         .map(ConfiguredTarget::getConfigurationKey)
                         .distinct())
             .filter(Objects::nonNull)
-            .distinct()
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(toImmutableSet());
     Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap =
         env.getSkyframeExecutor().getConfigurations(env.getReporter(), configurationKeys);
     env.getEventBus()
@@ -505,6 +505,6 @@ public final class AnalysisPhaseRunner {
       }
     }
 
-    return ImmutableSet.copyOf(explicitTargetPatterns.build());
+    return explicitTargetPatterns.build();
   }
 }

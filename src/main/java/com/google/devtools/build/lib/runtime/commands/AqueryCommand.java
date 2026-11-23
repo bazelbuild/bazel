@@ -32,7 +32,9 @@ import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -121,7 +123,11 @@ public final class AqueryCommand implements BlazeCommand {
     // Query expression might be null in the case of --skyframe_state.
     QueryExpression expr;
     try {
-      expr = query.isEmpty() ? null : QueryParser.parse(query, functions);
+      expr =
+          query.isEmpty()
+              ? null
+              : QueryExpressionResolver.resolve(
+                  QueryParser.parse(query, ParserOptions.DEFAULT), functions);
     } catch (QuerySyntaxException e) {
       String message =
           String.format(

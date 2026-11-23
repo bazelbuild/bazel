@@ -207,11 +207,13 @@ For instructions for Windows, see [Bootstrap Bazel on Windows](#bootstrap-window
 
 *   **Python**. Version 3 is required.
 
+*   **Rust (`rustc`)**. Required for bootstrapping (Edition 2024 support, Rust 1.85+).
+
 For example on Ubuntu Linux you can install these requirements using the
 following command:
 
 ```sh
-sudo apt-get install build-essential openjdk-25-jdk python3 zip unzip
+sudo apt-get install build-essential openjdk-25-jdk python3 rustc zip unzip
 ```
 
 #### 2.2. Bootstrap Bazel on Unix {#bootstrap-unix}
@@ -255,6 +257,10 @@ For instructions for Unix-like systems, see
     enough. You need the Windows-native version (downloadable from
     [https://www.python.org](https://www.python.org)). Versions installed via
     pacman in MSYS2 will not work.
+
+*   **Rust (`rustc`)**. Required for bootstrapping (Edition 2024 support, Rust 1.85+).
+    Install the Windows MSVC toolchain (for example via [rustup](https://rustup.rs))
+    and make sure `rustc.exe` is on `PATH` (or set `RUSTC`).
 
 #### 2.2. Bootstrap Bazel on Windows {#bootstrap-windows}
 

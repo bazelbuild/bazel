@@ -79,10 +79,9 @@ public class OutputDirectories {
       this.name = name;
     }
 
-    public ArtifactRoot getRoot(
-        String outputDirName, BlazeDirectories directories, String workspaceName) {
+    public ArtifactRoot getRoot(String outputDirName, BlazeDirectories directories) {
       // e.g., execroot/my_workspace
-      Path execRoot = directories.getExecRoot(workspaceName);
+      Path execRoot = directories.getExecRoot();
       // e.g., [[execroot/my_workspace]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
           execRoot, RootType.OUTPUT, directories.getRelativeOutputPath(), outputDirName, name);
@@ -103,15 +102,14 @@ public class OutputDirectories {
       BlazeDirectories directories,
       CoreOptions options,
       @Nullable PlatformOptions platformOptions,
-      String mnemonic,
-      String workspaceName) {
+      String mnemonic) {
     this.directories = directories;
     this.mnemonic = mnemonic;
 
-    this.outputDirectory = OutputDirectory.OUTPUT.getRoot(mnemonic, directories, workspaceName);
-    this.binDirectory = OutputDirectory.BIN.getRoot(mnemonic, directories, workspaceName);
-    this.genfilesDirectory = OutputDirectory.GENFILES.getRoot(mnemonic, directories, workspaceName);
-    this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, workspaceName);
+    this.outputDirectory = OutputDirectory.OUTPUT.getRoot(mnemonic, directories);
+    this.binDirectory = OutputDirectory.BIN.getRoot(mnemonic, directories);
+    this.genfilesDirectory = OutputDirectory.GENFILES.getRoot(mnemonic, directories);
+    this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories);
 
     this.mergeGenfilesDirectory = options.getMergeGenfilesDirectory();
   }

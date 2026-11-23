@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.util.concurrent.CountDownLatch;
 
 /** Implementation of {@link FsEventsNativeDepsService}. */
-@ScOnly
 public class FsEventsNativeDepsServiceImpl implements FsEventsNativeDepsService {
 
   static {

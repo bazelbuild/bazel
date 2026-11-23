@@ -55,10 +55,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -145,18 +147,29 @@ public abstract sealed class RepoRecordedInput {
     /**
      * Splits the given list of recorded input values into batches such that within each batch, all
      * recorded inputs's {@link SkyKey}s can be requested together.
+     *
+     * <p>A batch is only requested after all inputs in the previous batches have been verified to
+     * be up to date.
      */
     public static ImmutableList<ImmutableList<WithValue>> splitIntoBatches(
         List<WithValue> recordedInputValues) {
       var batches = ImmutableList.<ImmutableList<WithValue>>builder();
       var currentBatch = new ArrayList<WithValue>();
+      // The external repos that inputs in the current or previous batches depend on.
+      var requestedRepos = new HashSet<RepositoryName>();
       for (var recordedInputValue : recordedInputValues) {
-        if (!recordedInputValue.input().canBeRequestedUnconditionally()
-            && !currentBatch.isEmpty()) {
+        var input = recordedInputValue.input();
+        if (!input.canBeRequestedUnconditionally(requestedRepos) && !currentBatch.isEmpty()) {
           batches.add(ImmutableList.copyOf(currentBatch));
           currentBatch.clear();
         }
         currentBatch.add(recordedInputValue);
+        // Dirents and DirTree inputs are always preceded by a File input for the same path.
+        switch (input) {
+          case Repository repository -> requestedRepos.add(repository.repoName);
+          case File file -> file.path.externalRepo().ifPresent(requestedRepos::add);
+          default -> {}
+        }
       }
       if (!currentBatch.isEmpty()) {
         batches.add(ImmutableList.copyOf(currentBatch));
@@ -332,8 +345,11 @@ public abstract sealed class RepoRecordedInput {
   /**
    * Returns true if the {@link #getValue} can be requested even if previous recorded inputs have
    * not been verified to be up to date.
+   *
+   * @param requestedRepos the external repos that previous recorded inputs depend on, which are
+   *     requested in earlier batches or in the same batch as this input
    */
-  protected abstract boolean canBeRequestedUnconditionally();
+  protected abstract boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos);
 
   private static final Optional<String> UNDECIDED = Optional.of("values missing");
 
@@ -413,9 +429,9 @@ public abstract sealed class RepoRecordedInput {
       return RootedPath.toRootedPath(root, path());
     }
 
-    /** Returns true if the path points into an external repository. */
-    public boolean inExternalRepo() {
-      return repoName().isPresent() && !repoName().get().isMain();
+    /** Returns the external repository the path points into, if any. */
+    public Optional<RepositoryName> externalRepo() {
+      return repoName().filter(repoName -> !repoName.isMain());
     }
   }
 
@@ -513,10 +529,13 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
       // Requesting files in external repositories can result in cycles if the external repo now
-      // transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // transitively depends on the requesting repo. This isn't a concern if a previous input
+      // already depends on the external repo, which is then requested earlier or at the same time.
+      // A file in that repo may also be a symlink into yet another repo, but then the former
+      // depends on the latter via a Repository input if it created the symlink from a Label.
+      return path.externalRepo().map(requestedRepos::contains).orElse(true);
     }
 
     @Override
@@ -614,7 +633,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
       // If the File input requested before this input has changed its type to non-directory, this
       // input's DirectoryListingValue must not be requested as it would result in a build error.
       return false;
@@ -757,7 +776,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
       // If the File input requested before this input has changed its type to non-directory, this
       // input's DirectoryTreeDigestValue must not be requested as it would result in a build error.
       return false;
@@ -840,7 +859,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
       // Environment variables are static data injected into Skyframe, so there is no risk of
       // cycles.
       return true;
@@ -927,9 +946,10 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
-      // The repo may no longer exist if the inputs recorded before this one are outdated.
-      return false;
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
+      // The repo may no longer exist if the inputs recorded before this one are outdated, unless
+      // one of them already depends on it.
+      return requestedRepos.contains(repoName);
     }
 
     @Override
@@ -1020,7 +1040,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
       // Starlark can only request the mapping of the repo it is currently executing from, which
       // means that the repo has already been fetched (either to execute the code or to verify the
       // transitive .bzl hash). Further cycles aren't possible.
@@ -1088,7 +1108,7 @@ public abstract sealed class RepoRecordedInput {
     }
 
     @Override
-    protected boolean canBeRequestedUnconditionally() {
+    protected boolean canBeRequestedUnconditionally(Set<RepositoryName> requestedRepos) {
       return true;
     }
 

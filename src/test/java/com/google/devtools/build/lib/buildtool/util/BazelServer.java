@@ -158,10 +158,9 @@ public class BazelServer implements TestRule, AutoCloseable {
   private final List<String> persistentOptions = new ArrayList<>();
   private OutErr customOutErr;
 
-  protected BazelServer(List<BlazeModule> userModules, Set<EventKind> additionalEvents) {
-    this.userModules = userModules;
-    this.additionalEvents =
-        additionalEvents != null ? ImmutableSet.copyOf(additionalEvents) : ImmutableSet.of();
+  protected BazelServer(Builder builder) {
+    this.userModules = new ArrayList<>(builder.modules);
+    this.additionalEvents = ImmutableSet.copyOf(builder.additionalEvents);
   }
 
   /** Initializes the server and workspace if not already initialized. */
@@ -215,7 +214,7 @@ public class BazelServer implements TestRule, AutoCloseable {
 
     /** Factory method to create the server instance. Subclasses can override. */
     protected BazelServer createServer() {
-      return new BazelServer(new ArrayList<>(modules), additionalEvents);
+      return new BazelServer(this);
     }
 
     @Override

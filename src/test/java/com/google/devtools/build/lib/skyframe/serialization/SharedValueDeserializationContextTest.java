@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetDeferredCodec;
@@ -43,6 +44,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Random;
@@ -621,6 +623,91 @@ public final class SharedValueDeserializationContextTest {
 
     store.takeFirstRequest().complete();
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
+  }
+
+  @Test
+  public void deepSharedValueChain_deserializesWithoutStackOverflow() throws Exception {
+    int depth = 4_000;
+    Object[][] nodes = createNestedArrayNodes(depth);
+    var subject = new NotNestedSet(nodes[0]);
+    var compressionService = new CompressionServiceImpl();
+    ObjectCodecs codecs = createObjectCodecs();
+
+    // Populate the store bottom-up so each putSharedValue call stays at depth 1 even without the
+    // writer-side offloading fix, then deserialize with fresh cold readers.
+    var store = new InMemoryFingerprintValueStore();
+    ByteString serializedRoot =
+        serializeBottomUp(codecs, compressionService, store, nodes, subject);
+
+    var singleThreadedReader = FingerprintValueService.createForTesting(store);
+    NotNestedSet singleDeserialized =
+        (NotNestedSet)
+            codecs.deserializeMemoizedAndBlocking(
+                compressionService, singleThreadedReader, serializedRoot);
+    verifyNestedArrayChain(singleDeserialized.getContents(), depth);
+
+    var safeExecutor = new SafeExecutorOwner(new ForkJoinPool(/* parallelism= */ 4));
+    try {
+      var multiThreadedReader =
+          new FingerprintValueService(
+              safeExecutor,
+              store,
+              new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
+              FingerprintValueService.NONPROD_FINGERPRINTER);
+      NotNestedSet multiDeserialized =
+          (NotNestedSet)
+              codecs.deserializeMemoizedAndBlocking(
+                  compressionService, multiThreadedReader, serializedRoot);
+      verifyNestedArrayChain(multiDeserialized.getContents(), depth);
+    } finally {
+      safeExecutor.shutdownNow();
+      assertThat(safeExecutor.awaitTermination(Duration.ofSeconds(10))).isTrue();
+    }
+  }
+
+  private static ByteString serializeBottomUp(
+      ObjectCodecs codecs,
+      CompressionService compressionService,
+      InMemoryFingerprintValueStore store,
+      Object[][] nodes,
+      NotNestedSet subject)
+      throws Exception {
+    var writerService = FingerprintValueService.createForTesting(store);
+    for (int i = nodes.length - 1; i > 0; i--) {
+      SerializationResult<ByteString> intermediate =
+          codecs.serializeMemoizedAndBlocking(
+              compressionService, writerService, new NotNestedSet(nodes[i]));
+      ListenableFuture<?> intermediateWriteStatus = intermediate.getFutureToBlockWritesOn();
+      if (intermediateWriteStatus != null) {
+        var _ = intermediateWriteStatus.get(WAIT_TIMEOUT_SECONDS, SECONDS);
+      }
+    }
+    SerializationResult<ByteString> serialized =
+        codecs.serializeMemoizedAndBlocking(compressionService, writerService, subject);
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+    if (writeStatus != null) {
+      var _ = writeStatus.get(WAIT_TIMEOUT_SECONDS, SECONDS);
+    }
+    return serialized.getObject();
+  }
+
+  private static Object[][] createNestedArrayNodes(int depth) {
+    Object[][] nodes = new Object[depth][];
+    nodes[depth - 1] = new Object[] {depth - 1};
+    for (int i = depth - 2; i >= 0; i--) {
+      nodes[i] = new Object[] {i, nodes[i + 1]};
+    }
+    return nodes;
+  }
+
+  private static void verifyNestedArrayChain(Object[] current, int depth) {
+    for (int i = 0; i < depth - 1; i++) {
+      assertThat(current).hasLength(2);
+      assertThat(current[0]).isEqualTo(i);
+      assertThat(current[1]).isInstanceOf(Object[].class);
+      current = (Object[]) current[1];
+    }
+    assertThat(current).asList().containsExactly(depth - 1);
   }
 
   /**

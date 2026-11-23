@@ -14,31 +14,54 @@
 
 package com.google.devtools.build.lib.platform;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.util.OS;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Prevents the computer from going to sleep while a Bazel command is running. */
 public final class SleepPreventionModule extends BlazeModule {
-  private PlatformNativeDepsService service;
+  private static final boolean SUPPORTS_SLEEP_PREVENTION =
+      OS.getCurrent() == OS.DARWIN || OS.getCurrent() == OS.WINDOWS;
 
-  @Override
-  public void workspaceInit(
-      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
+  static {
+    JniLoader.loadJni();
   }
+
+  /**
+   * Push a request to disable automatic sleep for hardware. Useful for making sure computers don't
+   * go to sleep during long builds. Must be matched with a {@link #popDisableSleep} call.
+   *
+   * @return 0 on success, -1 if sleep is not supported.
+   */
+  @CanIgnoreReturnValue
+  static int pushDisableSleep() {
+    return SUPPORTS_SLEEP_PREVENTION ? pushDisableSleepNative() : -1;
+  }
+
+  private static native int pushDisableSleepNative();
+
+  /**
+   * Pop a request to disable automatic sleep for hardware. Useful for making sure computers don't
+   * go to sleep during long builds. Must be matched with a previous {@link #pushDisableSleep} call.
+   *
+   * @return 0 on success, -1 if sleep is not supported.
+   */
+  @CanIgnoreReturnValue
+  static int popDisableSleep() {
+    return SUPPORTS_SLEEP_PREVENTION ? popDisableSleepNative() : -1;
+  }
+
+  private static native int popDisableSleepNative();
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    service.pushDisableSleep();
+    pushDisableSleep();
   }
 
   @Override
   public void afterCommand() {
-    service.popDisableSleep();
+    popDisableSleep();
   }
 }

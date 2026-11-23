@@ -378,8 +378,10 @@ public final class StrippingPathMapper implements PathMapper {
    * the output root (e.g., {@code bazel-out/:archived_tree_artifacts/k8-fastbuild/...}).
    */
   private static boolean isArchivedTreeArtifactPath(PathFragment execPath) {
-    return execPath.segmentCount() > 2
-        && execPath.getSegment(1).equals(ARCHIVED_TREE_ARTIFACTS_SEGMENT);
+    String path = execPath.getPathString();
+    int firstSeparator = path.indexOf('/', execPath.getDriveStrLength());
+    return firstSeparator >= 0
+        && path.startsWith(ARCHIVED_TREE_ARTIFACTS_SEGMENT + "/", firstSeparator + 1);
   }
 
   /**

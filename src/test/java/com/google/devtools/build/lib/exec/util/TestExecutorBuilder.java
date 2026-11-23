@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,7 +58,7 @@ public class TestExecutorBuilder {
       SpawnStrategyRegistry.builder();
 
   public TestExecutorBuilder(FileSystem fileSystem, BlazeDirectories directories) {
-    this(fileSystem, directories.getExecRoot(TestConstants.WORKSPACE_NAME));
+    this(fileSystem, directories.getExecRoot());
   }
 
   public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {
@@ -69,9 +68,7 @@ public class TestExecutorBuilder {
     addContext(FileWriteActionContext.class, fileWriteStrategy);
     addContext(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(fileWriteStrategy));
-    addContext(
-        SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(null, TestConstants.WORKSPACE_NAME));
+    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 

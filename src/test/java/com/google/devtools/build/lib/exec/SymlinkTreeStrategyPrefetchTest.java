@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -83,7 +83,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     StaticInputMetadataProvider metadataProvider = StaticInputMetadataProvider.empty();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
+        .thenReturn(new SymlinkTreeStrategy(outputService));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(new StoredEventHandler());
     when(context.getActionInputPrefetcher()).thenReturn(prefetcher);
@@ -102,11 +102,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
     FileSystemUtils.ensureSymbolicLink(symlink.getPath(), "/path/to/target");
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING")
-            .addArtifact(file)
-            .addArtifact(tree)
-            .addArtifact(symlink)
-            .build();
+        new Runfiles.Builder().addArtifact(file).addArtifact(tree).addArtifact(symlink).build();
     SymlinkTreeAction action =
         new SymlinkTreeAction(
             ActionsTestUtil.NULL_ACTION_OWNER,
@@ -115,8 +111,7 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.CREATE,
-            "workspace");
+            RunfileSymlinksMode.CREATE);
 
     action.execute(context);
 
@@ -135,7 +130,11 @@ public final class SymlinkTreeStrategyPrefetchTest extends BuildViewTestCase {
             eq(Reason.INPUTS));
     assertThat(inputsCaptor.getValue().get()).containsExactly(file);
 
-    Path treeRoot = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir");
+    Path treeRoot =
+        outputManifest
+            .getPath()
+            .getParentDirectory()
+            .getRelative(LabelConstants.MAIN_REPO_DIR_NAME + "/dir");
     assertThat(treeRoot.getRelative("file").readSymbolicLink())
         .isEqualTo(file.getPath().asFragment());
     assertThat(treeRoot.getRelative("tree").readSymbolicLink())

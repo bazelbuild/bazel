@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -144,7 +145,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     assertThat(getRepoMappingManifestForTarget("//:aaa"))
         .containsExactly(
-            ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+            ",aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
             ",bbb,bbb+",
             "bbb+,bbb,bbb+",
             "bbb+,ddd,ddd+",
@@ -341,7 +342,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     assertThat(runfilesPaths)
         .containsAtLeast(
             "aaa+/aaa",
-            getRuleClassProvider().getRunfilesPrefix() + "/path/to/pkg/symlink",
+            LabelConstants.MAIN_REPO_DIR_NAME + "/path/to/pkg/symlink",
             "symlinks+/path/to/pkg/root_symlink",
             "_repo_mapping");
 
@@ -351,7 +352,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             "aaa+,aaa,aaa+",
             // The symlink is staged under the main repository's runfiles directory and aaa has a
             // repo mapping entry for it.
-            "aaa+,my_module," + getRuleClassProvider().getRunfilesPrefix(),
+            "aaa+,my_module," + LabelConstants.MAIN_REPO_DIR_NAME,
             // @symlinks+ appears as the first segment of a root symlink.
             "aaa+,symlinks,symlinks+",
             "symlinks+,symlinks,symlinks+")
@@ -436,9 +437,9 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     if (compactRepoMapping) {
       assertThat(getRepoMappingManifestForTarget("//:aaa"))
           .containsExactly(
-              ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              ",aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
               ",dep,+deps+dep1",
-              "+deps+*,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+*,aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
               "+deps+*,dep,+deps+dep1",
               "+deps+*,dep1,+deps+dep1",
               "+deps+*,dep2,+deps+dep2",
@@ -447,19 +448,19 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     } else {
       assertThat(getRepoMappingManifestForTarget("//:aaa"))
           .containsExactly(
-              ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              ",aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
               ",dep,+deps+dep1",
-              "+deps+dep1,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+dep1,aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
               "+deps+dep1,dep,+deps+dep1",
               "+deps+dep1,dep1,+deps+dep1",
               "+deps+dep1,dep2,+deps+dep2",
               "+deps+dep1,dep3,+deps+dep3",
-              "+deps+dep2,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+dep2,aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
               "+deps+dep2,dep,+deps+dep1",
               "+deps+dep2,dep1,+deps+dep1",
               "+deps+dep2,dep2,+deps+dep2",
               "+deps+dep2,dep3,+deps+dep3",
-              "+deps+dep3,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+dep3,aaa," + LabelConstants.MAIN_REPO_DIR_NAME,
               "+deps+dep3,dep,+deps+dep1",
               "+deps+dep3,dep1,+deps+dep1",
               "+deps+dep3,dep2,+deps+dep2",

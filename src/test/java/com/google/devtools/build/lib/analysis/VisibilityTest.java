@@ -17,7 +17,14 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,6 +32,11 @@ import org.junit.runners.JUnit4;
 /** Test for visibility of targets. */
 @RunWith(JUnit4.class)
 public class VisibilityTest extends AnalysisTestCase {
+
+  @Before
+  public final void setUpToolsConfigMock() throws Exception {
+    analysisMock.pySupport().setup(mockToolsConfig);
+  }
 
   void setupArgsScenario() throws Exception {
     scratch.file("tool/tool.sh", "#!/bin/sh", "echo Hello > $2", "cat $1 >> $2");
@@ -729,9 +741,11 @@ public class VisibilityTest extends AnalysisTestCase {
 
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
-        "in my_rule rule //foo:target_with_aspects: Visibility error:\n"
-            + "target '//tool:rule_tool' is not visible from\n"
-            + "target '//rule:lib.bzl'");
+        """
+        in my_rule rule //foo:target_with_aspects: Visibility error:
+        target '//tool:rule_tool' is not visible from
+        target '//rule:lib.bzl'\
+        """);
   }
 
   void setupFilesScenario(String wantRead) throws Exception {
@@ -1788,5 +1802,876 @@ public class VisibilityTest extends AnalysisTestCase {
         depending on the file via an appropriate filegroup() target, or updating the file's \
         visibility using exports_files().\
         """);
+  }
+
+  @Test
+  public void testSimpleAllows() throws Exception {
+    addPackageGroupWithPackages("p", "oneapple", "//idared");
+    addRuleWithVisibility("lib", "lib", "//p:oneapple");
+    addRuleWithDeps("idared", "fruit", "//lib:lib");
+    outputVisibilityTestRules();
+
+    update("//idared:fruit");
+  }
+
+  @Test
+  public void testSimpleDenies() throws Exception {
+    addPackageGroupWithPackages("p", "oneapple", "//jonagold");
+    addRuleWithVisibility("lib", "lib", "//p:oneapple");
+    addRuleWithDeps("idared", "fruit", "//lib:lib");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//idared:fruit"));
+    assertIllegalDependency("//idared:fruit", "//lib:lib");
+  }
+
+  @Test
+  public void testPrivateDenies() throws Exception {
+    addRuleWithVisibility("lib", "lib", "//visibility:private");
+    addRuleWithDeps("code", "code", "//lib:lib");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//code:code"));
+    assertIllegalDependency("//code:code", "//lib:lib");
+  }
+
+  @Test
+  public void testPrivateAllows() throws Exception {
+    addRuleWithVisibility("lib", "lib", "//visibility:private");
+    addRuleWithDeps("lib", "code", "//lib:lib");
+    outputVisibilityTestRules();
+
+    update("//lib:code");
+  }
+
+  @Test
+  public void testPublicAllows() throws Exception {
+    addRuleWithVisibility("lib", "lib", "//visibility:public");
+    addRuleWithDeps("code", "code", "//lib:lib");
+    outputVisibilityTestRules();
+
+    update("//code:code");
+  }
+
+  @Test
+  public void testRulesInSamePackagesAlwaysVisible() throws Exception {
+    addPackageGroupWithPackages("people", "adults", "//adults");
+    addRuleWithVisibility("medicine", "paracetamol", "//people:adults");
+    addRuleWithDeps("medicine", "pill", "//medicine:paracetamol");
+    outputVisibilityTestRules();
+
+    update("//medicine:pill");
+  }
+
+  @Test
+  public void testDefaultCanDeny() throws Exception {
+    addPackageGroupWithPackages("p", "oneapple", "//granny_smith");
+    addDefaultVisibility("land", "//p:oneapple");
+    addRule("land", "land");
+    addRuleWithDeps("red_delicious", "apple", "//land:land");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//red_delicious:apple"));
+    assertIllegalDependency("//red_delicious:apple", "//land:land");
+  }
+
+  @Test
+  public void testDefaultCanAllow() throws Exception {
+    addPackageGroupWithPackages("p", "oneapple", "//granny_smith");
+    addDefaultVisibility("land", "//p:oneapple");
+    addRule("land", "land");
+    addRuleWithDeps("granny_smith", "apple", "//land:land");
+    outputVisibilityTestRules();
+
+    update("//granny_smith:apple");
+  }
+
+  @Test
+  public void testAttributeOverridesDefault() throws Exception {
+    addPackageGroupWithPackages("p", "heroes", "//rambo"); // Yes! This is a type of red apple!
+    addPackageGroupWithPackages("p", "people", "//granny_smith");
+    addDefaultVisibility("land", "//p:people");
+    addRuleWithVisibility("land", "land", "//p:heroes");
+    addRuleWithDeps("rambo", "apple", "//land:land");
+    outputVisibilityTestRules();
+
+    update("//rambo:apple");
+  }
+
+  @Test
+  public void testCommandLine() throws Exception {
+    useConfiguration("--default_visibility=public");
+
+    addRule("land", "land");
+    addRuleWithDeps("red_delicious", "apple", "//land:land");
+    outputVisibilityTestRules();
+
+    update("//red_delicious:apple");
+
+    // checks that the package is correctly reloaded
+    useConfiguration("--default_visibility=private");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//red_delicious:apple"));
+    assertIllegalDependency("//red_delicious:apple", "//land:land");
+  }
+
+  @Test
+  public void testDefaultDenyOverridesCommandlinePublic() throws Exception {
+    useConfiguration("--default_visibility=public");
+
+    addPackageGroupWithPackages("p", "oneapple", "//granny_smith");
+    addDefaultVisibility("land", "//p:oneapple");
+    addRule("land", "land");
+    addRuleWithDeps("red_delicious", "apple", "//land:land");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//red_delicious:apple"));
+    assertIllegalDependency("//red_delicious:apple", "//land:land");
+  }
+
+  @Test
+  public void testDefaultAllowOverridesCommandlinePrivate() throws Exception {
+    useConfiguration("--default_visibility=private");
+
+    addPackageGroupWithPackages("p", "oneapple", "//granny_smith");
+    addDefaultVisibility("land", "//p:oneapple");
+    addRule("land", "land");
+    addRuleWithDeps("granny_smith", "apple", "//land:land");
+    outputVisibilityTestRules();
+
+    update("//granny_smith:apple");
+  }
+
+  @Test
+  public void testRuleOverridesCommandLinePrivate() throws Exception {
+    useConfiguration("--default_visibility=private");
+
+    addRuleWithVisibility("lib", "lib", "//visibility:public");
+    addRuleWithDeps("code", "code", "//lib:lib");
+    outputVisibilityTestRules();
+
+    update("//code:code");
+  }
+
+  @Test
+  public void testRuleOverridesCommandLinePublic() throws Exception {
+    useConfiguration("--default_visibility=public");
+
+    addRuleWithVisibility("lib", "lib", "//visibility:private");
+    addRuleWithDeps("code", "code", "//lib:lib");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//code:code"));
+    assertIllegalDependency("//code:code", "//lib:lib");
+  }
+
+  @Test
+  public void testInvalidDefaultVisibility() throws Exception {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> useConfiguration("--default_visibility=foo"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "While parsing option --default_visibility=foo: "
+                + "Not a valid default visibility: 'foo' (should be 'public' or 'private'");
+  }
+
+  @Test
+  public void testExportsFilesDefaultVisibilityPublic() throws Exception {
+    scratch.file(
+        "kiwi/BUILD",
+        """
+        package(default_visibility = ["//visibility:private"])
+
+        exports_files(["melon.py"])
+        """);
+    scratch.file(
+        "apple/BUILD",
+        """
+        load('@rules_python//python:py_library.bzl', 'py_library')
+        py_library(name='apple', srcs=['//kiwi:melon.py'])
+        """);
+
+    update("//apple:apple");
+  }
+
+  @Test
+  public void testExportsFilesCanOverrideDefaultVisibility() throws Exception {
+    scratch.file(
+        "kiwi/BUILD",
+        """
+        package(default_visibility = ["//visibility:private"])
+
+        exports_files(
+            ["melon.py"],
+            visibility = ["//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "apple/BUILD",
+        """
+        load('@rules_python//python:py_library.bzl', 'py_library')
+        py_library(name='apple', srcs=['//kiwi:melon.py'])
+        """);
+
+    update("//apple:apple");
+  }
+
+  @Test
+  public void testExportsFilesCanUsePackageGroupInOtherPackage() throws Exception {
+    scratch.file("banana/BUILD", "package_group(name='banana', packages=['//mango'])");
+
+    scratch.file("papaya/BUILD", "exports_files(['papaya.py'], visibility=['//banana:banana'])");
+
+    scratch.file(
+        "mango/BUILD",
+        """
+        load('@rules_python//python:py_library.bzl', 'py_library')
+        py_library(name='mango', srcs=['//papaya:papaya.py'])
+        """);
+
+    update("//mango:mango");
+  }
+
+  @Test
+  public void testExportedFilesArePublicByDefault() throws Exception {
+    scratch.file("kiwi/BUILD", "exports_files(['kiwi.py'])");
+
+    scratch.file(
+        "lychee/BUILD",
+        """
+        load('@rules_python//python:py_library.bzl', 'py_library')
+        py_library(name='lychee', srcs=['//kiwi:kiwi.py'])
+        """);
+
+    update("//lychee:lychee");
+  }
+
+  @Test
+  public void testDefaultVisibilityCanUsePackageGroupInOtherPackage() throws Exception {
+    addDefaultVisibility("pear", "//grape:grape");
+    addPackageGroupWithPackages("grape", "grape", "//cherry");
+    addRule("pear", "pear");
+    addRuleWithDeps("cherry", "cherry", "//pear:pear");
+    outputVisibilityTestRules();
+
+    update("//cherry:cherry");
+  }
+
+  @Test
+  public void testRuleVisibilityAppliesToInputFiles() throws Exception {
+    scratch.file(
+        "java/cantaloupe/BUILD",
+        """
+        load("@rules_java//java:java_binary.bzl", "java_binary")
+        package(default_visibility = ["//visibility:private"])
+
+        package_group(
+            name = "bees",
+            packages = ["//bee"],
+        )
+
+        java_binary(
+            name = "cantaloupe",
+            srcs = ["Cantaloupe.java"],
+            visibility = [":bees"],
+        )
+        """);
+
+    scratch.file(
+        "bee/BUILD",
+        """
+        genrule(
+            name = "bee",
+            srcs = ["//java/cantaloupe:cantaloupe_deploy.jar"],
+            outs = ["honey"],
+            cmd = "#",
+        )
+        """);
+
+    update("//bee");
+  }
+
+  @Test
+  public void testPackageGroupVisibilityAllowsAccessToInputFiles() throws Exception {
+    scratch.file(
+        "honeydew/BUILD",
+        """
+        package_group(
+            name = "melonusers",
+            packages = ["//peach"],
+        )
+
+        exports_files(
+            ["melon.py"],
+            visibility = [":melonusers"],
+        )
+        """);
+    scratch.file(
+        "peach/BUILD",
+        """
+        load('@rules_python//python:py_library.bzl', 'py_library')
+        py_library(name='peach', srcs=['//honeydew:melon.py'])
+        """);
+
+    update("//peach:peach");
+  }
+
+  @Test
+  public void testPackageGroupVisibilityDeniesAccessToInputFiles() throws Exception {
+    scratch.file(
+        "honeydew/BUILD",
+        """
+        package_group(
+            name = "melonusers",
+            packages = ["//apricot"],
+        )
+
+        exports_files(
+            ["melon.py"],
+            visibility = [":melonusers"],
+        )
+        """);
+    scratch.file(
+        "peach/BUILD",
+        """
+        load('@rules_python//python:py_library.bzl', 'py_library')
+        py_library(name='peach', srcs=['//honeydew:melon.py'])
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//peach:peach"));
+    assertIllegalDependency("//peach:peach", "//honeydew:melon.py");
+  }
+
+  @Test
+  public void testIllegalPackageGroupEntries() throws Exception {
+    addPackageGroupWithPackages("p", "rotten", "-=-");
+    addRuleWithVisibility("sickness", "sickness", "//p:rotten");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//sickness:sickness"));
+    assertContainsEvent("invalid package name");
+  }
+
+  @Test
+  public void testUnknownPackageGroupIncludeDirect() throws Exception {
+    addPackageGroupWithIncludes("good", "virtue", ":charity");
+    addRuleWithVisibility("afterlife", "heaven", "//good:virtue");
+    addRuleWithDeps("people", "bombadil_toma", "//afterlife:heaven");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//people:bombadil_toma"));
+    // The error message "label '//good:charity' does not refer to a package group" would also be
+    // fine here.
+    assertContainsEvent("no such target '//good:charity'");
+  }
+
+  @Test
+  public void testUnknownPackageGroupIncludeIndirect() throws Exception {
+    addPackageGroupWithIncludes("evil", "sin", ":greed");
+    addPackageGroupWithIncludes("evil", "greed", ":mammon");
+    addRuleWithVisibility("afterlife", "hell", "//evil:sin");
+    addRuleWithDeps("people", "dagobert", "//afterlife:hell");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//people:dagobert"));
+    assertContainsEvent("no such target '//evil:mammon'");
+  }
+
+  @Test
+  public void testPackageGroupIncludesNonGroup() throws Exception {
+    addPackageGroupWithIncludes("fruits", "apple", ":jonathan");
+    addRule("fruits", "jonathan");
+    addRuleWithVisibility("banana", "banana", "//fruits:apple");
+    addRuleWithDeps("monkey", "monkey", "//banana:banana");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//monkey:monkey"));
+    assertContainsEvent("Label '//fruits:jonathan' does not refer to a package group");
+  }
+
+  @Test
+  public void testPackageGroupIncludesCanAllow() throws Exception {
+    addPackageGroupWithIncludes("fruit", "tropical", "citrus");
+    addPackageGroupWithPackages("fruit", "citrus", "//fruit/orange");
+    addRuleWithVisibility("land", "land", "//fruit:tropical");
+    addRuleWithDeps("fruit/orange", "root", "//land:land");
+    outputVisibilityTestRules();
+
+    update("//fruit/orange:root");
+  }
+
+  @Test
+  public void testPackageGroupIncludesCanDeny() throws Exception {
+    addPackageGroupWithIncludes("fruit", "tropical", "citrus");
+    addPackageGroupWithPackages("fruit", "citrus", "//fruit/orange");
+    addRuleWithVisibility("land", "land", "//fruit:tropical");
+    addRuleWithDeps("fruit/apple", "root", "//land:land");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//fruit/apple:root"));
+    assertIllegalDependency("//fruit/apple:root", "//land:land");
+  }
+
+  @Test
+  public void testLongPackageGroupIncludeChain() throws Exception {
+    addPackageGroupWithIncludes("geo", "europe", ":germany");
+    addPackageGroupWithIncludes("geo", "germany", ":bavaria");
+    addPackageGroupWithIncludes("geo", "bavaria", ":munchen");
+    addPackageGroupWithPackages("geo", "munchen", "//devtools/blaze");
+    addRuleWithVisibility("something", "important", "//geo:europe");
+    addRuleWithDeps("devtools/blaze", "blaze", "//something:important");
+    outputVisibilityTestRules();
+
+    update("//devtools/blaze:blaze");
+  }
+
+  @Test
+  public void testPackageGroupCanIncludeFromOtherPackage() throws Exception {
+    addPackageGroupWithIncludes("apple", "apple", "//peach:peach");
+    addPackageGroupWithPackages("peach", "peach", "//plum");
+    addRuleWithVisibility("pear", "pear", "//apple:apple");
+    addRuleWithDeps("plum", "plum", "//pear:pear");
+    outputVisibilityTestRules();
+
+    update("//plum:plum");
+  }
+
+  @Test
+  public void testAllBeneathPackageSpecificationCanAllow() throws Exception {
+    addPackageGroupWithPackages("fruits", "tropical", "//fruits/tropical/...");
+    addRuleWithVisibility("fruits", "sun", "//fruits:tropical");
+    addRuleWithDeps("fruits/tropical", "coconut", "//fruits:sun");
+    addRuleWithDeps("fruits/tropical/stinky", "durian", "//fruits:sun");
+    addRuleWithDeps("fruits/tropical/asia/tasty", "lychee", "//fruits:sun");
+    outputVisibilityTestRules();
+
+    update(
+        "//fruits/tropical:coconut",
+        "//fruits/tropical/stinky:durian",
+        "//fruits/tropical/asia/tasty:lychee");
+  }
+
+  @Test
+  public void testAllBeneathPackageSpecificationCanDeny() throws Exception {
+    addPackageGroupWithPackages("fruits", "tropical", "//fruits/tropical/...");
+    addRuleWithVisibility("fruits", "sun", "//fruits:tropical");
+    addRuleWithDeps("fruits/temperate", "apple", "//fruits:sun");
+    addRuleWithDeps("fruits/tropicality", "durianity", "//fruits:sun");
+    addRuleWithDeps("fruits/tropic", "lych", "//fruits:sun");
+    addRuleWithDeps("fruits/tropic/photo", "sunflower", "//fruits:sun");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//fruits/temperate:apple"));
+    assertThrows(ViewCreationFailedException.class, () -> update("//fruits/tropicality:durianity"));
+    assertThrows(ViewCreationFailedException.class, () -> update("//fruits/tropic:lych"));
+    assertThrows(
+        ViewCreationFailedException.class, () -> update("//fruits/tropic/photo:sunflower"));
+
+    assertIllegalDependency("//fruits/temperate:apple", "//fruits:sun");
+    assertIllegalDependency("//fruits/tropicality:durianity", "//fruits:sun");
+    assertIllegalDependency("//fruits/tropic:lych", "//fruits:sun");
+    assertIllegalDependency("//fruits/tropic/photo:sunflower", "//fruits:sun");
+  }
+
+  // Regression test for bug #2674950:
+  // "NullPointerException in RuleConfiguredTarget.lookupMakeVariable()"
+  @Test
+  public void testDefaultVisibilityHasNonPackageGroup() throws Exception {
+    scratch.file(
+        "plum/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+
+        package(default_visibility = ["//pear"])
+
+        foo_library(
+            name = "sh",
+            srcs = ["sh.sh"],
+        )
+
+        foo_library(
+            name = "dep",
+            srcs = ["dep.sh"],
+        )
+
+        foo_library(
+            name = "target",
+            deps = [":dep"],
+        )
+        """);
+
+    scratch.file(
+        "pear/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='pear', srcs=['pear.sh'])");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//plum:target"));
+    assertContainsEvent("does not refer to a package group");
+  }
+
+  @Test
+  public void testDefaultVisibilityIncludesNonPackageGroup() throws Exception {
+    scratch.file(
+        "plum/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+
+        package(default_visibility = ["//plum"])
+
+        package_group(
+            name = "plum",
+            includes = ["//pear:pear"],
+        )
+
+        foo_library(
+            name = "sh",
+            srcs = ["sh.sh"],
+        )
+
+        foo_library(
+            name = "dep",
+            srcs = ["dep.sh"],
+        )
+
+        foo_library(
+            name = "target",
+            deps = [":dep"],
+        )
+        """);
+
+    scratch.file(
+        "pear/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='pear', srcs=['pear.sh'])");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//plum:target"));
+    assertContainsEvent("does not refer to a package group");
+  }
+
+  @Test
+  public void testDefaultVisibilityIsRuleItself() throws Exception {
+    scratch.file(
+        "melon/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+
+        package(default_visibility = ["//melon"])
+
+        foo_library(
+            name = "melon",
+            srcs = ["melon.cc"],
+        )
+        """);
+  }
+
+  @Test
+  public void testCanAllowPackageInVisibilityList() throws Exception {
+    scratch.file(
+        "plum/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='plum', visibility=['//kiwi:__pkg__'])");
+
+    scratch.file(
+        "kiwi/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='kiwi', deps=['//plum:plum'])");
+
+    update("//kiwi:kiwi");
+  }
+
+  @Test
+  public void testSubtreeVisibilityCanAllow() throws Exception {
+    addRuleWithVisibility("banana", "banana", "//fruit:__subpackages__");
+    addRuleWithDeps("fruit", "fruit", "//banana:banana");
+    addRuleWithDeps("fruit/apple", "apple", "//banana:banana");
+    addRuleWithDeps("fruit/apple/nicoter", "nicoter", "//banana:banana");
+    outputVisibilityTestRules();
+
+    update("//fruit:fruit", "//fruit/apple:apple", "//fruit/apple/nicoter:nicoter");
+  }
+
+  @Test
+  public void testSubtreeVisibilityCanDeny() throws Exception {
+    addRuleWithVisibility("peach", "peach", "//fruit/apple:__subpackages__");
+    addRuleWithDeps("fruit", "fruit", "//peach:peach");
+    addRuleWithDeps("fruit/plum", "plum", "//peach:peach");
+    addRuleWithDeps("vegetable/tomato", "tomato", "//peach:peach");
+    outputVisibilityTestRules();
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//fruit:fruit"));
+    assertThrows(ViewCreationFailedException.class, () -> update("//fruit/plum:plum"));
+    assertThrows(ViewCreationFailedException.class, () -> update("//vegetable/tomato:tomato"));
+
+    assertIllegalDependency("//fruit:fruit", "//peach:peach");
+    assertIllegalDependency("//fruit/plum:plum", "//peach:peach");
+    assertIllegalDependency("//vegetable/tomato:tomato", "//peach:peach");
+  }
+
+  @Test
+  public void testLocationCueForDefaultVisibilityMissingRule() throws Exception {
+    scratch.file(
+        "cherry/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+
+        package(default_visibility = ["//cherry:flower"])
+
+        foo_library(
+            name = "seed",
+            srcs = ["seed.sh"],
+        )
+        """);
+    scratch.file(
+        "lemon/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='lemon', deps=['//cherry:seed'])");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//lemon:lemon"));
+    assertContainsEvent(
+        "no such target '//cherry:flower': target 'flower' not "
+            + "declared in package 'cherry' defined by /workspace/cherry/BUILD");
+  }
+
+  private void doVisibilityDisablingTest(String dependencyVisibility) throws Exception {
+    addRuleWithVisibility("fruit/cherry", "cherry", dependencyVisibility);
+    addRuleWithDeps("drink/cherry", "cherry", "//fruit/cherry:cherry");
+    outputVisibilityTestRules();
+
+    // Use update() rather than getConfiguredTarget(), to ensure we go through BuildView#update
+    // thereby potentially triggering the warning event.
+    update("//drink/cherry:cherry");
+  }
+
+  @Test
+  public void testVisibilityCheckCanBeDisabled() throws Exception {
+    useConfiguration("--nocheck_visibility");
+    doVisibilityDisablingTest("//visibility:private");
+
+    assertThat(eventCollector.filtered(EventKind.ERROR)).isEmpty();
+    assertContainsEvent(
+        "This build has globally disabled target visibility checking (--nocheck_visibility).");
+  }
+
+  @Test
+  public void testVisibilityNagMessageAppearsEvenWithoutVisibilityViolations() throws Exception {
+    useConfiguration("--nocheck_visibility");
+    doVisibilityDisablingTest("//visibility:public");
+
+    assertThat(eventCollector.filtered(EventKind.ERROR)).isEmpty();
+    assertContainsEvent(
+        "This build has globally disabled target visibility checking (--nocheck_visibility).");
+  }
+
+  @Test
+  public void testVisibilityNagMessageDoesNotAppearWhenNotDisabled() throws Exception {
+    doVisibilityDisablingTest("//visibility:public");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void testSelectVisibility() throws Exception {
+    scratch.file(
+        "grape/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+        package(default_visibility = ["//visibility:private"])
+
+        cc_library(name = "grape")
+        """);
+    scratch.file(
+        "wine/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+        config_setting(
+            name = "white_config",
+            values = {"define": "color=white"},
+        )
+
+        config_setting(
+            name = "red_config",
+            values = {"define": "color=red"},
+        )
+
+        cc_library(
+            name = "white_wine",
+            deps = select({
+                ":white_config": ["//grape"],
+                "//conditions:default": [],
+            }),
+        )
+
+        cc_library(
+            name = "red_wine",
+            deps = select({
+                ":red_config": ["//grape"],
+                "//conditions:default": [],
+            }),
+        )
+        """);
+
+    useConfiguration("--define", "color=red");
+    update("//wine:white_wine");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//wine:red_wine"));
+    assertContainsEvent("target '//grape:grape' is not visible from\ntarget '//wine:red_wine'");
+  }
+
+  // Regression test for bug #4073933:
+  // "IllegalArgumentException in OutputFileConfiguredTarget.getGeenratingRule()"
+  @Test
+  public void testGetGeneratingRuleForOutputFileWithDefaultVisibility() throws Exception {
+    scratch.file(
+        "mango/BUILD",
+        """
+        package(default_visibility = ["//mango:skin"])
+
+        package_group(name = "skin")
+
+        genrule(
+            name = "mango",
+            srcs = [],
+            outs = ["mango_out"],
+            cmd = "",
+        )
+        """);
+
+    update("//mango:mango_out", "//mango:mango");
+    OutputFileConfiguredTarget mangoOut =
+        (OutputFileConfiguredTarget) getConfiguredTarget("//mango:mango_out");
+    ConfiguredTarget out = getConfiguredTarget("//mango:mango");
+
+    assertThat(mangoOut.getGeneratingRule().getLabel()).isEqualTo(out.getLabel());
+  }
+
+  // Regression test for bug #4471264:
+  // --nocheck_visibility_in_experimental doesn't propagate to exec configuration
+  @Test
+  public void testExecDepsWithNoCheckVisibility() throws Exception {
+    useConfiguration("--nocheck_visibility");
+
+    scratch.file(
+        "kiwi/BUILD",
+        """
+        load("//test_defs:foo_library.bzl", "foo_library")
+
+        package(default_visibility = ["//visibility:private"])
+
+        foo_library(
+            name = "kiwi",
+            srcs = ["kiwi.sh"],
+        )
+        """);
+    scratch.file(
+        "mango/BUILD",
+        """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+
+        foo_binary(
+            name = "mango",
+            srcs = ["mango.sh"],
+            deps = ["//kiwi"],
+        )
+
+        genrule(
+            name = "genmango",
+            outs = ["mango.out"],
+            cmd = "",
+            tools = [":mango"],
+        )
+        """);
+
+    update("//mango:genmango");
+  }
+
+  // This is some infrastructure to make visibility test cases more legible.
+  // add* methods should be called first, and when you are done, call
+  // outputVisibilityTestRules(), which will output the actual BUILD files.
+
+  Map<String, StringBuilder> packageToLines = new HashMap<>();
+
+  private void addPackageLine(String pkg, String line) {
+    if (!packageToLines.containsKey(pkg)) {
+      packageToLines.put(pkg, new StringBuilder());
+    }
+
+    packageToLines.get(pkg).append(line);
+    packageToLines.get(pkg).append("\n");
+  }
+
+  private void addPackageGroupWithIncludes(String pkg, String name, String... includes) {
+    String includesList = "'" + Joiner.on("', '").join(includes) + "'";
+
+    String line = String.format("package_group(name='%s', includes=[%s])", name, includesList);
+    addPackageLine(pkg, line);
+  }
+
+  private void addPackageGroupWithPackages(String pkg, String name, String... entries) {
+    String entriesList = "'" + Joiner.on("', '").join(entries) + "'";
+
+    String line = String.format("package_group(name='%s', packages=[%s])", name, entriesList);
+    addPackageLine(pkg, line);
+  }
+
+  private void addDefaultVisibility(String pkg, String... entries) {
+    String visList = "'" + Joiner.on("', '").join(entries) + "'";
+    String line = String.format("package(default_visibility=[%s])", visList);
+
+    addPackageLine(pkg, line);
+  }
+
+  private void addRule(String pkg, String name) {
+    String line = String.format("foo_library(name='%s')", name);
+    addPackageLine(pkg, line);
+  }
+
+  private void addRuleWithVisibility(String pkg, String name, String... visibilities) {
+    String visList = "'" + Joiner.on("', '").join(visibilities) + "'";
+    String line = String.format("foo_library(name='%s', visibility=[%s])", name, visList);
+
+    addPackageLine(pkg, line);
+  }
+
+  private void addRuleWithDeps(String pkg, String name, String... deps) {
+    String depList = "'" + Joiner.on("', '").join(deps) + "'";
+    String line = String.format("foo_library(name='%s', deps=[%s])", name, depList);
+
+    addPackageLine(pkg, line);
+  }
+
+  private void outputVisibilityTestRules() throws Exception {
+    for (String pkg : packageToLines.keySet()) {
+      scratch.file(
+          pkg + "/BUILD",
+          "load('//test_defs:foo_library.bzl', 'foo_library')",
+          packageToLines.get(pkg).toString());
+    }
+  }
+
+  private void assertIllegalDependency(String from, String to) {
+    assertContainsEvent(
+        String.format("Visibility error:\ntarget '%s' is not visible from\ntarget '%s'", to, from));
   }
 }

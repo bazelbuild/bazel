@@ -29,6 +29,7 @@ import java.security.DigestException;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.util.Collection;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -62,6 +63,8 @@ import javax.annotation.Nullable;
  * @see java.security.MessageDigest
  */
 public final class Fingerprint implements BytesSink {
+
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
   // flushing at the end of each digest we can continue to use the stream.
@@ -331,13 +334,7 @@ public final class Fingerprint implements BytesSink {
   }
 
   private static String hexDigest(byte[] digest) {
-    StringBuilder b = new StringBuilder(32);
-    for (int i = 0; i < digest.length; i++) {
-      int n = digest[i];
-      b.append("0123456789abcdef".charAt((n >> 4) & 0xF));
-      b.append("0123456789abcdef".charAt(n & 0xF));
-    }
-    return b.toString();
+    return HEX_FORMAT.formatHex(digest);
   }
 
   // -------- Convenience methods ----------------------------

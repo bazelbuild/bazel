@@ -214,6 +214,8 @@ TEST_F(BazelStartupOptionsTest,
 #endif  // __linux || __APPLE__
 
 #if defined(__WIN32__) || defined(__CYGWIN__)
+// On Windows, the output base name is a short hash of the workspace path, see
+// GetHashedBaseDir in blaze_util_windows.cc.
 TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
   SetEnv("USER", "gandalf");
   SetEnv("HOME", "C:\\Users\\gandalf");
@@ -224,10 +226,10 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
 
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
             startup_options_->output_user_root);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
-            startup_options_->install_base);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  ASSERT_EQ(
+      blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -241,10 +243,10 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithUserProfile) {
 
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf"),
             startup_options_->output_user_root);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
-            startup_options_->install_base);
-  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  ASSERT_EQ(
+      blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/install/deadbeef"),
+      startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -260,8 +262,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithTestTmpdir) {
             startup_options_->output_user_root);
   EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/install/deadbeef"),
             startup_options_->install_base);
-  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 
@@ -277,8 +278,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithXdgCacheHome) {
             startup_options_->output_user_root);
   EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/install/deadbeef"),
             startup_options_->install_base);
-  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/"
-                             "1629dee48cc4e53161f9b2be8614e062"),
+  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/wj6emefr"),
             startup_options_->output_base);
 }
 #endif  // __WIN32__ || __CYGWIN__
@@ -318,6 +318,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "max_idle_secs");
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
+  ExpectIsUnaryOption(options, "redact_client_env");
   ExpectIsUnaryOption(options, "server_javabase");
 }
 
@@ -368,6 +369,39 @@ TEST_F(BazelStartupOptionsTest, BlockForLock) {
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=2"));
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=30"));
   EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=invalid"));
+}
+
+TEST_F(BazelStartupOptionsTest, RedactClientEnv) {
+  std::string error;
+  auto parse_flags = [this, &error](const std::vector<std::string>& args) {
+    ReinitStartupOptions();
+    std::vector<RcStartupFlag> flags;
+    for (const auto& arg : args) {
+      flags.push_back(RcStartupFlag("somewhere", arg));
+    }
+    error.clear();
+    return startup_options_->ProcessArgs(flags, &error);
+  };
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS,
+            parse_flags({"--redact_client_env=MY_INTERNAL_SIGNER",
+                         "--redact_client_env=FOOBAR_*"}))
+      << error;
+  EXPECT_EQ((std::vector<std::string>{"MY_INTERNAL_SIGNER", "FOOBAR_*"}),
+            startup_options_->redact_client_env);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flags({"--redact_client_env="}));
+  EXPECT_EQ(
+      "Invalid argument to --redact_client_env: ''. "
+      "Expected a non-empty variable name without '='.",
+      error);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV,
+            parse_flags({"--redact_client_env=FOO=bar"}));
+  EXPECT_EQ(
+      "Invalid argument to --redact_client_env: 'FOO=bar'. "
+      "Expected a non-empty variable name without '='.",
+      error);
 }
 
 TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {

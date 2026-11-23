@@ -14,6 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -330,5 +331,68 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
     testOptions = getTestOptions();
     assertThat(testOptions.getTestStringNullByDefault()).isNull();
+  }
+
+  @Test
+  public void testAllowValuesAllowsNonAsciiValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getAllowValuesBuilder()
+        .addAllowedValues("föo")
+        .addAllowedValues("bär 🌱");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_string=" + unicodeToInternal("bär 🌱"));
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    assertThat(getTestOptions().getTestString()).isEqualTo(unicodeToInternal("bär 🌱"));
+  }
+
+  @Test
+  public void testAllowValuesDisallowsNonAsciiValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getAllowValuesBuilder()
+        .addAllowedValues("föo")
+        .addAllowedValues("bär 🌱");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_string=" + unicodeToInternal("bäz"));
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            unicodeToInternal(
+                "Flag value 'bäz' for option '--test_string' is not allowed by invocation policy"
+                    + " and the policy does not specify a new value. Allowed values are: [föo,"
+                    + " bär 🌱]"));
+  }
+
+  @Test
+  public void testAllowValuesSetsNonAsciiNewValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getAllowValuesBuilder()
+        .addAllowedValues("föo")
+        .addAllowedValues("bär 🌱")
+        .setNewValue("bär 🌱");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_string=" + unicodeToInternal("bäz"));
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    assertThat(getTestOptions().getTestString()).isEqualTo(unicodeToInternal("bär 🌱"));
   }
 }

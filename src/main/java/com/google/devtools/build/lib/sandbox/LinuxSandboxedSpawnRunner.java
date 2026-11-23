@@ -366,6 +366,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,
           sandboxExecRoot,
+          execRoot,
           commandLineBuilder.buildForCommand(spawn.getArguments()),
           environment,
           inputs,

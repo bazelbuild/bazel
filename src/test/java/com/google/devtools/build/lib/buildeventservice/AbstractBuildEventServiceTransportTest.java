@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.BAZEL_EVENT;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.BUILD_ENQUEUED;
 import static com.google.devtools.build.v1.BuildEvent.EventCase.INVOCATION_ATTEMPT_STARTED;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -61,6 +60,7 @@ import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -845,9 +845,15 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
             .map(File::getUri)
             .collect(Collectors.toSet());
     String file1Hash =
-        makeVfsHashFunction().getHashFunction().hashString("file1", UTF_8).toString();
+        makeVfsHashFunction()
+            .getHashFunction()
+            .hashBytes(StringUnsafe.getInternalStringBytes("file1"))
+            .toString();
     String file2Hash =
-        makeVfsHashFunction().getHashFunction().hashString("file2", UTF_8).toString();
+        makeVfsHashFunction()
+            .getHashFunction()
+            .hashBytes(StringUnsafe.getInternalStringBytes("file2"))
+            .toString();
     assertThat(referencedFiles).containsExactly("cas://" + file1Hash, "cas://" + file2Hash);
   }
 

@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.vfs.PathFragment.pathFragmentCodec;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -786,7 +786,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
       if (this == o) {
         return true;
       }
@@ -796,12 +796,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
       return Arrays.equals(digest, that.digest)
           && size == that.size
-          && locationIndex == that.locationIndex;
+          && locationIndex == that.locationIndex
+          && isInMemoryOutput() == that.isInMemoryOutput();
     }
 
     @Override
-    public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(digest), size, locationIndex);
+    public final int hashCode() {
+      return HashCodes.hashObjects(
+          Arrays.hashCode(digest), size, locationIndex, isInMemoryOutput());
     }
 
     @Override
@@ -937,25 +939,6 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public boolean isInMemoryOutput() {
       return inMemoryOutput;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof RemoteFileArtifactValueWithMaterializationData that)) {
-        return false;
-      }
-
-      return Arrays.equals(getDigest(), that.getDigest())
-          && getSize() == that.getSize()
-          && getLocationIndex() == that.getLocationIndex();
-    }
-
-    @Override
-    public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(getDigest()), getSize(), getLocationIndex());
     }
 
     @Override
@@ -1214,7 +1197,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
               .getFileSystem()
               .getDigestFunction()
               .getHashFunction()
-              .hashString(symlinkTarget, ISO_8859_1)
+              .hashBytes(StringUnsafe.getInternalStringBytes(symlinkTarget))
               .asBytes();
 
       // We need to be able to tell the difference between a symlink and a file containing the same

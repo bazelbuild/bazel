@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -27,7 +29,9 @@ public class KnownPathFragments extends BaseCache<PathFragment, AnalysisProtosV2
   AnalysisProtosV2.PathFragment createProto(PathFragment pathFragment, int id)
       throws IOException, InterruptedException {
     AnalysisProtosV2.PathFragment.Builder pathFragmentProtoBuilder =
-        AnalysisProtosV2.PathFragment.newBuilder().setId(id).setLabel(pathFragment.getBaseName());
+        AnalysisProtosV2.PathFragment.newBuilder()
+            .setId(id)
+            .setLabel(internalToUnicode(pathFragment.getBaseName()));
 
     // Recursively create the ancestor path fragments.
     // If pathFragment has no parent, leave parentId blank and avoid calling dataToId

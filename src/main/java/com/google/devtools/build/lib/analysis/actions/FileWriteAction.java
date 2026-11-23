@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -283,6 +284,18 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         Fingerprint fp) {
       fp.addString(GUID).addBoolean(makeExecutable()).addString(getFileContents());
     }
+
+    @Override
+    public String describeKey() {
+      Fingerprint fp = new Fingerprint();
+      fp.addString(getFileContents());
+      return String.format(
+          "%s\n  GUID: %s\n  Make executable: %s\n  Content digest: %s\n",
+          getProgressMessage(),
+          GUID,
+          makeExecutable(),
+          BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
+    }
   }
 
   private static final class CompressedFileWriteAction extends FileWriteAction {
@@ -357,6 +370,18 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       fp.addString(GUID).addBoolean(makeExecutable()).addBytes(compressedBytes);
+    }
+
+    @Override
+    public String describeKey() {
+      Fingerprint fp = new Fingerprint();
+      fp.addBytes(compressedBytes);
+      return String.format(
+          "%s\n  GUID: %s\n  Make executable: %s\n  Compressed content digest: %s\n",
+          getProgressMessage(),
+          GUID,
+          makeExecutable(),
+          BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
     }
   }
 }

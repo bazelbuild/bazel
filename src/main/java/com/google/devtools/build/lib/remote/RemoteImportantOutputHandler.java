@@ -133,6 +133,9 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   @Override
   public void processTooLargeStdoutErr(Path stdoutErr) {}
 
+  @Override
+  public void processNonDeterministicOutputs(Collection<Path> outputs) {}
+
   private SilentCloseable maybeEnterProcessOutputsAndGetLostArtifacts(
       Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws InterruptedException {

@@ -27,7 +27,10 @@ cc_test(
         "//src/main/cpp/util:filesystem",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-    ],
+    ] + select({
+        "//src/conditions:windows": ["@abseil-cpp//absl/strings"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(

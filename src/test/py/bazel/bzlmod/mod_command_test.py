@@ -673,7 +673,7 @@ class ModCommandTest(test_base.TestBase):
     self.assertListEqual(
         [line for line in stdout if line.startswith('# Located at: ')],
         [
-            '# Located at: ' + output_base[0] + '/external/' + name
+            '# Located at: "' + output_base[0] + '/external/' + name + '"'
             for name in [
                 'bar+',
                 'ext+',
@@ -778,7 +778,7 @@ class ModCommandTest(test_base.TestBase):
         current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
 
       elif line.startswith('  name = "') or line.startswith(
-          'Builtin or overridden repo located at:'
+          '# Builtin or overridden repo located at:'
       ):
         if current_key is None:
           self.fail(f'Found repo without key: {line}')
@@ -957,7 +957,7 @@ class ModCommandTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     stdout = '\n'.join(stdout)
     self.assertIn('## @bazel_tools:', stdout)
-    self.assertIn('Builtin or overridden repo located at: ', stdout)
+    self.assertIn('# Builtin or overridden repo located at: ', stdout)
     self.assertIn('/embedded_tools', stdout)
 
   def testShowRepoBazelToolsJson(self):

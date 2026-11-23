@@ -42,6 +42,9 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --repo_contents_cache= \
       --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
       --extra_toolchains=//scripts/bootstrap:all \
+      --extra_toolchains=@local_config_rust//:all \
+      --@rules_rust//rust/settings:use_hermetic_macos_sdkroot=false \
+      --experimental_override_name_platform_in_output_dir=//:default_host_platform=d \
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --enable_bzlmod \
       --check_direct_dependencies=error \
@@ -55,6 +58,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --javacopt=-proc:full \
       --host_javacopt=-proc:full \
       --define=protobuf_allow_msvc=true \
+      --define=grpc_no_ares=true \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 

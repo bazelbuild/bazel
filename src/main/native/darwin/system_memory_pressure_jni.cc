@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <jni.h>
 #include <notify.h>
 
 #include <cstdint>
@@ -22,7 +23,16 @@
 
 namespace blaze_jni {
 
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/platform/SystemMemoryPressureMonitor.java
+enum MemoryPressureLevel {
+  MemoryPressureLevelNormal = 0,
+  MemoryPressureLevelWarning = 1,
+  MemoryPressureLevelCritical = 2,
+};
+
 static MemoryPressureLevel g_memory_pressure_level = MemoryPressureLevelNormal;
+static jobject g_memory_pressure_callback = nullptr;
 
 static void call_memory_pressure_callback(
     dispatch_source_memorypressure_flags_t pressure_level) {
@@ -38,14 +48,17 @@ static void call_memory_pressure_callback(
   } else {
     BAZEL_LOG(FATAL) << "unknown memory pressure level: " << pressure_level;
   }
-  memory_pressure_callback(g_memory_pressure_level);
+  blaze_jni::PerformIntegerValueCallback(g_memory_pressure_callback,
+                                         g_memory_pressure_level);
 }
 
-MemoryPressureLevel portable_memory_pressure() {
-  return g_memory_pressure_level;
-}
-
-void portable_start_memory_pressure_monitoring() {
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_registerMemoryPressureNative(
+    JNIEnv* env, jclass, jobject callback) {
+  if (!blaze_jni::RegisterIntConsumerCallback(
+          env, callback, &g_memory_pressure_callback, "memory pressure")) {
+    return;
+  }
   // To test use:
   //   sudo memory_pressure -S -l warn
   //   sudo memory_pressure -S -l critical
@@ -104,6 +117,12 @@ void portable_start_memory_pressure_monitoring() {
       BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
     }
   });
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_systemMemoryPressureNative(
+    JNIEnv*, jclass) {
+  return g_memory_pressure_level;
 }
 
 }  // namespace blaze_jni

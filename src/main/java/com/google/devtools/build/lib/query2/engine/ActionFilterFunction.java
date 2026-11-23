@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
@@ -40,13 +43,14 @@ public abstract class ActionFilterFunction implements QueryFunction {
       Callback<T> callback) {
     String filterPattern = args.get(0).getWord();
     try {
-      Pattern.compile(filterPattern);
+      Pattern.compile(internalToUnicode(filterPattern));
     } catch (PatternSyntaxException e) {
       return env.immediateFailedFuture(
           new QueryException(
               expression,
               String.format(
-                  "Illegal '%s' pattern regexp '%s': %s", getName(), filterPattern, e.getMessage()),
+                  "Illegal '%s' pattern regexp '%s': %s",
+                  getName(), filterPattern, unicodeToInternal(e.getMessage())),
               ActionQuery.Code.ILLEGAL_PATTERN_SYNTAX));
     }
 

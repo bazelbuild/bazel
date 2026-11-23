@@ -18,7 +18,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
@@ -41,7 +40,6 @@ import javax.annotation.Nullable;
  *
  * <p>Skybridge: this is the main boundary between the SC and the LC for Skycache.
  */
-@SkybridgeInterface
 public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
 
   /**
@@ -57,6 +55,25 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
       String buildId)
       throws SerializedAbruptExitException {
     // Does nothing by default.
+  }
+
+  /**
+   * Overload of {@link #configure(OptionsProvider, RemoteAnalysisCacheMode, ClientId, String)} that
+   * also supplies the command's originating user, if available.
+   *
+   * <p>This is an overload rather than a change to the existing signature for ERW compatibility:
+   * the SC and LC may be built at different versions, so methods on this Skybridge interface must
+   * not be removed or changed. The 4-argument overload can be deleted once no supported SC or LC
+   * version still depends on it.
+   */
+  default void configure(
+      OptionsProvider optionsProvider,
+      RemoteAnalysisCacheMode mode,
+      @Nullable ClientId clientId,
+      String buildId,
+      @Nullable String originatingUser)
+      throws SerializedAbruptExitException {
+    configure(optionsProvider, mode, clientId, buildId);
   }
 
   /** A specialized version of {@link #configure} for the dump command. */

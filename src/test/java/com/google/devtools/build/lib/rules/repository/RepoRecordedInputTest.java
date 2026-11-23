@@ -181,4 +181,42 @@ public class RepoRecordedInputTest extends BuildViewTestCase {
             ImmutableList.of(
                 parse("FILE:@@foo//:baz bac").orElseThrow(), parse("ENV:KEY value").orElseThrow()));
   }
+
+  @Test
+  public void testSplitIntoBatches_inputsInAlreadyRequestedRepo() {
+    var inputs =
+        ImmutableList.of(
+            parse("FILE:@@//main.txt 0").orElseThrow(),
+            // Batch 2: A dependency on a repo starts a new batch, but files in the repo can be
+            // requested together with it.
+            parse("REPO:foo ").orElseThrow(),
+            parse("FILE:@@foo//a.txt 1").orElseThrow(),
+            parse("ENV:KEY value").orElseThrow(),
+            parse("FILE:@@foo//b.txt 2").orElseThrow(),
+            // Batch 3: Without a preceding dependency on the repo, the first file in it starts a
+            // new batch, but further files in it and a dependency on it can be requested together
+            // with it.
+            parse("FILE:@@bar//a.txt 3").orElseThrow(),
+            parse("REPO:bar ").orElseThrow(),
+            parse("FILE:@@bar//b.txt 4").orElseThrow(),
+            parse("FILE:@@foo//dir DIR").orElseThrow(),
+            // Batch 4: Directory listings always start a new batch, but both @@foo and @@bar have
+            // already been requested.
+            parse("DIRENTS:@@foo//dir 5").orElseThrow(),
+            parse("FILE:@@foo//dir/c.txt 6").orElseThrow(),
+            parse("FILE:@@bar//c.txt 7").orElseThrow(),
+            parse("FILE:@@//other.txt 8").orElseThrow(),
+            // Batch 5: A dependency on a new repo starts a new batch.
+            parse("REPO:baz ").orElseThrow(),
+            parse("FILE:@@baz//a.txt 9").orElseThrow());
+
+    assertThat(splitIntoBatches(inputs))
+        .containsExactly(
+            inputs.subList(0, 1),
+            inputs.subList(1, 5),
+            inputs.subList(5, 9),
+            inputs.subList(9, 13),
+            inputs.subList(13, 15))
+        .inOrder();
+  }
 }

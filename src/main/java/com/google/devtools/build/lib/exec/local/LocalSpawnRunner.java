@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
-import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -125,6 +124,12 @@ public class LocalSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws IOException, InterruptedException, ExecException {
+    SpawnResult denied =
+        AllowedLocalActions.denyIfNotAllowed(
+            localExecutionOptions, this, spawn.getResourceOwner().getMnemonic(), context);
+    if (denied != null) {
+      return denied;
+    }
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
@@ -315,28 +320,6 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
-      if (localExecutionOptions.getAllowedLocalAction() != null
-          && !localExecutionOptions.getAllowedLocalAction().matcher().test(actionType)) {
-        setState(State.PERMANENT_ERROR);
-        outErr
-            .getErrorStream()
-            .write(
-                ("Action type "
-                        + actionType
-                        + " is not allowed to run locally due to regex filter: "
-                        + StringEncoding.unicodeToInternal(
-                            localExecutionOptions.getAllowedLocalAction().regexPattern().toString())
-                        + "\n")
-                    .getBytes(UTF_8));
-        spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
-        return spawnResultBuilder
-            .setStatus(Status.EXECUTION_DENIED)
-            .setExitCode(LOCAL_EXEC_ERROR)
-            .setFailureDetail(
-                makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED, actionType))
-            .setSpawnMetrics(spawnMetrics.build())
-            .build();
-      }
 
       Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
       List<RunfilesTree> runfilesTrees = new ArrayList<>();

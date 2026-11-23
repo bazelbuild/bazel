@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
@@ -182,7 +181,6 @@ public class SkyframeErrorProcessorTest {
                     analysisExceptionWithCauses(
                         "loading exception",
                         key.getLabel(),
-                        // Two distinct Causes with the *same* label: they must be de-duplicated.
                         NestedSetBuilder.create(
                             Order.STABLE_ORDER,
                             new LoadingFailedCause(loadingRootCause, analysisExitCode("first")),
@@ -196,8 +194,6 @@ public class SkyframeErrorProcessorTest {
     // not an execution error.
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.executionDetailedExitCode()).isNull();
-    // The de-duplication itself is observable through the LoadingFailureEvents, see
-    // loadingError_postsOneLoadingFailureEventPerDedupedLabel below.
   }
 
   @Test
@@ -631,14 +627,20 @@ public class SkyframeErrorProcessorTest {
     AnalysisFailureEvent event = onlyAnalysisFailureEvent();
     assertThat(event.getFailedTarget()).isEqualTo(key);
     assertThat(event.getRootCauses().toList()).containsExactly(rootCause);
-    assertThat(eventBusCollector.loadingFailures).isEmpty();
   }
 
   @Test
-  public void loadingError_postsOneLoadingFailureEventPerDedupedLabel() throws Exception {
+  public void loadingError_postsAnalysisFailureEventWithAllRootCauses() throws Exception {
     ConfiguredTargetKey key = configuredTargetKey("//loading_err");
-    Label firstRootCause = Label.parseCanonicalUnchecked("//missing_a");
-    Label secondRootCause = Label.parseCanonicalUnchecked("//missing_b");
+    LoadingFailedCause firstCause =
+        new LoadingFailedCause(
+            Label.parseCanonicalUnchecked("//missing_a"), analysisExitCode("first"));
+    LoadingFailedCause secondCause =
+        new LoadingFailedCause(
+            Label.parseCanonicalUnchecked("//missing_a"), analysisExitCode("second"));
+    LoadingFailedCause thirdCause =
+        new LoadingFailedCause(
+            Label.parseCanonicalUnchecked("//missing_b"), analysisExitCode("third"));
 
     processErrors(
         resultOf(
@@ -648,21 +650,13 @@ public class SkyframeErrorProcessorTest {
                     "loading exception",
                     key.getLabel(),
                     NestedSetBuilder.create(
-                        Order.STABLE_ORDER,
-                        // Same label twice with different exit codes: one event, not two.
-                        new LoadingFailedCause(firstRootCause, analysisExitCode("first")),
-                        new LoadingFailedCause(firstRootCause, analysisExitCode("second")),
-                        new LoadingFailedCause(secondRootCause, analysisExitCode("third")))))),
+                        Order.STABLE_ORDER, firstCause, secondCause, thirdCause)))),
         /* keepGoing= */ true,
         /* includeExecutionPhase= */ false);
 
-    // The loading root causes are de-duplicated by label, so there is one event per label.
-    assertThat(eventBusCollector.loadingFailures)
-        .containsExactly(
-            new LoadingFailureEvent(key.getLabel(), firstRootCause),
-            new LoadingFailureEvent(key.getLabel(), secondRootCause));
-    // Plus the AnalysisFailureEvent.
-    assertThat(eventBusCollector.analysisFailures).hasSize(1);
+    AnalysisFailureEvent event = onlyAnalysisFailureEvent();
+    assertThat(event.getFailedTarget()).isEqualTo(key);
+    assertThat(event.getRootCauses().toList()).containsExactly(firstCause, secondCause, thirdCause);
   }
 
   @Test
@@ -1896,12 +1890,11 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void topLevelAspectsKey_loadingFailedCause_keepGoing_loadingErrorAndLoadingFailureEvent()
+  public void topLevelAspectsKey_loadingFailedCause_keepGoing_loadingErrorAndAnalysisFailureEvent()
       throws Exception {
     // A LoadingFailedCause carried by an exception on an aspect key is reported like one on a
-    // ConfiguredTargetKey (see loadingError_postsOneLoadingFailureEventPerDedupedLabel):
-    // hasLoadingError() is true and a LoadingFailureEvent is posted, naming the aspect's base
-    // target as the failed target, not the aspect.
+    // ConfiguredTargetKey: hasLoadingError() is true and an AnalysisFailureEvent is posted, naming
+    // the aspect's base target as the failed target, not the aspect.
     // hasLoadingError() is also what BuildView#createAnalysisFailureDetail keys on, so an aspect
     // loading failure reports GENERIC_LOADING_PHASE_FAILURE for the build rather than
     // NOT_ALL_TARGETS_ANALYZED.
@@ -1925,10 +1918,9 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(result.hasLoadingError()).isTrue();
     assertThat(result.hasAnalysisError()).isTrue();
-    assertThat(eventBusCollector.loadingFailures)
-        .containsExactly(new LoadingFailureEvent(label, loadingRootCause));
-    // The AnalysisFailureEvent carries the very same cause.
-    assertThat(onlyAnalysisFailureEvent().getRootCauses().toList()).containsExactly(rootCause);
+    AnalysisFailureEvent event = onlyAnalysisFailureEvent();
+    assertThat(event.getFailedTarget().getLabel()).isEqualTo(label);
+    assertThat(event.getRootCauses().toList()).containsExactly(rootCause);
   }
 
   @Test
@@ -3219,7 +3211,6 @@ public class SkyframeErrorProcessorTest {
   private static final class EventBusCollector {
     private final List<Object> allEvents = new ArrayList<>();
     private final List<AnalysisFailureEvent> analysisFailures = new ArrayList<>();
-    private final List<LoadingFailureEvent> loadingFailures = new ArrayList<>();
 
     @Subscribe
     public void onAnyEvent(Object event) {
@@ -3229,11 +3220,6 @@ public class SkyframeErrorProcessorTest {
     @Subscribe
     public void onAnalysisFailure(AnalysisFailureEvent event) {
       analysisFailures.add(event);
-    }
-
-    @Subscribe
-    public void onLoadingFailure(LoadingFailureEvent event) {
-      loadingFailures.add(event);
     }
   }
 

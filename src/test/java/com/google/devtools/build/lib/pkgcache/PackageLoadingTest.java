@@ -329,7 +329,11 @@ public class PackageLoadingTest extends FoundationTestCase {
     assertThat(e)
         .hasMessageThat()
         .matches(
-            TestUtils.createMissingTargetAssertionString("not-there", "pkg1", "/workspace", ""));
+            TestUtils.createMissingTargetAssertionString(
+                "not-there",
+                "pkg1",
+                "/workspace",
+                " \\(available rules: \"foo\" \\(foo_library\\)\\)"));
   }
 
   /**

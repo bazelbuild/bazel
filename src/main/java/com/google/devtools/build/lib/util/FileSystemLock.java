@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.FileLockInterruptionException;
+import java.nio.file.FileSystemException;
 import java.nio.file.StandardOpenOption;
 
 /**
@@ -60,12 +61,16 @@ public final class FileSystemLock implements AutoCloseable {
 
   private static FileChannel prepareChannel(Path path) throws IOException {
     path.getParentDirectory().createDirectoryAndParents();
-    return FileChannel.open(
-        // Correctly handle non-ASCII paths by converting from the internal string encoding.
-        java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString())),
-        StandardOpenOption.READ,
-        StandardOpenOption.WRITE,
-        StandardOpenOption.CREATE);
+    try {
+      return FileChannel.open(
+          // Correctly handle non-ASCII paths by converting from the internal string encoding.
+          java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString())),
+          StandardOpenOption.READ,
+          StandardOpenOption.WRITE,
+          StandardOpenOption.CREATE);
+    } catch (FileSystemException e) {
+      throw new IOException(StringEncoding.platformToInternal(e.getMessage()), e);
+    }
   }
 
   /**

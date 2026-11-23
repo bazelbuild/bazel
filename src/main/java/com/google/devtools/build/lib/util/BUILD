@@ -17,7 +17,6 @@ filegroup(
 java_library(
     name = "bucket",
     srcs = ["Bucket.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
@@ -135,7 +134,6 @@ java_library(
     srcs = ["ServerLogPathService.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 
@@ -145,7 +143,6 @@ java_library(
     deps = [
         ":server_log_path_service",
         ":util",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 
@@ -179,6 +176,7 @@ java_library(
     deps = [
         ":command_failure_utils",
         ":os",
+        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/error_prone:annotations",
@@ -297,7 +295,6 @@ java_library(
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
-        "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
         "LatestObjectMetricExporter.java",
@@ -437,7 +434,6 @@ java_library(
     deps = [
         ":os",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//third_party/java/guava:base",
     ],
 )
 
@@ -471,14 +467,12 @@ java_library(
 java_library(
     name = "serialized_abrupt_exit_exception",
     srcs = ["SerializedAbruptExitException.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
     name = "exit_code",
     srcs = ["ExitCode.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/jsr305_annotations",
     ],

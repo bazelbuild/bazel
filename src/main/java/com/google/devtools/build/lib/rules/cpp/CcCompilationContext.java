@@ -94,8 +94,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-I" (possibly empty but
    * never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
     return getPathFragmentList("includes");
@@ -105,8 +104,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-iquote" (possibly empty
    * but never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
     return getPathFragmentList("quote_includes");
@@ -116,8 +114,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-isystem" (possibly empty
    * but never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
     return getPathFragmentList("system_includes");
@@ -137,7 +134,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of external include directories (possibly empty but never null).
    * This includes the include dirs from the transitive deps closure of the target. This list does
    * not contain duplicates. All fragments are either absolute or relative to the exec root (see
-   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getExternalIncludeDirs() {
     return getPathFragmentList("external_includes");

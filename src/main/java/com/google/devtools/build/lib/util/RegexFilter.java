@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.util;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Converter;
@@ -81,7 +84,7 @@ public final class RegexFilter implements Predicate<String> {
         return new RegexFilter(inclusionList, exclusionList, input);
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException(
-            "Failed to build valid regular expression: " + e.getMessage());
+            "Failed to build valid regular expression: " + unicodeToInternal(e.getMessage()));
       }
     }
 
@@ -132,7 +135,7 @@ public final class RegexFilter implements Predicate<String> {
     TreeSet<String> deduped = new TreeSet<>(regexList);
     // Wraps each individual regex into an independent group, then combines them using '|' and
     // wraps the result in a non-capturing group.
-    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(deduped) + "))");
+    return Pattern.compile(internalToUnicode("(?:(?>" + Joiner.on(")|(?>").join(deduped) + "))"));
   }
 
   /**
@@ -140,13 +143,14 @@ public final class RegexFilter implements Predicate<String> {
    *     matches inclusionPatter (if any)).
    */
   public boolean isIncluded(String value) {
-    if (exclusionPattern != null && exclusionPattern.matcher(value).find()) {
+    String unicodeValue = internalToUnicode(value);
+    if (exclusionPattern != null && exclusionPattern.matcher(unicodeValue).find()) {
       return false;
     }
     if (inclusionPattern == null) {
       return true;
     }
-    return inclusionPattern.matcher(value).find();
+    return inclusionPattern.matcher(unicodeValue).find();
   }
 
   @Override
@@ -158,14 +162,14 @@ public final class RegexFilter implements Predicate<String> {
   public String toString() {
     StringBuilder builder = new StringBuilder();
     if (inclusionPattern != null) {
-      builder.append(inclusionPattern.pattern().replace(",", "\\,"));
+      builder.append(unicodeToInternal(inclusionPattern.pattern()).replace(",", "\\,"));
       if (exclusionPattern != null) {
         builder.append(",");
       }
     }
     if (exclusionPattern != null) {
       builder.append("-");
-      builder.append(exclusionPattern.pattern().replace(",", "\\,"));
+      builder.append(unicodeToInternal(exclusionPattern.pattern()).replace(",", "\\,"));
     }
     return builder.toString();
   }

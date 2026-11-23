@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -81,7 +83,6 @@ import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -138,11 +139,7 @@ public class CombinedCacheTest {
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private final MerkleTreeComputer merkleTreeComputer =
       new MerkleTreeComputer(
-          digestUtil,
-          /* remoteExecutionCache= */ null,
-          "buildRequestId",
-          "commandId",
-          TestConstants.WORKSPACE_NAME);
+          digestUtil, /* remoteExecutionCache= */ null, "buildRequestId", "commandId");
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;
@@ -645,8 +642,14 @@ public class CombinedCacheTest {
     assertThat(futures).hasSize(2);
     assertThat(cacheProtocol.getInProgressUploads()).isNotEmpty();
 
+    CountDownLatch allFuturesCancelled = new CountDownLatch(2);
+    for (SettableFuture<Void> future : futures) {
+      future.addListener(allFuturesCancelled::countDown, directExecutor());
+    }
+
     thread.interrupt();
     ensureInputsPresentReturned.await();
+    assertThat(allFuturesCancelled.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
     // assert
     assertThat(cacheProtocol.getInProgressUploads()).isEmpty();

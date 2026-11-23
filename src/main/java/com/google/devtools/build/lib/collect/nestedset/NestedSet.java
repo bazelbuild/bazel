@@ -98,22 +98,24 @@ public abstract sealed class NestedSet<E> {
 
   /**
    * Constructs a NestedSet that is currently being deserialized. The provided future, when
-   * complete, gives the contents of the NestedSet.
+   * complete, gives the contents of the NestedSet. The set has no owner.
    */
   static <E> NestedSet<E> withFuture(
       Order order, int depth, ListenableFuture<Object[]> deserializationFuture) {
-    return new Nested<>(order, depth, deserializationFuture);
+    return new Nested<>(order, depth, deserializationFuture, /* owner= */ null, /* index= */ 0);
   }
 
+  /** Constructs a deserialized NestedSet with the owner and index it was serialized with. */
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  static <E> NestedSet<E> forDeserialization(Order order, int approxDepth, Object children) {
+  static <E> NestedSet<E> forDeserialization(
+      Order order, int approxDepth, Object children, @Nullable Object owner, int index) {
     Preconditions.checkState(!(children instanceof ListenableFuture), children);
     // Deserialization does it own interning, so we don't need to intern here.
     //
     // A future improvement might be to unify deserialization's interning with NestedSetInterner
     // (used by NestedSetBuilder).
-    return createWithoutCounting(order, approxDepth, children);
+    return instantiate(order, approxDepth, children, isNested(children), owner, index);
   }
 
   /**
@@ -127,6 +129,10 @@ public abstract sealed class NestedSet<E> {
    * overapproximate the true depth.
    */
   private final int depthAndOrder;
+
+  @Nullable private final Object owner;
+
+  private final int index;
 
   /**
    * Contains the "direct" elements and "transitive" nested sets.
@@ -147,59 +153,17 @@ public abstract sealed class NestedSet<E> {
    */
   final Object children;
 
-  /**
-   * Per-thread count of the non-empty {@link NestedSet}s constructed during the analysis of the
-   * rule or aspect currently running on this thread, used to enforce {@code
-   * --nested_set_count_limit}.
-   *
-   * <p>Set by {@link #beginTargetNestedSetCount} (only when the limit is enabled), read by {@link
-   * #getCurrentTargetNestedSetCount} and cleared by {@link #endTargetNestedSetCount}. A {@code
-   * null} value means nothing is being counted. The {@code int[1]} is a mutable box so that
-   * incrementing does not require a {@link ThreadLocal#set} call. Sets created for deserialization
-   * or by splitting/inspection helpers (via {@link #createWithoutCounting}) are not counted.
-   */
-  private static final ThreadLocal<int[]> TARGET_COUNTER = new ThreadLocal<>();
-
-  /**
-   * Starts counting newly constructed non-empty {@link NestedSet} instances on the current thread.
-   */
-  public static void beginTargetNestedSetCount() {
-    TARGET_COUNTER.set(new int[1]);
-  }
-
-  /**
-   * Returns the number of newly constructed non-empty {@link NestedSet} instances on the current
-   * thread since {@link #beginTargetNestedSetCount()} was called.
-   */
-  public static int getCurrentTargetNestedSetCount() {
-    int[] counter = TARGET_COUNTER.get();
-    return counter != null ? counter[0] : 0;
-  }
-
-  /** Stops counting {@link NestedSet} instances on the current thread. */
-  public static void endTargetNestedSetCount() {
-    TARGET_COUNTER.remove();
-  }
-
-  @SuppressWarnings("ReferenceEquality") // EMPTY_CHILDREN is a sentinel compared by identity.
-  private static void incrementTargetNestedSetCount(Object children) {
-    if (children != EMPTY_CHILDREN) {
-      int[] counter = TARGET_COUNTER.get();
-      if (counter != null) {
-        counter[0]++;
-      }
-    }
-  }
-
   @SuppressWarnings("EnumOrdinal") // Used to pack order and depth into a single int field.
-  NestedSet(Order order, int depth, Object children) {
+  NestedSet(Order order, int depth, Object children, @Nullable Object owner, int index) {
     this.depthAndOrder = (depth << 2) | order.ordinal();
     this.children = children;
+    this.owner = owner;
+    this.index = index;
   }
 
   /** Constructs an empty NestedSet. Should only be called by Order's class initializer. */
   static <E> NestedSet<E> empty(Order order) {
-    return new Flat<>(order, 0, EMPTY_CHILDREN);
+    return new Flat<>(order, 0, EMPTY_CHILDREN, /* owner= */ null, /* index= */ 0);
   }
 
   private static boolean isNested(Object children) {
@@ -210,22 +174,27 @@ public abstract sealed class NestedSet<E> {
     };
   }
 
-  static <E> NestedSet<E> createWithoutCounting(Order order, int depth, Object children) {
-    return isNested(children)
-        ? new Nested<>(order, depth, children)
-        : new Flat<>(order, depth, children);
+  /** Creates a set without an owner, which takes no index. */
+  static <E> NestedSet<E> createUnowned(Order order, int depth, Object children) {
+    return instantiate(
+        order, depth, children, isNested(children), /* owner= */ null, /* index= */ 0);
   }
 
   static <E> NestedSet<E> create(Order order, int depth, Object children) {
-    incrementTargetNestedSetCount(children);
-    return createWithoutCounting(order, depth, children);
+    return create(order, depth, children, NestedSetOwnerScope.current());
+  }
+
+  static <E> NestedSet<E> create(
+      Order order, int depth, Object children, @Nullable NestedSetOwnerScope scope) {
+    return instantiateNew(order, depth, children, isNested(children), scope);
   }
 
   static <E> NestedSet<E> create(
       Order order,
       Set<E> direct,
       Collection<NestedSet<E>> transitive,
-      InterruptStrategy interruptStrategy)
+      InterruptStrategy interruptStrategy,
+      @Nullable NestedSetOwnerScope scope)
       throws InterruptedException {
     // The iteration order of these collections is the order in which we add the items.
     Collection<E> directOrder = direct;
@@ -326,10 +295,47 @@ public abstract sealed class NestedSet<E> {
       finalChildren = NestedSetInterner.intern(children);
     }
 
-    incrementTargetNestedSetCount(finalChildren);
-    return shallow
-        ? new Flat<>(order, approxDepth, finalChildren)
-        : new Nested<>(order, approxDepth, finalChildren);
+    return instantiateNew(order, approxDepth, finalChildren, !shallow, scope);
+  }
+
+  /**
+   * Instantiates a new set. If it is non-empty and {@code scope} is non-null, the set is owned by
+   * the scope's owner and takes the scope's next index. Empty sets and sets created without a scope
+   * have no owner.
+   */
+  @SuppressWarnings("ReferenceEquality") // EMPTY_CHILDREN is a sentinel compared by identity.
+  private static <E> NestedSet<E> instantiateNew(
+      Order order,
+      int depth,
+      Object children,
+      boolean nested,
+      @Nullable NestedSetOwnerScope scope) {
+    if (children != EMPTY_CHILDREN && scope != null) {
+      return instantiate(order, depth, children, nested, scope.getOwner(), scope.nextIndex());
+    }
+    return instantiate(order, depth, children, nested, /* owner= */ null, /* index= */ 0);
+  }
+
+  private static <E> NestedSet<E> instantiate(
+      Order order, int depth, Object children, boolean nested, @Nullable Object owner, int index) {
+    return nested
+        ? new Nested<>(order, depth, children, owner, index)
+        : new Flat<>(order, depth, children, owner, index);
+  }
+
+  /**
+   * Returns the owner of the {@link NestedSetOwnerScope} that created this set (e.g. the key of a
+   * configured target, aspect, merged aspects, or {@code .bzl} file), or {@code null} if it was
+   * created outside a scope.
+   */
+  @Nullable
+  public final Object getOwner() {
+    return owner;
+  }
+
+  /** Returns this set's index among the sets of its owner, or 0 if it has no owner. */
+  public final int getIndex() {
+    return index;
   }
 
   private static boolean hasTransitiveMember(Object[] children) {
@@ -343,8 +349,8 @@ public abstract sealed class NestedSet<E> {
 
   /**
    * Maximum number of leaves hoisted from singleton transitive members in {@link #create(Order,
-   * Set, Collection, InterruptStrategy)} that are deduplicated by a linear scan rather than by a
-   * hash set.
+   * Set, Collection, InterruptStrategy, NestedSetOwnerScope)} that are deduplicated by a linear
+   * scan rather than by a hash set.
    */
   private static final int MAX_LINEAR_SCAN_HOISTED = 8;
 
@@ -801,7 +807,7 @@ public abstract sealed class NestedSet<E> {
     // Recursively split pieces. (The recursion affects only the root; it
     // does not traverse into successors.) In practice, maxDegree is large
     // enough that the recursion rarely does any work.
-    return NestedSet.<E>createWithoutCounting(getOrder(), depth, pieces)
+    return NestedSet.<E>createUnowned(getOrder(), depth, pieces)
         .splitIfExceedsMaximumSize(maxDegree);
   }
 
@@ -815,7 +821,7 @@ public abstract sealed class NestedSet<E> {
     for (Object c : array) {
       if (c instanceof Object[]) {
         int depth = getApproxDepth() - 1; // possible overapproximation
-        res.add(NestedSet.<E>createWithoutCounting(getOrder(), depth, c));
+        res.add(NestedSet.<E>createUnowned(getOrder(), depth, c));
       }
     }
     return res.build();
@@ -881,10 +887,39 @@ public abstract sealed class NestedSet<E> {
     }
   }
 
+  /**
+   * Sets with an owner (other than {@link NestedSetOwnerScope#NO_IDENTITY_OWNER}) are equal if they
+   * have the same owner and index, so that a deserialized set equals the locally analyzed set it is
+   * a copy of. Sets without an owner (or with {@link NestedSetOwnerScope#NO_IDENTITY_OWNER}) use
+   * identity equality. Contents are never compared, which would be too expensive.
+   */
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    // Comparing the order too is cheap, and keeps sets apart even if they ever get the same owner
+    // and index by mistake. The depth isn't compared: equal copies can have different approximate
+    // depths, e.g. when only one of them was built from interned children.
+    return other instanceof NestedSet<?> that
+        && owner != null
+        && owner != NestedSetOwnerScope.NO_IDENTITY_OWNER
+        && index == that.index
+        && getOrder() == that.getOrder()
+        && owner.equals(that.owner);
+  }
+
+  @Override
+  public int hashCode() {
+    return owner == null || owner == NestedSetOwnerScope.NO_IDENTITY_OWNER
+        ? System.identityHashCode(this)
+        : 31 * owner.hashCode() + index;
+  }
+
   /** Implementation for {@code depth <= 2}, when no caching is necessary. */
   private static final class Flat<E> extends NestedSet<E> {
-    Flat(Order order, int depth, Object children) {
-      super(order, depth, children);
+    Flat(Order order, int depth, Object children, @Nullable Object owner, int index) {
+      super(order, depth, children, owner, index);
     }
 
     @Override
@@ -909,7 +944,7 @@ public abstract sealed class NestedSet<E> {
      * Flattened list representations, keyed by the identity of the (deserialized) children array.
      *
      * <p>Most {@code Nested} instances are never flattened, so a shared map is cheaper than a
-     * per-instance field: without the field, a {@code Nested} takes 16 instead of 24 bytes with
+     * per-instance field: without the field, a {@code Nested} takes 24 instead of 32 bytes with
      * compact object headers. Instances sharing a children array also share the flattened list.
      * This is safe because {@link #expand} does not depend on the order; {@link Order#LINK_ORDER}
      * is applied by the caller.
@@ -922,8 +957,8 @@ public abstract sealed class NestedSet<E> {
     private static final ConcurrentMap<Object[], ImmutableList<?>> flattenedLists =
         new MapMaker().weakKeys().weakValues().makeMap();
 
-    Nested(Order order, int depth, Object children) {
-      super(order, depth, children);
+    Nested(Order order, int depth, Object children, @Nullable Object owner, int index) {
+      super(order, depth, children, owner, index);
     }
 
     @Override

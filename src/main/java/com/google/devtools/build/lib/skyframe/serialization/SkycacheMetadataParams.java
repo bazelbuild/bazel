@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -26,7 +25,6 @@ import java.util.Set;
  * or if there could potentially be cache hits by syncing to a different evaluating version or using
  * a different build configuration.
  */
-@SkybridgeInterface
 public interface SkycacheMetadataParams {
 
   void init(

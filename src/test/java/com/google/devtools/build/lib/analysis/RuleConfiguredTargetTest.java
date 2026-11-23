@@ -785,10 +785,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
             new ObjectCodecs(
                 initializeAnalysisCodecRegistryBuilder(
                         getRuleClassProvider(),
-                        makeReferenceConstants(
-                            directories,
-                            getRuleClassProvider(),
-                            directories.getWorkspace().getBaseName()))
+                        makeReferenceConstants(directories, getRuleClassProvider()))
                     .build(),
                 ImmutableClassToInstanceMap.builder()
                     .put(

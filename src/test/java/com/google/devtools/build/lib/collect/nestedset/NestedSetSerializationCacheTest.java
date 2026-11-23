@@ -153,6 +153,24 @@ public final class NestedSetSerializationCacheTest {
   }
 
   @Test
+  public void putContentsToFingerprintIfAbsent_cachesForwardDirectionOnly() {
+    PackedFingerprint fingerprint = getFingerprintForTesting("abc");
+    Object[] canonicalContents = new Object[] {"a", "b"};
+    Object[] wrapperContents = new Object[] {canonicalContents, new Object[] {"a", "b"}};
+    PutOperation result = new PutOperation(fingerprint, new SettableWriteStatus());
+
+    assertThat(cache.putIfAbsent(canonicalContents, result, DEFAULT_CONTEXT)).isNull();
+    assertThat(cache.putContentsToFingerprintIfAbsent(wrapperContents, result)).isNull();
+    assertThat(
+            cache.putContentsToFingerprintIfAbsent(
+                wrapperContents, new PutOperation(fingerprint, new SettableWriteStatus())))
+        .isSameInstanceAs(result);
+    assertThat(cache.fingerprintForContents(wrapperContents)).isSameInstanceAs(result);
+    assertThat(cache.putFutureIfAbsent(fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isSameInstanceAs(canonicalContents);
+  }
+
+  @Test
   public void putIfAbsent_calledDuringPendingDeserialization_overwritesFuture() {
     PackedFingerprint fingerprint = getFingerprintForTesting("abc");
     SettableFuture<Object[]> future = SettableFuture.create();

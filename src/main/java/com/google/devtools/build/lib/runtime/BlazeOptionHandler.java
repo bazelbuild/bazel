@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -374,7 +375,8 @@ public final class BlazeOptionHandler {
         Iterables.concat(
             runtime.getModuleInvocationPolicy().getConfigPoliciesList(),
             invocationPolicy.getConfigPoliciesList())) {
-      if (policy.getName().isEmpty()) {
+      String name = StringEncoding.unicodeToInternal(policy.getName());
+      if (name.isEmpty()) {
         throw new OptionsParsingException(
             "Invocation policy config_policies entry is missing a name (order: "
                 + policy.getOrder()
@@ -383,11 +385,11 @@ public final class BlazeOptionHandler {
       if (policy.getOrder() == ConfigPolicy.Order.UNDEFINED) {
         throw new OptionsParsingException(
             "Invocation policy config_policies entry for config '"
-                + policy.getName()
+                + name
                 + "' has an undefined order");
       }
       if (policy.getOrder() == order) {
-        args.add("--config=" + policy.getName());
+        args.add("--config=" + name);
       }
     }
     return args.build();
@@ -486,11 +488,6 @@ public final class BlazeOptionHandler {
    * not passed in here during {@link #getOptionsResult}.
    */
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env, List<String> args) {
-    // For now, restrict starlark options to commands that already build to ensure that loading
-    // will work. We may want to open this up to other commands in the future.
-    if (!commandAnnotation.buildPhase().analyzes()) {
-      return DetailedExitCode.success();
-    }
     try {
       BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
       StarlarkOptionsParser starlarkOptionsParser =

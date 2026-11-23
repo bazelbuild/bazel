@@ -15,7 +15,6 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.IdentityHashMap;
 
 /**
  * An object that manages the capability to mutate Starlark objects and their {@link
@@ -49,8 +48,7 @@ import java.util.IdentityHashMap;
  * attempts to mutate it to fail. The temporary immutability applies only to the sequence itself,
  * not to its elements. Once a mutable sequence becomes frozen, there is no need to count active
  * iterators (and doing so would be racy as frozen objects may be published to other Starlark
- * threads). The default implementation of {@code updateIteratorCount} uses a set of counters in the
- * Mutability, but a Freezable object may define a more efficient intrusive counter implementation.
+ * threads).
  *
  * <p>We follow two disciplines to ensure safety. First, all mutation methods of a Freezable value
  * must confirm that the value's Mutability is not yet frozen, nor is the value temporarily
@@ -92,12 +90,7 @@ import java.util.IdentityHashMap;
  */
 public final class Mutability implements AutoCloseable {
 
-  // Maps each temporarily frozen Freezable value to the (positive) count of active iterators over
-  // the value. This field is set to null when the Mutability becomes permanently frozen, at which
-  // point there is no need to track iterators. This map does not contain Freezable values that
-  // define their own implementation of updateIteratorCount.
-  private IdentityHashMap<Freezable, Integer> iteratorCount =
-      new IdentityHashMap<>(10); // 10 nested for-loops seems plenty
+  private boolean isFrozen;
 
   // An optional list of values that are formatted with toString and joined with spaces to yield the
   // "annotation", an internal name describing the purpose of this Mutability.
@@ -118,7 +111,7 @@ public final class Mutability implements AutoCloseable {
    *     yield the annotation, an internal name describing the purpose of this Mutability.
    */
   public static Mutability create(Object... annotation) {
-    return new Mutability(annotation, /*allowsUnsafeShallowFreeze=*/ false);
+    return new Mutability(annotation, /* allowsUnsafeShallowFreeze= */ false);
   }
 
   /**
@@ -126,7 +119,7 @@ public final class Mutability implements AutoCloseable {
    * {@link Mutability} and {@link Freezable#unsafeShallowFreeze}.
    */
   public static Mutability createAllowingShallowFreeze(Object... annotation) {
-    return new Mutability(annotation, /*allowsUnsafeShallowFreeze=*/ true);
+    return new Mutability(annotation, /* allowsUnsafeShallowFreeze= */ true);
   }
 
   /** Returns the Mutability's "annotation", an internal name describing its purpose. */
@@ -142,30 +135,7 @@ public final class Mutability implements AutoCloseable {
   }
 
   public boolean isFrozen() {
-    return this.iteratorCount == null;
-  }
-
-  // Defines the default behavior of mutable Freezable sequence values,
-  // which become temporarily immutable while there are active iterators.
-  private boolean updateIteratorCount(Freezable x, int delta) {
-    if (isFrozen()) {
-      return false;
-    }
-    int i = this.iteratorCount.getOrDefault(x, 0);
-    if (delta > 0) {
-      i++;
-      this.iteratorCount.put(x, i);
-    } else if (delta < 0) {
-      i--;
-      if (i == 0) {
-        this.iteratorCount.remove(x);
-      } else if (i > 0) {
-        this.iteratorCount.put(x, i);
-      } else {
-        throw new IllegalStateException("zero value in this.iteratorCount");
-      }
-    }
-    return i > 0;
+    return this.isFrozen;
   }
 
   /**
@@ -179,7 +149,7 @@ public final class Mutability implements AutoCloseable {
    */
   @CanIgnoreReturnValue
   public Mutability freeze() {
-    this.iteratorCount = null;
+    this.isFrozen = true;
     return this;
   }
 
@@ -216,8 +186,8 @@ public final class Mutability implements AutoCloseable {
      * Registers a change to this Freezable's iterator count and reports whether it is temporarily
      * immutable.
      *
-     * <p>If the value is permanently frozen ({@code mutability().isFrozen()), this function is a
-     * no-op that returns false.
+     * <p>If the value is permanently frozen ({@code mutability().isFrozen()}) or not iterable, this
+     * function is a no-op that returns false.
      *
      * <p>Otherwise, if delta is positive, this increments the count of active iterators over the
      * value, causing it to appear temporarily frozen (if it wasn't already). If delta is negative,
@@ -225,16 +195,12 @@ public final class Mutability implements AutoCloseable {
      * decrement the counter if it was already zero. The return value is true if the count is
      * positive after the change, and false otherwise.
      *
-     * <p>The default implementation stores the counter of iterators in a hash table in the
-     * Mutability, but a subclass of Freezable may define a more efficient implementation such as an
-     * integer field in the freezable value itself.
-     *
      * <p>Call this function with a positive value when starting an iteration and with a negative
-     * value when ending it.
+     * value when ending it. Call with 0 to test whether the Freezable is currently
+     * <b>temporarily</b> immutable (this is rarely what you want -- see {@link
+     * Starlark#isImmutable}).
      */
-    default boolean updateIteratorCount(int delta) {
-      return mutability().updateIteratorCount(this, delta);
-    }
+    boolean updateIteratorCount(int delta);
 
     /**
      * Freezes this object (and not its contents). Use with care.
@@ -258,8 +224,7 @@ public final class Mutability implements AutoCloseable {
      * Throws {@link IllegalArgumentException} if the precondition for {@link #unsafeShallowFreeze}
      * is violated. To be used by implementors of {@link #unsafeShallowFreeze}.
      */
-    static void checkUnsafeShallowFreezePrecondition(
-        Freezable freezable) {
+    static void checkUnsafeShallowFreezePrecondition(Freezable freezable) {
       Mutability mutability = freezable.mutability();
       if (mutability.isFrozen()) {
         // It's not safe to rewrite the Mutability pointer if this is already frozen, because we

@@ -101,8 +101,6 @@ public class BuildConfigurationValue
     FragmentRegistry getFragmentRegistry();
 
     ImmutableSet<String> getReservedActionMnemonics();
-
-    String getRunfilesPrefix();
   }
 
   private final OutputDirectories outputDirectories;
@@ -110,7 +108,6 @@ public class BuildConfigurationValue
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
 
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
-  private final String workspaceName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private final CommandLineLimits commandLineLimits;
 
@@ -246,7 +243,6 @@ public class BuildConfigurationValue
         mnemonic.dependsOnBaseline(),
         platformCpu,
         starlarkFlagDetails,
-        globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -280,7 +276,6 @@ public class BuildConfigurationValue
         /* mnemonicDependsOnBaseline= */ false,
         "",
         StarlarkBuildSettingsDetailsValue.EMPTY,
-        globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -309,7 +304,6 @@ public class BuildConfigurationValue
       String platformCpu,
       StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are either server-global and constant or completely dependent values.
-      String workspaceName,
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
       ImmutableSet<String> reservedActionMnemonics,
@@ -325,8 +319,7 @@ public class BuildConfigurationValue
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
-            directories, options, buildOptions.get(PlatformOptions.class), mnemonic, workspaceName);
-    this.workspaceName = workspaceName;
+            directories, options, buildOptions.get(PlatformOptions.class), mnemonic);
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -371,7 +364,6 @@ public class BuildConfigurationValue
     // Only considering arguments that are non-dependent and non-server-global, plus the Starlark
     // flag details. hashCode skips the latter since hashing them is expensive.
     return this.buildOptions.equals(otherVal.buildOptions)
-        && this.workspaceName.equals(otherVal.workspaceName)
         && this.mnemonic.equals(otherVal.mnemonic)
         && Objects.equals(this.platformCpu, otherVal.platformCpu)
         && this.starlarkFlagDetails.equals(otherVal.starlarkFlagDetails);
@@ -384,7 +376,7 @@ public class BuildConfigurationValue
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, workspaceName, mnemonic, platformCpu);
+    return Objects.hash(buildOptions, mnemonic, platformCpu);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -507,10 +499,6 @@ public class BuildConfigurationValue
   @Override
   public String getHostPathSeparator() {
     return outputDirectories.getHostPathSeparator();
-  }
-
-  public String getWorkspaceName() {
-    return workspaceName;
   }
 
   @Override

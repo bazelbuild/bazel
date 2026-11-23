@@ -42,10 +42,13 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
+
   public static final Comparator<Digest> DIGEST_COMPARATOR =
       comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator())
           .thenComparingLong(Digest::getSizeBytes);
@@ -214,7 +217,9 @@ public class DigestUtil {
   }
 
   public static byte[] toBinaryDigest(Digest digest) {
-    return HashCode.fromString(digest.getHash()).asBytes();
+    String hash = digest.getHash();
+    Preconditions.checkArgument(!hash.isEmpty(), "Digest hash must not be empty");
+    return HEX_FORMAT.parseHex(hash);
   }
 
   public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {

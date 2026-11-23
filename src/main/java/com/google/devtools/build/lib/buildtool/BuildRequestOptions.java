@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelSetConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
-import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -97,19 +97,18 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "bust_action_caches",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "null",
+      converter = LabelSetConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
-          If set to a target label, unconditionally executes all actions of this target,
-          circumventing the usual caching layers. Intended for debugging only; no guarantees are
-          made that every execution strategy will respect it.
+          If set to one or more comma-separated target labels, unconditionally executes all actions
+          of those targets, circumventing the usual caching layers. Intended for debugging only; no
+          guarantees are made that every execution strategy will respect it.
           """)
-  @Nullable
-  public abstract Label getBustActionCachesTarget();
+  public abstract ImmutableSet<Label> getBustActionCachesTargets();
 
   @Option(
       name = "progress_report_interval",
@@ -539,22 +538,6 @@ public abstract class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
   public abstract boolean getMergedSkyframeAnalysisExecutionDoNotUseDirectly();
-
-  @Option(
-      name = "experimental_skymeld_analysis_overlap_percentage",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      converter = PercentageConverter.class,
-      help =
-          "The value represents the % of the analysis phase which will be overlapped with the"
-              + " execution phase. A value of x means Skyframe will queue up execution tasks and"
-              + " wait until there's x% of the top level target left to be analyzed before allowing"
-              + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
-              + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
-              + " they can.")
-  public abstract int getSkymeldAnalysisOverlapPercentage();
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter.IntegerConverter {

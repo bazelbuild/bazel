@@ -565,9 +565,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     Set<Label> allowedLabels = new HashSet<>(rule.getTransitions(dependencyFilter).values());
     if (visibilityDepsAreAllowed) {
       // Rule#getTransitions only visits the labels of attribute values, so that means it doesn't
-      // know about deps from the labels of the rule's package's default_visibility. Therefore, we
-      // need to explicitly handle that here.
+      // know about deps from the labels of the rule's package's default_visibility or
+      // transitive_visibility. Therefore, we need to explicitly handle that here.
       Iterables.addAll(allowedLabels, rule.getVisibilityDependencyLabels());
+      Label transitiveVisibility = rule.getTransitiveVisibility();
+      if (transitiveVisibility != null) {
+        allowedLabels.add(transitiveVisibility);
+      }
     }
     if (toolchainTypeDepsAreAllowed) {
       for (ToolchainTypeRequirement toolchainTypeRequirement :

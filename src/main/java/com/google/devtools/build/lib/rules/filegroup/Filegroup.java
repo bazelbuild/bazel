@@ -82,8 +82,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
     // If you're visiting a filegroup as data, then we also visit its data as data.
-    var dataRunfilesBuilder =
-        new Runfiles.Builder(ruleContext.getWorkspaceName()).addTransitiveArtifacts(filesToBuild);
+    var dataRunfilesBuilder = new Runfiles.Builder().addTransitiveArtifacts(filesToBuild);
     if (ruleContext
         .getConfiguration()
         .getOptions()
@@ -97,9 +96,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     RunfilesProvider runfilesProvider =
         RunfilesProvider.withData(
             RunfilesSupport.addRunfiles(
-                    new Runfiles.Builder(ruleContext.getWorkspaceName()),
-                    ruleContext,
-                    RunfilesProvider.DEFAULT_RUNFILES)
+                    new Runfiles.Builder(), ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                 .build(),
             dataRunfilesBuilder.build());
 

@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs.DebugContext;
@@ -512,15 +513,19 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
           getOperation.set(result);
           return;
         }
+        // Dispatching completion onto `fingerprintValueService.getExecutor()` prevents deep
+        // synchronous `CombinedFuture` chains on `directExecutor()` from throwing
+        // `StackOverflowError` inside `AbstractFuture.executeListener` and leaving ancestor
+        // futures permanently unresolved.
         getOperation.setFuture(
-            Futures.whenAllSucceed(innerReadStatusFutures)
-                .call(
-                    () -> {
-                      Object result = deferred.call();
-                      setter.set(parent, result);
-                      return result;
-                    },
-                    directExecutor()));
+            SafeFutures.call(
+                Futures.whenAllSucceed(innerReadStatusFutures),
+                () -> {
+                  Object result = deferred.call();
+                  setter.set(parent, result);
+                  return result;
+                },
+                fingerprintValueService.getExecutor()));
       } catch (SerializationException | RuntimeException | Error e) {
         getOperation.setException(e);
       }

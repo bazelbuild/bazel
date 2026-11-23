@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.MnemonicPolicy;
 import com.google.devtools.build.lib.runtime.proto.StrategiesForMnemonic;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,6 +59,21 @@ public class SpawnStrategyPolicyTest {
                 ImmutableList.of("foo", "bar")));
 
     assertThat(underTest.apply("mnemonic1", ImmutableList.of("foo", "bar", "baz")))
+        .containsExactly("baz");
+  }
+
+  @Test
+  public void applyPerStrategyAllowListWithNonAsciiMnemonic() {
+    SpawnStrategyPolicy underTest =
+        SpawnStrategyPolicy.create(
+            mnemonicPolicy(
+                ImmutableList.of(strategiesForMnemonic("Mnemönic🌱", "baz")),
+                ImmutableList.of("foo", "bar")));
+
+    assertThat(
+            underTest.apply(
+                StringEncoding.unicodeToInternal("Mnemönic🌱"),
+                ImmutableList.of("foo", "bar", "baz")))
         .containsExactly("baz");
   }
 

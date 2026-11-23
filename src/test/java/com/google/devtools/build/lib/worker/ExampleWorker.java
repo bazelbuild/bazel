@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.worker.ExampleWorkerOptions.ExampleWorkOptions;
+import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestCallback;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -41,13 +42,13 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -78,10 +79,8 @@ public final class ExampleWorker {
   private static class InterruptableWorkRequestHandler extends WorkRequestHandler {
 
     InterruptableWorkRequestHandler(
-        BiFunction<List<String>, PrintWriter, Integer> callback,
-        PrintStream stderr,
-        WorkerMessageProcessor messageProcessor) {
-      super(callback, stderr, messageProcessor);
+        WorkRequestCallback callback, PrintStream stderr, WorkerMessageProcessor messageProcessor) {
+      super(callback, stderr, messageProcessor, Duration.ZERO, null, Duration.ZERO);
     }
 
     @Override
@@ -157,7 +156,11 @@ public final class ExampleWorker {
       }
       Preconditions.checkNotNull(messageProcessor);
       WorkRequestHandler workRequestHandler =
-          new InterruptableWorkRequestHandler(ExampleWorker::doWork, System.err, messageProcessor);
+          new InterruptableWorkRequestHandler(
+              new WorkRequestCallback(
+                  (request, err) -> ExampleWorker.doWork(request.getArgumentsList(), err)),
+              System.err,
+              messageProcessor);
       workRequestHandler.processRequests();
 
     } else {
