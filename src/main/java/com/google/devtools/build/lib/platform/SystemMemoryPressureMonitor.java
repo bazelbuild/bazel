@@ -74,14 +74,19 @@ public final class SystemMemoryPressureMonitor {
 
   /** Return current memory pressure */
   public Level level() {
+    if (!JniLoader.isJniAvailable()) {
+      return Level.NORMAL;
+    }
     return Level.fromInt(systemMemoryPressure());
   }
 
   public synchronized void setReporter(@Nullable Reporter reporter) {
     this.reporter = reporter;
-    int pressure = systemMemoryPressure();
-    if (Level.fromInt(pressure) != Level.NORMAL) {
-      memoryPressureCallback(pressure);
+    if (JniLoader.isJniAvailable()) {
+      int pressure = systemMemoryPressure();
+      if (Level.fromInt(pressure) != Level.NORMAL) {
+        memoryPressureCallback(pressure);
+      }
     }
   }
 
