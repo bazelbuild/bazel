@@ -40,7 +40,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.util.HashMap;
 import java.util.function.BiConsumer;
-import javax.annotation.Nullable;
 
 /** An assortment of classes that collects various interesting metrics about the local system. */
 public class LocalResourceUsageCollectors {
@@ -51,19 +50,15 @@ public class LocalResourceUsageCollectors {
 
   private final ResourceEstimator resourceEstimator;
 
-  @Nullable private final SystemNetworkStatsService systemNetworkStatsService;
-
   public LocalResourceUsageCollectors(
       BugReporter bugReporter,
       InMemoryGraph graph,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
-      ResourceEstimator resourceEstimator,
-      @Nullable SystemNetworkStatsService systemNetworkStatsService) {
+      ResourceEstimator resourceEstimator) {
     this.bugReporter = bugReporter;
     this.graph = graph;
     this.workerProcessMetricsCollector = workerProcessMetricsCollector;
     this.resourceEstimator = resourceEstimator;
-    this.systemNetworkStatsService = systemNetworkStatsService;
   }
 
   public void addCollectors(
@@ -100,10 +95,8 @@ public class LocalResourceUsageCollectors {
     if (collectLoadAverage) {
       Profiler.instance().registerCounterSeriesCollector(new SystemLoadAverageCollector(osBean));
     }
-    if (collectSystemNetworkUsage && systemNetworkStatsService != null) {
-      Profiler.instance()
-          .registerCounterSeriesCollector(
-              new SystemNetworkUsageCollector(systemNetworkStatsService));
+    if (collectSystemNetworkUsage) {
+      Profiler.instance().registerCounterSeriesCollector(new SystemNetworkUsageCollector());
     }
     if (collectResourceManagerEstimation) {
       Profiler.instance()
@@ -330,17 +323,11 @@ public class LocalResourceUsageCollectors {
             "Network Down usage (total)",
             "system network down (Mbps)",
             CounterSeriesTask.Color.RAIL_RESPONSE);
-    private final SystemNetworkStatsService systemNetworkStatsService;
-
-    private SystemNetworkUsageCollector(SystemNetworkStatsService systemNetworkStatsService) {
-      this.systemNetworkStatsService = systemNetworkStatsService;
-    }
 
     @Override
     public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       var systemNetworkUsages =
-          NetworkMetricsCollector.instance()
-              .collectSystemNetworkUsages(deltaNanos, systemNetworkStatsService);
+          NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
       if (systemNetworkUsages != null) {
         consumer.accept(SYSTEM_NETWORK_UP_USAGE, systemNetworkUsages.megabitsSentPerSec());
         consumer.accept(SYSTEM_NETWORK_DOWN_USAGE, systemNetworkUsages.megabitsRecvPerSec());

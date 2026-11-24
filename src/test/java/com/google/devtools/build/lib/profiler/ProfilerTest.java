@@ -319,7 +319,7 @@ public final class ProfilerTest {
             });
 
     LocalResourceUsageCollectors localCollectors =
-        new LocalResourceUsageCollectors(null, null, workerProcessMetricsCollector, null, null);
+        new LocalResourceUsageCollectors(null, null, workerProcessMetricsCollector, null);
     localCollectors.addCollectors(
         /* collectWorkerDataInProfiler= */ true,
         /* collectLoadAverage= */ false,

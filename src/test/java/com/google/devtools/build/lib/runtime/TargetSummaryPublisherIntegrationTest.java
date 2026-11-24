@@ -175,7 +175,6 @@ public final class TargetSummaryPublisherIntegrationTest extends BuildIntegratio
                 "test",
                 "--default_visibility=public",
                 "--test_output=all",
-                "--noexperimental_collect_system_network_usage",
                 "--client_env=PATH=/bin:/usr/bin:/usr/sbin:/sbin")
             .addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS)
             .addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
