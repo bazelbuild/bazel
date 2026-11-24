@@ -431,6 +431,27 @@ public final class BlazeCommandDispatcherTest {
   }
 
   @Test
+  public void testAfterCommandDoesNotModifyExitStatusOfFailedCommand() throws Exception {
+    DetailedExitCode detailedExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("afterCommandError")
+                .setBuildProgress(
+                    BuildProgress.newBuilder().setCode(Code.BES_UPLOAD_LOCAL_FILE_ERROR))
+                .build());
+    errorOnAfterCommand = new AbruptExitException(detailedExitCode);
+    runtime.overrideCommands(ImmutableList.of(foo));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
+    BlazeCommandResult result =
+        dispatch.exec(Arrays.asList("foo", "--success=false"), "test", outErr);
+    // The command's own failure wins over the module's; the module error is still reported.
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(result.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+        .isEqualTo(Spawn.Code.NON_ZERO_EXIT);
+    assertThat(outErr.errAsLatin1()).contains("afterCommandError");
+  }
+
+  @Test
   public void testMultipleCommands() throws Exception {
     runtime.overrideCommands(ImmutableList.of(foo, bar));
     BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);

@@ -841,7 +841,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /**
    * Hook method called by the BlazeCommandDispatcher after the dispatch of each command. Returns a
-   * new exit code in case exceptions were encountered during cleanup.
+   * new exit code in case exceptions were encountered during cleanup of a successful command.
+   *
+   * <p>A command that already failed keeps its own exit code: a failure in a module's {@link
+   * BlazeModule#afterCommand} (for example a Build Event Service upload failure) is reported on
+   * the console but does not replace a build or test failure. The module's exit code is used only
+   * when the command itself succeeded, so a non-zero exit code that is not a build or test failure
+   * means the build or tests passed and only post-command work failed.
    *
    * @param forceKeepStateForTesting ensure that Skyframe state is not cleared despite what the
    *     command line says. This is useful for some tests that exercise {@code
@@ -896,7 +902,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     BlazeCommandResult finalCommandResult;
-    if (!commandResult.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
+    if (commandResult.isSuccess() && moduleExitCode != null) {
       if (commandResult.getExecRequest() != null) {
         finalCommandResult =
             BlazeCommandResult.execute(commandResult.getExecRequest(), moduleExitCode);

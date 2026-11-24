@@ -733,8 +733,29 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void testAfterCommand_waitForUploadComplete_errorOnComplete() throws Exception {
     buildEventService.setErrorMessage("Boom1");
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode())
+        .isEqualTo(ExitCode.PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
     afterBuildCommand();
     events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom1");
+  }
+
+  @Test
+  public void testAfterCommand_waitForUploadComplete_errorOnComplete_buildFailureKeepsExitCode()
+      throws Exception {
+    write("foo/BUILD", "genrule(name = 'fail', outs = ['fail.out'], cmd = 'exit 1')");
+    buildEventService.setErrorMessage("Boom11");
+    addOptions(
+        "--spawn_strategy=standalone",
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:fail"));
+
+    // The build failure is the exit code; the upload failure is only reported.
+    assertThat(runtimeWrapper.getLastCommandResult().getExitCode())
+        .isEqualTo(ExitCode.BUILD_FAILURE);
+    afterBuildCommand();
+    events.assertContainsError("The Build Event Protocol upload failed: DATA_LOSS: Boom11");
   }
 
   @Test
