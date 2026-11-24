@@ -935,6 +935,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
     assertThat(getPrerequisites(testTarget, ":native_posix_test_wrapper")).isEmpty();
     assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("test-setup.sh");
+    assertThat(testAction.getTestXmlGeneratorScript().getFilename())
+        .isEqualTo("test-xml-generator.sh");
     assertThat(testAction.getShExecutableMaybe()).isNotNull();
   }
 
@@ -956,14 +958,13 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     assertThat(getPrerequisites(testTarget, ":native_posix_test_wrapper")).hasSize(1);
     assertThat(testAction.getTestSetupScript().getFilename())
         .isEqualTo("native_posix_test_wrapper_bin");
-    assertThat(testAction.getTestXmlGeneratorScript().getFilename())
-        .isEqualTo("test-xml-generator.sh");
+    assertThat(testAction.getTestXmlGeneratorScript()).isEqualTo(testAction.getTestSetupScript());
     assertThat(testAction.getShExecutableMaybe()).isNull();
     assertThat(
             testAction.getInputs().toList().stream()
                 .map(Artifact::getFilename)
                 .collect(toImmutableList()))
-        .doesNotContain("test-setup.sh");
+        .containsNoneOf("test-setup.sh", "test-xml-generator.sh");
   }
 
   @Test

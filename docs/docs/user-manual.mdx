@@ -1505,7 +1505,8 @@ speed gains.
 #### `--[no]incompatible_use_native_posix_test_wrapper` {#incompatible-use-native-posix-test-wrapper}
 
 This option is disabled by default. Enable it to run Linux and macOS tests with
-a native test wrapper instead of `test-setup.sh`. Windows continues to use its
+a native test wrapper instead of `test-setup.sh`. If a test omits `test.xml`,
+Bazel runs the same wrapper to generate it from `test.log`. Windows uses its
 existing native test wrapper. A C++ toolchain for the execution platform may be
 needed when that platform differs from the host. On Linux and macOS, tests using
 a nondefault test execution group or an execution platform without an

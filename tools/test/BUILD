@@ -1,6 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:py_test.bzl", "py_test")
 load("//tools/res:win_res.bzl", "windows_resources")
 
 package(default_visibility = ["//visibility:public"])
@@ -89,6 +90,19 @@ cc_binary(
     }),
     visibility = ["//visibility:private"],
     deps = [":tw_lib"],
+)
+
+py_test(
+    name = "posix_xml_test",
+    srcs = ["posix/xml_test.py"],
+    args = ["$(location :posix_tw)"],
+    data = [":posix_tw"],
+    main = "posix/xml_test.py",
+    target_compatible_with = select({
+        "@bazel_tools//src/conditions:darwin": [],
+        "@bazel_tools//src/conditions:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
 )
 
 # Shared test wrapper implementation for Windows, Linux, and macOS.

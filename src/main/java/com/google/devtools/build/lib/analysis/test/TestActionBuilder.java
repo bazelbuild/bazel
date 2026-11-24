@@ -281,7 +281,9 @@ public final class TestActionBuilder {
     Artifact testXmlGeneratorExecutable =
         isExecutedOnWindows
             ? ruleContext.getPrerequisiteArtifact("$xml_writer")
-            : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
+            : usesNativePosixTestWrapper
+                ? nativePosixTestWrapper
+                : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorExecutable);
 
     FilesToRunProvider collectCoverageScript = null;
