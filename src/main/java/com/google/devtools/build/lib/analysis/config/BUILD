@@ -18,7 +18,7 @@ java_library(
     name = "auto_cpu_converter",
     srcs = ["AutoCpuConverter.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:cpu",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/common/options",
     ],
