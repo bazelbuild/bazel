@@ -103,11 +103,10 @@ void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_create(
-    JNIEnv* env, jobject fsEventsNativeDepsServiceImpl, jobjectArray paths,
+Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_create(
+    JNIEnv* env, jobject fsEventsDiffAwareness, jobjectArray paths,
     jobjectArray excludedPaths, jdouble latency) {
-  // Create a FSEventStreamContext to pass around (env,
-  // fsEventsNativeDepsServiceImpl)
+  // Create a FSEventStreamContext to pass around (env, fsEventsDiffAwareness)
   auto* info = new JNIEventsDiffAwareness();
 
   FSEventStreamContext context;
@@ -125,30 +124,28 @@ Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_create
   FSEventStreamSetExclusionPaths(
       info->stream, CreateCFArrayFromJavaArray(env, excludedPaths));
 
-  // Save the info pointer to FsEventsNativeDepsServiceImpl#nativePointer
+  // Save the info pointer to MacOSXFsEventsDiffAwareness#nativePointer
   jbyteArray array = env->NewByteArray(sizeof(info));
   env->SetByteArrayRegion(array, 0, sizeof(info),
                           reinterpret_cast<const jbyte *>(&info));
-  jclass clazz = env->GetObjectClass(fsEventsNativeDepsServiceImpl);
+  jclass clazz = env->GetObjectClass(fsEventsDiffAwareness);
   jfieldID fid = env->GetFieldID(clazz, "nativePointer", "J");
-  env->SetLongField(fsEventsNativeDepsServiceImpl, fid,
-                    reinterpret_cast<jlong>(info));
+  env->SetLongField(fsEventsDiffAwareness, fid, reinterpret_cast<jlong>(info));
 }
 
-JNIEventsDiffAwareness* GetInfo(JNIEnv* env,
-                                jobject fsEventsNativeDepsServiceImpl) {
-  jclass clazz = env->GetObjectClass(fsEventsNativeDepsServiceImpl);
+JNIEventsDiffAwareness* GetInfo(JNIEnv* env, jobject fsEventsDiffAwareness) {
+  jclass clazz = env->GetObjectClass(fsEventsDiffAwareness);
   jfieldID fid = env->GetFieldID(clazz, "nativePointer", "J");
-  jlong field = env->GetLongField(fsEventsNativeDepsServiceImpl, fid);
+  jlong field = env->GetLongField(fsEventsDiffAwareness, fid);
   return reinterpret_cast<JNIEventsDiffAwareness *>(field);
 }
 
 }  // namespace
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_run(
-    JNIEnv* env, jobject fsEventsNativeDepsServiceImpl, jobject listening) {
-  JNIEventsDiffAwareness* info = GetInfo(env, fsEventsNativeDepsServiceImpl);
+Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_run(
+    JNIEnv* env, jobject fsEventsDiffAwareness, jobject listening) {
+  JNIEventsDiffAwareness* info = GetInfo(env, fsEventsDiffAwareness);
   info->runLoop = CFRunLoopGetCurrent();
   FSEventStreamScheduleWithRunLoop(info->stream, info->runLoop,
                                    kCFRunLoopDefaultMode);
@@ -162,9 +159,9 @@ Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_run(
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_poll(
-    JNIEnv* env, jobject fsEventsNativeDepsServiceImpl) {
-  JNIEventsDiffAwareness* info = GetInfo(env, fsEventsNativeDepsServiceImpl);
+Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_poll(
+    JNIEnv* env, jobject fsEventsDiffAwareness) {
+  JNIEventsDiffAwareness* info = GetInfo(env, fsEventsDiffAwareness);
   pthread_mutex_lock(&(info->mutex));
 
   jobjectArray result;
@@ -191,9 +188,9 @@ Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_poll(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_skyframe_FsEventsNativeDepsServiceImpl_doClose(
-    JNIEnv* env, jobject fsEventsNativeDepsServiceImpl) {
-  JNIEventsDiffAwareness* info = GetInfo(env, fsEventsNativeDepsServiceImpl);
+Java_com_google_devtools_build_lib_skyframe_MacOSXFsEventsDiffAwareness_doClose(
+    JNIEnv* env, jobject fsEventsDiffAwareness) {
+  JNIEventsDiffAwareness* info = GetInfo(env, fsEventsDiffAwareness);
   CFRunLoopStop(info->runLoop);
   FSEventStreamStop(info->stream);
   FSEventStreamUnscheduleFromRunLoop(info->stream, info->runLoop,

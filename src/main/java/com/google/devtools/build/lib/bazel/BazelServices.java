@@ -23,7 +23,6 @@ public final class BazelServices {
   public static final ImmutableList<BlazeService> BAZEL_SERVICES =
       ImmutableList.of(
           new com.google.devtools.build.lib.compress.CompressionServiceImpl(),
-          new com.google.devtools.build.lib.skyframe.FsEventsNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
           new com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl(),
           new com.google.devtools.build.lib.server.GrpcCommandServerServiceImpl(),
