@@ -1,0 +1,60 @@
+{
+  "type": "object",
+  "description": "Structured Bazel cherry-pick pull request review output.",
+  "properties": {
+    "should_post": {
+      "type": "boolean",
+      "description": "Whether to post this review to GitHub (false to skip duplicate automatic follow-up reviews)."
+    },
+    "skip_reason": {
+      "type": "string",
+      "description": "Concise explanation when should_post is false; empty string when should_post is true."
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["APPROVE", "COMMENT", "REQUEST_CHANGES"],
+      "description": "GitHub pull request review decision."
+    },
+    "body": {
+      "type": "string",
+      "description": "Top-level Markdown review summary body."
+    },
+    "comments": {
+      "type": "array",
+      "description": "Inline diff review comments (at most 6 items, only on added or removed diff lines).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Repository-relative file path in the PR diff."
+          },
+          "line": {
+            "type": "integer",
+            "description": "1-based line number on the specified diff side."
+          },
+          "side": {
+            "type": "string",
+            "enum": ["LEFT", "RIGHT"],
+            "description": "Diff side: RIGHT for added (+) lines, LEFT for removed (-) lines."
+          },
+          "start_line": {
+            "type": "integer",
+            "description": "Optional starting line number for a multi-line comment range (start_line < line)."
+          },
+          "start_side": {
+            "type": "string",
+            "enum": ["LEFT", "RIGHT"],
+            "description": "Optional diff side for start_line."
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown inline comment starting with severity emoji (🔴, 🟠, or 🟡)."
+          }
+        },
+        "required": ["path", "line", "side", "body"]
+      }
+    }
+  },
+  "required": ["should_post", "skip_reason", "decision", "body", "comments"]
+}

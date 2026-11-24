@@ -161,9 +161,9 @@ Act like a human PR reviewer across multiple review iterations:
 
 ---
 
-### Step 3: Emit the Final Review JSON Block
+### Step 3: Submit Structured Review Output
 
-End your response with a single fenced ` ```json ` block matching the schema below so the deterministic post-step can parse it.
+Submit your final review via the structured output (`finish` tool) matching the enforced JSON schema (`should_post`, `skip_reason`, `decision`, `body`, `comments`).
 
 - **Inline comments (`comments` array, at most 6 items, only `🔴`, `🟠`, or `🟡`):**
   - Place inline comments on the specific diff lines (`+` or `-` lines in `pr_diff_path` only) whenever you find a breaking change (`🔴`), an unrelated change sneaked in (`🔴`), a bug in conflict resolution (`🔴`), or a notable adaptation worth highlighting (`🟠`/`🟡`).
@@ -208,14 +208,9 @@ End your response with a single fenced ` ```json ` block matching the schema bel
 
   - For an **automatic follow-up review** (`has_existing_gemini_review == true`, `trigger_type == "automatic"`, and `"should_post": true`), start `"body"` with `## 📋 Gemini Cherry-Pick Review Summary` and `**Verdict:** ...`, then concisely bullet only what changed since the previous review (e.g., which prior comments were resolved and any new findings on the newly added/updated code) without repeating the checklist table or earlier unaddressed comments.
 
-- **Exact JSON Output Schema (must be the final ` ```json ` block in your response; ensure all newlines inside string values are escaped as `\n` and all double quotes inside string values, including inside markdown backticks, are escaped as `\"`):**
-
-```json
-{
-  "should_post": true,
-  "skip_reason": "",
-  "decision": "APPROVE",
-  "body": "## 📋 Gemini Cherry-Pick Review Summary\\n...",
-  "comments": []
-}
-```
+- **Structured Output Fields:**
+  - `should_post`: `true` to post the review, or `false` to skip duplicate follow-up reviews.
+  - `skip_reason`: concise explanation when `should_post` is `false`, or `""` when `true`.
+  - `decision`: `"APPROVE"`, `"COMMENT"`, or `"REQUEST_CHANGES"`.
+  - `body`: top-level Markdown review summary.
+  - `comments`: array of inline diff comments (or `[]` when none).

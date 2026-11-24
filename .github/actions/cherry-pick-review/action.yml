@@ -140,6 +140,7 @@ runs:
 
         if ! "${AGY_BIN}" \
           --output-format json \
+          --json-schema "${{ github.action_path }}/review_schema.json" \
           --model "${GEMINI_MODEL}" \
           --disable-slash-commands \
           --settings "${SETTINGS_FILE}" \

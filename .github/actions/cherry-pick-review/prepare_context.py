@@ -14,13 +14,14 @@
 # limitations under the License.
 """Prepares .gemini/context.json and .gemini/prompt.md for Bazel cherry-pick PR reviews."""
 
-import difflib
+import io
 import json
 import os
 import pathlib
 import re
 import subprocess
 import sys
+import tarfile
 
 from review_common import (
     AUTOMATED_DECISION_PREFIX,
@@ -39,9 +40,10 @@ from review_common import (
     sanitize_untrusted_str,
 )
 
+EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 RELEASE_BRANCH_RE = re.compile(r"^release-([A-Za-z0-9._-]+)$")
 MAX_AUTO_CLEAN_FILES = 500
-MAX_PATCH_CHARS = 200_000
+MAX_LOCKFILE_DIFF_LINES = 2000
 
 CHERRY_PICK_TRAILER_RE = re.compile(r"\(cherry picked from commit ([0-9a-fA-F]{7,40})\)")
 BAZEL_IO_COMMIT_TRAILER_RE = re.compile(
@@ -97,59 +99,17 @@ def is_patch_release_version(release_version):
     return bool(m and int(m.group(3)) > 0)
 
 
-def resolve_path_within(base_dir, rel_path):
-    """Returns base_dir / rel_path if it resolves inside base_dir without symlinks, else None."""
-    if not is_safe_repo_rel_path(rel_path) or base_dir.is_symlink():
-        return None
-    base_resolved = base_dir.resolve()
-    cur = base_dir
-    for part in rel_path.split("/"):
-        cur = cur / part
-        if cur.is_symlink():
-            return None
-    resolved = cur.resolve()
-    if resolved == base_resolved or not resolved.is_relative_to(base_resolved):
-        return None
-    return cur
-
-
-def safe_write_staged_file(base_dir, rel_path, content):
-    """Safely writes `content` to `base_dir / rel_path`, guarding against symlinks and path collisions."""
-    dest = resolve_path_within(base_dir, rel_path)
-    if dest is None:
-        return None
-    try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.is_symlink() or dest.is_dir():
-            return None
-        dest.write_text(content, encoding="utf-8")
-        return str(dest.resolve())
-    except OSError:
-        return None
-
-
-def gh_api(endpoint, paginate=False, slurp=False):
-    cmd = ["gh", "api"]
-    if paginate:
-        cmd.append("--paginate")
-    if slurp:
-        cmd.append("--slurp")
-    cmd.append(endpoint)
+def gh_api(endpoint, *, paginate=False, optional=False):
+    """Calls `gh api` (streaming NDJSON via `--paginate --jq .[]` when `paginate=True`)."""
+    cmd = ["gh", "api", *(["--paginate", "--jq", ".[]"] if paginate else []), endpoint]
     res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
     if res.returncode != 0:
-        raise RuntimeError(f"gh api {endpoint} failed (exit {res.returncode}): {res.stderr.strip()}")
-    return json.loads(res.stdout)
-
-
-def gh_api_paginated(endpoint, *, optional=False):
-    """Fetches a paginated list endpoint via `gh api --paginate --slurp`."""
-    try:
-        pages = gh_api(endpoint, paginate=True, slurp=True)
-        return [item for page in pages for item in page] if isinstance(pages, list) else []
-    except Exception:
         if optional:
-            return []
-        raise
+            return [] if paginate else {}
+        raise RuntimeError(f"gh api {endpoint} failed (exit {res.returncode}): {res.stderr.strip()}")
+    if paginate:
+        return [json.loads(line) for line in res.stdout.splitlines() if line.strip()]
+    return json.loads(res.stdout)
 
 
 def run_git(args, cwd=None, check=False):
@@ -174,35 +134,29 @@ def git_log_grep_shas(rev_range, grep_pattern, *, fixed=False, ignore_case=False
     return [ln.strip() for ln in res.stdout.splitlines() if SHA_RE.fullmatch(ln.strip())]
 
 
-def format_mode_sha(mode, obj_sha):
-    if not mode or mode == "000000" or obj_sha == "0" * 40:
-        return "deleted"
-    obj_type = "commit" if mode == "160000" else "blob"
-    return f"{obj_type} {obj_sha[:12]} (mode {mode})"
-
-
-def read_blob_by_mode_and_sha(mode, blob_sha):
-    """Reads a non-binary regular file blob (mode 100644/100755) by mode and SHA."""
-    if mode not in ("100644", "100755") or not SHA_RE.fullmatch(blob_sha) or blob_sha == "0" * 40:
-        return None
-    cat_res = run_git_bytes(["cat-file", "blob", blob_sha])
-    if cat_res.returncode != 0 or b"\x00" in cat_res.stdout:
-        return None
-    return cat_res.stdout.decode("utf-8", errors="replace")
-
-
-def read_git_regular_file_blob(tree_ish, rel_path):
-    """Reads a non-binary regular file blob at `tree_ish:rel_path`, rejecting symlinks and binaries."""
-    if not (isinstance(tree_ish, str) and SHA_RE.fullmatch(tree_ish) and is_safe_repo_rel_path(rel_path)):
-        return None
-    ls_res = run_git(["--literal-pathspecs", "ls-tree", "-z", tree_ish, "--", rel_path])
-    if ls_res.returncode != 0 or "\t" not in ls_res.stdout:
-        return None
-    meta, entry_path = ls_res.stdout.split("\0", 1)[0].split("\t", 1)
-    parts = meta.split()
-    if entry_path != rel_path or len(parts) != 3 or parts[1] != "blob":
-        return None
-    return read_blob_by_mode_and_sha(parts[0], parts[2])
+def extract_git_files_to_dir(tree_sha, paths, dest_dir):
+    """Extracts regular non-binary files at `paths` from `tree_sha` into `dest_dir` via `git archive`."""
+    safe_paths = sorted({p for p in paths if is_safe_repo_rel_path(p)})
+    if not safe_paths or not (isinstance(tree_sha, str) and SHA_RE.fullmatch(tree_sha)) or dest_dir.is_symlink():
+        return {}
+    res = run_git_bytes(["--literal-pathspecs", "archive", "--format=tar", tree_sha, "--", *safe_paths])
+    if res.returncode != 0 or not res.stdout:
+        return {}
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    staged = {}
+    with tarfile.open(fileobj=io.BytesIO(res.stdout), mode="r:") as tf:
+        for member in tf.getmembers():
+            if not member.isfile() or not is_safe_repo_rel_path(member.name):
+                continue
+            fobj = tf.extractfile(member)
+            if fobj is None or b"\x00" in fobj.read():
+                continue
+            try:
+                tf.extract(member, path=dest_dir, set_attrs=False, filter="data")
+                staged[member.name] = str((dest_dir / member.name).resolve())
+            except (tarfile.TarError, OSError):
+                continue
+    return staged
 
 
 def iter_diff_tree_records(from_sha, to_sha, *, detect_renames=False):
@@ -251,110 +205,30 @@ def get_diff_tree_entries(from_sha, to_sha):
     return {path: (om, nm, os_, ns, st) for path, _, om, nm, os_, ns, st in records}
 
 
-def normalize_patch_changes(patch_text):
-    """Normalizes a unified diff patch by stripping headers while preserving context, metadata, and +/- lines."""
-    if not isinstance(patch_text, str) or not patch_text.strip():
-        return []
-    changes = []
-    in_hunk = False
-    for line in patch_text.splitlines():
-        if line.startswith(("+++", "---")):
+def get_numstat_map(base_sha, head_sha):
+    """Returns `{path: (additions, deletions)}` from `git diff --numstat -M -z`."""
+    res = run_git(["diff", "--numstat", "-M", "-z", base_sha, head_sha])
+    if res.returncode != 0 or not res.stdout:
+        return {}
+    tokens = res.stdout.split("\0")
+    stats = {}
+    idx = 0
+    while idx < len(tokens) and tokens[idx]:
+        parts = tokens[idx].split("\t", 2)
+        if len(parts) != 3:
+            idx += 1
             continue
-        if line.startswith("@@"):
-            in_hunk = True
-            continue
-        if in_hunk and line.startswith(("+", "-", " ")):
-            changes.append(line)
-        elif not in_hunk and line.startswith(("+", "-", "old mode ", "new mode ", "Binary files ")):
-            changes.append(line)
-    return changes
-
-
-def split_git_diff_by_file(diff_text):
-    """Splits a multi-file `git diff` output into `{safe_filename: patch_body}`."""
-    result = {}
-    if not diff_text:
-        return result
-    current_file = None
-    minus_a_file = None
-    current_hunks = []
-    in_hunks = False
-
-    def flush():
-        if current_file is not None and is_safe_repo_rel_path(current_file):
-            result[current_file] = "\n".join(current_hunks)
-
-    for line in diff_text.splitlines():
-        if line.startswith(("diff --git ", "diff --cc ", "diff --combined ", "* Unmerged path ")):
-            flush()
-            m_git = re.match(r'^diff --git "?a/(.+?)"? "?b/(.+?)"?$', line)
-            m_cc = re.match(r"^diff --(?:cc|combined) (.+)$", line)
-            m_unmerged = re.match(r"^\* Unmerged path (.+)$", line)
-            candidate = (
-                m_git.group(2).strip('"')
-                if m_git
-                else (m_cc or m_unmerged).group(1).strip().strip('"')
-                if (m_cc or m_unmerged)
-                else None
-            )
-            current_file = candidate if is_safe_repo_rel_path(candidate) else None
-            minus_a_file = None
-            current_hunks = [line] if m_unmerged else []
-            in_hunks = bool(m_unmerged)
-            continue
-
-        if not in_hunks:
-            if line.startswith("rename to "):
-                cand = line[len("rename to ") :].strip('"')
-                current_file = cand if is_safe_repo_rel_path(cand) else None
-            elif line.startswith("--- a/"):
-                minus_a_file = line[len("--- a/") :].strip('"')
-            elif line.startswith("+++ b/"):
-                cand = line[len("+++ b/") :].strip('"')
-                current_file = cand if is_safe_repo_rel_path(cand) else None
-            elif line == "+++ /dev/null" and minus_a_file:
-                current_file = minus_a_file if is_safe_repo_rel_path(minus_a_file) else None
-
-        if current_file is not None:
-            if line.startswith("@@"):
-                in_hunks = True
-            if in_hunks or line.startswith(
-                (
-                    "old mode ",
-                    "new mode ",
-                    "new file mode ",
-                    "deleted file mode ",
-                    "similarity index ",
-                    "rename from ",
-                    "rename to ",
-                    "Binary files ",
-                )
-            ):
-                current_hunks.append(line)
-
-    flush()
-    return result
-
-
-def git_diff_by_file(*git_args):
-    """Runs `git <git_args>` and splits the resulting unified diff by safe file path."""
-    res = run_git(git_args)
-    return split_git_diff_by_file(res.stdout) if res.returncode == 0 else {}
-
-
-def count_patch_line_changes(patch_text):
-    """Returns `(additions, deletions)` counted from unified diff hunks."""
-    adds = dels = 0
-    in_hunk = False
-    for line in (patch_text or "").splitlines():
-        if line.startswith("@@"):
-            in_hunk = True
-        elif in_hunk:
-            if line.startswith("+") and not line.startswith("+++"):
-                adds += 1
-            elif line.startswith("-") and not line.startswith("---"):
-                dels += 1
-    return adds, dels
+        adds = int(parts[0]) if parts[0].isdigit() else 0
+        dels = int(parts[1]) if parts[1].isdigit() else 0
+        if parts[2] == "" and idx + 2 < len(tokens):
+            path = tokens[idx + 2]
+            idx += 3
+        else:
+            path = parts[2]
+            idx += 1
+        if path:
+            stats[path] = (adds, dels)
+    return stats
 
 
 def detect_mainline_ref():
@@ -462,7 +336,10 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
 
     def extract_explicit_from_text(text, *, allow_rev_id=True, allow_commit_url=True):
         found = False
-        for regex, label in ((CHERRY_PICK_TRAILER_RE, "cherry-pick trailer"), (BAZEL_IO_COMMIT_TRAILER_RE, "Commit trailer")):
+        for regex, label in (
+            (CHERRY_PICK_TRAILER_RE, "cherry-pick trailer"),
+            (BAZEL_IO_COMMIT_TRAILER_RE, "Commit trailer"),
+        ):
             for m in regex.finditer(text):
                 if add_candidate(m.group(1), f"{label} ({m.group(1)[:10]})"):
                     found = True
@@ -472,7 +349,9 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
             unquoted = text.split("*** Original change description ***", 1)[0]
             for m in PIPER_REV_ID_RE.finditer(unquoted):
                 rev_id = m.group(1)
-                if add_first_from_log(rf"^PiperOrigin-RevId:[[:space:]]*{rev_id}[[:space:]]*$", f"PiperOrigin-RevId: {rev_id}"):
+                if add_first_from_log(
+                    rf"^PiperOrigin-RevId:[[:space:]]*{rev_id}[[:space:]]*$", f"PiperOrigin-RevId: {rev_id}"
+                ):
                     found = True
             if found:
                 return True
@@ -519,11 +398,17 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
         if found:
             return True
 
-        cleaned_subj = TITLE_PR_RE.sub("", RELEASE_PREFIX_RE.sub("", re.sub(r"[\x00-\x1f]+", " ", subject_line or ""))).strip()
+        cleaned_subj = TITLE_PR_RE.sub(
+            "", RELEASE_PREFIX_RE.sub("", re.sub(r"[\x00-\x1f]+", " ", subject_line or ""))
+        ).strip()
         if len(cleaned_subj) >= 12 and cleaned_subj.lower() not in GENERIC_COMMIT_SUBJECTS:
             for sha in git_log_grep_shas(mainline_ref, cleaned_subj, fixed=True):
-                actual = TITLE_PR_RE.sub("", RELEASE_PREFIX_RE.sub("", run_git(["show", "-s", "--format=%s", sha]).stdout.strip())).strip()
-                if actual == cleaned_subj and add_candidate(sha, "commit subject match on master", allow_revert=allow_revert):
+                actual = TITLE_PR_RE.sub(
+                    "", RELEASE_PREFIX_RE.sub("", run_git(["show", "-s", "--format=%s", sha]).stdout.strip())
+                ).strip()
+                if actual == cleaned_subj and add_candidate(
+                    sha, "commit subject match on master", allow_revert=allow_revert
+                ):
                     return True
         return False
 
@@ -549,7 +434,16 @@ def find_mainline_commits(pr_title, pr_body, pr_commits, pr_comments, pr_author,
     return candidates
 
 
-def extract_breaking_change_signals(mainline_commits_info, pr_title, pr_body, pr_patches_by_file, pr_commits=None):
+def extract_breaking_change_signals(
+    mainline_commits_info,
+    pr_title,
+    pr_body,
+    base_sha="",
+    head_sha="",
+    changed_files=None,
+    pr_commits=None,
+    java_patches=None,
+):
     """Detects potential breaking / backwards-incompatible change indicators."""
     signals = []
     seen = set()
@@ -591,7 +485,19 @@ def extract_breaking_change_signals(mainline_commits_info, pr_title, pr_body, pr
         if first_line and FLIP_INCOMPATIBLE_RE.search(first_line):
             add_signal(f"Incompatible flag flip mentioned in {source_label}: {sanitize_untrusted_str(first_line, 200)}")
 
-    for path, patch_text in sorted((pr_patches_by_file or {}).items()):
+    if java_patches is None:
+        java_paths = [
+            f["path"]
+            for f in (changed_files or [])
+            if isinstance(f, dict) and not f.get("unsafe_path") and str(f.get("path") or "").endswith(".java")
+        ]
+        java_patches = {
+            p: run_git(["--literal-pathspecs", "diff", "-M", base_sha, head_sha, "--", p]).stdout
+            for p in java_paths
+            if SHA_RE.fullmatch(base_sha) and SHA_RE.fullmatch(head_sha)
+        }
+
+    for path, patch_text in sorted(java_patches.items()):
         if not patch_text or not path.endswith(".java"):
             continue
         for hunk in re.split(r"(?m)^@@[^\n]*@@\n?", patch_text):
@@ -617,7 +523,7 @@ def extract_breaking_change_signals(mainline_commits_info, pr_title, pr_body, pr
 
 
 def stage_pr_and_base_files(base_sha, head_sha, stage_dir=pathlib.Path("gemini-artifacts/pr")):
-    """Derives PR changed files and diffs directly from local Git `base_sha..head_sha` and stages blobs."""
+    """Stages PR unified diff, head files, and base files via `git diff --numstat`, `git diff`, and `git archive`."""
     head_root = stage_dir / "head"
     base_root = stage_dir / "base"
     head_root.mkdir(parents=True, exist_ok=True)
@@ -625,70 +531,69 @@ def stage_pr_and_base_files(base_sha, head_sha, stage_dir=pathlib.Path("gemini-a
     diff_path = stage_dir / "diff.patch"
 
     records = iter_diff_tree_records(base_sha, head_sha, detect_renames=True) or []
-    all_patches = git_diff_by_file("diff", "-M", base_sha, head_sha)
-
+    numstat = get_numstat_map(base_sha, head_sha)
     status_map = {"A": "added", "D": "removed", "R": "renamed"}
-    diff_chunks = []
+
+    base_paths_to_stage = []
+    head_paths_to_stage = []
+    diff_pathspecs = []
+    omitted_notes = []
     changed_files_info = []
-    pr_patches_by_file = {}
+    pending_lookup = []
 
-    for idx, (raw_fn, raw_prev, old_mode, new_mode, old_sha, new_sha, st_letter) in enumerate(records):
+    for idx, (raw_fn, raw_prev, old_mode, new_mode, _, _, st_letter) in enumerate(records):
         status = status_map.get(st_letter, "modified")
-        is_safe_fn = is_safe_repo_rel_path(raw_fn)
-        is_safe_prev = not raw_prev or is_safe_repo_rel_path(raw_prev)
-        is_safe_path = is_safe_fn and is_safe_prev
+        is_safe = is_safe_repo_rel_path(raw_fn) and (not raw_prev or is_safe_repo_rel_path(raw_prev))
+        record_path = raw_fn if is_safe_repo_rel_path(raw_fn) else sanitize_untrusted_str(raw_fn, max_len=200)
+        adds, dels = numstat.get(raw_fn, (0, 0)) if is_safe else (0, 0)
 
-        record_path = raw_fn if is_safe_fn else sanitize_untrusted_str(raw_fn, max_len=200)
-        prev_name = (
-            (raw_prev if is_safe_prev else sanitize_untrusted_str(raw_prev, max_len=200))
-            if raw_prev
-            else record_path
-        )
+        base_lookup = (raw_prev if (status == "renamed" and raw_prev) else raw_fn) if is_safe else None
+        if idx < 100 and is_safe:
+            if status != "added" and old_mode in ("100644", "100755"):
+                base_paths_to_stage.append(base_lookup)
+            if status != "removed" and new_mode in ("100644", "100755"):
+                head_paths_to_stage.append(raw_fn)
 
-        raw_patch = all_patches.get(raw_fn, "") if is_safe_path else ""
-        additions, deletions = count_patch_line_changes(raw_patch)
-        patch_text = raw_patch if len(raw_patch) <= MAX_PATCH_CHARS else ""
-        if is_safe_path:
-            pr_patches_by_file[raw_fn] = patch_text
-
-        header = f"diff --git a/{prev_name} b/{record_path}\nstatus: {status} (+{additions}/-{deletions})"
-        if patch_text:
-            diff_chunks.append(f"{header}\n--- a/{prev_name}\n+++ b/{record_path}\n{patch_text}")
+        if not is_safe:
+            omitted_notes.append(f"# Unsafe path omitted from diff.patch: {record_path}")
+        elif raw_fn in LOCKFILE_PATHS and (adds + dels) > MAX_LOCKFILE_DIFF_LINES:
+            omitted_notes.append(f"# Large lockfile diff omitted from diff.patch: {raw_fn} (+{adds}/-{dels})")
         else:
-            diff_chunks.append(f"{header}\n(no text patch available)")
+            diff_pathspecs.append(raw_fn)
+            if raw_prev and raw_prev != raw_fn:
+                diff_pathspecs.append(raw_prev)
 
-        head_file_path_str = None
-        base_file_path_str = None
-        if idx < 100 and is_safe_path:
-            if status != "added":
-                base_lookup = raw_prev if (status == "renamed" and raw_prev) else raw_fn
-                base_blob = read_blob_by_mode_and_sha(old_mode, old_sha)
-                if base_blob is not None:
-                    base_file_path_str = safe_write_staged_file(base_root, base_lookup, base_blob)
-            if status != "removed":
-                head_blob = read_blob_by_mode_and_sha(new_mode, new_sha)
-                if head_blob is not None:
-                    head_file_path_str = safe_write_staged_file(head_root, raw_fn, head_blob)
+        pending_lookup.append((record_path, status, adds, dels, is_safe, raw_fn if is_safe else None, base_lookup))
 
-        entry_info = {
+    staged_base = extract_git_files_to_dir(base_sha, base_paths_to_stage, base_root)
+    staged_head = extract_git_files_to_dir(head_sha, head_paths_to_stage, head_root)
+
+    for record_path, status, adds, dels, is_safe, head_key, base_key in pending_lookup:
+        entry = {
             "path": record_path,
             "status": status,
-            "additions": additions,
-            "deletions": deletions,
-            "head_file_path": head_file_path_str,
-            "base_file_path": base_file_path_str,
+            "additions": adds,
+            "deletions": dels,
+            "head_file_path": staged_head.get(head_key) if head_key else None,
+            "base_file_path": staged_base.get(base_key) if base_key else None,
         }
-        if not is_safe_path:
-            entry_info["unsafe_path"] = True
-        changed_files_info.append(entry_info)
+        if not is_safe:
+            entry["unsafe_path"] = True
+        changed_files_info.append(entry)
 
-    diff_path.write_text("\n\n".join(diff_chunks) + ("\n" if diff_chunks else ""), encoding="utf-8")
+    diff_body = ""
+    if diff_pathspecs:
+        unique_specs = list(dict.fromkeys(diff_pathspecs))
+        diff_body = run_git(["--literal-pathspecs", "diff", "-M", base_sha, head_sha, "--", *unique_specs]).stdout
+    if omitted_notes:
+        diff_body = (diff_body.rstrip("\n") + "\n\n" if diff_body else "") + "\n".join(omitted_notes) + "\n"
+    diff_path.write_text(diff_body, encoding="utf-8")
+
     return (
         str(diff_path.resolve()),
         str(head_root.resolve()),
         str(base_root.resolve()),
         changed_files_info,
-        pr_patches_by_file,
     )
 
 
@@ -714,17 +619,14 @@ def simulate_cherry_pick_tree(current_tree, commit_sha, parents):
     diff_sections = []
     if conflict_notes:
         diff_sections.append("\n".join(f"# {line}" for note in conflict_notes for line in note.splitlines()))
-    if conflicted_files:
-        c_diff = run_git(
-            ["--literal-pathspecs", "diff", "--no-renames", current_tree, result_tree, "--", *conflicted_files]
-        ).stdout
-        if c_diff.strip():
-            diff_sections.append(c_diff.rstrip())
-            per_file_conflicts.update(split_git_diff_by_file(c_diff))
-        for fp in conflicted_files:
-            if fp not in per_file_conflicts and conflict_notes:
-                matching = [n for n in conflict_notes if fp in n] or conflict_notes
-                per_file_conflicts[fp] = "\n".join(matching)
+    for fp in conflicted_files:
+        fp_diff = run_git(["--literal-pathspecs", "diff", "--no-renames", current_tree, result_tree, "--", fp]).stdout
+        if fp_diff.strip():
+            per_file_conflicts[fp] = fp_diff.rstrip()
+            diff_sections.append(fp_diff.rstrip())
+        elif conflict_notes:
+            matching = [n for n in conflict_notes if fp in n] or conflict_notes
+            per_file_conflicts[fp] = "\n".join(matching)
 
     full_conflict_text = ("\n\n".join(diff_sections) + "\n") if diff_sections else ""
     return result_tree, False, conflicted_files, per_file_conflicts, full_conflict_text
@@ -733,21 +635,23 @@ def simulate_cherry_pick_tree(current_tree, commit_sha, parents):
 def _inspect_mainline_commits(candidates, mainline_ref, base_sha, mainline_dir):
     """Topologically orders `candidates`, inspects patches, and simulates cherry-picking onto `base_sha`."""
     ordered = [(s, by) for s, by in candidates if SHA_RE.fullmatch(s)]
-    for i in range(len(ordered)):
-        for j in range(i + 1, len(ordered)):
-            if is_ancestor(ordered[j][0], ordered[i][0]):
-                ordered[i], ordered[j] = ordered[j], ordered[i]
+    if len(ordered) > 1:
+        rev_range = f"{base_sha}..{mainline_ref}" if (base_sha and SHA_RE.fullmatch(base_sha)) else mainline_ref
+        topo_shas = run_git(["rev-list", "--topo-order", "--reverse", rev_range]).stdout.splitlines()
+        topo_rank = {sha.strip(): idx for idx, sha in enumerate(topo_shas)}
+        ordered.sort(key=lambda item: topo_rank.get(item[0], len(topo_rank)))
 
     candidate_sha_set = {s for s, _ in ordered}
     current_tree = base_sha if (SHA_RE.fullmatch(base_sha) and resolve_commit_sha(base_sha)) else None
     commits_info = []
-    patches_by_file = {}
+    mainline_file_commits = {}
     conflicted_set = set()
     conflict_diffs = {}
 
     for full_sha, matched_by in ordered:
         on_master = is_ancestor(full_sha, mainline_ref)
         parents = get_commit_parents(full_sha)
+        first_parent = parents[0] if parents else EMPTY_TREE_SHA
         meta_parts = run_git(["show", "-s", "--format=%s%x00%an <%ae>%x00%ci%x00%B", full_sha]).stdout.split("\0", 3)
         subj, author, date, raw_message = (
             (p.strip() for p in meta_parts) if len(meta_parts) == 4 else ("", "", "", "")
@@ -760,19 +664,15 @@ def _inspect_mainline_commits(candidates, mainline_ref, base_sha, mainline_dir):
         patch_file = mainline_dir / f"{full_sha}.patch"
         patch_file.write_text(run_git(show_args).stdout, encoding="utf-8")
 
-        diff_tree_args = (
-            ("diff-tree", "-p", "--no-renames", "-r", parents[0], full_sha)
-            if parents
-            else ("diff-tree", "-p", "--no-renames", "--no-commit-id", "-r", "--root", full_sha)
-        )
-        file_patches = git_diff_by_file(*diff_tree_args)
+        commit_entries = get_diff_tree_entries(first_parent, full_sha) or {}
+        files_modified = sorted(p for p in commit_entries if is_safe_repo_rel_path(p))
 
         applied_cleanly = None
         conflicted_files = []
         conflict_diff_file_str = None
         if on_master:
-            for fp, patch_body in file_patches.items():
-                patches_by_file[fp] = f"{patches_by_file[fp]}\n{patch_body}" if fp in patches_by_file else patch_body
+            for fp in files_modified:
+                mainline_file_commits.setdefault(fp, []).append((first_parent, full_sha))
             if current_tree is not None:
                 current_tree, applied_cleanly, conflicted_files, per_file_c, full_c_text = simulate_cherry_pick_tree(
                     current_tree, full_sha, parents
@@ -798,7 +698,7 @@ def _inspect_mainline_commits(candidates, mainline_ref, base_sha, mainline_dir):
                     if on_master
                     else None
                 ),
-                "files_modified": sorted(file_patches.keys()),
+                "files_modified": files_modified,
                 "patch_file": str(patch_file.resolve()),
                 "applied_cleanly_on_base": applied_cleanly,
                 "conflicted_files": conflicted_files,
@@ -807,7 +707,7 @@ def _inspect_mainline_commits(candidates, mainline_ref, base_sha, mainline_dir):
             }
         )
 
-    return commits_info, patches_by_file, current_tree, conflicted_set, conflict_diffs
+    return commits_info, mainline_file_commits, current_tree, conflicted_set, conflict_diffs
 
 
 def analyze_mainline_and_compare(
@@ -815,7 +715,6 @@ def analyze_mainline_and_compare(
     mainline_ref,
     base_sha,
     head_sha,
-    pr_patches_by_file,
     base_root_path,
     stage_dir=pathlib.Path("gemini-artifacts/pr"),
 ):
@@ -826,7 +725,7 @@ def analyze_mainline_and_compare(
 
     (
         mainline_commits_info,
-        mainline_patches_by_file,
+        mainline_file_commits,
         current_tree,
         all_conflicted_files,
         conflict_diffs_by_file,
@@ -838,8 +737,16 @@ def analyze_mainline_and_compare(
 
     pr_file_set = {p for p in pr_diff_entries if is_safe_repo_rel_path(p)}
     unsafe_paths = sorted(p for p in pr_diff_entries if not is_safe_repo_rel_path(p))
-    mainline_file_set = set(mainline_patches_by_file.keys())
+    mainline_file_set = set(mainline_file_commits.keys())
     all_files = sorted(pr_file_set | mainline_file_set)
+
+    omitted_regular_files = [
+        fp
+        for fp in (mainline_file_set - pr_file_set)
+        if (cp_diff_entries or {}).get(fp, ("",))[0] in ("100644", "100755")
+    ]
+    if omitted_regular_files:
+        extract_git_files_to_dir(base_sha, omitted_regular_files, base_root)
 
     verified_mainline = [mc for mc in mainline_commits_info if mc["is_on_master"]]
     has_unverified_mainline = any(not mc["is_on_master"] for mc in mainline_commits_info)
@@ -860,17 +767,19 @@ def analyze_mainline_and_compare(
                 sec.append(hist_res.stdout.strip())
 
         if in_mainline and not is_lockfile_regen:
+            ml_patches = [
+                run_git(["--literal-pathspecs", "diff", "--no-renames", p_sha, c_sha, "--", fp]).stdout.rstrip()
+                for p_sha, c_sha in mainline_file_commits.get(fp, ())
+            ]
             sec.append(f"\n--- Mainline commit patch for {fp} ---")
-            sec.append(mainline_patches_by_file.get(fp) or "(empty patch)")
+            sec.append("\n".join(p for p in ml_patches if p) or "(empty patch)")
 
         if fp in conflict_diffs_by_file and not is_lockfile_regen:
             sec.append(f"\n--- 3-way git cherry-pick conflict markers on {base_sha[:10]} for {fp} ---")
             sec.append(conflict_diffs_by_file[fp])
 
         if in_pr:
-            pr_patch = pr_patches_by_file.get(fp) or git_diff_by_file(
-                "--literal-pathspecs", "diff", "--no-renames", base_sha, head_sha, "--", fp
-            ).get(fp, "")
+            pr_patch = run_git(["--literal-pathspecs", "diff", "--no-renames", base_sha, head_sha, "--", fp]).stdout.rstrip()
             sec.append(f"\n--- PR patch for {fp} ---")
             if is_lockfile_regen and pr_patch:
                 patch_lines = pr_patch.splitlines()
@@ -882,51 +791,31 @@ def analyze_mainline_and_compare(
             else:
                 sec.append(pr_patch or "(empty patch)")
 
-        if not is_lockfile_regen and cp_diff_entries is not None and fp not in all_conflicted_files:
-            cp_rec, pr_rec = cp_diff_entries.get(fp), pr_diff_entries.get(fp)
-            ref_rec = cp_rec or pr_rec
-            if ref_rec is not None:
-                base_pair = (ref_rec[0], ref_rec[2])
-                cp_pair = (cp_rec[1], cp_rec[3]) if cp_rec else base_pair
-                head_pair = (pr_rec[1], pr_rec[3]) if pr_rec else base_pair
-                if cp_pair != head_pair:
-                    sec.append(
-                        f"\n--- Git tree entry mismatch for {fp} ---\n"
-                        f"clean cherry-pick: {format_mode_sha(*cp_pair)}\n"
-                        f"PR head:           {format_mode_sha(*head_pair)}"
-                    )
-                cp_blob = read_blob_by_mode_and_sha(*cp_pair)
-                head_blob = read_blob_by_mode_and_sha(*head_pair)
-                if cp_blob is not None and head_blob is not None and cp_blob != head_blob:
-                    deviation = "".join(
-                        difflib.unified_diff(
-                            cp_blob.splitlines(keepends=True),
-                            head_blob.splitlines(keepends=True),
-                            fromfile=f"clean_cherry_pick/{fp}",
-                            tofile=f"pr_head/{fp}",
-                        )
-                    )
-                    if deviation:
-                        sec.append(
-                            f"\n--- Exact deviation between clean cherry-pick onto release branch and PR head for {fp} ---"
-                        )
-                        sec.append(deviation.rstrip())
+        if not is_lockfile_regen and current_tree is not None and fp not in all_conflicted_files:
+            deviation = run_git(
+                [
+                    "--literal-pathspecs",
+                    "diff",
+                    "--no-renames",
+                    "--src-prefix=clean_cherry_pick/",
+                    "--dst-prefix=pr_head/",
+                    current_tree,
+                    head_sha,
+                    "--",
+                    fp,
+                ]
+            ).stdout.rstrip()
+            if deviation:
+                sec.append(
+                    f"\n--- Exact deviation between clean cherry-pick onto release branch and PR head for {fp} ---"
+                )
+                sec.append(deviation)
 
         return "\n".join(sec)
 
     for fp in all_files:
         in_pr = fp in pr_file_set
         in_mainline = fp in mainline_file_set
-        if in_mainline and not in_pr and base_sha:
-            cp_rec = (cp_diff_entries or {}).get(fp)
-            base_blob = (
-                read_blob_by_mode_and_sha(cp_rec[0], cp_rec[2])
-                if cp_rec is not None
-                else read_git_regular_file_blob(base_sha, fp)
-            )
-            if base_blob is not None:
-                safe_write_staged_file(base_root, fp, base_blob)
-
         matches_clean_cp = (
             cp_diff_entries is not None
             and fp not in all_conflicted_files
@@ -1074,8 +963,20 @@ def has_active_gemini_approval(pr_reviews, pr_author=""):
     return active
 
 
+def _git_patch_id(from_sha, to_sha):
+    diff_res = run_git_bytes(["diff", "--binary", from_sha, to_sha])
+    if diff_res.returncode != 0:
+        return None
+    if not diff_res.stdout:
+        return "empty"
+    pid_res = subprocess.run(
+        ["git", "patch-id", "--stable"], input=diff_res.stdout, capture_output=True, check=False
+    )
+    return pid_res.stdout.decode("utf-8", errors="replace").split()[0] if pid_res.returncode == 0 and pid_res.stdout else None
+
+
 def _compute_since_last_review_delta(prev_head_sha, base_ref, base_sha, head_sha, stage_dir):
-    """Computes `(pr_patch_unchanged, since_last_review_diff_path)` between `prev_head_sha` and `head_sha`."""
+    """Computes `(pr_patch_unchanged, since_last_review_diff_path)` via `git merge-tree`, `diff`, and `range-diff`."""
     if not SHA_RE.fullmatch(prev_head_sha):
         return None, None
     stage_dir.mkdir(parents=True, exist_ok=True)
@@ -1099,52 +1000,30 @@ def _compute_since_last_review_delta(prev_head_sha, base_ref, base_sha, head_sha
     if not SHA_RE.fullmatch(prev_base_sha):
         return None, None
 
-    prev_entries = get_diff_tree_entries(prev_base_sha, prev_head_sha) or {}
-    curr_entries = get_diff_tree_entries(base_sha, head_sha) or {}
-    prev_patches = git_diff_by_file("diff", "--no-renames", prev_base_sha, prev_head_sha)
-    curr_patches = git_diff_by_file("diff", "--no-renames", base_sha, head_sha)
-
-    delta_sections = []
-    for fp in sorted(set(prev_entries) | set(curr_entries) | set(prev_patches) | set(curr_patches)):
-        te_old, te_new = prev_entries.get(fp), curr_entries.get(fp)
-        p_old, p_new = prev_patches.get(fp, ""), curr_patches.get(fp, "")
-        if prev_base_sha == base_sha and te_old == te_new:
-            continue
-        has_hunk = "@@" in p_old or "@@" in p_new
-        same_across_rebase = (
-            te_old is not None
-            and te_new is not None
-            and (te_old[0], te_old[1], te_old[4]) == (te_new[0], te_new[1], te_new[4])
-            and (normalize_patch_changes(p_old) == normalize_patch_changes(p_new) if has_hunk else te_old[3] == te_new[3])
-        )
-        if same_across_rebase:
-            continue
-
-        safe_fp = fp if is_safe_repo_rel_path(fp) else sanitize_untrusted_str(fp, max_len=200)
-        patch_delta = "".join(
-            difflib.unified_diff(
-                p_old.splitlines(keepends=True),
-                p_new.splitlines(keepends=True),
-                fromfile=f"previous_pr_patch ({prev_head_sha[:10]})/{safe_fp}",
-                tofile=f"current_pr_patch ({head_sha[:10]})/{safe_fp}",
-            )
-        )
-        if not patch_delta:
-            patch_delta = f"(tree entry changed: {te_old} -> {te_new})"
-        delta_sections.append(
-            f"=== File patch delta since last review ({prev_head_sha[:10]} -> {head_sha[:10]}): {safe_fp} ===\n"
-            f"{patch_delta.rstrip()}"
-        )
-
-    if delta_sections:
-        since_path.write_text("\n\n".join(delta_sections) + "\n", encoding="utf-8")
+    if prev_base_sha == base_sha:
+        baseline_tree, rebased_cleanly = prev_head_sha, True
     else:
-        since_path.write_text(
-            f"No effective PR patch changes between last reviewed commit {prev_head_sha} "
-            f"and current head {head_sha} (pure rebase or identical diff).\n",
-            encoding="utf-8",
-        )
-    return not delta_sections, str(since_path.resolve())
+        baseline_tree, rebased_cleanly, _, _, _ = simulate_cherry_pick_tree(base_sha, prev_head_sha, [prev_base_sha])
+
+    if rebased_cleanly and baseline_tree is not None:
+        tree_delta = get_diff_tree_entries(baseline_tree, head_sha) or {}
+        if not tree_delta:
+            since_path.write_text(
+                f"No effective PR patch changes between last reviewed commit {prev_head_sha} "
+                f"and current head {head_sha} (pure rebase or identical diff).\n",
+                encoding="utf-8",
+            )
+            return True, str(since_path.resolve())
+        diff_out = run_git(["diff", "-M", baseline_tree, head_sha]).stdout
+        since_path.write_text(diff_out or f"Binary or metadata changes in: {', '.join(sorted(tree_delta))}\n", encoding="utf-8")
+        return False, str(since_path.resolve())
+
+    old_pid = _git_patch_id(prev_base_sha, prev_head_sha)
+    new_pid = _git_patch_id(base_sha, head_sha)
+    unchanged = bool(old_pid and old_pid == new_pid)
+    range_diff = run_git(["range-diff", f"{prev_base_sha}..{prev_head_sha}", f"{base_sha}..{head_sha}"]).stdout
+    since_path.write_text(range_diff or "Rebased across conflicting upstream changes.\n", encoding="utf-8")
+    return unchanged, str(since_path.resolve())
 
 
 def analyze_prior_review_delta(
@@ -1271,9 +1150,9 @@ def main():
 
     raw_pr_author = str((pr_info.get("user") or {}).get("login") or "")
     raw_pr_body = str(pr_info.get("body") or "")
-    pr_comments = gh_api_paginated(f"repos/{repo}/issues/{pr_number}/comments?per_page=100", optional=True)
-    pr_reviews = gh_api_paginated(f"repos/{repo}/pulls/{pr_number}/reviews?per_page=100", optional=True)
-    pr_inline_comments = gh_api_paginated(f"repos/{repo}/pulls/{pr_number}/comments?per_page=100", optional=True)
+    pr_comments = gh_api(f"repos/{repo}/issues/{pr_number}/comments?per_page=100", paginate=True, optional=True)
+    pr_reviews = gh_api(f"repos/{repo}/pulls/{pr_number}/reviews?per_page=100", paginate=True, optional=True)
+    pr_inline_comments = gh_api(f"repos/{repo}/pulls/{pr_number}/comments?per_page=100", paginate=True, optional=True)
 
     if run_git(["remote", "get-url", "origin"]).returncode == 0:
         master_fetch = run_git(
@@ -1299,7 +1178,7 @@ def main():
     )
     pr_commits = list_git_commits(effective_base_sha, head_sha)
 
-    pr_diff_path, pr_head_root, pr_base_root, changed_files_info, pr_patches_by_file = stage_pr_and_base_files(
+    pr_diff_path, pr_head_root, pr_base_root, changed_files_info = stage_pr_and_base_files(
         base_sha=effective_base_sha,
         head_sha=head_sha,
     )
@@ -1323,7 +1202,6 @@ def main():
         mainline_ref=mainline_ref,
         base_sha=effective_base_sha,
         head_sha=head_sha,
-        pr_patches_by_file=pr_patches_by_file,
         base_root_path=pr_base_root,
     )
     (
@@ -1344,7 +1222,9 @@ def main():
         mainline_commits_info=mainline_commits_info,
         pr_title=pr_info.get("title") or "",
         pr_body=raw_pr_body,
-        pr_patches_by_file=pr_patches_by_file,
+        base_sha=effective_base_sha,
+        head_sha=head_sha,
+        changed_files=changed_files_info,
         pr_commits=pr_commits,
     )
 

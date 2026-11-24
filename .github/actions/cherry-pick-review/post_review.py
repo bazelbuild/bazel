@@ -96,32 +96,56 @@ def neutralize_at_mentions(markdown_text):
     return "".join(parts)
 
 
-def _decode_trailing_json_dict(text):
-    """Parses `text` if it consists of a single JSON dict followed only by whitespace, else None."""
-    try:
-        parsed, end_pos = json.JSONDecoder(strict=False).raw_decode(text)
-    except json.JSONDecodeError:
-        return None
-    return parsed if (text[end_pos:].strip() == "" and isinstance(parsed, dict)) else None
-
-
 def load_gemini_output():
-    """Returns `(response_text, envelope_dict)` from `gemini-artifacts/stdout.log`."""
+    """Returns `(structured_output_or_none, response_text, envelope_dict)` from `gemini-artifacts/stdout.log`."""
     stdout_log = pathlib.Path("gemini-artifacts/stdout.log")
     if not stdout_log.is_file():
         raise FileNotFoundError("gemini-artifacts/stdout.log not found")
     raw = stdout_log.read_text(encoding="utf-8", errors="replace").strip()
     if not raw:
-        return "", {}
-    parsed = _decode_trailing_json_dict(raw)
-    if parsed and isinstance(parsed.get("response"), str):
-        return parsed["response"], parsed
-    for idx in range(len(raw) - 1, -1, -1):
-        if raw[idx] == "{":
-            parsed = _decode_trailing_json_dict(raw[idx:])
-            if parsed and isinstance(parsed.get("response"), str):
-                return parsed["response"], parsed
-    return raw, {}
+        return None, "", {}
+    try:
+        envelope = json.loads(raw, strict=False)
+    except json.JSONDecodeError:
+        envelope = None
+        decoder = json.JSONDecoder(strict=False)
+        for idx in range(len(raw) - 1, -1, -1):
+            if raw[idx] == "{":
+                try:
+                    parsed, end_pos = decoder.raw_decode(raw[idx:])
+                except json.JSONDecodeError:
+                    continue
+                if raw[idx + end_pos :].strip() == "" and isinstance(parsed, dict):
+                    envelope = parsed
+                    break
+    if isinstance(envelope, dict) and ("status" in envelope or "response" in envelope or "structured_output" in envelope):
+        structured = envelope.get("structured_output")
+        response = envelope.get("response") if isinstance(envelope.get("response"), str) else ""
+        return (structured if isinstance(structured, dict) else None), response, envelope
+    return None, raw, {}
+
+
+def extract_review_json(text):
+    """Fallback parser when `structured_output` is absent (e.g. plain JSON or fenced JSON in `response`)."""
+    text = (text or "").strip()
+    if not text:
+        dump_gemini_diagnostics(text)
+        raise ValueError("Gemini output contained neither structured_output nor response text")
+    decoder = json.JSONDecoder(strict=False)
+    candidates = [m.group(2).strip() for m in reversed(list(FENCED_JSON_BLOCK_RE.finditer(text)))]
+    trimmed = re.sub(r"\s*(?:`{3,}|~{3,})\s*$", "", text)
+    candidates.extend(trimmed[idx:] for idx, ch in enumerate(trimmed) if ch == "{")
+    for cand in candidates:
+        if not cand.startswith("{"):
+            continue
+        try:
+            parsed, end_pos = decoder.raw_decode(cand)
+        except json.JSONDecodeError:
+            continue
+        if cand[end_pos:].strip() == "" and isinstance(parsed, dict) and ("decision" in parsed or "should_post" in parsed):
+            return parsed
+    dump_gemini_diagnostics(text)
+    raise ValueError("Could not find valid review JSON object in Gemini output")
 
 
 def format_cli_stats(envelope):
@@ -164,13 +188,13 @@ def _read_log_file(log_name):
     return log_path.read_text(encoding="utf-8", errors="replace").strip() if log_path.is_file() else ""
 
 
-def print_cli_debug_logs(envelope, response_text):
+def print_cli_debug_logs(envelope, display_output):
     """Prints CLI stats and collapsible debug groups to stdout for GitHub Actions logs."""
     stats_line = format_cli_stats(envelope)
     if stats_line:
         print(f"Antigravity CLI stats: {stats_line}")
-    if response_text:
-        print(f"::group::Gemini model response\n{response_text}\n::endgroup::")
+    if display_output:
+        print(f"::group::Gemini model response\n{display_output}\n::endgroup::")
     for log_name, title in CLI_LOG_FILES:
         log_text = _read_log_file(log_name)
         if log_text:
@@ -231,81 +255,6 @@ def write_step_summary(
     append_step_summary(lines)
 
 
-def repair_unescaped_json_quotes(s):
-    """Escapes unescaped double quotes inside JSON string values."""
-    closing_value_re = re.compile(
-        r'^\s*(?:,\s*"(?:decision|should_post|skip_reason|body|comments|path|line|side|start_line|start_side)"\s*:|\}\s*(?:,\s*\{|\]\s*[,}]|\}\s*(?:```|~~~|$)|```|~~~|$))'
-    )
-    out = []
-    in_string = False
-    is_key = False
-    i, n = 0, len(s)
-    while i < n:
-        ch = s[i]
-        if in_string:
-            if ch == "\\":
-                out.append(s[i : i + 2])
-                i += 2
-                continue
-            if ch == '"':
-                rest = s[i + 1 :]
-                is_end = bool(re.match(r"^\s*:", rest)) if is_key else bool(closing_value_re.match(rest))
-                if is_end:
-                    in_string = False
-                    out.append(ch)
-                else:
-                    out.append('\\"')
-                i += 1
-                continue
-        elif ch == '"':
-            prev_non_ws = next((tok[-1] for tok in reversed(out) if not tok.isspace()), "")
-            in_string = True
-            is_key = prev_non_ws in ("{", ",")
-        out.append(ch)
-        i += 1
-    return "".join(out)
-
-
-def extract_review_json(text):
-    """Extracts the structured review JSON object from Gemini's response text."""
-    text = text.strip()
-    if not text:
-        dump_gemini_diagnostics(text)
-        raise ValueError("Gemini response text is empty")
-
-    def try_parse_review(candidate_str, *, allow_repair=False):
-        attempts = (candidate_str, repair_unescaped_json_quotes(candidate_str)) if allow_repair else (candidate_str,)
-        for attempt in attempts:
-            parsed = _decode_trailing_json_dict(attempt)
-            if parsed and ("decision" in parsed or "should_post" in parsed):
-                return parsed
-        return None
-
-    for match in reversed(list(FENCED_JSON_BLOCK_RE.finditer(text))):
-        block = match.group(2).strip()
-        if block.startswith("{"):
-            parsed = try_parse_review(block, allow_repair=True)
-            if parsed is not None:
-                return parsed
-
-    trimmed = re.sub(r"\s*(?:`{3,}|~{3,})\s*$", "", text)
-    brace_indices = [idx for idx, ch in enumerate(trimmed) if ch == "{"]
-    for idx in brace_indices:
-        parsed = try_parse_review(trimmed[idx:], allow_repair=False)
-        if parsed is not None:
-            return parsed
-
-    line_leading = [m.end() - 1 for m in re.finditer(r"(?:^|\n)[ \t]*\{", trimmed)]
-    seen = set(line_leading)
-    for idx in line_leading + [i for i in brace_indices if i not in seen]:
-        parsed = try_parse_review(trimmed[idx:], allow_repair=True)
-        if parsed is not None:
-            return parsed
-
-    dump_gemini_diagnostics(text)
-    raise ValueError("Could not find valid review JSON object with 'decision' or 'should_post' in Gemini output")
-
-
 def normalize_comment_path(raw_path, workspace_root=""):
     """Normalizes a comment file path to a safe repository-relative path."""
     path = str(raw_path or "").replace("\u200b", "").strip()
@@ -333,19 +282,28 @@ def parse_diff_hunk_lines(diff_path_str):
         return None
     result = {}
     current_file = None
+    minus_a_file = None
     in_hunk = False
     hunk_id = old_ln = new_ln = 0
     for line in diff_path.read_text(encoding="utf-8", errors="replace").splitlines():
         if line.startswith("diff --git "):
-            current_file = None
+            current_file = minus_a_file = None
             in_hunk = False
             continue
-        if not in_hunk and line.startswith("+++ b/"):
-            candidate = line[len("+++ b/") :]
-            if is_safe_repo_rel_path(candidate):
-                current_file = candidate
+        if not in_hunk:
+            if line.startswith("--- a/"):
+                minus_a_file = line[len("--- a/") :]
+                continue
+            if line.startswith("+++ b/"):
+                candidate = line[len("+++ b/") :]
+                if is_safe_repo_rel_path(candidate):
+                    current_file = candidate
+                    result.setdefault(current_file, {})
+                continue
+            if line == "+++ /dev/null" and minus_a_file and is_safe_repo_rel_path(minus_a_file):
+                current_file = minus_a_file
                 result.setdefault(current_file, {})
-            continue
+                continue
         m_hunk = HUNK_HEADER_RE.match(line)
         if m_hunk and current_file is not None:
             hunk_id += 1
@@ -391,7 +349,7 @@ def format_fallback_comment(comment):
 def append_fallback_comments(body, fallback_comments):
     if not fallback_comments:
         return body
-    sections = f"### Inline Review Comments\n\n" + "\n\n".join(format_fallback_comment(c) for c in fallback_comments)
+    sections = "### Inline Review Comments\n\n" + "\n\n".join(format_fallback_comment(c) for c in fallback_comments)
     return f"{body.rstrip()}\n\n---\n\n{sections}" if body else sections
 
 
@@ -525,15 +483,16 @@ def main():
     if not SHA_RE.fullmatch(head_sha):
         raise ValueError(f"Invalid head_sha in context.json: {head_sha!r}")
 
-    response_text, envelope = load_gemini_output()
-    print_cli_debug_logs(envelope, response_text)
+    structured_output, response_text, envelope = load_gemini_output()
+    raw_display = json.dumps(structured_output, indent=2) if structured_output is not None else response_text
+    print_cli_debug_logs(envelope, raw_display)
     try:
-        review_data = extract_review_json(response_text)
+        review_data = structured_output if structured_output is not None else extract_review_json(response_text)
     except ValueError as exc:
         write_step_summary(
             outcome_line=f"❌ Failed to parse review JSON (`{exc}`)",
             envelope=envelope,
-            response_text=response_text,
+            response_text=raw_display,
         )
         raise
 
@@ -622,7 +581,7 @@ def main():
             skip_reason=skip_reason or "No substantive changes since the previous Gemini review.",
             review_body=body,
             envelope=envelope,
-            response_text=response_text,
+            response_text=raw_display,
         )
         return 0
 
@@ -677,7 +636,7 @@ def main():
             review_body=posted_body,
             inline_comments=posted_comments,
             envelope=envelope,
-            response_text=response_text,
+            response_text=raw_display,
         )
         return 0
 
@@ -688,7 +647,7 @@ def main():
         review_body=final_body,
         inline_comments=valid_inline_comments,
         envelope=envelope,
-        response_text=response_text,
+        response_text=raw_display,
     )
     return res.returncode
 
