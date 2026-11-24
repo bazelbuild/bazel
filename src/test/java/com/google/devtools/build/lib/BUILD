@@ -59,6 +59,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skymetal:srcs",
         "//src/test/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/test/java/com/google/devtools/build/lib/starlark:srcs",
         "//src/test/java/com/google/devtools/build/lib/starlarkbuildapi/core:srcs",
