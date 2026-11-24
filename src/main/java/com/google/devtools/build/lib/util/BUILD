@@ -31,6 +31,12 @@ java_library(
 )
 
 java_library(
+    name = "cpu",
+    srcs = ["CPU.java"],
+    deps = ["//third_party:guava"],
+)
+
+java_library(
     name = "os",
     srcs = ["OS.java"],
 )
@@ -239,7 +245,6 @@ java_library(
     name = "util",
     srcs = [
         "AnsiStrippingOutputStream.java",
-        "CPU.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",

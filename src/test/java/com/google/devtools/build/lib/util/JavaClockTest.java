@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,5 +38,20 @@ public class JavaClockTest {
 
     assertThat(clock.currentTimeMillis()).isNotEqualTo(millis);
     assertThat(clock.nanoTime()).isNotEqualTo(nanos);
+  }
+
+  @Test
+  public void nanoTimeIsConsistentWithSystemNanoTime() {
+    Clock clock = new JavaClock();
+    for (int i = 0; i < 10_000; i++) {
+      long before = System.nanoTime();
+      long nanos = clock.nanoTime();
+      long after = System.nanoTime();
+      assertThat(nanos).isAtLeast(before);
+      // On macOS, System.nanoTime() returns the value installed by another thread if it loses the
+      // race on its monotonicity cmpxchg, and thus can return a value behind the current clock
+      // (and even behind `nanos`).
+      assertThat(nanos).isAtMost(after + TimeUnit.SECONDS.toNanos(1));
+    }
   }
 }

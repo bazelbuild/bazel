@@ -28,7 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:cpu",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
