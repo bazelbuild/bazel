@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
@@ -657,7 +658,7 @@ swift_binary = rule(
         )
         """);
 
-    useConfiguration("--compilation_mode=fastbuild");
+    useConfiguration("--noincompatible_remove_ctx_objc_fragment", "--compilation_mode=fastbuild");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/objc_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
@@ -1020,7 +1021,9 @@ swift_binary = rule(
 
   @Test
   public void testDisallowSDKFrameworkAttribute() throws Exception {
-    useConfiguration("--incompatible_disallow_sdk_frameworks_attributes");
+    useConfiguration(
+        "--incompatible_disallow_sdk_frameworks_attributes=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_disallow_sdk_frameworks_attributes=true");
 
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
@@ -1050,7 +1053,9 @@ swift_binary = rule(
 
   @Test
   public void testDisallowWeakSDKFrameworksAttribute() throws Exception {
-    useConfiguration("--incompatible_disallow_sdk_frameworks_attributes");
+    useConfiguration(
+        "--incompatible_disallow_sdk_frameworks_attributes=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_disallow_sdk_frameworks_attributes=true");
 
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
