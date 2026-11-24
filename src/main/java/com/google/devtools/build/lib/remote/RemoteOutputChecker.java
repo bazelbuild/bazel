@@ -81,8 +81,8 @@ public class RemoteOutputChecker implements OutputChecker {
 
   // Tree artifacts and their children are often checked many times per build, e.g. when they are
   // in the runfiles of many tests.
-  private final Map<PathFragment, Boolean> treeMatchesPatternCache = new ConcurrentHashMap<>();
-  private final Cache<TreeArtifactValue, ImmutableSet<TreeFileArtifact>>
+  private Map<PathFragment, Boolean> treeMatchesPatternCache = new ConcurrentHashMap<>();
+  private Cache<TreeArtifactValue, ImmutableSet<TreeFileArtifact>>
       treeChildrenMatchingPatternCache = Caffeine.newBuilder().weakKeys().build();
 
   public RemoteOutputChecker(
@@ -121,8 +121,9 @@ public class RemoteOutputChecker implements OutputChecker {
   void cleanForNextCommand() {
     // Retain only this command's policy for the next command.
     lastRemoteOutputChecker = null;
-    treeMatchesPatternCache.clear();
-    treeChildrenMatchingPatternCache.invalidateAll();
+    // Clearing the caches would retain their tables.
+    treeMatchesPatternCache = new ConcurrentHashMap<>();
+    treeChildrenMatchingPatternCache = Caffeine.newBuilder().weakKeys().build();
   }
 
   /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
