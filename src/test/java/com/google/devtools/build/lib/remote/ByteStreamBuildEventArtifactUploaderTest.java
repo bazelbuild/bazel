@@ -964,6 +964,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             /* buildRequestId= */ "none",
             /* commandId= */ "none",
             SyscallCache.NO_CACHE,
+            execRoot.asFragment(),
             RemoteBuildEventUploadMode.ALL,
             /* maximumOpenFiles= */ -1);
 
