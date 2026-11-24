@@ -1602,12 +1602,12 @@ public class SandboxHelpersTest {
           }
 
           @Override
-          public synchronized Collection<String> getDirectoryEntries(PathFragment path)
+          public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
               throws IOException {
             if (path.getBaseName().equals("ws")) {
               wsReaddirCount.incrementAndGet();
             }
-            return super.getDirectoryEntries(path);
+            return super.readdir(path, followSymlinks);
           }
         };
     Scratch apfsScratch = new Scratch(ctimeUpdatingRenameFs);
