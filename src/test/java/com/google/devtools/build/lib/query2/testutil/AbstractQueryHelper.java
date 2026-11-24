@@ -44,7 +44,7 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   protected boolean orderedResults = true;
   protected UniverseScope universeScope = UniverseScope.EMPTY;
 
-  public static final RepositoryMapping DEFAULT_MAIN_REPO_MAPPING =
+  public static final RepositoryMapping.Explicit DEFAULT_MAIN_REPO_MAPPING =
       RepositoryMapping.create(
           ImmutableMap.of(
               "",
@@ -132,7 +132,7 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   }
 
   @Override
-  public void setMainRepoTargetParser(RepositoryMapping mapping) {
+  public void setMainRepoTargetParser(RepositoryMapping.Explicit mapping) {
     this.mainRepoTargetParser =
         new TargetPattern.Parser(
             PathFragment.EMPTY_FRAGMENT,

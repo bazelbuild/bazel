@@ -19,6 +19,7 @@ java_library(
         "BazelModuleContext.java",
         "BazelModuleKey.java",
         "BranchedLabelConstants.java",
+        "ExtensionRepositoryMapping.java",
         "IgnoredSubdirectories.java",
         "Label.java",
         "LabelConstants.java",

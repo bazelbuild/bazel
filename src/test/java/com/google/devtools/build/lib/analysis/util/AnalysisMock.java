@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
@@ -209,9 +208,6 @@ public abstract class AnalysisMock extends LoadingMock {
             new RegistryFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace()))
         .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
-        .put(
-            SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
-            new ModuleExtensionRepoMappingEntriesFunction())
         .put(
             SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
             new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
