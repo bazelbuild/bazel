@@ -2516,7 +2516,6 @@ bazel_dep(name="bar")
 local_path_override(module_name="bar", path="bar")
 EOF
   touch BUILD
-  echo 'load("@r//:r.bzl", "pi"); print(pi)' > WORKSPACE.bzlmod
   cat > r.bzl <<EOF
 def _r(rctx):
   print("I see: " + str(rctx.attr.data))
