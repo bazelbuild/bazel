@@ -18,8 +18,11 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -27,12 +30,18 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -47,6 +56,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -57,6 +67,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -201,6 +212,64 @@ public class AbstractSpawnStrategyTest {
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
     verify(entry).store(eq(spawnResult));
+  }
+
+  @Test
+  public void testCacheMiss_obtainsOutputMetadataBeforeStore() throws Exception {
+    Artifact output = createOutput();
+    Spawn spawn = new SpawnBuilder("/bin/true").withOutput(output).build();
+    OutputMetadataStore outputMetadataStore = mock(OutputMetadataStore.class);
+    CacheHandle entry = execWithCacheMiss(spawn, outputMetadataStore);
+
+    InOrder inOrder = inOrder(outputMetadataStore, entry);
+    inOrder.verify(outputMetadataStore).getOutputMetadata(output);
+    inOrder.verify(entry).store(any());
+  }
+
+  @Test
+  public void testCacheMiss_outputMetadataUnavailable_stillStores() throws Exception {
+    Artifact output = createOutput();
+    Spawn spawn = new SpawnBuilder("/bin/true").withOutput(output).build();
+    OutputMetadataStore outputMetadataStore = mock(OutputMetadataStore.class);
+    when(outputMetadataStore.getOutputMetadata(output)).thenThrow(new FileNotFoundException());
+    CacheHandle entry = execWithCacheMiss(spawn, outputMetadataStore);
+
+    verify(entry).store(any());
+  }
+
+  @Test
+  public void testCacheMiss_actionMayModifyOutputs_doesNotObtainOutputMetadata() throws Exception {
+    ActionExecutionMetadata owner = mock(ActionExecutionMetadata.class);
+    when(owner.mayModifySpawnOutputsAfterExecution()).thenReturn(true);
+    Spawn spawn = spy(new SpawnBuilder("/bin/true").withOutput(createOutput()).build());
+    doReturn(owner).when(spawn).getResourceOwner();
+    OutputMetadataStore outputMetadataStore = mock(OutputMetadataStore.class);
+    CacheHandle entry = execWithCacheMiss(spawn, outputMetadataStore);
+
+    verify(outputMetadataStore, never()).getOutputMetadata(any());
+    verify(entry).store(any());
+  }
+
+  private Artifact createOutput() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out");
+    return ActionsTestUtil.createArtifact(root, "output");
+  }
+
+  private CacheHandle execWithCacheMiss(Spawn spawn, OutputMetadataStore outputMetadataStore)
+      throws Exception {
+    SpawnCache cache = mock(SpawnCache.class);
+    CacheHandle entry = mock(CacheHandle.class);
+    when(cache.lookup(any(Spawn.class), any(SpawnExecutionContext.class))).thenReturn(entry);
+    when(entry.willStore()).thenReturn(true);
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(cache);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    when(actionExecutionContext.getOutputMetadataStore()).thenReturn(outputMetadataStore);
+    when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
+        .thenReturn(
+            new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build());
+
+    var _ = new TestedSpawnStrategy(spawnRunner).exec(spawn, actionExecutionContext);
+    return entry;
   }
 
   @Test
