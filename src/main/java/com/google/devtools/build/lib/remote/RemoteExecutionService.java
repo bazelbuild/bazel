@@ -919,18 +919,17 @@ public class RemoteExecutionService {
     checkNotNull(combinedCache, "combinedCache can't be null");
 
     try {
+      String outputPath = remotePathResolver.localPathToOutputPath(file.path());
       ListenableFuture<Void> future =
           combinedCache.downloadFile(
               context,
-              remotePathResolver.localPathToOutputPath(file.path()),
+              outputPath,
               remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
               /* finalPath= */ file.path(),
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
-                  progressStatusListener,
-                  remotePathResolver.localPathToOutputPath(file.path()),
-                  file.digest().getSizeBytes()));
+                  progressStatusListener, outputPath, file.digest().getSizeBytes()));
       return transform(future, (d) -> file, directExecutor());
     } catch (IOException e) {
       return immediateFailedFuture(e);
