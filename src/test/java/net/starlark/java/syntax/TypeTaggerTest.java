@@ -1117,6 +1117,52 @@ public class TypeTaggerTest {
   }
 
   @Test
+  public void nonToplevelFunctionTypes_omitsUntypedFunctions() throws Exception {
+    Result untypedResult =
+        tagFile(
+            """
+            def outer():
+                def inner():
+                    pass
+                return inner
+
+            f = lambda x: x
+            """);
+    assertThat(untypedResult.typeTable().getAnnotatedFunctionTypes()).isEmpty();
+
+    Result partiallyTypedResult =
+        tagFile(
+            """
+            def typed_fn(x: int) -> int:
+                return x
+
+            def untyped_fn(y):
+                return lambda z: y + z
+            """);
+    DefStatement typedFn = (DefStatement) partiallyTypedResult.file().getStatements().get(0);
+    DefStatement untypedFn = (DefStatement) partiallyTypedResult.file().getStatements().get(1);
+    LambdaExpression lambda =
+        (LambdaExpression) ((ReturnStatement) untypedFn.getBody().get(0)).getResult();
+    assertThat(
+            partiallyTypedResult
+                .typeTable()
+                .getAnnotatedFunctionType(typedFn.getResolvedFunction()))
+        .isEqualTo(partiallyTypedResult.getType(typedFn));
+    assertThat(
+            partiallyTypedResult
+                .typeTable()
+                .getAnnotatedFunctionType(untypedFn.getResolvedFunction()))
+        .isNull();
+    assertThat(
+            partiallyTypedResult.typeTable().getAnnotatedFunctionType(lambda.getResolvedFunction()))
+        .isNull();
+    assertThat(partiallyTypedResult.getType(lambda)).isNotNull();
+    assertThat(partiallyTypedResult.typeTable().getAnnotatedFunctionTypes())
+        .asList()
+        .containsExactly(partiallyTypedResult.getType(typedFn), null, null);
+  }
+
+  @Test
   public void functionType_sharesParameterNamesAndUntypedParameterTypes() throws Exception {
     Result result =
         tagFile(

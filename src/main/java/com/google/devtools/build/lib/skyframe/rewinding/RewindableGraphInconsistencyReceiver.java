@@ -51,7 +51,8 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
 
   private final Multiset<Inconsistency> selfCounts = ConcurrentHashMultiset.create();
   private final Multiset<Inconsistency> childCounts = ConcurrentHashMultiset.create();
-  private boolean rewindingInitiated = false;
+  // Read and written concurrently by Skyframe worker threads during evaluation.
+  private volatile boolean rewindingInitiated = false;
   private final boolean heuristicallyDropNodes;
   private final boolean skymeldInconsistenciesExpected;
 

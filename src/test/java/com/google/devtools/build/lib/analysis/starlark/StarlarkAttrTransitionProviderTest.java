@@ -29,6 +29,7 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -277,6 +278,67 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertThat(
             getConfiguration(splitAttr.get("1")).getOptions().get(DummyTestOptions.class).getFoo())
         .isEqualTo("crepe");
+  }
+
+  /**
+   * Regression test for b/168038145: rules named {@code android_binary} used to see only the first
+   * split of a split-transitioned {@code deps} attribute through {@code ctx.attr.deps} and the
+   * default transitive validation propagation.
+   */
+  @Test
+  public void testSplitDepsOnRuleNamedAndroidBinaryExposeAllSplits() throws Exception {
+    scratch.file(
+        "test/starlark/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def transition_func(settings, attr):
+            return {
+                "amsterdam": {"//command_line_option:foo": "stroopwafel"},
+                "paris": {"//command_line_option:foo": "crepe"},
+            }
+
+        my_transition = transition(
+            implementation = transition_func,
+            inputs = [],
+            outputs = ["//command_line_option:foo"],
+        )
+
+        def _impl(ctx):
+            return MyInfo(num_deps = len(ctx.attr.deps))
+
+        android_binary = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(cfg = my_transition),
+            },
+        )
+
+        def _validated_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".validation")
+            ctx.actions.write(out, "")
+            return [OutputGroupInfo(_validation = depset([out]))]
+
+        validated_rule = rule(_validated_impl)
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load("//test/starlark:rules.bzl", "android_binary", "validated_rule")
+
+        android_binary(
+            name = "test",
+            deps = [":dep"],
+        )
+
+        validated_rule(name = "dep")
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
+    assertThat(getMyInfoFromTarget(target).getValue("num_deps")).isEqualTo(StarlarkInt.of(2));
+    assertThat(OutputGroupInfo.get(target).getOutputGroup(OutputGroupInfo.VALIDATION).toList())
+        .hasSize(2);
   }
 
   @Test

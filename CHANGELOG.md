@@ -1,3 +1,81 @@
+## Release 11.0.0-pre.20261114.1 (2026-11-19)
+
+```
+Baseline: 88c9fc464a967c973ae64c7cb251a4c31094e703
+
+Cherry picks:
+
+   + caddbfc7e1da6df83072c9aa5c0b44e7ad8de077:
+     Release 11.0.0-pre.20261114.1 (2026-11-19)
+   + bc2cfb77781fa1751df74d8dc07158d031ec0382:
+     Release 11.0.0-pre.20261114.1 (2026-11-19)
+```
+
+Incompatible changes:
+
+  - `kind()` and the `Kind` enum have been removed from `Expression`
+    and `Statement` types in the Starlark interpreter.
+
+Important changes:
+
+  - On Windows, the end of a test's output is no longer sometimes
+    missing from its test log and `test.xml`.
+  - Fixed exclusive-if-local tag limiting concurrency on remote exec
+  - On Windows,
+    [`--experimental_strict_repo_env`](https://bazel.build/reference/c
+    ommand-line-reference#flag--experimental_strict_repo_env) now
+    keeps `SYSTEMROOT` and `SYSTEMDRIVE` in the repository
+    environment.
+  - `bazel info` now resolves label-typed options such as
+    `--platforms` with the main repository mapping and applies
+    `flag_alias()`es and Starlark flags when it prints
+    configuration-dependent keys such as `bazel-bin`.
+  - Fixed the handling of non-ASCII characters in query, aquery and
+    cquery output, the Starlark debugger and Starlark CPU and memory
+    profiles.
+
+This release contains contributions from many people at Google, as well as Alex Scott, armandomontanez, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, gztong666, Ivan Verevkin, John Cater, Justin, Keith Smiley, Martin Kuntz Jacobsen, Michael Tänzer, Mikhail Filippov, Son Luong Ngoc, Tamir Duberstein, UebelAndre, Vanja Pejovic, Wade Carpenter.
+
+## Release 9.3.3 (2026-11-19)
+
+```
+
+Release Notes:
+
+General:
++ Release 9.3.2 (2026-11-04)
++ Update the embedded JDK to 25.0.5.1. (#32792)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Xùdōng Yáng.
+```
+
+## Release 7.7.3 (2026-11-19)
+
+```
+
+Release Notes:
+
+General:
++ Release 7.7.2 (2026-10-23)
++ Update the embedded JDK to 21.0.13.1. (#32791)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Xùdōng Yáng.
+```
+
+## Release 8.9.0 (2026-11-19)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 11.0.0-pre.20261103.3 (2026-11-17)
 
 ```

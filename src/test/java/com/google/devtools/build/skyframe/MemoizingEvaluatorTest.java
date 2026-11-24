@@ -1066,6 +1066,24 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void receiverToldOfCommittingOnlyForComputedValues() throws Exception {
+    SkyKey leaf = nonHermeticKey("leaf");
+    SkyKey top = skyKey("top");
+    tester.set(leaf, new StringValue("leaf"));
+    tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
+    tester.eval(/* keepGoing= */ false, top);
+    assertThat(tester.progressReceiver.committed).containsExactly(leaf, top);
+
+    // The leaf is recomputed to the same value. It is committed regardless, but the top-level node
+    // is not recomputed, so it is not committed.
+    tester.getOrCreate(leaf, /* markAsModified= */ true);
+    tester.invalidate();
+    tester.eval(/* keepGoing= */ false, top);
+    assertThat(tester.progressReceiver.committed).containsExactly(leaf);
+    assertThat(tester.progressReceiver.evaluated).containsExactly(leaf, top);
+  }
+
+  @Test
   public void incrementalAddedDependency() throws Exception {
     SkyKey aKey = nonHermeticKey("a");
     SkyKey bKey = nonHermeticKey("b");

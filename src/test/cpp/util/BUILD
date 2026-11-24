@@ -67,6 +67,7 @@ cc_test(
             ":windows_test_util",
             "//src/main/cpp:blaze_util",
             "//src/main/native/windows:lib-file",
+            "@abseil-cpp//absl/strings",
         ],
         "//conditions:default": [],
     }),

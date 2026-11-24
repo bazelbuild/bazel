@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -320,6 +322,65 @@ public final class LtoBackendAction extends SpawnAction {
     }
     getEnvironment().addTo(fp);
     fp.addStringMap(getExecutionInfo());
+  }
+
+  @Override
+  public String describeKey() {
+    StringBuilder message = new StringBuilder();
+    message.append(getProgressMessage()).append('\n');
+    message.append("  GUID: ").append(GUID).append('\n');
+    message.append("  Mnemonic: ").append(getMnemonic()).append('\n');
+    for (Map.Entry<String, String> entry : getEnvironment().getFixedEnv().entrySet()) {
+      message
+          .append("  Environment variable: ")
+          .append(ShellEscaper.escapeString(entry.getKey()))
+          .append('=')
+          .append(ShellEscaper.escapeString(entry.getValue()))
+          .append('\n');
+    }
+    for (String var : getEnvironment().getInheritedEnv()) {
+      message
+          .append("  Environment variables taken from the client environment: ")
+          .append(ShellEscaper.escapeString(var))
+          .append('\n');
+    }
+    for (String var : getEnvironment().getUnsetEnv()) {
+      message
+          .append("  Unset environment variable: ")
+          .append(ShellEscaper.escapeString(var))
+          .append('\n');
+    }
+    for (Map.Entry<String, String> entry : getExecutionInfo().entrySet()) {
+      message
+          .append("  Execution info: ")
+          .append(entry.getKey())
+          .append('=')
+          .append(entry.getValue())
+          .append('\n');
+    }
+    try {
+      for (String argument : ShellEscaper.escapeAll(getArguments())) {
+        message.append("  Argument: ").append(argument).append('\n');
+      }
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      message.append("Interrupted while expanding command line\n");
+    } catch (CommandLineExpansionException e) {
+      message.append("Could not expand command line: ").append(e).append('\n');
+    }
+    for (Artifact input : mandatoryInputs.toList()) {
+      message.append("  Mandatory input: ").append(input.getExecPathString()).append('\n');
+    }
+    if (imports != null) {
+      message.append("  Imports: ").append(imports.getExecPathString()).append('\n');
+      Fingerprint fp = new Fingerprint();
+      bitcodeFiles.addToFingerprint(fp);
+      message
+          .append("  Bitcode files digest: ")
+          .append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()))
+          .append('\n');
+    }
+    return message.toString();
   }
 
   @VisibleForTesting

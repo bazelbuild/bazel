@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
-import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -344,7 +343,6 @@ public final class TypeTagger extends NodeVisitor {
     ImmutableList<String> names = resolvedFunction.getParameterNames().subList(0, numNonResidual);
     // Non-null only if there's at least one non-Any type non-residual parameter.
     ImmutableList.Builder<StarlarkType> types = null;
-    BitSet mandatoryIndices = new BitSet();
 
     int nparams = parameters.size();
     int numPositionalParameters = 0;
@@ -379,10 +377,6 @@ public final class TypeTagger extends NodeVisitor {
       if (types != null) {
         types.add(paramType);
       }
-
-      if (param instanceof Parameter.Mandatory) {
-        mandatoryIndices.set(paramIndex);
-      }
       paramIndex++;
     }
 
@@ -408,28 +402,72 @@ public final class TypeTagger extends NodeVisitor {
         types == null ? null : types.build(),
         /* numPositionalOnlyParameters= */ 0,
         numPositionalParameters,
-        Types.MandatoryParamIndices.of(mandatoryIndices),
+        Types.MandatoryParamIndices.fromParameters(resolvedFunction),
         varargsType,
         kwargsType,
         returnType);
   }
 
   /**
-   * Sets an identifier's type.
+   * Records an identifier's type in the type table.
    *
-   * <p>The {@code Binding} on the identifier must have already been set by the resolver.
-   * (Therefore, this method cannot be called for identifiers that are not symbols, like field names
-   * or call site keyword arguments.)
+   * <p>The identifier must be a binding occurrence, and its {@link Resolver.Binding} must have
+   * already been set by the resolver. (Therefore, this method cannot be called for identifiers that
+   * are not symbols, like field names or call site keyword arguments.)
    *
    * <p>Logs an error if the identifier is not the first binding occurrence of the {@code Binding}.
    * In this case, the type is not updated.
    *
-   * <p>Throws {@link IllegalArgumentException} if this is the first binding occurrence but somehow
-   * the type is already set.
+   * <p>For functions, use {@link #setAnnotatedFunctionType} or {@link #setUnannotatedFunctionType},
+   * which additionally will in addition associate the type with the {@link Resolver.Function}.
+   *
+   * @throws IllegalArgumentException if this is the first binding occurrence but somehow the type
+   *     is already set.
    */
-  private void setType(Node node, Identifier id, StarlarkType type) {
-    Resolver.Binding binding = id.getBinding();
-    checkNotNull(binding, "no binding set on identifier '%s'", id.getName());
+  private void setIdentifierType(Node node, Identifier id, StarlarkType type) {
+    if (!errorIfTypeAlreadySet(node, id)) {
+      typeTable.setDeclaredType(id.getBinding(), type);
+    }
+  }
+
+  /**
+   * Variant of {@link #setIdentifierType} for the type of a function whose signature has type
+   * annotations.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the type is already set.
+   */
+  private void setAnnotatedFunctionType(DefStatement def, Types.GeneralCallableType type) {
+    Resolver.Function rfn = def.getResolvedFunction();
+    @Nullable StarlarkType prevType = typeTable.getAnnotatedFunctionType(rfn);
+    if (prevType != null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected type of resolved function %s to be null but was %s",
+              rfn.getName(), prevType.typeRepr()));
+    }
+    if (!errorIfTypeAlreadySet(def, def.getIdentifier())) {
+      typeTable.setAnnotatedFunctionType(def.getIdentifier().getBinding(), rfn, type);
+    }
+  }
+
+  /**
+   * Variant of {@link #setIdentifierType} for a function whose signature doesn't have type
+   * annotations. The {@code Callable} type of such a function is computed on demand.
+   */
+  private void setUnannotatedFunctionType(DefStatement def) {
+    if (!errorIfTypeAlreadySet(def, def.getIdentifier())) {
+      typeTable.setUnannotatedFunctionType(
+          def.getIdentifier().getBinding(), def.getResolvedFunction());
+    }
+  }
+
+  /**
+   * Returns true and logs an error if a previous occurrence of the given symbol has been associated
+   * with a type or a type constructor; otherwise, returns false.
+   */
+  private boolean errorIfTypeAlreadySet(Node node, Identifier id) {
+    Resolver.Binding binding =
+        checkNotNull(id.getBinding(), "no binding set on identifier '%s'", id.getName());
 
     if (binding.getFirst() != id) {
       if (node instanceof DefStatement) {
@@ -454,38 +492,17 @@ public final class TypeTagger extends NodeVisitor {
       }
       errorIfTypeConstructor(node, id);
       // We don't have a usable type for this binding.
-      typeTable.setDeclaredType(binding, null);
-      return;
+      typeTable.clearDeclaredType(binding);
+      return true;
     }
 
-    @Nullable StarlarkType prevType = typeTable.getType(binding);
-    if (prevType != null) {
-      throw new IllegalArgumentException(
-          String.format("Expected type of binding %s to be null but was %s", binding, prevType));
-    }
-    typeTable.setDeclaredType(binding, type);
-  }
-
-  /**
-   * Sets a resolved function's type.
-   *
-   * <p>Throws {@link IllegalArgumentException} if the type is already set.
-   */
-  private static void setType(
-      Resolver.Function resolved, Types.GeneralCallableType type, TypeTable typeTable) {
-    checkNotNull(resolved);
-    @Nullable StarlarkType prevType = typeTable.getType(resolved);
-    if (prevType != null) {
+    if (typeTable.hasBindingType(binding)) {
       throw new IllegalArgumentException(
           String.format(
-              "Expected type of resolved function %s to be null but was %s",
-              resolved.getName(), prevType.typeRepr()));
+              "Expected type of binding %s to be null but was %s",
+              binding, typeTable.getType(binding)));
     }
-    typeTable.setType(resolved, type);
-  }
-
-  private void setType(Resolver.Function resolved, Types.GeneralCallableType type) {
-    setType(resolved, type, typeTable);
+    return false;
   }
 
   /**
@@ -553,7 +570,7 @@ public final class TypeTagger extends NodeVisitor {
     if (assignment.getType() != null) {
       setUsesTypeSyntax();
       StarlarkType type = extractType(assignment.getType());
-      setType(assignment, (Identifier) assignment.getLHS(), type);
+      setIdentifierType(assignment, (Identifier) assignment.getLHS(), type);
     }
 
     for (Identifier id : Identifier.boundIdentifiers(assignment.getLHS())) {
@@ -572,13 +589,13 @@ public final class TypeTagger extends NodeVisitor {
   public void visit(DefStatement def) {
     Resolver.Function resolvedFunction = def.getResolvedFunction();
     functionStack.push(resolvedFunction);
-    Types.GeneralCallableType type =
-        createFunctionType(resolvedFunction, def.getParameters(), def.getReturnType());
-    setType(resolvedFunction, type);
-    setType(def, def.getIdentifier(), type);
-    // Parameter types handled by visit(Parameter).
-    if (def.getReturnType() != null || !def.getTypeParameters().isEmpty()) {
+    if (def.signatureHasTypeAnnotations()) {
+      Types.GeneralCallableType type =
+          createFunctionType(resolvedFunction, def.getParameters(), def.getReturnType());
+      setAnnotatedFunctionType(def, type);
       setUsesTypeSyntax();
+    } else {
+      setUnannotatedFunctionType(def);
     }
 
     super.visit(def);
@@ -600,7 +617,7 @@ public final class TypeTagger extends NodeVisitor {
           type = Types.dict(Types.STR, type);
         }
       }
-      setType(param, param.getIdentifier(), type);
+      setIdentifierType(param, param.getIdentifier(), type);
     }
 
     super.visit(param);
@@ -629,7 +646,13 @@ public final class TypeTagger extends NodeVisitor {
             SpellChecker.didYouMean(originalName, loadedModule.getExports()));
         continue;
       }
-      setType(load, binding.getLocalName(), loadedModule.getExportType(originalName));
+      @Nullable StarlarkType type = loadedModule.getExportType(originalName);
+      if (type != null) {
+        setIdentifierType(load, binding.getLocalName(), loadedModule.getExportType(originalName));
+      } else {
+        // Even if the export doesn't have a type, verify that the local name wasn't already typed.
+        errorIfTypeAlreadySet(load, binding.getLocalName());
+      }
       @Nullable
       TypeConstructor typeConstructor = loadedModule.getExportTypeConstructor(originalName);
       if (typeConstructor != null) {
@@ -656,14 +679,14 @@ public final class TypeTagger extends NodeVisitor {
           extractTypeOrTermEvaluatingToType(node.getDefinition(), typeParams);
       typeConstructor = new TypeConstructor.Composite(name, typeParams.size(), term);
     }
-    setType(node, node.getIdentifier(), Types.TYPE);
+    setIdentifierType(node, node.getIdentifier(), Types.TYPE);
     setTypeConstructor(node, node.getIdentifier(), typeConstructor);
   }
 
   @Override
   public void visit(VarStatement var) {
     StarlarkType type = extractType(var.getType());
-    setType(var, var.getIdentifier(), type);
+    setIdentifierType(var, var.getIdentifier(), type);
     setUsesTypeSyntax();
 
     // No need to descend into type expression child.
@@ -679,14 +702,7 @@ public final class TypeTagger extends NodeVisitor {
     super.visit(cast);
   }
 
-  @Override
-  public void visit(LambdaExpression lambda) {
-    Resolver.Function resolvedFunction = lambda.getResolvedFunction();
-    Types.GeneralCallableType type =
-        createFunctionType(resolvedFunction, lambda.getParameters(), /* returnTypeExpr= */ null);
-    setType(resolvedFunction, type);
-    super.visit(lambda);
-  }
+  // No visit(LambdaExpression) override: lambda params don't have type annotations.
 
   // TODO: #27370 - Figure out the relationship between this visitor and identifiers introduced by
   // type alias statements. I don't think it's quite correct to say that `type A = B` is annotating

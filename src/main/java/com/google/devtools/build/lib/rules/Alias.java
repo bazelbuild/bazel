@@ -69,7 +69,6 @@ public class Alias implements RuleConfiguredTargetFactory {
           file.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .removeAttribute("licenses")
-          .removeAttribute("distribs")
           .removeAttribute(":action_listener")
           .add(
               attr(ACTUAL_ATTRIBUTE_NAME, LABEL)

@@ -20,6 +20,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -215,6 +216,11 @@ public final class FrontierNodeVersion {
 
   public HashCode getBlazeInstallMD5() {
     return blazeInstallMD5;
+  }
+
+  /** Returns the Bazel release name and install MD5 hash ({@code "<release_name>-<md5>"}). */
+  public String getReleaseVersionAndInstallationHash(BlazeVersionInfo blazeVersionInfo) {
+    return String.format("%s-%s", blazeVersionInfo.getReleaseName(), blazeInstallMD5);
   }
 
   public long getEvaluatingVersion() {

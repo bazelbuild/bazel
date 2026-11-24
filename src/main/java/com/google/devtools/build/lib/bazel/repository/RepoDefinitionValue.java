@@ -19,34 +19,12 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
-import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 
-/**
- * The result of {@link RepoDefinitionFunction}, holding a repository rule instance.
- *
- * <p>This has to be a {@link NotComparableSkyValue} for a very subtle reason. Two {@link
- * RepoDefinitionValue}s can compare equal if, for example, the .bzl file containing the repo rule
- * hasn't changed across a Bazel invocation, and the attributes stay the same. However, this doesn't
- * mean that the two definitions are actually equivalent, because certain information the repo rule
- * has access to (notably, the repo mapping applicable to the .bzl file) is *not* encoded in the
- * {@link RepoRule} object. In the particular case of the repo mapping (usable by the Starlark
- * {@code Label()} function), the repo rule's impl function essentially closes over it, but the
- * {@link net.starlark.java.eval.StarlarkCallable} object stored in {@link RepoRule} does *not*
- * compare unequal if only its containing .bzl's repo mapping is different.
- *
- * <p>Certainly, we can fix this by somehow making {@link RepoRule} store all the information it
- * could technically close over, and use that to influence its {@code equals} method; but we can't
- * easily guarantee the exhaustiveness of this (it's just very subtle). Instead, we declare {@link
- * RepoDefinitionValue} to be a {@link NotComparableSkyValue}, which inherits the condition that we
- * used to have when repo definitions were stored as {@code Rule}s in {@code Package}s; and no
- * {@code Package}s compare equal, ever.
- *
- * <p>This means that we're relying on the repo marker files to be the ultimate "change pruners" of
- * this SkyValue.
- */
-public sealed interface RepoDefinitionValue extends NotComparableSkyValue {
+/** The result of {@link RepoDefinitionFunction}, holding a repository rule instance. */
+public sealed interface RepoDefinitionValue extends SkyValue {
   SkyFunctionName REPO_DEFINITION = SkyFunctionName.createHermetic("REPO_DEFINITION");
 
   RepoDefinitionValue NOT_FOUND = new NotFound();

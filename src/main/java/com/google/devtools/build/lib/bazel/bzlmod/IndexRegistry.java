@@ -261,7 +261,19 @@ public class IndexRegistry implements Registry {
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + rawUrl)) {
       return downloadManager.downloadAndReadOneUrlForBzlmod(url, clientEnv, checksum);
     } catch (FileNotFoundException e) {
-      throw new NotFoundException(String.format("%s: not found", rawUrl));
+      if (checksum.isEmpty()) {
+        throw new NotFoundException(String.format("%s: not found", rawUrl));
+      }
+      throw new IOException(
+          String.format(
+              "Failed to fetch registry file %s recorded in %s: %s. If this file was intentionally"
+                  + " removed from the registry, delete its entry from %s and run `bazel mod"
+                  + " deps`.",
+              rawUrl,
+              LabelConstants.MODULE_LOCKFILE_NAME,
+              e.getMessage(),
+              LabelConstants.MODULE_LOCKFILE_NAME),
+          e);
     } catch (IOException e) {
       // Include the URL in the exception message for easier debugging.
       throw new IOException(

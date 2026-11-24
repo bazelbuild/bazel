@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <jni.h>
 #include <mach/mach_error.h>
 
 // Linting disabled for this line because for google code we could use
@@ -20,7 +21,6 @@
 #include <mutex>  // NOLINT
 
 #include "src/main/cpp/util/logging.h"
-#include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
 
@@ -33,7 +33,9 @@ static int g_sleep_state_stack = 0;
 // Our assertion for disabling sleep.
 static IOPMAssertionID g_sleep_state_assertion = kIOPMNullAssertionID;
 
-int portable_push_disable_sleep() {
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SleepPreventionModule_pushDisableSleepNative(
+    JNIEnv*, jclass) {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   BAZEL_CHECK_GE(g_sleep_state_stack, 0);
   if (g_sleep_state_stack == 0) {
@@ -52,7 +54,9 @@ int portable_push_disable_sleep() {
   return 0;
 }
 
-int portable_pop_disable_sleep() {
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SleepPreventionModule_popDisableSleepNative(
+    JNIEnv*, jclass) {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   BAZEL_CHECK_GT(g_sleep_state_stack, 0);
   g_sleep_state_stack -= 1;

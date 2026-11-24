@@ -69,6 +69,22 @@ if [[ ! "${JAVAC_VERSION}" =~ ^javac\ 25(\.|$) ]]; then
   log_fatal "expected a JDK 25 in JAVA_HOME, but got '${JAVAC_VERSION}'"
 fi
 
+# Similarly, bootstrap with a hermetic Rust toolchain from the runfiles so the
+# test does not depend on a host-installed rustc.
+if [[ -z "${RUST_SYSROOT_SHORT:-}" ]]; then
+  log_fatal "RUST_SYSROOT_SHORT is not set"
+fi
+rustc_rlocation="$(rlocation "${RUST_SYSROOT_SHORT#../}/bin/rustc${EXE_EXT}")" || \
+  log_fatal "failed to find rustc in ${RUST_SYSROOT_SHORT}"
+if [[ -z "${rustc_rlocation}" ]]; then
+  log_fatal "failed to find rustc in ${RUST_SYSROOT_SHORT}"
+fi
+if is_windows; then
+  export RUSTC="$(cygpath -m "${rustc_rlocation}")"
+else
+  export RUSTC="${rustc_rlocation}"
+fi
+
 function test_bootstrap() {
     cd "$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)"
     export SOURCE_DATE_EPOCH=1501234567
@@ -157,6 +173,8 @@ EOF
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
       --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \
+      --extra_toolchains=@local_config_rust//:all \
+      --@rules_rust//rust/settings:use_hermetic_macos_sdkroot=false \
       --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --extra_toolchains=fake_java_toolchain:all \
       src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"

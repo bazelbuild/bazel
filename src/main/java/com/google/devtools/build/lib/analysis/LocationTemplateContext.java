@@ -50,7 +50,6 @@ final class LocationTemplateContext implements TemplateContext {
   private final ImmutableMap<String, LocationFunction> functions;
   private final RepositoryMapping repositoryMapping;
   private final boolean windowsPath;
-  private final String workspaceRunfilesDirectory;
 
   private LocationTemplateContext(
       TemplateContext delegate,
@@ -58,13 +57,11 @@ final class LocationTemplateContext implements TemplateContext {
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
       RepositoryMapping repositoryMapping,
-      boolean windowsPath,
-      String workspaceRunfilesDirectory) {
+      boolean windowsPath) {
     this.delegate = delegate;
     this.functions = LocationExpander.allLocationFunctions(root, locationMap, execPaths);
     this.repositoryMapping = repositoryMapping;
     this.windowsPath = windowsPath;
-    this.workspaceRunfilesDirectory = workspaceRunfilesDirectory;
   }
 
   public LocationTemplateContext(
@@ -83,8 +80,7 @@ final class LocationTemplateContext implements TemplateContext {
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, collectSrcs)),
         execPaths,
         ruleContext.getRule().getPackageMetadata().repositoryMapping(),
-        windowsPath,
-        ruleContext.getWorkspaceName());
+        windowsPath);
   }
 
   @Override
@@ -109,7 +105,7 @@ final class LocationTemplateContext implements TemplateContext {
     try {
       LocationFunction f = functions.get(name);
       if (f != null) {
-        return f.apply(param, repositoryMapping, workspaceRunfilesDirectory);
+        return f.apply(param, repositoryMapping);
       }
     } catch (IllegalStateException e) {
       throw new ExpansionException(e.getMessage(), e);

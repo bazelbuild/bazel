@@ -160,7 +160,6 @@ public final class CoverageCommandUnitTest extends BuildViewTestCase {
             view.getArtifactFactory(),
             actionKeyContext,
             CoverageReportValue.COVERAGE_REPORT_KEY,
-            /* workspaceName= */ "workspace",
             dummyHelper,
             /* htmlReport= */ null);
   }

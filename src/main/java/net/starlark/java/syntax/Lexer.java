@@ -158,11 +158,6 @@ final class Lexer {
     this.value = value;
   }
 
-  /** Returns the raw input text associated with the current token. */
-  String getRaw() {
-    return bufferSlice(start, end);
-  }
-
   /**
    * Parses an end-of-line sequence, handling statement indentation correctly.
    *

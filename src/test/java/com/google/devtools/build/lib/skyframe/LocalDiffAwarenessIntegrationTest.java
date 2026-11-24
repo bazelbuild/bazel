@@ -66,9 +66,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
               @Override
               public void workspaceInit(
                   BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-                builder.addDiffAwarenessFactory(
-                    new LocalDiffAwareness.Factory(
-                        ImmutableList.of(), new FsEventsNativeDepsServiceImpl()));
+                builder.addDiffAwarenessFactory(new LocalDiffAwareness.Factory(ImmutableList.of()));
               }
 
               @Override

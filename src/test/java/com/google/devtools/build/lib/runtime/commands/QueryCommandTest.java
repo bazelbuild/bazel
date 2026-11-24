@@ -92,6 +92,40 @@ public class QueryCommandTest {
         .startsWith("Error while parsing 'terrible syntax'");
   }
 
+  @Test
+  public void testMaxQueryExpressionDepthExceededResultsInSyntaxError() {
+    StoredEventHandler storedEventHandler = new StoredEventHandler();
+    QueryOptions queryOptions = Options.getDefaults(QueryOptions.class);
+    queryOptions.setMaxQueryExpressionDepth(1);
+
+    Either<BlazeCommandResult, QueryEvalResult> result =
+        underTest.doQuery(
+            "deps(deps(//foo))",
+            mockCommandEnvironment(
+                new Reporter(EventBusEventHandler.createWithNewEventBus(), storedEventHandler)),
+            queryOptions,
+            /* streamResults= */ false,
+            mock(OutputFormatter.class),
+            mockQueryEnvironment,
+            mock(QueryRuntimeHelper.class));
+
+    Optional<DetailedExitCode> detailedExitCode =
+        result.map(r -> Optional.of(r.getDetailedExitCode()), r -> Optional.empty());
+    assertWithMessage("Expected to contain BlazeCommandResult, got: %s", result)
+        .that(detailedExitCode.isPresent())
+        .isTrue();
+
+    assertThat(detailedExitCode.get().getExitCode()).isEqualTo(ExitCode.COMMAND_LINE_ERROR);
+    assertThat(detailedExitCode.get().getFailureDetail().getQuery().getCode())
+        .isEqualTo(Code.SYNTAX_ERROR);
+    assertThat(detailedExitCode.get().getFailureDetail().getMessage())
+        .isEqualTo("query exceeds maximum nesting depth of 1");
+
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(storedEventHandler.getEvents().get(0).getMessage())
+        .contains("query exceeds maximum nesting depth of 1");
+  }
+
   private static CommandEnvironment mockCommandEnvironment(Reporter reporter) {
     CommandEnvironment result = mock(CommandEnvironment.class);
     when(result.getReporter()).thenReturn(reporter);

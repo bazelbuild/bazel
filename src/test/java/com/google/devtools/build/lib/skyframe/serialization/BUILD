@@ -9,6 +9,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/bytecode:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/strings:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
@@ -210,7 +211,6 @@ java_test(
     size = "small",
     srcs = ["IntegerCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party/java/junit",
     ],
@@ -232,7 +232,6 @@ java_test(
     size = "small",
     srcs = ["BooleanCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//third_party/java/junit",
     ],
@@ -479,12 +478,14 @@ java_library(
             "MutableListCodecTest.java",
             "SingletonCodecTest.java",
             "StarlarkListCodecTest.java",
+            "StarlarkProviderIdentifierCodecTest.java",
             "StarlarkSetCodecTest.java",
+            "StarlarkValueCodecTest.java",
             "TupleCodecTest.java",
             "TransitiveTraversalValueCodecTest.java",
-            "WorkspaceNameValueCodecTest.java",
             "MemoizerTest.java",
             "FileSymlinkExceptionCodecTest.java",
+            "FrontierNodeVersionTest.java",
             "DirectoryListingValueCodecTest.java",
             "NoSuchTargetExceptionCodecTest.java",
             "NoSuchPackageExceptionCodecTest.java",
@@ -574,8 +575,10 @@ java_test(
     size = "small",
     srcs = ["FrontierNodeVersionTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:collect",
         "//third_party/java/guava:hash",
         "//third_party/java/junit",
         "//third_party/java/truth",
@@ -609,6 +612,34 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "StarlarkProviderIdentifierCodecTest",
+    size = "small",
+    srcs = ["StarlarkProviderIdentifierCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/junit",
+    ],
+)
+
+java_test(
+    name = "StarlarkValueCodecTest",
+    size = "small",
+    srcs = ["StarlarkValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/truth",
     ],
 )

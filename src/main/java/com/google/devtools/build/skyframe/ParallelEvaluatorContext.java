@@ -115,18 +115,20 @@ class ParallelEvaluatorContext {
    * Returns whether {@code key} is scheduled on a priority-ordered thread pool.
    *
    * <p>{@link #dfsScheduling} indicates whether the analysis pool orders tasks by priority, but a
-   * {@link MultiThreadPoolsQuiescingExecutor} also routes execution-phase keys to a separate
-   * non-priority pool ({@link ThreadPoolType#EXECUTION_PHASE}). Checking the target pool for {@code
-   * key} avoids tracking graph depths and computing priority tiers for keys whose pool ignores task
-   * priority.
+   * {@link MultiThreadPoolsQuiescingExecutor} also routes execution-phase and post-analysis keys to
+   * separate non-priority pools ({@link ThreadPoolType#EXECUTION_PHASE} and {@link
+   * ThreadPoolType#POST_ANALYSIS}). Checking the target pool for {@code key} avoids tracking graph
+   * depths and computing priority tiers for keys whose pool ignores task priority.
    */
   boolean isDfsScheduled(SkyKey key) {
     if (!dfsScheduling) {
       return false;
     }
     if (executor instanceof MultiThreadPoolsQuiescingExecutor multiPoolExecutor) {
-      return NodeEntryVisitor.selectThreadPoolType(multiPoolExecutor, key)
-          != ThreadPoolType.EXECUTION_PHASE;
+      return switch (NodeEntryVisitor.selectThreadPoolType(multiPoolExecutor, key)) {
+        case REGULAR, CPU_HEAVY -> true;
+        case EXECUTION_PHASE, POST_ANALYSIS -> false;
+      };
     }
     return true;
   }

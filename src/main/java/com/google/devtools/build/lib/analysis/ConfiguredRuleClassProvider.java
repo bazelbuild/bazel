@@ -139,7 +139,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static final class Builder implements RuleDefinitionEnvironment {
     private Label preludeLabel;
-    private String runfilesPrefix;
     private RepositoryName toolsRepository;
     @Nullable private String builtinsBzlZipResource;
     private boolean useDummyBuiltinsBzlInsteadOfResource = false;
@@ -187,12 +186,6 @@ public /*final*/ class ConfiguredRuleClassProvider
             String.format("Prelude label '%s' is invalid: %s", preludeLabelString, e.getMessage());
         throw new IllegalArgumentException(errorMsg);
       }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setRunfilesPrefix(String runfilesPrefix) {
-      this.runfilesPrefix = runfilesPrefix;
       return this;
     }
 
@@ -550,7 +543,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
       return new ConfiguredRuleClassProvider(
           preludeLabel,
-          runfilesPrefix,
           toolsRepository,
           builtinsRoot,
           builtinsBzlPackagePathInSource,
@@ -600,9 +592,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   /** Label for the prelude file. */
   private final Label preludeLabel;
-
-  /** The default runfiles prefix. */
-  private final String runfilesPrefix;
 
   /** The path to the tools repository. */
   private final RepositoryName toolsRepository;
@@ -661,7 +650,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
-      String runfilesPrefix,
       RepositoryName toolsRepository,
       @Nullable Root bundledBuiltinsRoot,
       @Nullable String builtinsBzlPackagePathInSource,
@@ -683,7 +671,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       @Nullable Label noExplicitMnemonicAllowlist,
       @Nullable String nestedSetCountLimitMessage) {
     this.preludeLabel = preludeLabel;
-    this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
     this.bundledBuiltinsRoot = bundledBuiltinsRoot;
     this.builtinsBzlPackagePathInSource = builtinsBzlPackagePathInSource;
@@ -739,11 +726,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public boolean hasHardCodedException(PackageIdentifier packageIdentifier) {
     return prerequisiteValidator.hasHardCodedException(packageIdentifier);
-  }
-
-  @Override
-  public String getRunfilesPrefix() {
-    return runfilesPrefix;
   }
 
   @Override

@@ -1981,7 +1981,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkDefaultFalse() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=false",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=false");
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
@@ -2008,7 +2010,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkDefaultTrue() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=true");
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
@@ -2037,7 +2041,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkTrueDefaultFalse() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=false",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=false");
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
@@ -2066,7 +2072,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkFalseDefaultTrue() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=true");
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(

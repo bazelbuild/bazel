@@ -125,7 +125,8 @@ public final class AqueryCommand implements BlazeCommand {
       expr =
           query.isEmpty()
               ? null
-              : QueryExpressionResolver.resolve(QueryParser.parse(query), functions);
+              : QueryExpressionResolver.resolve(
+                  QueryParser.parse(query, aqueryOptions.toParserOptions()), functions);
     } catch (QuerySyntaxException e) {
       String message =
           String.format(

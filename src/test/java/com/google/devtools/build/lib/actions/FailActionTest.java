@@ -20,9 +20,13 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,5 +78,35 @@ public class FailActionTest {
   @Test
   public void testPrimaryOutput() {
     assertThat(failAction.getPrimaryOutput()).isSameInstanceAs(anOutput);
+  }
+
+  @Test
+  public void testDefaultDescribeKeyIncludesClassNameOnConflict() {
+    AbstractAction otherAction =
+        new AbstractAction(
+            NULL_ACTION_OWNER, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputs) {
+          @Override
+          public String getMnemonic() {
+            return "Other";
+          }
+
+          @Override
+          protected void computeKey(
+              ActionKeyContext actionKeyContext,
+              @Nullable InputMetadataProvider inputMetadataProvider,
+              Fingerprint fp) {}
+
+          @Override
+          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+            return ActionResult.EMPTY;
+          }
+        };
+
+    assertThat(failAction.describeKey()).isEqualTo("key for " + FailAction.class.getName());
+    ActionConflictException exception =
+        ActionConflictException.create(actionKeyContext, anOutput, failAction, otherAction);
+    assertThat(exception).hasMessageThat().contains("Action describeKey: are different:");
+    assertThat(exception).hasMessageThat().contains("key for " + FailAction.class.getName());
+    assertThat(exception).hasMessageThat().contains("key for " + otherAction.getClass().getName());
   }
 }

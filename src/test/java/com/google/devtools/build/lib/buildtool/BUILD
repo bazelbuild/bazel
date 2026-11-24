@@ -17,6 +17,28 @@ filegroup(
 )
 
 java_test(
+    name = "BuildRequestOptionsTest",
+    srcs = ["BuildRequestOptionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/buildtool",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "AnalysisPhaseRunnerTest",
     srcs = ["AnalysisPhaseRunnerTest.java"],
     deps = [
@@ -91,35 +113,6 @@ test_suite(
         ":ExecutionProgressReceiverTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
-        ":TransitiveTargetCounterTest",
-    ],
-)
-
-java_test(
-    name = "TransitiveTargetCounterTest",
-    srcs = ["TransitiveTargetCounterTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/buildtool",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/build/skyframe:version",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//third_party/java/guava:collect",
-        "//third_party/java/junit",
-        "//third_party/java/mockito",
-        "//third_party/java/truth",
     ],
 )
 
@@ -652,6 +645,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -726,7 +720,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:eventbus",
@@ -789,6 +782,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:file_write_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
@@ -799,7 +793,6 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/testparameterinjector",

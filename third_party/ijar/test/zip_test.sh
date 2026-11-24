@@ -170,6 +170,32 @@ function test_zipper_compression() {
       || fail "Unzip after zipper output differ"
 }
 
+# Regression test for inputs whose deflated size is exactly equal to their
+# original size. Such entries must be stored uncompressed: writing the deflated
+# bytes while labelling the entry as stored yields a CRC mismatch on extraction.
+function test_zipper_compression_same_size_as_input() {
+  local -r test_dir="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p "${test_dir}/in" "${test_dir}/out"
+  # 40 bytes, deflates to 40 bytes.
+  printf '%s' "9d225e208160fc8270c9e6ecb4deeffb52a7e471" > "${test_dir}/in/a.sha1"
+
+  (cd "${test_dir}/in" && $ZIPPER cC "${test_dir}/output.zip" a.sha1)
+
+  # Do not ignore CRC32 errors here.
+  $UNZIP -t "${test_dir}/output.zip" >& "${TEST_log}" \
+      || fail "unzip -t failed on zipper output"
+  (cd "${test_dir}/out" && $UNZIP -q "${test_dir}/output.zip") \
+      || fail "unzip failed on zipper output"
+  diff -r "${test_dir}/in" "${test_dir}/out" &> $TEST_log \
+      || fail "Unzip after zipper output differ"
+
+  rm -fr "${test_dir}/out"
+  mkdir -p "${test_dir}/out"
+  (cd "${test_dir}/out" && $ZIPPER x "${test_dir}/output.zip")
+  diff -r "${test_dir}/in" "${test_dir}/out" &> $TEST_log \
+      || fail "Unzip using zipper after zipper output differ"
+}
+
 function test_zipper_specify_path() {
   mkdir -p ${TEST_TMPDIR}/files
   echo "toto" > ${TEST_TMPDIR}/files/a.txt

@@ -71,8 +71,10 @@ OutputJar::OutputJar(Options* options)
       buffer_(nullptr),
       entries_(0),
       duplicate_entries_(0),
+#ifdef __linux__
       fallocated_(0),
       fallocate_failed_(false),
+#endif
       cen_(nullptr),
       cen_size_(0),
       cen_capacity_(0),

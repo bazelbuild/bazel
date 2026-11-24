@@ -328,9 +328,6 @@ public class BaseRuleClasses {
           .add(
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(
-              // TODO: b/148549967 - Remove for Bazel 9.0
-              attr("distribs", STRING_LIST).nonconfigurable("deprecated - no op"))
           // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(

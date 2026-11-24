@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutorTargetLoader;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -385,28 +386,57 @@ public class BuildTool {
       analysisCacheReaderDeps = analysisDeps.readerDeps();
       serializationDependenciesProvider = analysisDeps.serializationDeps();
 
-      if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
-        // a.k.a. Skymeld.
-        buildTargetsWithMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            buildOptions,
-            analysisCachingDeps,
-            analysisCacheReaderDeps);
-      } else {
-        buildTargetsWithoutMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            buildOptions,
-            analysisCachingDeps,
-            analysisCacheReaderDeps);
+      String actionExecutionSalt = computeActionExecutionSalt(request);
+      env.getSkyframeExecutor().setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
+
+      BuildFailedException delayedBuildFailedException = null;
+      try {
+        if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
+          // a.k.a. Skymeld.
+          buildTargetsWithMergedAnalysisExecution(
+              request,
+              result,
+              targetPatternPhaseValue,
+              buildOptions,
+              analysisCachingDeps,
+              analysisCacheReaderDeps,
+              actionExecutionSalt);
+        } else {
+          buildTargetsWithoutMergedAnalysisExecution(
+              request,
+              result,
+              targetPatternPhaseValue,
+              buildOptions,
+              analysisCachingDeps,
+              analysisCacheReaderDeps,
+              actionExecutionSalt);
+        }
+      } catch (BuildFailedException e) {
+        if (!request.getKeepGoing()
+            || !request.getBuildOptions().getPerformAnalysisPhase()
+            || !analysisCacheReaderDeps.mode().serializesValues()) {
+          throw e;
+        }
+        delayedBuildFailedException = e;
       }
 
       if (analysisCacheReaderDeps.mode().serializesValues()) {
         Preconditions.checkState(!analysisCachingDeps.bailedOut());
-        serializeValues(serializationDependenciesProvider);
+        try {
+          serializeValues(serializationDependenciesProvider);
+        } catch (Throwable t) {
+          if (delayedBuildFailedException != null) {
+            if (!delayedBuildFailedException.isErrorAlreadyShown()) {
+              reportExceptionError(delayedBuildFailedException);
+            }
+            t.addSuppressed(delayedBuildFailedException);
+          }
+          throw t;
+        }
+      }
+
+      if (delayedBuildFailedException != null) {
+        throw delayedBuildFailedException;
       }
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
@@ -556,13 +586,32 @@ public class BuildTool {
     }
   }
 
+  private String computeActionExecutionSalt(BuildRequest request) throws AbruptExitException {
+    String salt = null;
+    BlazeModule saltModule = null;
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      String moduleSalt = module.getActionExecutionSalt(env, request);
+      if (moduleSalt != null) {
+        checkState(
+            salt == null,
+            "Action execution salt already set by %s; cannot also be set by %s",
+            saltModule,
+            module);
+        salt = moduleSalt;
+        saltModule = module;
+      }
+    }
+    return Strings.nullToEmpty(salt);
+  }
+
   private void buildTargetsWithoutMergedAnalysisExecution(
       BuildRequest request,
       BuildResult result,
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDeps,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps,
+      String actionExecutionSalt)
       throws BuildFailedException,
           ViewCreationFailedException,
           AbruptExitException,
@@ -586,7 +635,7 @@ public class BuildTool {
       // symlinks for tools.
       // TODO(twerth): Extract embedded tool setup from execution tool and move object creation to
       // execution phase.
-      executionTool = new ExecutionTool(env, request);
+      executionTool = new ExecutionTool(env, request, actionExecutionSalt);
       if (request.getBuildOptions().getPerformAnalysisPhase()) {
         if (!analysisResult.getExclusiveTests().isEmpty()
             && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
@@ -668,7 +717,8 @@ public class BuildTool {
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
+      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps,
+      String actionExecutionSalt)
       throws InterruptedException,
           AbruptExitException,
           ViewCreationFailedException,
@@ -681,7 +731,7 @@ public class BuildTool {
 
     boolean hasCatastrophe = false;
 
-    ExecutionTool executionTool = new ExecutionTool(env, request);
+    ExecutionTool executionTool = new ExecutionTool(env, request, actionExecutionSalt);
     // This timer measures time from the first execution activity to the last.
     Stopwatch executionTimer = Stopwatch.createUnstarted();
 
@@ -1398,9 +1448,8 @@ public class BuildTool {
               env.getVersionGetter(),
               env.getReporter(),
               env.getEventBus(),
-              env.getOptions()
-                  .getOptions(KeepStateAfterBuildOption.class)
-                  .getKeepStateAfterBuild());
+              env.getOptions().getOptions(KeepStateAfterBuildOption.class).getKeepStateAfterBuild(),
+              env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing());
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }

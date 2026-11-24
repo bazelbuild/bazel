@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -97,7 +98,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().get(RENDER_MAIN_REPO_NAME, BOOLEAN)) {
       mainRepoName = mainRepositoryMappingValue.associatedModuleName();
       if (mainRepoName.isEmpty()) {
-        mainRepoName = Optional.of(ruleContext.getWorkspaceName());
+        mainRepoName = Optional.of(LabelConstants.MAIN_REPO_DIR_NAME);
       }
     }
     ModuleInfo moduleInfo =
@@ -116,9 +117,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
             RunfilesProvider.class,
             RunfilesProvider.simple(
                 RunfilesSupport.addRunfiles(
-                        new Runfiles.Builder(ruleContext.getWorkspaceName()),
-                        ruleContext,
-                        RunfilesProvider.DEFAULT_RUNFILES)
+                        new Runfiles.Builder(), ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
         .build();

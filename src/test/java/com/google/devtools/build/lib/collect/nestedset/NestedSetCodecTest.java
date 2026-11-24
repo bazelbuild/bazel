@@ -790,6 +790,175 @@ public final class NestedSetCodecTest {
     assertThat(e).hasMessageThat().doesNotContain("setFuture=");
   }
 
+  @Test
+  public void duplicateTransitiveChildFingerprints_deduplicatedAndProduceIdenticalBytes()
+      throws Exception {
+    FingerprintValueStore fingerprintValueStore = new InMemoryFingerprintValueStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(fingerprintValueStore);
+
+    NestedSet<String> childFresh = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    NestedSet<String> childDeserialized =
+        roundTripThroughFreshStore(childFresh, fingerprintValueStore, fingerprintValueService);
+    assertThat(childDeserialized.getChildren()).isNotSameInstanceAs(childFresh.getChildren());
+
+    NestedSet<String> otherChild = NestedSetBuilder.create(Order.STABLE_ORDER, "c", "d");
+    NestedSet<String> cleanParent =
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(childFresh)
+            .addTransitive(otherChild)
+            .add("e")
+            .build();
+    NestedSet<String> dupParent =
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(childFresh)
+            .addTransitive(childDeserialized)
+            .addTransitive(otherChild)
+            .add("e")
+            .build();
+    // Both distinct child arrays survive NestedSetBuilder in memory.
+    assertThat((Object[]) cleanParent.getChildren()).hasLength(3);
+    assertThat((Object[]) dupParent.getChildren()).hasLength(4);
+
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
+    ByteString serializedClean =
+        serializer
+            .serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, cleanParent)
+            .getObject();
+    ByteString serializedDup =
+        serializer
+            .serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, dupParent)
+            .getObject();
+    assertThat(serializedDup).isEqualTo(serializedClean);
+
+    // Deserializing from storage in a fresh store yields the deduplicated array and identical list.
+    ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
+    @SuppressWarnings("unchecked") // Serialized as NestedSet<String> above.
+    NestedSet<String> deserializedDup =
+        (NestedSet<String>) deserializer.deserializeMemoized(serializedDup);
+    assertThat(deserializedDup.toList()).containsExactly("a", "b", "c", "d", "e").inOrder();
+    assertThat((Object[]) deserializedDup.getChildren()).hasLength(3);
+  }
+
+  @Test
+  public void allDuplicateTransitiveChildren_collapseToSingleChildWithoutLengthOneArray()
+      throws Exception {
+    FingerprintValueStore fingerprintValueStore = spy(new InMemoryFingerprintValueStore());
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(fingerprintValueStore);
+
+    NestedSet<String> childFresh = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    NestedSet<String> childDeserialized =
+        roundTripThroughFreshStore(childFresh, fingerprintValueStore, fingerprintValueService);
+    assertThat(childDeserialized.getChildren()).isNotSameInstanceAs(childFresh.getChildren());
+
+    NestedSet<String> dupOnlyParent =
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(childFresh)
+            .addTransitive(childDeserialized)
+            .build();
+    assertThat((Object[]) dupOnlyParent.getChildren()).hasLength(2);
+
+    NestedSetStore store = createStore(fingerprintValueStore);
+    ObjectCodecs serializer = createCodecs(store);
+    SerializationContext serializationContext =
+        serializer.getSharedValueSerializationContextForTesting(
+            COMPRESSION_SERVICE, fingerprintValueService);
+
+    PutOperation childPut =
+        store.computeFingerprintAndStore((Object[]) childFresh.getChildren(), serializationContext);
+    PutOperation parentPut =
+        store.computeFingerprintAndStore(
+            (Object[]) dupOnlyParent.getChildren(), serializationContext);
+    assertThat(parentPut.fingerprint()).isEqualTo(childPut.fingerprint());
+
+    // Every fingerprint written to storage must be the child's; no length-1 wrapper row is written.
+    var fingerprintCaptor = ArgumentCaptor.forClass(PackedFingerprint.class);
+    verify(fingerprintValueStore, times(3)).put(fingerprintCaptor.capture(), any());
+    for (PackedFingerprint writtenFp : fingerprintCaptor.getAllValues()) {
+      assertThat(writtenFp).isEqualTo(childPut.fingerprint());
+    }
+
+    // The in-memory reverse cache must keep pointing at the canonical leaf array, not the wrapper.
+    Object cachedContents =
+        store.getContentsAndDeserialize(
+            childPut.fingerprint(),
+            serializer.getSharedValueDeserializationContextForTesting(
+                COMPRESSION_SERVICE, fingerprintValueService));
+    assertThat(cachedContents).isInstanceOf(Object[].class);
+    assertThat((Object[]) cachedContents).asList().containsExactly("a", "b").inOrder();
+
+    // Round-tripping through a fresh store yields a valid NestedSet whose array has length >= 2
+    // and can safely be nested inside another NestedSetBuilder.
+    ByteString serializedParent =
+        serializer
+            .serializeMemoizedAndBlocking(
+                COMPRESSION_SERVICE, fingerprintValueService, dupOnlyParent)
+            .getObject();
+    ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
+    @SuppressWarnings("unchecked") // Serialized as NestedSet<String> above.
+    NestedSet<String> deserializedParent =
+        (NestedSet<String>) deserializer.deserializeMemoized(serializedParent);
+    assertThat(deserializedParent.toList()).containsExactly("a", "b").inOrder();
+    assertThat((Object[]) deserializedParent.getChildren()).hasLength(2);
+    NestedSet<String> wrapped =
+        NestedSetBuilder.<String>stableOrder().addTransitive(deserializedParent).add("c").build();
+    assertThat(wrapped.toList()).containsExactly("a", "b", "c").inOrder();
+  }
+
+  @Test
+  public void duplicateTransitiveChildFingerprints_preservesOrderForAllOrders() throws Exception {
+    FingerprintValueStore fingerprintValueStore = new InMemoryFingerprintValueStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(fingerprintValueStore);
+
+    for (Order order : Order.values()) {
+      NestedSet<String> child1 = NestedSetBuilder.create(order, "a", "b");
+      NestedSet<String> child1Copy =
+          roundTripThroughFreshStore(child1, fingerprintValueStore, fingerprintValueService);
+      // Overlap "a" in child2 so keeping the first occurrence of child1 (rather than the last)
+      // matters for element order.
+      NestedSet<String> child2 = NestedSetBuilder.create(order, "c", "a", "d");
+
+      NestedSet<String> parent =
+          NestedSetBuilder.<String>newBuilder(order)
+              .addTransitive(child1)
+              .addTransitive(child2)
+              .addTransitive(child1Copy)
+              .add("e")
+              .build();
+      assertThat((Object[]) parent.getChildren()).hasLength(4);
+
+      ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
+      ByteString serialized =
+          serializer
+              .serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, parent)
+              .getObject();
+
+      ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
+      @SuppressWarnings("unchecked") // Serialized as NestedSet<String> above.
+      NestedSet<String> deserialized =
+          (NestedSet<String>) deserializer.deserializeMemoized(serialized);
+      assertThat(deserialized.toList()).containsExactlyElementsIn(parent.toList()).inOrder();
+      assertThat((Object[]) deserialized.getChildren()).hasLength(3);
+    }
+  }
+
+  @SuppressWarnings("unchecked") // Deserializes the NestedSet<T> serialized immediately above.
+  private static <T> NestedSet<T> roundTripThroughFreshStore(
+      NestedSet<T> set,
+      FingerprintValueStore fingerprintValueStore,
+      FingerprintValueService fingerprintValueService)
+      throws Exception {
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
+    ByteString serialized =
+        serializer
+            .serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, set)
+            .getObject();
+    ObjectCodecs deserializer = createCodecs(createStore(fingerprintValueStore));
+    return (NestedSet<T>) deserializer.deserializeMemoized(serialized);
+  }
+
   private static NestedSetStore createStore(FingerprintValueStore fingerprintValueStore) {
     return createStoreWithBugReporter(fingerprintValueStore, BugReporter.defaultInstance());
   }

@@ -63,12 +63,6 @@ public class ShallowObjectSizeComputer {
         throw new IllegalStateException("Only 64-bit JVMs are supported");
       }
 
-      // The layout computation below assumes compact object headers (JDK 24) and array element
-      // packing (JDK 23) exist.
-      if (Runtime.version().feature() < 25) {
-        throw new IllegalStateException("Only JDK 25 or later is supported");
-      }
-
       HotSpotDiagnosticMXBean diagnosticBean =
           ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
       boolean compressedOops =

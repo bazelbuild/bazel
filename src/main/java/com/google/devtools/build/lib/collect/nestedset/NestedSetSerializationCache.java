@@ -207,5 +207,15 @@ class NestedSetSerializationCache {
     return null;
   }
 
+  /**
+   * Caches only the contents-to-fingerprint mapping without touching {@link
+   * #fingerprintToContents}. Used when an array collapses to a single child so deserializing that
+   * fingerprint still yields the child array rather than the un-collapsed wrapper.
+   */
+  @Nullable
+  PutOperation putContentsToFingerprintIfAbsent(Object[] contents, PutOperation result) {
+    return contentsToFingerprint.asMap().putIfAbsent(contents, result);
+  }
+
   record FingerprintKey(PackedFingerprint fingerprint, Object context) {}
 }

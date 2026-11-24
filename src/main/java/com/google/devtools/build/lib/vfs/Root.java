@@ -300,8 +300,8 @@ public abstract class Root implements Comparable<Root> {
   @SuppressWarnings("unused") // Used at run-time via classpath scanning + reflection.
   private static class RootCodec extends AsyncObjectCodec<Root> {
 
-    private static final DynamicCodec PATH_ROOT_CODEC = new DynamicCodec(PathRoot.class);
-    private static final DynamicCodec ABSOLUTE_ROOT_CODEC = new DynamicCodec(AbsoluteRoot.class);
+    private static final DynamicCodec PATH_ROOT_CODEC = DynamicCodec.create(PathRoot.class);
+    private static final DynamicCodec ABSOLUTE_ROOT_CODEC = DynamicCodec.create(AbsoluteRoot.class);
 
     @Override
     public Class<? extends Root> getEncodedClass() {

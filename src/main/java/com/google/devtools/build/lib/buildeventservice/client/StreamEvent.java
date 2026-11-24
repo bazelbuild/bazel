@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.time.Instant;
 
 /** An event sent over a {@link StreamContext}. */
-@SkybridgeInterface
 public interface StreamEvent {
   /** The time at which the event occurred. */
   Instant eventTime();

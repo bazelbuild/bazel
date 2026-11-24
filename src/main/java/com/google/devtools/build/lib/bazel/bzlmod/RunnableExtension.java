@@ -47,7 +47,12 @@ interface RunnableExtension {
    */
   int getFactsVersion();
 
-  /** Runs the extension. Returns null if a Skyframe restart is required. */
+  /**
+   * Runs the extension. Returns null if a Skyframe restart is required.
+   *
+   * <p>A Skyframe restart reruns the extension from scratch, so {@code env} should not require
+   * restarts, e.g. by being the environment of a worker thread.
+   */
   @Nullable
   RunModuleExtensionResult run(
       Environment env,

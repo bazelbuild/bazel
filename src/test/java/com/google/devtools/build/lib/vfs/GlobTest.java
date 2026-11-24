@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
@@ -440,6 +441,23 @@ public class GlobTest {
                 .addPattern("foo (bar)")
                 .globInterruptible())
         .containsExactly(fooBarInParentheses);
+  }
+
+  @Test
+  public void testWildcardMatchesNonAsciiCharacter() throws Exception {
+    Path tmpPath4 = fs.getPath("/globtmp4");
+    tmpPath4.createDirectoryAndParents();
+    // "х" (U+0445) is D1 85 in UTF-8.
+    Path file = tmpPath4.getChild(StringEncoding.unicodeToInternal("test_х.py"));
+    FileSystemUtils.createEmptyFile(file);
+
+    assertThat(
+            new UnixGlob.Builder(tmpPath4, FilesystemOps.DIRECT)
+                .addPattern("test_*.py")
+                .globInterruptible())
+        .containsExactly(file);
+    assertThat(UnixGlob.matches("test_*.py", file.getBaseName())).isTrue();
+    assertThat(UnixGlob.matches("*_*", file.getBaseName())).isTrue();
   }
 
   @Test

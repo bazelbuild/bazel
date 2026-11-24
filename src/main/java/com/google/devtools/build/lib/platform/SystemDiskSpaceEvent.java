@@ -38,7 +38,10 @@ public class SystemDiskSpaceEvent implements ExtendedEventHandler.Postable {
       return logString;
     }
 
-    /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
+    /**
+     * These constants are mapped to enum in
+     * third_party/bazel/src/main/native/darwin/system_disk_space_monitor_jni.cc.
+     */
     static Level fromInt(int number) {
       return switch (number) {
         case 0 -> LOW;

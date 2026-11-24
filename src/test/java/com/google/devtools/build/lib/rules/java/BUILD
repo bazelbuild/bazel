@@ -250,3 +250,18 @@ java_library(
         "//third_party/java/guava:base",
     ],
 )
+
+java_test(
+    name = "JavaTargetAttributesTest",
+    srcs = ["JavaTargetAttributesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)

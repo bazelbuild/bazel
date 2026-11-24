@@ -84,7 +84,7 @@ public class ConsistencyTest {
    */
   @Test
   public void serializationRoundTrip() throws Exception {
-    DynamicCodec codec = new DynamicCodec(buildRandomSemantics(new Random(2)).getClass());
+    DynamicCodec codec = DynamicCodec.create(buildRandomSemantics(new Random(2)).getClass());
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       StarlarkSemantics semantics = buildRandomSemantics(new Random(i));
       StarlarkSemantics deserialized =
@@ -154,6 +154,7 @@ public class ConsistencyTest {
         "--experimental_builtins_bzl_path=" + rand.nextDouble(),
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
+        "--experimental_disable_build_prelude=" + rand.nextBoolean(),
         "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
@@ -200,6 +201,7 @@ public class ConsistencyTest {
         .set(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH, String.valueOf(rand.nextDouble()))
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_BUILD_PRELUDE, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())

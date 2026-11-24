@@ -20,7 +20,6 @@ java_library(
         ":counter_series_task_impl",
         ":network_metrics_collector",
         ":profiler",
-        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -32,7 +31,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -82,7 +80,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:concurrent",
@@ -132,7 +129,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/gson",
@@ -164,34 +160,14 @@ java_library(
     name = "network_metrics_collector",
     srcs = ["NetworkMetricsCollector.java"],
     deps = [
-        ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "system_network_stats_service",
-    srcs = ["SystemNetworkStatsService.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
-)
-
-java_library(
-    name = "system_network_stats_service_impl",
-    srcs = [
-        "SystemNetworkStatsServiceImpl.java",
-    ],
-    deps = [
-        ":system_network_stats_service",
-        "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party/java/guava:base",
     ],
 )
 

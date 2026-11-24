@@ -36,7 +36,6 @@ public record CoverageArgs(
     ArtifactFactory factory,
     ArtifactOwner artifactOwner,
     FilesToRunProvider reportGenerator,
-    String workspaceName,
     @Nullable Artifact htmlReport,
     ActionOwner actionOwner) {
   public CoverageArgs {
@@ -46,7 +45,6 @@ public record CoverageArgs(
     requireNonNull(factory, "factory");
     requireNonNull(artifactOwner, "artifactOwner");
     requireNonNull(reportGenerator, "reportGenerator");
-    requireNonNull(workspaceName, "workspaceName");
     requireNonNull(actionOwner);
   }
 }

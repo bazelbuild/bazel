@@ -499,10 +499,14 @@ public final class Types {
         for (int i = bitSet.nextSetBit(0); i >= 0; i = bitSet.nextSetBit(i + 1)) {
           mask |= 1L << i;
         }
-        return INTERNER.intern(new CompactMandatoryParamIndices(mask));
+        return ofMask(mask);
       }
       // Clone the bitset to prevent mutation of the interned instance.
       return INTERNER.intern(new BitSetMandatoryParamIndices((BitSet) bitSet.clone()));
+    }
+
+    static MandatoryParamIndices ofMask(long mask) {
+      return mask == 0L ? EMPTY : INTERNER.intern(new CompactMandatoryParamIndices(mask));
     }
 
     static MandatoryParamIndices fromNames(
@@ -517,6 +521,29 @@ public final class Types {
         }
       }
       return of(bitSet);
+    }
+
+    static MandatoryParamIndices fromParameters(Resolver.Function rfn) {
+      int numNonResidual = rfn.getNumNonResidualParameters();
+      ImmutableList<Parameter> params = rfn.getParameters();
+      // Minimize temp allocations, since this method is called frequently.
+      if (numNonResidual <= Long.SIZE) {
+        long mandatoryMask = 0L;
+        for (int i = 0; i < numNonResidual; i++) {
+          if (params.get(i) instanceof Parameter.Mandatory) {
+            mandatoryMask |= 1L << i;
+          }
+        }
+        return MandatoryParamIndices.ofMask(mandatoryMask);
+      } else {
+        BitSet mandatoryBitSet = new BitSet();
+        for (int i = 0; i < numNonResidual; i++) {
+          if (params.get(i) instanceof Parameter.Mandatory) {
+            mandatoryBitSet.set(i);
+          }
+        }
+        return MandatoryParamIndices.of(mandatoryBitSet);
+      }
     }
 
     /** Returns the total number of mandatory parameters. */
@@ -671,6 +698,23 @@ public final class Types {
             returns,
             parameterTypesIfNonAny,
             mandatoryParamIndices));
+  }
+
+  /**
+   * Returns a {@link GeneralCallableType} for a resolved Starlark function whose parameters and
+   * return value all have type {@link #ANY}. Such a type is determined purely by the names,
+   * optionality, and keyword-ness/positional-ness of the parameters.
+   */
+  public static GeneralCallableType allAnyFunction(Resolver.Function rfn) {
+    return generalCallable(
+        rfn.getParameterNames().subList(0, rfn.getNumNonResidualParameters()),
+        /* parameterTypesIfNonAny= */ null,
+        /* numPositionalOnlyParameters= */ 0,
+        rfn.getNumOrdinaryParameters(),
+        MandatoryParamIndices.fromParameters(rfn),
+        rfn.hasVarargs() ? ANY : null,
+        rfn.hasKwargs() ? ANY : null,
+        ANY);
   }
 
   public static SimpleCallableType simpleCallable(

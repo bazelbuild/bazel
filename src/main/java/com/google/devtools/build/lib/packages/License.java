@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.starlarkbuildapi.LicenseApi;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -67,19 +66,6 @@ public final class License implements LicenseApi {
     PERMISSIVE,
     UNENCUMBERED,
     NONE
-  }
-
-  /**
-   * Gets the least restrictive license type from the list of licenses declared for a target. For
-   * the purposes of license checking, the license type set of a declared license can be reduced to
-   * its least restrictive member.
-   *
-   * @param types a collection of license types
-   * @return the least restrictive license type
-   */
-  public static LicenseType leastRestrictive(Collection<LicenseType> types) {
-    // TODO(gregce): move this method to LicenseCheckingModule when Bazel's tests no longer use it
-    return types.isEmpty() ? LicenseType.BY_EXCEPTION_ONLY : Collections.max(types);
   }
 
   /**

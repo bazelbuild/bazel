@@ -143,6 +143,11 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   @Override
+  public void committing(SkyKey skyKey, SkyValue value, GroupedDeps directDeps) {
+    progressReceiver.committing(skyKey, value, directDeps);
+  }
+
+  @Override
   public void evaluated(
       SkyKey skyKey,
       EvaluationState state,

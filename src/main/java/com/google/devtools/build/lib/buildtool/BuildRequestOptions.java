@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
-import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -539,22 +538,6 @@ public abstract class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
   public abstract boolean getMergedSkyframeAnalysisExecutionDoNotUseDirectly();
-
-  @Option(
-      name = "experimental_skymeld_analysis_overlap_percentage",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      converter = PercentageConverter.class,
-      help =
-          "The value represents the % of the analysis phase which will be overlapped with the"
-              + " execution phase. A value of x means Skyframe will queue up execution tasks and"
-              + " wait until there's x% of the top level target left to be analyzed before allowing"
-              + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
-              + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
-              + " they can.")
-  public abstract int getSkymeldAnalysisOverlapPercentage();
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter.IntegerConverter {

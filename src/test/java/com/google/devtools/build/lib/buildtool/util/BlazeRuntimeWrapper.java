@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -505,7 +506,8 @@ public class BlazeRuntimeWrapper {
     for (QueryFunction queryFunction : getRuntime().getQueryFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
     }
-    return QueryExpressionResolver.resolve(QueryParser.parse(cqueryExpr), functions);
+    return QueryExpressionResolver.resolve(
+        QueryParser.parse(cqueryExpr, ParserOptions.DEFAULT), functions);
   }
 
   void executeBuild(List<String> targets) throws Exception {

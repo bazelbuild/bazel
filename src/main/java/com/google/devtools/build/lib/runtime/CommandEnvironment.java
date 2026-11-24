@@ -183,6 +183,7 @@ public class CommandEnvironment {
   @Nullable // Optionally set in `beforeCommand` phase.
   private LongVersionGetter versionGetter;
   private boolean useFakeStampData = false;
+  @Nullable private String originatingUser;
 
   private UiEventHandler uiEventHandler;
 
@@ -686,10 +687,6 @@ public class CommandEnvironment {
     return directories.getWorkingDirectory();
   }
 
-  public String getWorkspaceName() {
-    return runtime.getRuleClassProvider().getRunfilesPrefix();
-  }
-
   /**
    * Returns the output base directory associated with this Blaze server process. This is the base
    * directory for shared Blaze state as well as tool and strategy specific subdirectories.
@@ -703,7 +700,7 @@ public class CommandEnvironment {
    * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    return directories.getExecRoot(getWorkspaceName());
+    return directories.getExecRoot();
   }
 
   /**
@@ -1139,6 +1136,15 @@ public class CommandEnvironment {
 
   public boolean getUseFakeStampData() {
     return useFakeStampData;
+  }
+
+  public void setOriginatingUser(@Nullable String originatingUser) {
+    this.originatingUser = originatingUser;
+  }
+
+  @Nullable
+  public String getOriginatingUser() {
+    return originatingUser;
   }
 
   public void setUiEventHandler(UiEventHandler uiEventHandler) {

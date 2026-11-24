@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Ascii;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import java.util.Collection;
 
 /**
@@ -53,7 +54,14 @@ public abstract class QueryExpression {
   /** Scan and parse the specified query expression. */
   public static QueryExpression parse(String query, QueryEnvironment<?> env)
       throws QuerySyntaxException {
-    return QueryExpressionResolver.resolve(QueryParser.parse(query), env);
+    return parse(query, env, ParserOptions.DEFAULT);
+  }
+
+  /** Scan and parse the specified query expression with the given {@link ParserOptions}. */
+  public static QueryExpression parse(
+      String query, QueryEnvironment<?> env, ParserOptions parserOptions)
+      throws QuerySyntaxException {
+    return QueryExpressionResolver.resolve(QueryParser.parse(query, parserOptions), env);
   }
 
   protected QueryExpression() {}

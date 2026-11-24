@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent.safeexecutor;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** Task interface extending Runnable to handle both execution and submission failures directly. */
-@SkybridgeInterface
 public interface RejectionHandlingRunnable extends Runnable {
 
   /**

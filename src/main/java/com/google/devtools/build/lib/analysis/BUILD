@@ -401,6 +401,7 @@ java_library(
     deps = [
         ":server_directories",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/guava:base",

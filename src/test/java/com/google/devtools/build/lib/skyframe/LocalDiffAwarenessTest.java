@@ -65,9 +65,7 @@ public class LocalDiffAwarenessTest {
 
   @Before
   public final void initializeSettings() throws Exception {
-    LocalDiffAwareness.Factory factory =
-        new LocalDiffAwareness.Factory(
-            ImmutableList.<String>of(), new FsEventsNativeDepsServiceImpl());
+    LocalDiffAwareness.Factory factory = new LocalDiffAwareness.Factory(ImmutableList.<String>of());
     FileSystem fileSystem = FileSystems.getNativeFileSystem(DigestHashFunction.SHA256);
     testCaseRoot = fileSystem.getPath(tmp.getRoot().getAbsolutePath());
     testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");

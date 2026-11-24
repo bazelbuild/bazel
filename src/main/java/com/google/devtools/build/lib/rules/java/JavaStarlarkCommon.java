@@ -513,7 +513,9 @@ public class JavaStarlarkCommon
         TargetUtils.getFilteredExecutionInfo(
             executionRequirementsUnchecked,
             ruleContext.getRule(),
-            configuration.allowUnresolvedSymlinks());
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
     if (outputDepsProtoArtifact != null) {
       if (arguments.isEmpty()) {
         throw Starlark.errorf("output_deps_proto requires at least one element in arguments");

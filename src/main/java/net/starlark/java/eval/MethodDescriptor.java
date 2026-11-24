@@ -51,13 +51,10 @@ final class MethodDescriptor {
   @Nullable private transient StarlarkMethod annotation;
 
   private final String name;
-  private final String doc;
-  private final boolean documented;
   private final boolean structField;
   private final ParamDescriptor[] parameters;
   private final boolean extraPositionals;
   private final boolean extraKeywords;
-  private final boolean selfCall;
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
@@ -82,13 +79,10 @@ final class MethodDescriptor {
       Method method,
       StarlarkMethod annotation,
       String name,
-      String doc,
-      boolean documented,
       boolean structField,
       ParamDescriptor[] parameters,
       boolean extraPositionals,
       boolean extraKeywords,
-      boolean selfCall,
       boolean allowReturnNones,
       boolean doesNotReturn,
       boolean useStarlarkThread,
@@ -98,13 +92,10 @@ final class MethodDescriptor {
     this.method = method;
     this.annotation = annotation;
     this.name = name;
-    this.doc = doc;
-    this.documented = documented;
     this.structField = structField;
     this.parameters = parameters;
     this.extraPositionals = extraPositionals;
     this.extraKeywords = extraKeywords;
-    this.selfCall = selfCall;
     this.allowReturnNones = allowReturnNones;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
@@ -315,13 +306,10 @@ final class MethodDescriptor {
         method,
         annotation,
         annotation.name(),
-        annotation.doc(),
-        annotation.documented(),
         annotation.structField(),
         params,
         !annotation.extraPositionals().name().isEmpty(),
         !annotation.extraKeywords().name().isEmpty(),
-        annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.doesNotReturn(),
         annotation.useStarlarkThread(),
@@ -453,11 +441,6 @@ final class MethodDescriptor {
     return useStarlarkThread;
   }
 
-  /** See {@link StarlarkMethod#useStarlarkSemantics()}. */
-  boolean isUseStarlarkSemantics() {
-    return useStarlarkSemantics;
-  }
-
   /**
    * If true, this method accepts extra positional arguments ({@code *args}); see {@link
    * StarlarkMethod#extraPositionals()}.
@@ -487,21 +470,6 @@ final class MethodDescriptor {
       }
     }
     return -1;
-  }
-
-  /** See {@link StarlarkMethod#documented()}. */
-  boolean isDocumented() {
-    return documented;
-  }
-
-  /** See {@link StarlarkMethod#doc()}. */
-  String getDoc() {
-    return doc;
-  }
-
-  /** See {@link StarlarkMethod#selfCall()}. */
-  boolean isSelfCall() {
-    return selfCall;
   }
 
   public StarlarkType getStarlarkType() {

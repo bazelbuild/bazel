@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -140,11 +139,7 @@ public class CombinedCacheTest {
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
   private final MerkleTreeComputer merkleTreeComputer =
       new MerkleTreeComputer(
-          digestUtil,
-          /* remoteExecutionCache= */ null,
-          "buildRequestId",
-          "commandId",
-          TestConstants.WORKSPACE_NAME);
+          digestUtil, /* remoteExecutionCache= */ null, "buildRequestId", "commandId");
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;

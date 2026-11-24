@@ -24,9 +24,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo.ProtoInfoProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,12 +96,14 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     String fooProtoRoot = genfiles + "/external/foo+";
     ConfiguredTarget a = getConfiguredTarget("//a:a");
-    ProtoInfo aInfo = getProtoInfo(a);
-    assertThat(aInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(".", fooProtoRoot);
+    StructImpl aInfo = getProtoInfo(a);
+    assertThat(aInfo.getValue("transitive_proto_path", Depset.class).getSet(String.class).toList())
+        .containsExactly(".", fooProtoRoot);
 
     ConfiguredTarget x = getConfiguredTarget("@@foo+//x:x");
-    ProtoInfo xInfo = getProtoInfo(x);
-    assertThat(xInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(fooProtoRoot);
+    StructImpl xInfo = getProtoInfo(x);
+    assertThat(xInfo.getValue("transitive_proto_path", Depset.class).getSet(String.class).toList())
+        .containsExactly(fooProtoRoot);
   }
 
   @Test
@@ -126,10 +131,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("@@yolo_repo+//yolo_pkg:yolo_proto");
-    assertThat(
-            Iterables.getOnlyElement(
-                    getProtoInfo(target).getStrictImportableProtoSourcesForDependents().toList())
-                .getExecPathString())
+    assertThat(Iterables.getOnlyElement(getCheckDepsSources(target)).getExecPathString())
         .endsWith("/_virtual_imports/yolo_proto/bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
@@ -160,10 +162,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target =
         getConfiguredTarget("@@yolo_repo+//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
-    assertThat(
-            Iterables.getOnlyElement(
-                    getProtoInfo(target).getStrictImportableProtoSourcesForDependents().toList())
-                .getExecPathString())
+    assertThat(Iterables.getOnlyElement(getCheckDepsSources(target)).getExecPathString())
         .endsWith("/_virtual_imports/yolo_proto/bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
@@ -193,10 +192,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target =
         getConfiguredTarget("@@yolo_repo+//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
-    assertThat(
-            Iterables.getOnlyElement(
-                    getProtoInfo(target).getStrictImportableProtoSourcesForDependents().toList())
-                .getExecPathString())
+    assertThat(Iterables.getOnlyElement(getCheckDepsSources(target)).getExecPathString())
         .endsWith("/_virtual_imports/yolo_proto/yolo_pkg/yolo.proto");
   }
 
@@ -225,10 +221,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("@@yolo_repo+//:yolo_proto");
-    assertThat(
-            Iterables.getOnlyElement(
-                    getProtoInfo(target).getStrictImportableProtoSourcesForDependents().toList())
-                .getExecPathString())
+    assertThat(Iterables.getOnlyElement(getCheckDepsSources(target)).getExecPathString())
         .endsWith("/_virtual_imports/yolo_proto/yolo_pkg/yolo.proto");
   }
 
@@ -441,8 +434,14 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='foo', srcs=['a.proto'], import_prefix='foo')");
 
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    ProtoInfo provider = getProtoInfo(getConfiguredTarget("//x:foo"));
-    assertThat(Iterables.transform(provider.getDirectProtoSources(), s -> s.getExecPathString()))
+    StructImpl provider = getProtoInfo(getConfiguredTarget("//x:foo"));
+    ImmutableList<Artifact> directSources =
+        Sequence.cast(
+                provider.getValue("direct_sources", Sequence.class),
+                Artifact.class,
+                "direct_sources")
+            .getImmutableList();
+    assertThat(Iterables.transform(directSources, s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo/foo/x/a.proto");
   }
 
@@ -541,14 +540,20 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertContainsEvent("proto_library '@@//x:foo' can't be reexported in package '//notallowed'");
   }
 
-  private ProtoInfo getProtoInfo(ConfiguredTarget target) throws Exception {
+  private ImmutableList<Artifact> getCheckDepsSources(ConfiguredTarget target) throws Exception {
+    return getProtoInfo(target)
+        .getValue("check_deps_sources", Depset.class)
+        .getSet(Artifact.class)
+        .toList();
+  }
+
+  private StructImpl getProtoInfo(ConfiguredTarget target) throws Exception {
     for (var key : ProtoConstants.EXTERNAL_PROTO_INFO_KEYS) {
-      ProtoInfoProvider providerClass = new ProtoInfoProvider(key);
-      ProtoInfo provider = target.get(providerClass);
+      StructImpl provider = (StructImpl) target.get(new StarlarkProvider.Key(key, "ProtoInfo"));
       if (provider != null) {
         return provider;
       }
     }
-    throw new IllegalStateException("ProtoInfo not found in " + target.toString());
+    throw new IllegalStateException("ProtoInfo not found in " + target);
   }
 }

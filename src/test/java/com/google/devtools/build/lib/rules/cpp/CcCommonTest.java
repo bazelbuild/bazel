@@ -1280,6 +1280,29 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompilationParameterFileOnDemandPreferred() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COMPILER_PARAM_FILE,
+                    CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND));
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+
+    var argumentsAndParamFile = cppCompileAction.getArgumentsForExecute(PathMapper.NOOP);
+
+    assertThat(argumentsAndParamFile.paramFileActionInput()).isNull();
+    assertThat(argumentsAndParamFile.arguments()).containsAtLeast("-c", "a/foo.cc");
+  }
+
+  @Test
   public void testCompilationParameterFileOnDemandLongCommandLine() throws Exception {
     AnalysisMock.get()
         .ccSupport()

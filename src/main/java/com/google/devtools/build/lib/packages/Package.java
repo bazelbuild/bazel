@@ -239,11 +239,6 @@ public class Package extends Packageoid {
     return metadata.configSettingVisibilityPolicy();
   }
 
-  /** Convenience wrapper for {@link Metadata#workspaceName} */
-  public String getWorkspaceName() {
-    return getMetadata().workspaceName();
-  }
-
   /** Returns the InputFile target for this package's BUILD file. */
   public InputFile getBuildFile() {
     return buildFile;
@@ -824,7 +819,6 @@ public class Package extends Packageoid {
       PackageSettings packageSettings,
       PackageIdentifier id,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       boolean noImplicitFileExport,
@@ -846,7 +840,6 @@ public class Package extends Packageoid {
         Metadata.builder()
             .packageIdentifier(id)
             .buildFilename(filename)
-            .workspaceName(workspaceName)
             .repositoryMapping(repositoryMapping)
             .associatedModuleName(associatedModuleName)
             .associatedModuleVersion(associatedModuleVersion)
@@ -1668,10 +1661,6 @@ public class Package extends Packageoid {
       PackageIdentifier packageIdentifier,
       RootedPath buildFilename,
       Label buildFileLabel,
-      /**
-       * The name of the workspace this package is in. Used as a prefix for the runfiles directory.
-       */
-      String workspaceName,
       RepositoryMapping repositoryMapping,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
@@ -1698,8 +1687,6 @@ public class Package extends Packageoid {
 
       Builder buildFilename(RootedPath buildFilename);
 
-      Builder workspaceName(String workspaceName);
-
       Builder repositoryMapping(RepositoryMapping repositoryMapping);
 
       Builder associatedModuleName(Optional<String> associatedModuleName);
@@ -1717,7 +1704,6 @@ public class Package extends Packageoid {
     static Metadata of(
         PackageIdentifier packageIdentifier,
         RootedPath buildFilename,
-        String workspaceName,
         RepositoryMapping repositoryMapping,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
@@ -1735,7 +1721,6 @@ public class Package extends Packageoid {
           packageIdentifier,
           buildFilename,
           buildFileLabel,
-          workspaceName,
           repositoryMapping,
           associatedModuleName,
           associatedModuleVersion,
@@ -1751,7 +1736,6 @@ public class Package extends Packageoid {
     public Metadata {
       Preconditions.checkNotNull(packageIdentifier);
       Preconditions.checkNotNull(buildFilename);
-      Preconditions.checkNotNull(workspaceName);
       Preconditions.checkNotNull(repositoryMapping);
       Preconditions.checkNotNull(associatedModuleName);
       Preconditions.checkNotNull(associatedModuleVersion);

@@ -28,7 +28,7 @@
 namespace blaze_jni {
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNetIoCountersNative(
+Java_com_google_devtools_build_lib_profiler_NetworkMetricsCollector_getNetIoCountersNative(
     JNIEnv* env, jclass clazz, jobject counters_map) {
   int mib[6] = {CTL_NET,         // networking subsystem
                 PF_ROUTE,        // type of information
@@ -65,11 +65,8 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
 
   jclass counter_class = env->FindClass(
       "com/google/devtools/build/lib/profiler/"
-      "SystemNetworkStatsServiceImpl$NetIoCounterImpl");
-  jmethodID counter_create =
-      env->GetStaticMethodID(counter_class, "create",
-                             "(JJJJ)Lcom/google/devtools/build/lib/profiler/"
-                             "SystemNetworkStatsService$NetIoCounter;");
+      "NetworkMetricsCollector$NetIoCounter");
+  jmethodID counter_ctor = env->GetMethodID(counter_class, "<init>", "(JJJJ)V");
 
   const char *end = buf.data() + buf_len;
   for (const char *next = buf.data(); next < end;) {
@@ -85,8 +82,8 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
     std::string sdl_name(sdl->sdl_data, sdl->sdl_nlen);
 
     jstring name = env->NewStringUTF(sdl_name.c_str());
-    jobject counter = env->CallStaticObjectMethod(
-        counter_class, counter_create, if2m->ifm_data.ifi_obytes,
+    jobject counter = env->NewObject(
+        counter_class, counter_ctor, if2m->ifm_data.ifi_obytes,
         if2m->ifm_data.ifi_ibytes, if2m->ifm_data.ifi_opackets,
         if2m->ifm_data.ifi_ipackets);
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -39,7 +38,6 @@ import java.time.Duration;
  * <p>A flag should be in the SC otherwise, as it offers simpler backwards compatibility.
  */
 @OptionsClass
-@ScOnly
 public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
   @VisibleForTesting public static final int MAX_CPU_CONCURRENCY = 1024;
@@ -93,7 +91,11 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4",
       converter = PositiveIntegerConverter.class,
-      help = "Target concurrency for remote analysis caching RPCs.")
+      help =
+          "Target concurrency for remote analysis caching read RPCs. Partial batches dispatch"
+              + " eagerly below this target; once reached, requests buffer until a full batch"
+              + " (--experimental_remote_analysis_cache_reader_max_batch_size) is ready and then"
+              + " dispatch immediately, so in-flight batches are not capped at this value.")
   public abstract int getConcurrency();
 
   @Option(

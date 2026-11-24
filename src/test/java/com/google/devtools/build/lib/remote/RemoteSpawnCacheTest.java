@@ -97,7 +97,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -361,7 +360,6 @@ public class RemoteSpawnCacheTest {
                 remotePathResolver,
                 BUILD_REQUEST_ID,
                 COMMAND_ID,
-                TestConstants.WORKSPACE_NAME,
                 digestUtil,
                 options,
                 executionOptions,

@@ -1640,9 +1640,13 @@ public class CppCompileAction extends AbstractAction
       throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
     List<String> args = null; // null means use a param file.
-    if (!featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
+    // On-demand param files take precedence so that toolchains can also enable
+    // COMPILER_PARAM_FILE for Bazel versions that don't support them.
+    boolean paramFileOnDemand =
+        featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND);
+    if (paramFileOnDemand || !featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       args = compileCommandLine.getArgumentsWithCompilerOptions(pathMapper, compilerOptions);
-      if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND)) {
+      if (paramFileOnDemand) {
         int totalLength = 0;
         for (String arg : args) {
           totalLength += (arg.length() + 1);

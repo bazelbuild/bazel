@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -2411,7 +2412,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-Xlinker",
             "-rpath",
             "-Xlinker",
-            "$ORIGIN/main.runfiles/" + ruleClassProvider.getRunfilesPrefix() + "/_solib_k8/")
+            "$ORIGIN/main.runfiles/" + LabelConstants.MAIN_REPO_DIR_NAME + "/_solib_k8/")
         .inOrder();
     assertThat(linkArgv)
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
@@ -2489,7 +2490,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-Xlinker",
             "-rpath",
             "-Xlinker",
-            "$ORIGIN/main.runfiles/" + ruleClassProvider.getRunfilesPrefix() + "/_solib_k8/")
+            "$ORIGIN/main.runfiles/" + LabelConstants.MAIN_REPO_DIR_NAME + "/_solib_k8/")
         .inOrder();
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-Xlinker -rpath -Xlinker $ORIGIN/../../../k8-fastbuild-ST-");

@@ -87,6 +87,35 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
   }
 
   @Test
+  public void processWrapperSandboxedSpawnRunner_deniesActionsNotAllowedLocally() throws Exception {
+    runtimeWrapper.addOptions("--allowed_local_actions_regex=none");
+    CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
+
+    Path execRoot = commandEnvironment.getExecRoot();
+    execRoot.createDirectory();
+    Path sandboxBase = execRoot.getRelative("sandbox");
+    sandboxBase.createDirectory();
+
+    ProcessWrapperSandboxedSpawnRunner runner =
+        new ProcessWrapperSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
+
+    Spawn spawn = new SpawnBuilder("echo", "cooee").build();
+    FileOutErr fileOutErr =
+        new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
+    SpawnExecutionContextForTesting policy =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofSeconds(60));
+
+    SpawnResult spawnResult = runner.exec(spawn, policy);
+
+    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
+    assertThat(fileOutErr.errAsLatin1())
+        .isEqualTo(
+            "Action type Mnemonic is not allowed to run locally due to regex filter: none\n");
+    assertThat(policy.prefetchCalled).isFalse();
+    assertThat(policy.lockOutputFilesCalled).isFalse();
+  }
+
+  @Test
   public void processWrapperSandboxedSpawnRunner_populatesSpawnMetricsWithOutputs()
       throws Exception {
     // Process-wrapper is only supported on POSIX-compatible platforms.
