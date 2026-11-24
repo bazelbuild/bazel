@@ -304,6 +304,16 @@ sh_test(
 )
 
 sh_test(
+    name = "blaze_info_response_test",
+    size = "medium",
+    srcs = ["blaze_info_response_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "blaze_nouse_action_cache_test",
     size = "medium",
     timeout = "long",
