@@ -26,7 +26,6 @@ public final class BazelServices {
           new com.google.devtools.build.lib.skyframe.FsEventsNativeDepsServiceImpl(),
           new com.google.devtools.build.lib.profiler.SystemNetworkStatsServiceImpl(),
           new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
-          new com.google.devtools.build.lib.profiler.memory.AllocationTrackerServiceImpl(),
           new com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl(),
           new com.google.devtools.build.lib.server.GrpcCommandServerServiceImpl(),
           new com.google.devtools.build.lib.starlarkprofiler.CpuProfilerServiceImpl(),

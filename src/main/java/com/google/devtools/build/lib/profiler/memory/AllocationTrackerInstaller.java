@@ -15,10 +15,9 @@
 package com.google.devtools.build.lib.profiler.memory;
 
 import com.google.monitoring.runtime.instrumentation.AllocationRecorder;
-import com.google.monitoring.runtime.instrumentation.Sampler;
 
 class AllocationTrackerInstaller {
-  static void installAllocationTracker(Sampler sampler) {
-    AllocationRecorder.addSampler(sampler);
+  static void installAllocationTracker(AllocationTracker tracker) {
+    AllocationRecorder.addSampler(tracker::sampleAllocation);
   }
 }
