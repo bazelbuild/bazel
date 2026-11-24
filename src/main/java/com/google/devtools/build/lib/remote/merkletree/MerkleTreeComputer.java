@@ -364,7 +364,8 @@ public final class MerkleTreeComputer {
             spawnExecutionContext,
             metadata,
             CachePolicy.REMOTE_CACHE_ONLY,
-            CachePolicy.NO_CACHE);
+            // Inputs missing from the remote cache may be uploaded from the disk cache.
+            CachePolicy.DISK_CACHE_ONLY);
     Predicate<PathFragment> isToolInput;
     if (toolInputs.isEmpty() || remotePathResolver.getWorkingDirectory().isEmpty()) {
       isToolInput = toolInputs::contains;
