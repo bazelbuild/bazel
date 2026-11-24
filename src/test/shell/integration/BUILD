@@ -371,6 +371,19 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "forbid_server_subprocesses_test",
+    size = "medium",
+    srcs = ["forbid_server_subprocesses_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = [
+        "no_macos",
+        "no_windows",
+    ],
+)
+
 sh_library(
     name = "config_stripped_outputs_lib",
     testonly = 1,

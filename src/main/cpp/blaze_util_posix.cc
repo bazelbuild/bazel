@@ -343,10 +343,31 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(const blaze_util::Path& exe,
   std::abort();  // Not reachable.
 }
 
+// Executes the server JVM, replacing the current process. This is only used for
+// launching Bazel in batch mode and for "bazel exec-server". Server mode is
+// instead started using ExecuteDaemon().
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
+                      const blaze_util::Path& binaries_dir,
                       const blaze_util::Path& argfile,
-                      const bool run_in_user_cgroup) {
+                      const bool run_in_user_cgroup,
+                      const bool allow_server_subprocesses) {
+  if (!allow_server_subprocesses) {
+#ifdef __linux__
+    // Launch via "daemonize -E", which installs the seccomp-bpf filter right
+    // before exec()ing the server.
+    const blaze_util::Path daemonize = binaries_dir.GetRelative("daemonize");
+    std::vector<string> daemonize_args = {"daemonize", "-E", "--",
+                                          exe.AsNativePath()};
+    daemonize_args.insert(daemonize_args.end(), server_jvm_args.begin(),
+                          server_jvm_args.end());
+    ExecuteProgram(daemonize, daemonize_args, run_in_user_cgroup);
+    abort();  // Unreachable.
+#else
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "--noallow_server_subprocesses is only supported on Linux.";
+#endif
+  }
   ExecuteProgram(exe, server_jvm_args, run_in_user_cgroup);
 }
 
@@ -425,6 +446,9 @@ int ExecuteDaemon(
     daemonize_args.push_back("-a");
   }
 #ifdef __linux__
+  if (!options.allow_server_subprocesses) {
+    daemonize_args.push_back("-F");
+  }
   if (!options.cgroup_parent.empty()) {
     daemonize_args.push_back("-c");
     daemonize_args.push_back(options.cgroup_parent);
@@ -433,6 +457,11 @@ int ExecuteDaemon(
     daemonize_args.push_back("-s");
     daemonize_args.push_back(
         server_dir.GetRelative("systemd-wrapper.sh").AsNativePath());
+  }
+#else
+  if (!options.allow_server_subprocesses) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "--noallow_server_subprocesses is only supported on Linux.";
   }
 #endif
   daemonize_args.push_back("--");

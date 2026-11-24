@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// daemonize [-a] -l log_path -p pid_path [-c cgroup] [-s systemd_wrapper_path]
-// -- binary_path binary_name [args]
+// daemonize [-F] [-a] -l log_path -p pid_path [-c cgroup] \
+//   [-s systemd_wrapper_path] -- binary_path binary_name [args]
+// daemonize -E -- binary_path binary_name [args]
 //
 // daemonize spawns a program as a daemon, redirecting all of its output to the
 // given log_path and writing the daemon's PID to pid_path.  binary_path
@@ -35,6 +36,16 @@
 //   that the goal of this program is just to spawn another one as a daemon,
 //   we take the freedom to immediatey exit from anywhere as soon as we
 //   hit an error.
+//
+// Command line flags:
+//
+// * -l: The path to the log file.
+// * -a: Append to the log file instead of truncating it.
+// * -p: The path to the PID file.
+// * -c: The path to the cgroup.
+// * -s: The path to the systemd wrapper script.
+// * -E: Just exec() the binary, disallowing forking of any subprocesses after.
+// * -F: Forbid all subprocesses using seccomp-bpf.
 
 #include <assert.h>
 #include <err.h>
@@ -51,6 +62,7 @@
 
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
+#include "src/main/tools/seccomp_exec.h"
 
 // Configures std{in,out,err} of the current process to serve as a daemon.
 //
@@ -205,17 +217,44 @@ static char* ShellEscape(const char* arg) {
 // long" error, which indicates that the command is too long as we have almost
 // 100 arguments in the list.
 static void WriteSystemdWrapper(const char* systemd_wrapper_path,
-                                const char* exe, char** argv) {
+                                bool forbid_processes, const char* exe,
+                                char** argv) {
   FILE* systemd_wrapper_fp = fopen(systemd_wrapper_path, "w");
   if (systemd_wrapper_fp == NULL) {
     err(EXIT_FAILURE, "Failed to create %s", systemd_wrapper_path);
   }
 
   char* escaped_argv0 = ShellEscape(argv[0]);
-  if (fprintf(systemd_wrapper_fp, "#!/bin/bash\nexec -a %s %s", escaped_argv0,
-              exe) < 0) {
-    err(EXIT_FAILURE, "Failed to write content to %s", systemd_wrapper_path);
+  char* escaped_exe = ShellEscape(exe);
+  if (forbid_processes) {
+    // Re-exec daemonize in -E (exec-only) mode inside the systemd scope so the
+    // seccomp process-blocking filter is installed after systemd-run and
+    // /bin/bash finish, right before the final execv() of the Blaze server.
+    char self_path[4096];
+    ssize_t self_len =
+        readlink("/proc/self/exe", self_path, sizeof(self_path) - 1);
+    if (self_len < 0) {
+      err(EXIT_FAILURE, "Failed to readlink /proc/self/exe");
+    }
+    if (self_len == 0 ||
+        static_cast<size_t>(self_len) >= sizeof(self_path) - 1) {
+      errx(EXIT_FAILURE,
+           "Failed to readlink /proc/self/exe: path empty or too long");
+    }
+    self_path[self_len] = '\0';
+    char* escaped_self = ShellEscape(self_path);
+    if (fprintf(systemd_wrapper_fp, "#!/bin/bash\nexec %s -E -- %s %s",
+                escaped_self, escaped_exe, escaped_argv0) < 0) {
+      err(EXIT_FAILURE, "Failed to write content to %s", systemd_wrapper_path);
+    }
+    free(escaped_self);
+  } else {
+    if (fprintf(systemd_wrapper_fp, "#!/bin/bash\nexec -a %s %s", escaped_argv0,
+                escaped_exe) < 0) {
+      err(EXIT_FAILURE, "Failed to write content to %s", systemd_wrapper_path);
+    }
   }
+  free(escaped_exe);
   free(escaped_argv0);
 
   int argc = 1;
@@ -239,7 +278,8 @@ static bool IsBinaryExecutable(const char* binary_path) {
 #endif
 
 static void ExecAsDaemon(const char* log_path, bool log_append,
-                         const char* systemd_wrapper_path, int pid_done_fd,
+                         const char* systemd_wrapper_path,
+                         bool forbid_processes, int pid_done_fd,
                          const char* exe, char** argv)
     __attribute__((noreturn));
 
@@ -254,8 +294,32 @@ static void ExecAsDaemon(const char* log_path, bool log_append,
 // wait until the parent process has created it.
 //
 // This function never returns.
+//
+// Its implementation is a little complicated because it needs to handle systems
+// with and without systemd and it needs to arrange for prohibiting forking
+// in the Bazel server while still allowing exec()ing the server itself.
+//
+// It works in the following way:
+//
+// First, a regular double-forking is done to spawn a daemon process. The first
+// fork is actually a posix_spawn() call to the "daemonize" binary, which then
+// forks off the grandchild process that will become the server process and
+// writes its PID to server.pid.txt.
+//
+// In non-systemd mode, this grandchild then exec()s the Bazel server.
+// When forking needs to be forbidden, it first installs a seccomp-bpf filter
+// that only lets this one exec() through.
+//
+// In systemd mode, instead of the Bazel server, daemonize exec()s systemd-run,
+// which exec()s systemd-wrapper.sh, which then either runs the Bazel server
+// directly or runs the "daemonize" binary again, which then in turn runs the
+// Bazel server after prohibiting forking as described above. If we want to
+// prohibit forking, we ask systemd to run "daemonize" again, which this time
+// just exec()s the Bazel server with the seccomp-bpf filter installed without
+// extra daemonization.
 static void ExecAsDaemon(const char* log_path, bool log_append,
-                         const char* systemd_wrapper_path, int pid_done_fd,
+                         const char* systemd_wrapper_path,
+                         bool forbid_processes, int pid_done_fd,
                          const char* exe, char** argv) {
   char dummy;
   if (read(pid_done_fd, &dummy, sizeof(dummy)) == -1) {
@@ -290,7 +354,7 @@ static void ExecAsDaemon(const char* log_path, bool log_append,
     free(systemd_test_command);
 
     if (status == 0) {
-      WriteSystemdWrapper(systemd_wrapper_path, exe, argv);
+      WriteSystemdWrapper(systemd_wrapper_path, forbid_processes, exe, argv);
 
       execl(systemd_run_path, systemd_run_path, "--user", "--scope", "--",
             "/bin/bash", systemd_wrapper_path, NULL);
@@ -298,6 +362,10 @@ static void ExecAsDaemon(const char* log_path, bool log_append,
     }
   }
 
+  if (forbid_processes) {
+    ExecWithSeccompProcessBlocker(exe, argv);
+    abort();  // Unreachable.
+  }
 #endif
 
   execv(exe, argv);
@@ -360,8 +428,8 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
 // contain the program name (which may or may not match the basename of exe).
 static void Daemonize(const char* log_path, bool log_append,
                       const char* pid_path, const char* cgroup_path,
-                      const char* systemd_wrapper_path, const char* exe,
-                      char** argv) {
+                      const char* systemd_wrapper_path, bool forbid_processes,
+                      const char* exe, char** argv) {
   assert(argv[0] != NULL);
 
   int pid_done_fds[2];
@@ -379,8 +447,8 @@ static void Daemonize(const char* log_path, bool log_append,
       MoveToCgroup(pid, cgroup_path);
     }
 #endif
-    ExecAsDaemon(log_path, log_append, systemd_wrapper_path, pid_done_fds[0],
-                 exe, argv);
+    ExecAsDaemon(log_path, log_append, systemd_wrapper_path, forbid_processes,
+                 pid_done_fds[0], exe, argv);
     abort();  // NOLINT Unreachable.
   }
   close(pid_done_fds[0]);
@@ -394,15 +462,25 @@ static void Daemonize(const char* log_path, bool log_append,
 // Once that is done, delegates all work to Daemonize.
 int main(int argc, char** argv) {
   bool log_append = false;
+  bool forbid_processes = false;
+  bool exec_only_with_seccomp = false;
   const char* log_path = NULL;
   const char* pid_path = NULL;
   const char* cgroup_path = NULL;
   const char* systemd_wrapper_path = NULL;
   int opt;
-  while ((opt = getopt(argc, argv, ":al:p:c:s:")) != -1) {
+  while ((opt = getopt(argc, argv, ":aEFl:p:c:s:")) != -1) {
     switch (opt) {
       case 'a':
         log_append = true;
+        break;
+
+      case 'E':
+        exec_only_with_seccomp = true;
+        break;
+
+      case 'F':
+        forbid_processes = true;
         break;
 
       case 'l':
@@ -432,6 +510,15 @@ int main(int argc, char** argv) {
   argc -= optind;
   argv += optind;
 
+  if (argc < 2) {
+    errx(EXIT_FAILURE, "Must provide at least an executable name and arg0");
+  }
+
+  if (exec_only_with_seccomp) {
+    ExecWithSeccompProcessBlocker(argv[0], argv + 1);
+    abort();  // Unreachable.
+  }
+
   if (log_path == NULL) {
     errx(EXIT_FAILURE, "Must specify a log file with -l");
   }
@@ -439,10 +526,7 @@ int main(int argc, char** argv) {
     errx(EXIT_FAILURE, "Must specify a pid file with -p");
   }
 
-  if (argc < 2) {
-    errx(EXIT_FAILURE, "Must provide at least an executable name and arg0");
-  }
   Daemonize(log_path, log_append, pid_path, cgroup_path, systemd_wrapper_path,
-            argv[0], argv + 1);
+            forbid_processes, argv[0], argv + 1);
   return EXIT_SUCCESS;
 }
