@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -186,13 +187,14 @@ public abstract class TestStrategy implements TestActionContext {
    * should be used in action execution.
    *
    * @param testAction The test action.
+   * @param pathMapper The path mapper of the test spawn.
    * @return the command line as string list.
    * @throws ExecException if {@link #expandedArgsFromAction} throws
    */
-  public static ImmutableList<String> getArgs(TestRunnerAction testAction)
+  public static ImmutableList<String> getArgs(TestRunnerAction testAction, PathMapper pathMapper)
       throws ExecException, InterruptedException {
     try {
-      return expandedArgsFromAction(testAction);
+      return expandedArgsFromAction(testAction, pathMapper);
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(
           e,
@@ -208,16 +210,18 @@ public abstract class TestStrategy implements TestActionContext {
    * --run_under} settings.
    *
    * @param testAction The test action.
+   * @param pathMapper The path mapper of the test spawn.
    * @return the command line as string list.
    * @throws CommandLineExpansionException
    */
-  public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
+  public static ImmutableList<String> expandedArgsFromAction(
+      TestRunnerAction testAction, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     List<String> args = new ArrayList<>();
     OS executionOs = testAction.getExecutionSettings().getExecutionOs();
 
     Artifact testSetup = testAction.getTestSetupScript();
-    args.add(testSetup.getExecPath().getCallablePathStringForOs(executionOs));
+    args.add(pathMapper.map(testSetup.getExecPath()).getCallablePathStringForOs(executionOs));
 
     if (testAction.isCoverageMode()) {
       args.add(
@@ -336,9 +340,9 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  public static String getTmpDirName(TestRunnerAction action) {
+  public static String getTmpDirName(TestRunnerAction action, PathMapper pathMapper) {
     Fingerprint digest = new Fingerprint();
-    digest.addPath(action.getExecutionSettings().getExecutable().getExecPath());
+    digest.addPath(pathMapper.map(action.getExecutionSettings().getExecutable().getExecPath()));
     digest.addInt(action.getShardNum());
     digest.addInt(action.getRunNumber());
     // Truncate the string to 32 character to avoid exceeding path length limit on Windows and macOS

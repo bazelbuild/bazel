@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestResult;
@@ -109,8 +111,14 @@ public class StandaloneTestStrategy extends TestStrategy {
   public TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
+    PathMapper pathMapper =
+        PathMappers.create(
+            action,
+            PathMappers.getOutputPathsMode(action.getConfiguration()),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     Map<String, String> testEnvironment =
-        createEnvironment(actionExecutionContext, action, tmpDirRoot);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot, pathMapper);
 
     if (testEnvironment.containsKey(TEST_NAME_ENV)) {
       throw createTestExecException(
@@ -140,17 +148,20 @@ public class StandaloneTestStrategy extends TestStrategy {
     Spawn spawn =
         new SimpleSpawn(
             action,
-            getArgs(action),
+            getArgs(action, pathMapper),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
             SpawnInputs.of(action.getInputs()),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             /* mandatoryOutputs= */ ImmutableSet.of(),
-            localResources);
+            localResources,
+            pathMapper);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
-    Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
+    Path tmpDir =
+        pathResolver.convertPath(
+            tmpDirRoot.getChild(TestStrategy.getTmpDirName(action, PathMapper.NOOP)));
     return new StandaloneTestRunnerSpawn(action, actionExecutionContext, spawn, tmpDir, execRoot);
   }
 
@@ -302,22 +313,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new StandaloneProcessedAttemptResult(data, testOutputs);
   }
 
-  private static Map<String, String> setupEnvironment(
-      TestRunnerAction action,
-      Map<String, String> clientEnv,
-      Path execRoot,
-      Path runfilesDir,
-      Path tmpDir) {
-    PathFragment relativeTmpDir;
-    if (tmpDir.startsWith(execRoot)) {
-      relativeTmpDir = tmpDir.relativeTo(execRoot);
-    } else {
-      relativeTmpDir = tmpDir.asFragment();
-    }
-    return DEFAULT_LOCAL_POLICY.computeTestEnvironment(
-        action, clientEnv, runfilesDir.relativeTo(execRoot), relativeTmpDir);
-  }
-
   private TestAttemptResult beginTestAttempt(
       TestRunnerAction testAction,
       Spawn spawn,
@@ -459,17 +454,18 @@ public class StandaloneTestStrategy extends TestStrategy {
    * generate a test.xml file itself.
    */
   private static Spawn createXmlGeneratingSpawn(
-      TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
+      TestRunnerAction action, Spawn testSpawn, SpawnResult result) {
+    PathMapper pathMapper = testSpawn.getPathMapper();
     ImmutableList<String> args =
         ImmutableList.of(
-            action
-                .getTestXmlGeneratorScript()
-                .getExecPath()
+            pathMapper
+                .map(action.getTestXmlGeneratorScript().getExecPath())
                 .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
-            action.getTestLog().getExecPathString(),
-            action.getTestXml().getExecPathString(),
+            pathMapper.getMappedExecPathString(action.getTestLog()),
+            pathMapper.getMappedExecPathString(action.getTestXml()),
             Integer.toString(result.getWallTimeInMs() / 1000),
             Integer.toString(result.exitCode()));
+    ImmutableMap<String, String> testEnv = testSpawn.getEnvironment();
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
@@ -499,7 +495,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         // describe the test process, not this script. Letting them override the default would
         // make a log-to-XML conversion book the whole test's CPU/memory/custom resources and
         // queue behind unrelated actions.
-        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET),
+        pathMapper);
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -511,7 +508,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableList.of(action.getCollectCoverageScript().getExecutable().getExecPathString());
 
     Map<String, String> testEnvironment =
-        createEnvironment(actionExecutionContext, action, tmpDirRoot);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot, PathMapper.NOOP);
 
     testEnvironment.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
     testEnvironment.put(
@@ -544,13 +541,34 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private static Map<String, String> createEnvironment(
-      ActionExecutionContext actionExecutionContext, TestRunnerAction action, Path tmpDirRoot) {
+      ActionExecutionContext actionExecutionContext,
+      TestRunnerAction action,
+      Path tmpDirRoot,
+      PathMapper pathMapper) {
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
-    Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    return setupEnvironment(
-        action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
+    Path resolvedTmpDirRoot = pathResolver.convertPath(tmpDirRoot);
+    PathFragment tmpDir;
+    if (resolvedTmpDirRoot.startsWith(execRoot)) {
+      // A path-mapped spawn runs in its own exec root, so its tmp dir doesn't need a name that is
+      // unique across configurations.
+      tmpDir =
+          resolvedTmpDirRoot
+              .relativeTo(execRoot)
+              .getChild(TestStrategy.getTmpDirName(action, pathMapper));
+    } else {
+      tmpDir =
+          resolvedTmpDirRoot
+              .getChild(TestStrategy.getTmpDirName(action, PathMapper.NOOP))
+              .asFragment();
+    }
+    return DEFAULT_LOCAL_POLICY.computeTestEnvironment(
+        action,
+        actionExecutionContext.getClientEnv(),
+        runfilesDir.relativeTo(execRoot),
+        tmpDir,
+        pathMapper);
   }
 
   @Override
@@ -884,8 +902,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     // file may only exist remotely (when remote execution is enabled), and we do not want to have
     // to download it.
     if (fileOutErr.getOutputPath().exists() && !xmlOutputPath.exists()) {
-      Spawn xmlGeneratingSpawn =
-          createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
+      Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(testAction, spawn, spawnResults.get(0));
       SpawnStrategyResolver spawnStrategyResolver =
           actionExecutionContext.getContext(SpawnStrategyResolver.class);
       // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
