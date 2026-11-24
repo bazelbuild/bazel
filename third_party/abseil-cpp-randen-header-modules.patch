@@ -1,0 +1,12 @@
+--- a/absl/random/internal/BUILD.bazel
++++ b/absl/random/internal/BUILD.bazel
+@@ -415,6 +415,9 @@
+         "@rules_cc//cc/compiler:clang-cl": [],
+         "//conditions:default": ["-Wno-pass-failed"],
+     }),
++    # Header modules cannot be shared between compilations with different target
++    # features.
++    features = ["-use_header_modules"],
+     linkopts = ABSL_DEFAULT_LINKOPTS,
+     deps = [
+         ":platform",

@@ -114,6 +114,7 @@ cc_library(
     ],
     deps = [
         ":blaze_util",
+        ":startup_options",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:filesystem",
