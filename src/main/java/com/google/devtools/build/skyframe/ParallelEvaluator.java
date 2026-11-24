@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,7 +46,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 
 /**
@@ -61,6 +64,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final int MAX_CYCLE_ROOTS_TO_LOG = 100;
+  private static final int ORDERED_RESULT_CHUNK_SIZE = 32_768;
+  private static final int MIN_PARALLEL_ORDERED_RESULT_SIZE = 524_288;
 
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
@@ -134,12 +139,14 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
 
   @ThreadCompatible
   private <T extends SkyValue> EvaluationResult<T> doMutatingEvaluation(
-      ImmutableSet<SkyKey> skyKeys, BitSet doneBeforeEvaluation, boolean ordered)
+      ImmutableSet<SkyKey> skyKeys, BitSet doneBeforeEvaluation, int orderedResultThreads)
       throws InterruptedException {
     injectErrorTransienceValue();
     try {
       NodeBatch batch =
-          ordered && !doneBeforeEvaluation.isEmpty() && graph.getClass() == InMemoryGraphImpl.class
+          orderedResultThreads > 0
+                  && !doneBeforeEvaluation.isEmpty()
+                  && graph.getClass() == InMemoryGraphImpl.class
               ? ((InMemoryGraphImpl) graph).createIfAbsentOrderedRootBatch(skyKeys)
               : graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
       int index = 0;
@@ -188,7 +195,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       throw ie;
     }
 
-    return waitForCompletionAndConstructResult(skyKeys, ordered);
+    return waitForCompletionAndConstructResult(skyKeys, orderedResultThreads);
   }
 
   private void injectErrorTransienceValue() throws InterruptedException {
@@ -210,14 +217,14 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   }
 
   private <T extends SkyValue> EvaluationResult<T> waitForCompletionAndConstructResult(
-      ImmutableSet<SkyKey> skyKeys, boolean ordered) throws InterruptedException {
+      ImmutableSet<SkyKey> skyKeys, int orderedResultThreads) throws InterruptedException {
     Map<SkyKey, ValueWithMetadata> bubbleErrorInfo = null;
     boolean catastrophe = false;
     try {
       evaluatorContext.getVisitor().waitForCompletion();
     } catch (SchedulerException e) {
       // Bubbling may return null on a cycle. Only normal completion can use ordered results.
-      ordered = false;
+      orderedResultThreads = 0;
       propagateEvaluatorContextCrashIfAny();
       propagateInterruption(e);
       SkyKey errorKey = Preconditions.checkNotNull(e.getFailedValue(), e);
@@ -246,8 +253,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // Successful evaluation, barring evaluation-wide exceptions, either because keepGoing or
     // because we actually did succeed.
     // TODO(bazel-team): Maybe report root causes during the build for lower latency.
-    return ordered
-        ? constructCompleteResult(skyKeys, true)
+    return orderedResultThreads > 0
+        ? constructCompleteResult(skyKeys, orderedResultThreads)
         : constructResult(skyKeys, bubbleErrorInfo, catastrophe);
   }
 
@@ -648,9 +655,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   }
 
   private <T extends SkyValue> EvaluationResult<T> constructCompleteResult(
-      ImmutableSet<SkyKey> skyKeys, boolean ordered) throws InterruptedException {
-    if (ordered && graph instanceof InMemoryGraphImpl) {
-      EvaluationResult<T> result = tryOrderedResult(skyKeys);
+      ImmutableSet<SkyKey> skyKeys, int orderedResultThreads) throws InterruptedException {
+    if (orderedResultThreads > 0 && graph instanceof InMemoryGraphImpl) {
+      EvaluationResult<T> result = tryOrderedResult(skyKeys, orderedResultThreads);
       if (result != null) {
         return result;
       }
@@ -660,8 +667,16 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
 
   @Nullable
   private <T extends SkyValue> EvaluationResult<T> tryOrderedResult(
-      ImmutableSet<SkyKey> keys) throws InterruptedException {
+      ImmutableSet<SkyKey> keys, int orderedResultThreads) throws InterruptedException {
     SkyValue[] values = new SkyValue[keys.size()];
+    if (keys.size() >= MIN_PARALLEL_ORDERED_RESULT_SIZE
+        && orderedResultThreads > 1
+        && ForkJoinPool.getCommonPoolParallelism() > 1
+        && graph.getClass() == InMemoryGraphImpl.class
+        && readSuccessfulValues(
+            (InMemoryGraphImpl) graph, keys.asList(), values, orderedResultThreads)) {
+      return EvaluationResult.ordered(keys, values, ImmutableMap.of(), null);
+    }
     Map<SkyKey, ErrorInfo> errors = new HashMap<>();
     Exception catastrophe = null;
     int position = 0;
@@ -676,6 +691,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ErrorInfo error = ValueWithMetadata.getMaybeErrorInfo(metadata);
       Preconditions.checkState(value != null || error != null, key);
       if (value == null || (error != null && !evaluatorContext.keepGoing(key))) {
+        values[position] = null;
         errors.put(key, error);
         if (error.isCatastrophic()) {
           catastrophe = error.getException();
@@ -688,6 +704,33 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     return EvaluationResult.ordered(keys, values, errors, catastrophe);
   }
 
+  // All progress callbacks have finished. If any root is missing or has an error, read
+  // the roots again in order because the per-key keep-going policy may change a later root.
+  @VisibleForTesting
+  static boolean readSuccessfulValues(
+      InMemoryGraphImpl graph, ImmutableList<SkyKey> keys, SkyValue[] values, int maxThreads) {
+    int chunks = Math.min(maxThreads, Math.ceilDiv(keys.size(), ORDERED_RESULT_CHUNK_SIZE));
+    return IntStream.range(0, chunks)
+        .parallel()
+        .allMatch(
+            chunk -> {
+              int start = (int) ((long) chunk * keys.size() / chunks);
+              int end = (int) ((long) (chunk + 1) * keys.size() / chunks);
+              for (int i = start; i < end; i++) {
+                InMemoryNodeEntry entry = graph.getIfPresent(keys.get(i));
+                if (!isDoneForBuild(entry)) {
+                  return false;
+                }
+                SkyValue metadata = entry.getValueMaybeWithMetadata();
+                if (metadata == null || ValueWithMetadata.getMaybeErrorInfo(metadata) != null) {
+                  return false;
+                }
+                values[i] = ValueWithMetadata.justValue(metadata);
+              }
+              return true;
+            });
+  }
+
   /**
    * Evaluates a set of values. Returns an {@link EvaluationResult}. All elements of skyKeys must be
    * keys for Values of subtype T.
@@ -695,12 +738,12 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
   @ThreadCompatible
   public <T extends SkyValue> EvaluationResult<T> eval(Iterable<? extends SkyKey> skyKeys)
       throws InterruptedException {
-    return eval(skyKeys, false);
+    return eval(skyKeys, /* orderedResultThreads= */ 0);
   }
 
+  /** A positive thread count requests results in root order. */
   <T extends SkyValue> EvaluationResult<T> eval(
-      Iterable<? extends SkyKey> skyKeys, boolean ordered)
-      throws InterruptedException {
+      Iterable<? extends SkyKey> skyKeys, int orderedResultThreads) throws InterruptedException {
     ImmutableSet<SkyKey> skyKeySet = ImmutableSet.copyOf(skyKeys);
 
     NodeBatch batch =
@@ -721,7 +764,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       for (SkyKey skyKey : skyKeySet) {
         informProgressReceiverThatValueIsDone(skyKey, batch.get(skyKey));
       }
-      return constructCompleteResult(skyKeySet, ordered);
+      return constructCompleteResult(skyKeySet, orderedResultThreads);
     }
 
     Set<SkyKey> cachedErrorKeys = new HashSet<>();
@@ -750,7 +793,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         () -> evaluatorContext.stateCache().invalidateAll());
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation")) {
-      return doMutatingEvaluation(skyKeySet, doneBeforeEvaluation, ordered);
+      return doMutatingEvaluation(skyKeySet, doneBeforeEvaluation, orderedResultThreads);
     } finally {
       unnecessaryTemporaryStateDropperReceiver.onEvaluationFinished();
     }

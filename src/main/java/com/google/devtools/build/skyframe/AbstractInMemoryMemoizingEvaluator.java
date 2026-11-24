@@ -183,7 +183,13 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                     : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
                 getKeepGoingPredicate(evaluationContext));
-        result = evaluator.eval(roots, evaluationContext.orderedRootResults());
+        // A caller that supplies an executor may leave parallelism unset. In that case
+        // keep ordered result collection on the caller thread.
+        int orderedResultThreads =
+            evaluationContext.orderedRootResults()
+                ? Math.max(1, evaluationContext.getParallelism())
+                : 0;
+        result = evaluator.eval(roots, orderedResultThreads);
       }
       return result.withWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()));
     } finally {

@@ -1249,6 +1249,52 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void readSuccessfulValuesRequestsSerialReadForValueWithChildError()
+      throws InterruptedException {
+    var inMemoryGraph = new InMemoryGraphImpl();
+    graph = inMemoryGraph;
+    SkyKey parent = skyKey("parent");
+    SkyKey child = skyKey("child");
+    tester.getOrCreate(child).setHasError(true);
+    tester
+        .getOrCreate(parent)
+        .addErrorDependency(child, new StringValue("recovered"))
+        .setComputedValue(CONCATENATE);
+    eval(/* keepGoing= */ true, parent);
+
+    InMemoryNodeEntry entry = inMemoryGraph.getIfPresent(parent);
+    assertThat(entry.getValue()).isEqualTo(new StringValue("recovered"));
+    assertThat(entry.getErrorInfo()).isNotNull();
+    assertThat(
+            ParallelEvaluator.readSuccessfulValues(
+                inMemoryGraph, ImmutableList.of(parent), new SkyValue[1], /* maxThreads= */ 2))
+        .isFalse();
+  }
+
+  @Test
+  public void readSuccessfulValuesReturnsValueAndPreservesInterrupt() throws InterruptedException {
+    var inMemoryGraph = new InMemoryGraphImpl();
+    graph = inMemoryGraph;
+    SkyKey key = skyKey("key");
+    StringValue value = new StringValue("value");
+    tester.set(key, value).setWarning("cached warning");
+    eval(/* keepGoing= */ true, key);
+    SkyValue[] values = new SkyValue[1];
+
+    Thread.currentThread().interrupt();
+    try {
+      assertThat(
+              ParallelEvaluator.readSuccessfulValues(
+                  inMemoryGraph, ImmutableList.of(key), values, /* maxThreads= */ 2))
+          .isTrue();
+      assertThat(values[0]).isSameInstanceAs(value);
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
   public void multipleRootCauses() throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey parentKey = skyKey("parent");
