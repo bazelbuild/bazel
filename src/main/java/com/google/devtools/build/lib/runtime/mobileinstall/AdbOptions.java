@@ -30,9 +30,8 @@ public abstract class AdbOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
-              + "the Android SDK specified by the --android_sdk_channel command line option (or "
-              + " the default SDK if --android_sdk_channel is not specified) is used.")
+          "adb binary to use for the 'mobile-install' command. If unspecified, the "
+              + "mobile-install launcher of the target chooses the adb binary.")
   public abstract String getAdb();
 
   @Option(
