@@ -144,12 +144,15 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   //
   // As a workaround, we fork from a single thread.
   //
-  // FreeBSD also returns ETXTBSY when executing a file that is open for writing, but macOS and
-  // OpenBSD don't.
+  // Most other Unixes also return ETXTBSY when executing a file that is open for writing, but macOS
+  // doesn't.
   private static final ExecutorService FORK_EXECUTOR =
       switch (OS.getCurrent()) {
-        case DARWIN, OPENBSD -> Executors.newCachedThreadPool(FORK_THREAD_FACTORY);
-        default -> Executors.newSingleThreadExecutor(FORK_THREAD_FACTORY);
+        case LINUX, FREEBSD, OPENBSD, UNKNOWN ->
+            Executors.newSingleThreadExecutor(FORK_THREAD_FACTORY);
+        case DARWIN -> Executors.newCachedThreadPool(FORK_THREAD_FACTORY);
+        // Windows uses WindowsSubprocessFactory instead.
+        case WINDOWS -> null;
       };
 
   public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
