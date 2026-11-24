@@ -402,12 +402,17 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   /**
-   * Create a FileArtifactValue using the {@link Path} and size. FileArtifactValue#create will
-   * handle getting the digest using the Path and size values.
+   * Creates a FileArtifactValue using the {@link Path} and size, obtaining the digest of the file.
+   *
+   * @param proxy the recorded state of the file, if available. Not retained in the returned value.
    */
   public static FileArtifactValue createForNormalFileUsingPath(
-      Path path, long size, XattrProvider xattrProvider) throws IOException {
-    return create(path, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
+      Path path, long size, @Nullable FileContentsProxy proxy, XattrProvider xattrProvider)
+      throws IOException {
+    byte[] digest =
+        DigestUtils.getDigestWithManualFallback(
+            path, xattrProvider, proxy != null ? proxy.toMetadataOnlyFileStatus(size) : null);
+    return createForNormalFile(digest, /* proxy= */ null, size);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
