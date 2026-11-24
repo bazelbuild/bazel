@@ -117,4 +117,15 @@ function test_invalid_flag_error() {
   expect_log "Invalid registry URL: foobarbaz"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/32462
+function test_downloader_config_outside_workspace() {
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
+  outside_dir="$(mktemp -d /tmp/outside_workspace.XXXXXX)"
+  (cd "${outside_dir}" && bazel version --downloader_config=workspace-only.cfg) &> "$TEST_log" \
+    || fail "Expected version to work outside a workspace with --downloader_config"
+  rm -rf "${outside_dir}"
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME} info."

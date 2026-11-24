@@ -82,13 +82,14 @@ public class UrlRewriter {
   /**
    * Obtain a new {@code UrlRewriter} configured with the specified config file.
    *
+   * @param workspaceRoot workspace in which repositories are fetched, or null outside a workspace
    * @param configPath Path to the config file to use. May be null.
    */
   public static UrlRewriter getDownloaderUrlRewriter(
-      Path workspaceRoot, @Nullable PathFragment configPath)
+      @Nullable Path workspaceRoot, @Nullable PathFragment configPath)
       throws UrlRewriterParseException {
     // "empty" UrlRewriter shouldn't alter auth headers
-    if (configPath == null || configPath.isEmpty()) {
+    if (workspaceRoot == null || configPath == null || configPath.isEmpty()) {
       return new UrlRewriter(ImmutableList.of(""), ImmutableList.of(new StringReader("")));
     }
 
