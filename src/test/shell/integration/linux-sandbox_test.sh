@@ -357,6 +357,28 @@ function test_dev_shm_is_writable() {
     &> $TEST_log || fail
 }
 
+function test_hermetic_tmpfs_below_mount_source_is_writable() {
+  local source="${TEST_TMPDIR}/tmpfs_pair_source"
+  local target="${TEST_TMPDIR}/tmpfs_pair_target"
+  local root="${TEST_TMPDIR}/tmpfs_pair_root"
+  mkdir -p "${source}/tmpfs_dir" "${source}/plain_dir" "${root}/work"
+
+  # The tmpfs lives below the source of the mount pair and shows up below the
+  # target. It must stay writable there; the rest of the mount stays read-only.
+  local system_mounts=()
+  for dir in /bin /lib /lib64 /usr; do
+    test -e "$dir" && system_mounts+=(-M "$dir" -m "$dir")
+  done
+  $linux_sandbox -W "${root}/work" -h "${root}" -w "${root}/work" \
+    "${system_mounts[@]}" -M "${source}" -m "${target}" \
+    -e "${source}/tmpfs_dir" -- /bin/bash -c "
+      echo hi > ${target}/tmpfs_dir/probe && echo tmpfs-is-writable
+      echo hi > ${target}/plain_dir/probe 2>/dev/null && echo plain-is-writable
+      true" &> $TEST_log || fail
+  expect_log "tmpfs-is-writable"
+  expect_not_log "plain-is-writable"
+}
+
 function assert_linux_sandbox_exec_time() {
   local user_time_low="$1"; shift
   local user_time_high="$1"; shift

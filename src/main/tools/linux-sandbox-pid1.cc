@@ -381,6 +381,36 @@ static std::string_view GetRelativePath(std::string_view path) {
   return path;
 }
 
+// Returns true if a tmpfs requested via -e is visible at `mnt_dir` through a
+// bind mount, i.e. the tmpfs path lies below the source of a -M/-m pair and
+// `mnt_dir` is the corresponding path below its target. Such a tmpfs is mounted
+// as a submount of the source and is carried along by the recursive bind mount.
+static bool IsTmpfsVisibleViaBindMount(std::string_view mnt_dir) {
+  for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
+    for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
+      std::string_view source = opt.bind_mount_sources[i];
+      std::string_view target = opt.bind_mount_targets[i];
+      if (!source.empty() && source.back() == '/') {
+        source.remove_suffix(1);
+      }
+      if (!target.empty() && target.back() == '/') {
+        target.remove_suffix(1);
+      }
+      if (tmpfs_dir.size() <= source.size() ||
+          tmpfs_dir.compare(0, source.size(), source) != 0 ||
+          tmpfs_dir[source.size()] != '/') {
+        continue;
+      }
+      std::string mapped(target);
+      mapped.append(tmpfs_dir, source.size(), std::string::npos);
+      if (mnt_dir == mapped) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 // We later remount everything read-only, except the paths for which this method
 // returns true.
 static bool ShouldBeWritable(std::string_view mnt_dir) {
@@ -406,6 +436,10 @@ static bool ShouldBeWritable(std::string_view mnt_dir) {
     if (mnt_dir == GetRelativePath(tmpfs_dir)) {
       return true;
     }
+  }
+
+  if (IsTmpfsVisibleViaBindMount(mnt_dir)) {
+    return true;
   }
 
   return false;
