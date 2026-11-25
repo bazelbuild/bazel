@@ -290,6 +290,7 @@ sh_binary(
 )
 EOF
   cat > foo/foo.sh <<EOF
+#!/usr/bin/env bash
 echo "        got: \${BUILD_WORKING_DIRECTORY}"
 echo "want suffix: /foo/subdir_$unicode_string"
 [[ "\${BUILD_WORKING_DIRECTORY}" == *"/foo/subdir_$unicode_string" ]]
@@ -1090,6 +1091,65 @@ function assert_starts_with() {
   if [[ "${2}" != "${1}"* ]]; then
     fail "${2} does not start with ${1}"
   fi
+}
+
+function test_run_without_shell_executable() {
+  if is_windows; then
+    return
+  fi
+
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "$pkg"
+  cat > "$pkg/rules.bzl" <<'EOF'
+def _custom_exec_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(
+        output = out,
+        content = ctx.attr.content,
+        is_executable = True,
+    )
+    return [DefaultInfo(executable = out)]
+
+custom_exec = rule(
+    implementation = _custom_exec_impl,
+    attrs = {"content": attr.string(mandatory = True)},
+    executable = True,
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rules.bzl", "custom_exec")
+
+custom_exec(
+    name = "direct",
+    content = "#!/bin/sh\necho \"direct:$1:$2\"\n",
+)
+
+custom_exec(
+    name = "shebangless",
+    content = "echo \"shebangless:$1:$2\"\n",
+)
+EOF
+
+  bazel run --shell_executable=/non-existent "//$pkg:direct" -- foo 'bar baz' \
+    >&"$TEST_log" || fail "Expected bazel run with --shell_executable=/non-existent to succeed"
+  expect_log "direct:foo:bar baz"
+
+  bazel run --shell_executable= "//$pkg:direct" -- foo 'bar baz' \
+    >&"$TEST_log" || fail "Expected bazel run with empty --shell_executable to succeed"
+  expect_log "direct:foo:bar baz"
+
+  bazel run --shell_executable=/non-existent "//$pkg:shebangless" -- foo 'bar baz' \
+    >&"$TEST_log" || fail "Expected shebang-less bazel run to succeed via ENOEXEC fallback"
+  expect_log "shebangless:foo:bar baz"
+
+  bazel run --shell_executable= --run_under=echo "//$pkg:direct" \
+    >&"$TEST_log" && fail "Expected --run_under with empty --shell_executable to fail"
+  expect_log "needs a shell"
+
+  bazel run --shell_executable= --script_path="$TEST_TMPDIR/run_script.sh" "//$pkg:direct" \
+    >&"$TEST_log" && fail "Expected --script_path with empty --shell_executable to fail"
+  expect_log "needs a shell"
 }
 
 run_suite "'${PRODUCT_NAME} run' integration tests"

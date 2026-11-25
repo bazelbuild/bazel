@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <sys/types.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include <string.h>
@@ -24,9 +25,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/path.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
@@ -207,6 +212,109 @@ TEST_F(UnlimitResourcesTest, Coredumps) {
     Die("UnlimitCoredumps did not increase the soft RLIMIT_CORE to the system "
         "limit\n");
   }
+}
+
+namespace {
+
+void RunExecuteRunRequestAndCapture(const std::string& script_contents,
+                                    const std::vector<std::string>& extra_args,
+                                    bool clear_path,
+                                    int* exit_code,
+                                    std::string* captured_stdout) {
+  const char* test_tmpdir = std::getenv("TEST_TMPDIR");
+  std::string tmpl =
+      std::string(test_tmpdir != nullptr ? test_tmpdir : "/tmp") +
+      "/exec_run_request_XXXXXX";
+  std::vector<char> tmpl_buf(tmpl.begin(), tmpl.end());
+  tmpl_buf.push_back('\0');
+  char* dir = mkdtemp(tmpl_buf.data());
+  ASSERT_NE(dir, nullptr);
+
+  std::string script_path = std::string(dir) + "/script.sh";
+  {
+    std::ofstream out(script_path);
+    ASSERT_TRUE(out.good());
+    out << script_contents;
+  }
+  ASSERT_EQ(chmod(script_path.c_str(), 0755), 0);
+
+  int pipefd[2];
+  ASSERT_EQ(pipe(pipefd), 0);
+
+  pid_t pid = fork();
+  ASSERT_NE(pid, -1);
+  if (pid == 0) {
+    close(pipefd[0]);
+    if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
+      _exit(125);
+    }
+    close(pipefd[1]);
+    if (clear_path) {
+      setenv("PATH", "/non-existent", 1);
+    }
+    std::vector<std::string> args;
+    args.push_back(script_path);
+    args.insert(args.end(), extra_args.begin(), extra_args.end());
+    ExecuteRunRequest(blaze_util::Path(script_path), args);
+  }
+
+  close(pipefd[1]);
+  captured_stdout->clear();
+  char buf[256];
+  ssize_t n;
+  while ((n = read(pipefd[0], buf, sizeof(buf))) > 0) {
+    captured_stdout->append(buf, n);
+  }
+  close(pipefd[0]);
+
+  int status = 0;
+  ASSERT_EQ(waitpid(pid, &status, 0), pid);
+  ASSERT_TRUE(WIFEXITED(status));
+  *exit_code = WEXITSTATUS(status);
+
+  unlink(script_path.c_str());
+  rmdir(dir);
+}
+
+}  // namespace
+
+TEST(ExecuteRunRequestTest, ExecutesShebangScriptDirectly) {
+  int exit_code = -1;
+  std::string output;
+  RunExecuteRunRequestAndCapture(
+      "#!/bin/sh\nprintf 'shebang:%s:%s\n' \"$1\" \"$2\"\n",
+      {"arg1", "arg with spaces"},
+      /* clear_path= */ true,
+      &exit_code,
+      &output);
+  EXPECT_EQ(exit_code, 0);
+  EXPECT_EQ(output, "shebang:arg1:arg with spaces\n");
+}
+
+TEST(ExecuteRunRequestTest, FallsBackOnEnoexecForShebanglessScript) {
+  int exit_code = -1;
+  std::string output;
+  RunExecuteRunRequestAndCapture(
+      "printf 'enoexec:%s:%s\n' \"$1\" \"$2\"\n",
+      {"arg1", "arg with spaces"},
+      /* clear_path= */ false,
+      &exit_code,
+      &output);
+  EXPECT_EQ(exit_code, 0);
+  EXPECT_EQ(output, "enoexec:arg1:arg with spaces\n");
+}
+
+TEST(ExecuteRunRequestTest, FallsBackToBinShOnEnoexecWhenPathHasNoBash) {
+  int exit_code = -1;
+  std::string output;
+  RunExecuteRunRequestAndCapture(
+      "printf 'binsh:%s:%s\n' \"$1\" \"$2\"\n",
+      {"arg1", "arg with spaces"},
+      /* clear_path= */ true,
+      &exit_code,
+      &output);
+  EXPECT_EQ(exit_code, 0);
+  EXPECT_EQ(output, "binsh:arg1:arg with spaces\n");
 }
 
 }  // namespace blaze

@@ -373,8 +373,34 @@ void ExecuteServerJvm(const blaze_util::Path& exe,
 
 void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
-  ExecuteProgram(exe, run_request_args,
-                 /* run_in_user_cgroup= */ false);
+  BAZEL_LOG(INFO) << "Invoking binary " << exe.AsPrintablePath() << " in "
+                  << blaze_util::GetCwd();
+
+  CharPP argv(run_request_args);
+  execv(exe.AsNativePath().c_str(), argv.get());
+  if (errno == ENOEXEC) {
+    // Match POSIX shell / execvp fallback semantics for executable scripts
+    // lacking a #! shebang. Try bash on PATH first, then fall back to /bin/sh
+    // when PATH does not contain bash.
+    std::vector<string> sh_args;
+    sh_args.reserve(run_request_args.size() + 1);
+    sh_args.push_back("bash");
+    sh_args.push_back(exe.AsNativePath());
+    if (run_request_args.size() > 1) {
+      sh_args.insert(sh_args.end(), run_request_args.begin() + 1,
+                     run_request_args.end());
+    }
+    CharPP bash_argv(sh_args);
+    execvp("bash", bash_argv.get());
+
+    sh_args[0] = "/bin/sh";
+    CharPP sh_argv(sh_args);
+    execv("/bin/sh", sh_argv.get());
+  }
+  string err = GetLastErrorString();
+  BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+      << "execv of '" << exe.AsPrintablePath() << "' failed: " << err;
+  std::abort();  // Not reachable.
 }
 
 const char kListSeparator = ':';

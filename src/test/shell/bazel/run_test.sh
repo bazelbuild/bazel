@@ -242,4 +242,73 @@ EOF
   fi
 }
 
+function test_run_without_shell_executable() {
+  if is_windows; then
+    return
+  fi
+
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "$pkg"
+  cat > "$pkg/rules.bzl" <<'EOF'
+def _custom_exec_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(
+        output = out,
+        content = ctx.attr.content,
+        is_executable = True,
+    )
+    return [DefaultInfo(executable = out)]
+
+custom_exec = rule(
+    implementation = _custom_exec_impl,
+    attrs = {"content": attr.string(mandatory = True)},
+    executable = True,
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rules.bzl", "custom_exec")
+
+custom_exec(
+    name = "shebang_bin",
+    content = "#!/bin/sh\necho \"shebang:$1:$2\"\n",
+)
+
+custom_exec(
+    name = "no_shebang_bin",
+    content = "echo \"noshebang:$1:$2\"\n",
+)
+EOF
+
+  bazel run --shell_executable=/non-existent "//$pkg:shebang_bin" -- arg1 'arg with spaces' \
+    >&"$TEST_log" || fail "Expected bazel run with --shell_executable=/non-existent to succeed"
+  expect_log "shebang:arg1:arg with spaces"
+
+  bazel run --shell_executable= "//$pkg:shebang_bin" -- arg1 'arg with spaces' \
+    >&"$TEST_log" || fail "Expected bazel run with empty --shell_executable to succeed"
+  expect_log "shebang:arg1:arg with spaces"
+
+  bazel run -s --shell_executable=/non-existent "//$pkg:shebang_bin" -- arg1 \
+    >&"$TEST_log" || fail "Expected bazel run -s with --shell_executable=/non-existent to succeed"
+  expect_log "shebang:arg1:"
+  expect_not_log "/non-existent"
+
+  bazel run --shell_executable=/non-existent "//$pkg:no_shebang_bin" -- hello 'world 2' \
+    >&"$TEST_log" || fail "Expected shebang-less script to succeed via ENOEXEC fallback"
+  expect_log "noshebang:hello:world 2"
+
+  bazel run --shell_executable=/non-existent --run_env=PATH=/non-existent \
+    "//$pkg:no_shebang_bin" -- hello 'world 2' \
+    >&"$TEST_log" || fail "Expected shebang-less script to fall back to /bin/sh when PATH has no bash"
+  expect_log "noshebang:hello:world 2"
+
+  bazel run --shell_executable= --run_under=echo "//$pkg:shebang_bin" \
+    >&"$TEST_log" && fail "Expected --run_under with empty --shell_executable to fail"
+  expect_log "needs a shell"
+
+  bazel run --shell_executable= --script_path="$TEST_TMPDIR/out.sh" "//$pkg:shebang_bin" \
+    >&"$TEST_log" && fail "Expected --script_path with empty --shell_executable to fail"
+  expect_log "needs a shell"
+}
+
 run_suite "run_under_tests"
