@@ -428,6 +428,10 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
         onFailure(MissingSharedValueBytesException.INSTANCE);
         return;
       }
+      if (bytes.length == 0) {
+        onFailure(new SerializationException("Empty shared value payload"));
+        return;
+      }
       if (ChunkedValueSerialization.isChunked(bytes)) {
         ImmutableList<PackedFingerprint> chunkFps;
         try {
@@ -463,7 +467,12 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
         return;
       }
 
-      deserializeAndComplete(() -> maybeDecompressBytes(bytes));
+      if (bytes[0] == ChunkedValueSerialization.UNCOMPRESSED) {
+        deserializeAndComplete(CodedInputStream.newInstance(bytes, 1, bytes.length - 1));
+        return;
+      }
+
+      decompressAndComplete(new ByteArrayInputStream(bytes, 1, bytes.length - 1));
     }
 
     private void onSuccess(List<byte[]> chunks) {
@@ -473,22 +482,25 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
           return;
         }
       }
-      InputStream seqStream = ChunkedValueSerialization.toSequenceInputStream(chunks);
-      deserializeAndComplete(() -> compressionService.newZstdInputStream(seqStream));
+      decompressAndComplete(ChunkedValueSerialization.toSequenceInputStream(chunks));
     }
 
-    @FunctionalInterface
-    private interface InputStreamSupplier {
-      InputStream get() throws IOException;
+    private void decompressAndComplete(InputStream compressedStream) {
+      try (InputStream inputStream = compressionService.newZstdInputStream(compressedStream)) {
+        deserializeAndComplete(CodedInputStream.newInstance(inputStream));
+      } catch (IOException | RuntimeException | Error e) {
+        // Error is caught here so getOperation and skyframeLookupCollector fail rather than
+        // leaving waiting threads blocked; callers unwrap and rethrow Error.
+        onFailure(e);
+      }
     }
 
-    private void deserializeAndComplete(InputStreamSupplier streamSupplier) {
+    private void deserializeAndComplete(CodedInputStream codedIn) {
       SharedValueDeserializationContext innerContext;
       DeferredValue<?> deferred;
-      try (InputStream inputStream = streamSupplier.get()) {
+      try {
         innerContext = getFreshContext(childFingerprint);
-        deferred =
-            codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
+        deferred = codec.deserializeDeferred(innerContext, codedIn);
       } catch (SerializationException | IOException | RuntimeException | Error e) {
         // Error is caught here so getOperation and skyframeLookupCollector fail rather than
         // leaving waiting threads blocked; callers unwrap and rethrow Error.
@@ -538,15 +550,6 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
       }
       getOperation.setException(t);
     }
-  }
-
-  private InputStream maybeDecompressBytes(byte[] bytes) throws IOException {
-    ByteArrayInputStream byteArrayInputStream =
-        new ByteArrayInputStream(bytes, 1, bytes.length - 1);
-    if (bytes[0] == (byte) 0) {
-      return byteArrayInputStream;
-    }
-    return compressionService.newZstdInputStream(byteArrayInputStream);
   }
 
   @Override

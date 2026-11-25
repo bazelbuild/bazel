@@ -44,6 +44,8 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -708,6 +710,51 @@ public final class SharedValueDeserializationContextTest {
       current = (Object[]) current[1];
     }
     assertThat(current).asList().containsExactly(depth - 1);
+  }
+
+  @Test
+  public void uncompressedSharedValue_doesNotInvokeDecompressor() throws Exception {
+    GetRecordingStore store = new GetRecordingStore();
+    var writeCompressionService = new CompressionServiceImpl();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(store);
+    ObjectCodecs codecs = createObjectCodecs();
+    NotNestedSet subject = new NotNestedSet(new Object[] {new byte[1000]});
+
+    SerializationResult<ByteString> serialized =
+        codecs.serializeMemoizedAndBlocking(
+            writeCompressionService, fingerprintValueService, subject);
+    ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
+    if (writeStatus != null) {
+      writeStatus.get();
+    }
+
+    CompressionService rejectingDecompressor =
+        new CompressionService() {
+          @Override
+          public byte[] compressZstd(byte[] input, int level) {
+            throw new AssertionError("unexpected compression during read");
+          }
+
+          @Override
+          public OutputStream newZstdOutputStream(OutputStream outputStream) {
+            throw new AssertionError("unexpected compression during read");
+          }
+
+          @Override
+          public InputStream newZstdInputStream(InputStream inputStream) {
+            throw new AssertionError("uncompressed shared value should not invoke zstd stream");
+          }
+        };
+
+    ListenableFuture<Object> result =
+        deserializeWithExecutor(
+            codecs,
+            rejectingDecompressor,
+            FingerprintValueService.createForTesting(store),
+            serialized.getObject());
+    store.takeFirstRequest().complete();
+    verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
   }
 
   /**

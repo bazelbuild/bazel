@@ -599,81 +599,80 @@ final class FileDependencyDeserializer {
       }
 
       try {
-        boolean usesZstdCompression = MagicBytes.hasMagicBytes(bytes);
-        InputStream inputStream;
-        if (usesZstdCompression) {
+        if (MagicBytes.hasMagicBytes(bytes)) {
           ByteArrayInputStream byteArrayInputStream =
               new ByteArrayInputStream(bytes, 2, bytes.length - 2);
-          inputStream = compressionService.newZstdInputStream(byteArrayInputStream);
-        } else {
-          inputStream = new ByteArrayInputStream(bytes);
+          try (InputStream zstdStream =
+              compressionService.newZstdInputStream(byteArrayInputStream)) {
+            return parseNestedNode(CodedInputStream.newInstance(zstdStream));
+          }
         }
-        try (inputStream) {
-          CodedInputStream codedIn = CodedInputStream.newInstance(inputStream);
-          int nestedCount = codedIn.readInt32();
-          int fileCount = codedIn.readInt32();
-          int listingCount = codedIn.readInt32();
-          int sourceCount = codedIn.readInt32();
-
-          var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
-          var sources =
-              sourceCount > 0
-                  ? new FileDependencies[sourceCount]
-                  : NestedDependencies.EMPTY_SOURCES;
-          var countdown = new PendingElementCountdown(this.key, elements, sources);
-
-          for (int i = 0; i < nestedCount; i++) {
-            var key = PackedFingerprint.readFrom(codedIn);
-            switch (getNestedDependencies(key, store)) {
-              case NestedDependencies dependencies -> elements[i] = dependencies;
-              case FutureNestedDependencies future -> {
-                countdown.registerPendingElement();
-                executor.addCallback(future, new WaitingForElement(i, countdown));
-              }
-            }
-          }
-
-          int nestedAndFileCount = nestedCount + fileCount;
-          for (int i = nestedCount; i < nestedAndFileCount; i++) {
-            String key = codedIn.readString();
-            switch (getFileDependencies(key, store)) {
-              case FileDependencies dependencies -> elements[i] = dependencies;
-              case FutureFileDependencies future -> {
-                countdown.registerPendingElement();
-                executor.addCallback(future, new WaitingForElement(i, countdown));
-              }
-            }
-          }
-
-          int total = nestedAndFileCount + listingCount;
-          for (int i = nestedAndFileCount; i < total; i++) {
-            String key = codedIn.readString();
-            switch (getListingDependencies(key, store)) {
-              case ListingDependencies dependencies -> elements[i] = dependencies;
-              case FutureListingDependencies future -> {
-                countdown.registerPendingElement();
-                executor.addCallback(future, new WaitingForElement(i, countdown));
-              }
-            }
-          }
-
-          for (int i = 0; i < sourceCount; i++) {
-            String key = codedIn.readString();
-            switch (getFileDependencies(key, store)) {
-              case FileDependencies dependencies -> sources[i] = dependencies;
-              case FutureFileDependencies future -> {
-                countdown.registerPendingElement();
-                executor.addCallback(future, new WaitingForSource(i, countdown));
-              }
-            }
-          }
-          countdown.finishRegistration();
-          return countdown;
-        }
+        return parseNestedNode(CodedInputStream.newInstance(bytes));
       } catch (IOException e) {
         return immediateFailedFuture(
             new SerializationException("Error deserializing nested node", e));
       }
+    }
+
+    private ListenableFuture<NestedDependencies> parseNestedNode(CodedInputStream codedIn)
+        throws IOException {
+      int nestedCount = codedIn.readInt32();
+      int fileCount = codedIn.readInt32();
+      int listingCount = codedIn.readInt32();
+      int sourceCount = codedIn.readInt32();
+
+      var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
+      var sources =
+          sourceCount > 0 ? new FileDependencies[sourceCount] : NestedDependencies.EMPTY_SOURCES;
+      var countdown = new PendingElementCountdown(this.key, elements, sources);
+
+      for (int i = 0; i < nestedCount; i++) {
+        var key = PackedFingerprint.readFrom(codedIn);
+        switch (getNestedDependencies(key, store)) {
+          case NestedDependencies dependencies -> elements[i] = dependencies;
+          case FutureNestedDependencies future -> {
+            countdown.registerPendingElement();
+            executor.addCallback(future, new WaitingForElement(i, countdown));
+          }
+        }
+      }
+
+      int nestedAndFileCount = nestedCount + fileCount;
+      for (int i = nestedCount; i < nestedAndFileCount; i++) {
+        String key = codedIn.readString();
+        switch (getFileDependencies(key, store)) {
+          case FileDependencies dependencies -> elements[i] = dependencies;
+          case FutureFileDependencies future -> {
+            countdown.registerPendingElement();
+            executor.addCallback(future, new WaitingForElement(i, countdown));
+          }
+        }
+      }
+
+      int total = nestedAndFileCount + listingCount;
+      for (int i = nestedAndFileCount; i < total; i++) {
+        String key = codedIn.readString();
+        switch (getListingDependencies(key, store)) {
+          case ListingDependencies dependencies -> elements[i] = dependencies;
+          case FutureListingDependencies future -> {
+            countdown.registerPendingElement();
+            executor.addCallback(future, new WaitingForElement(i, countdown));
+          }
+        }
+      }
+
+      for (int i = 0; i < sourceCount; i++) {
+        String key = codedIn.readString();
+        switch (getFileDependencies(key, store)) {
+          case FileDependencies dependencies -> sources[i] = dependencies;
+          case FutureFileDependencies future -> {
+            countdown.registerPendingElement();
+            executor.addCallback(future, new WaitingForSource(i, countdown));
+          }
+        }
+      }
+      countdown.finishRegistration();
+      return countdown;
     }
   }
 
