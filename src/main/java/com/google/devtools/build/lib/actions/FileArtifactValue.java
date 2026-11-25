@@ -1439,7 +1439,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   /** {@link FileArtifactValue} subclass for artifacts with constant metadata. A singleton. */
   public static final class ConstantMetadataValue extends FileArtifactValue
       implements FileArtifactValue.Singleton {
-    static final ConstantMetadataValue INSTANCE = new ConstantMetadataValue();
+    public static final ConstantMetadataValue INSTANCE = new ConstantMetadataValue();
     // This needs to not be of length 0, so it is distinguishable from a missing digest when written
     // into a Fingerprint.
     private static final byte[] DIGEST = new byte[1];

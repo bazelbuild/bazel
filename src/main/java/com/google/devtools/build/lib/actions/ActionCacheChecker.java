@@ -417,7 +417,7 @@ public class ActionCacheChecker {
 
         FileArtifactValue filesystemMetadata;
         try {
-          filesystemMetadata = getOutputMetadataOrConstant(outputMetadataStore, artifact);
+          filesystemMetadata = outputMetadataStore.getOutputMetadata(artifact);
         } catch (FileNotFoundException ignored) {
           filesystemMetadata = null;
         } catch (IOException e) {
@@ -624,15 +624,6 @@ public class ActionCacheChecker {
         : metadata;
   }
 
-  private static FileArtifactValue getOutputMetadataOrConstant(
-      OutputMetadataStore outputMetadataStore, Artifact artifact)
-      throws IOException, InterruptedException {
-    FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(artifact);
-    return (metadata != null && artifact.isConstantMetadata())
-        ? FileArtifactValue.ConstantMetadataValue.INSTANCE
-        : metadata;
-  }
-
   // TODO(ulfjack): It's unclear to me why we're ignoring all IOExceptions. In some cases, we want
   // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
@@ -654,7 +645,7 @@ public class ActionCacheChecker {
       OutputMetadataStore outputMetadataStore, Artifact artifact) throws InterruptedException {
     checkArgument(!artifact.isTreeArtifact());
     try {
-      return getOutputMetadataOrConstant(outputMetadataStore, artifact);
+      return outputMetadataStore.getOutputMetadata(artifact);
     } catch (IOException e) {
       return null;
     }
@@ -719,11 +710,12 @@ public class ActionCacheChecker {
           TreeArtifactValue metadata = outputMetadataStore.getTreeArtifactValue(parent);
           builder.addOutputTree(parent, metadata, cacheConfig.storeOutputMetadata());
         } else {
-          // Output files *must* exist and be accessible after successful action execution. We use
-          // the 'constant' metadata for the volatile workspace status output. The volatile output
-          // contains information such as timestamps, and even when --stamp is enabled, we don't
-          // want to rebuild everything if only that file changes.
-          FileArtifactValue metadata = getOutputMetadataOrConstant(outputMetadataStore, output);
+          // Output files *must* exist and be accessible after successful action execution. Pass
+          // the real metadata so remote or proxy metadata is saved even for constant-metadata
+          // outputs (needed for --check_up_to_date on unconditional volatile actions as well as
+          // cached reloads). Entry.Builder still hashes them with the constant sentinel so
+          // volatile content changes do not trigger rebuilds.
+          FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
           checkState(metadata != null);
           builder.addOutputFile(output, metadata, cacheConfig.storeOutputMetadata());
         }
