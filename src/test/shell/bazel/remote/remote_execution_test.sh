@@ -2249,6 +2249,100 @@ function test_exclusive_if_local_test_no_remote_exec_runs_locally() {
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
+function test_raw_stdout_does_not_conflict_with_nested_test_name() {
+  mkdir -p a
+  cat > a/flat_test.bzl <<'EOF'
+def _flat_test_impl(ctx):
+    script = ctx.actions.declare_file(ctx.attr.script)
+    ctx.actions.write(script, "#!/usr/bin/env bash\necho " + ctx.attr.script + "\n", is_executable = True)
+    return [DefaultInfo(executable = script)]
+
+flat_test = rule(
+    implementation = _flat_test_impl,
+    attrs = {"script": attr.string(mandatory = True)},
+    test = True,
+)
+EOF
+  cat > a/BUILD <<'EOF'
+load(":flat_test.bzl", "flat_test")
+
+flat_test(name = "x", script = "outer.sh")
+flat_test(name = "x/test.out", script = "nested.sh")
+EOF
+
+  bazel test --remote_executor=grpc://localhost:${worker_port} \
+      //a:x/test.out >& "$TEST_log" || fail "Failed to test nested target"
+  assert_contains nested.sh bazel-testlogs/a/x/test.out/test.log
+
+  bazel test --remote_executor=grpc://localhost:${worker_port} \
+      //a:x >& "$TEST_log" || fail "Raw stdout must not conflict with the nested test directory"
+  assert_contains outer.sh bazel-testlogs/a/x/test.log
+  assert_contains nested.sh bazel-testlogs/a/x/test.out/test.log
+}
+
+function test_split_coverage_logs_with_minimal_downloads() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_binary(
+    name = "lcov_merger",
+    srcs = ["lcov_merger.sh"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  cat > a/test.sh <<'EOF'
+#!/usr/bin/env bash
+echo RAW_LOG_TEST_STDOUT
+echo RAW_LOG_TEST_STDERR >&2
+# Give the split coverage action an input without requiring a language toolchain.
+echo coverage > "${COVERAGE_DIR}/test.dat"
+EOF
+  cat > a/lcov_merger.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo RAW_LOG_COVERAGE_STDOUT
+echo RAW_LOG_COVERAGE_STDERR >&2
+for arg in "$@"; do
+  if [[ "$arg" == --output_file=* ]]; then
+    printf 'SF:a/test.sh\nDA:2,1\nend_of_record\n' > "${arg#--output_file=}"
+  fi
+done
+EOF
+  chmod +x a/test.sh a/lcov_merger.sh
+
+  bazel coverage \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --remote_download_regex='.*test[.]xml' \
+      --experimental_split_coverage_postprocessing \
+      --experimental_fetch_all_coverage_outputs \
+      --coverage_output_generator=//a:lcov_merger \
+      //a:test >& $TEST_log \
+      || fail "Failed to run split coverage with remote execution"
+
+  # The test wrapper combines test stderr into stdout. Coverage postprocessing
+  # keeps its streams separate and appends stderr before stdout, independent of
+  # the order in which the merger wrote them. Both XML and the final log must
+  # retain all streams when their raw files originate on the remote worker.
+  local expected='RAW_LOG_TEST_STDOUT
+RAW_LOG_TEST_STDERR
+RAW_LOG_COVERAGE_STDERR
+RAW_LOG_COVERAGE_STDOUT'
+  local output
+  for output in bazel-testlogs/a/test/test.xml bazel-testlogs/a/test/test.log; do
+    [[ -f "$output" ]] || fail "Missing test output: $output"
+    assert_equals "$expected" "$(grep -o 'RAW_LOG_[A-Z_]*' "$output")"
+  done
+}
+
 function test_java_rbe_coverage_produces_report() {
   add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
