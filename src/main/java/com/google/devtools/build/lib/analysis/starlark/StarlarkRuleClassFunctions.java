@@ -2082,7 +2082,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   static final AllowlistChecker FUNCTION_TRANSITION_ALLOWLIST_CHECKER =
       AllowlistChecker.builder()
           .setAllowlistAttr(FunctionSplitTransitionAllowlist.NAME)
-          .setErrorMessage("Non-allowlisted use of Starlark transition")
+          .setErrorMessage(FunctionSplitTransitionAllowlist.ERROR_MESSAGE)
           .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
           .build();
 
