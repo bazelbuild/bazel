@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -324,18 +325,25 @@ final class RegularRunnableExtension implements RunnableExtension {
             .getRelative(LabelConstants.MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION)
             .getRelative(usagesValue.getExtensionUniqueName());
     ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
+    @Nullable StarlarkBazelModule definingModule = null;
+    RepositoryName definingRepo = extensionId.bzlFileLabel().getRepository();
     ImmutableList<AbridgedModule> abridgedModules = usagesValue.getAbridgedModules();
     for (int i = 0; i < abridgedModules.size(); i++) {
       var abridgedModule = abridgedModules.get(i);
       var moduleKey = abridgedModule.getKey();
-      modules.add(
+      RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
+      StarlarkBazelModule module =
           StarlarkBazelModule.create(
               abridgedModule,
               extension,
-              usagesValue.getRepoMappings().get(moduleKey),
+              repoMapping,
               usagesValue.getExtensionUsages().get(moduleKey),
               staticRepoMappingRecorder,
-              i));
+              i);
+      modules.add(module);
+      if (repoMapping.contextRepo().equals(definingRepo)) {
+        definingModule = module;
+      }
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
@@ -353,6 +361,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         repositoryRemoteExecutor,
         extensionId,
         StarlarkList.immutableCopyOf(modules),
+        definingModule,
         facts,
         rootModuleHasNonDevDependency,
         staticEnvVars,
