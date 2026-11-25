@@ -154,6 +154,18 @@ class WorkerSkyFunctionEnvironment
     return delegate.inErrorBubbling();
   }
 
+  void yieldForFuture(ListenableFuture<?> future) throws InterruptedException {
+    // Error bubbling invokes the SkyFunction without registering external prerequisites.
+    if (delegate.inErrorBubbling() || delegate.valuesMissing()) {
+      return;
+    }
+    delegate.dependOnFuture(future);
+    if (delegate.valuesMissing()) {
+      delegate = null;
+      delegate = newDelegateSupplier.get();
+    }
+  }
+
   @Override
   public void dependOnFuture(ListenableFuture<?> future) {
     delegate.dependOnFuture(future);

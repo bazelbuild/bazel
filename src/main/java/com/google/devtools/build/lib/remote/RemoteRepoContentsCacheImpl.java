@@ -21,6 +21,7 @@ import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
 import java.io.IOException;
@@ -73,6 +75,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 
 /**
@@ -131,8 +134,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final ByteString COMMAND_BYTES = COMMAND.toByteString();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
+  private static final int MAX_YIELDED_ACTION_RESULT_READS = 32;
+
   private final BlazeDirectories directories;
   private final CombinedCache cache;
+  // Bound the number of unfinished ActionCache reads that can yield per command.
+  private final Semaphore pendingActionReads = new Semaphore(MAX_YIELDED_ACTION_RESULT_READS);
   private final String buildRequestId;
   private final String commandId;
   private final boolean acceptCached;
@@ -544,6 +551,28 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     return null;
   }
 
+  @Nullable
+  private CombinedCache.CachedActionResult readActionResult(
+      SkyFunction.Environment env,
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      RepositoryName repoName)
+      throws IOException, InterruptedException {
+    var future =
+        cache.downloadActionResultAsync(
+            context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+    if (!future.isDone() && pendingActionReads.tryAcquire()) {
+      future.addListener(pendingActionReads::release, directExecutor());
+      try (var span = profile(repoName, "Yield pending action result")) {
+        WorkerSkyKeyComputeState.yieldForFuture(env, future);
+      } catch (InterruptedException e) {
+        future.cancel(true);
+        throw e;
+      }
+    }
+    return getFromFuture(future);
+  }
+
   // Returns null if and only if values are missing.
   @Nullable
   private CacheEntry fetchCacheEntry(
@@ -558,9 +587,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     // also be inlined.
     CombinedCache.CachedActionResult cachedActionResult;
     try (var span = profile(repoName, "Read cache action result")) {
-      cachedActionResult =
-          cache.downloadActionResult(
-              context, actionKey, /* inlineOutErr= */ true, ImmutableSet.of(MARKER_FILE_PATH));
+      cachedActionResult = readActionResult(env, context, actionKey, repoName);
     }
     if (cachedActionResult == null) {
       return new CacheEntry.Intermediate(ImmutableList.of());

@@ -19,6 +19,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
@@ -258,6 +259,41 @@ public class ParallelEvaluatorTest {
         eval(/* keepGoing= */ false, ImmutableList.of(parentKey));
     assertThat(result.hasError()).isFalse();
     assertThat(result.get(parentKey)).isEqualTo(new StringValue("good"));
+  }
+
+  @Test
+  public void workerResumesAfterExternalFutureCompletes() throws Exception {
+    SkyKey key = skyKey("worker");
+    SettableFuture<StringValue> future = SettableFuture.create();
+    tester
+        .getOrCreate(key)
+        .setBuilder(
+            (unused, env) -> {
+              var state = env.getState(WorkerSkyKeyComputeState<StringValue>::new);
+              try {
+                return state.startOrContinueWork(
+                    env,
+                    "worker",
+                    workerEnv -> {
+                      assertThat(future.isDone()).isFalse();
+                      WorkerSkyKeyComputeState.yieldForFuture(workerEnv, future);
+                      assertThat(workerEnv.valuesMissing()).isFalse();
+                      return getDone(future);
+                    });
+              } catch (ExecutionException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+    graph =
+        NotifyingHelper.makeNotifyingTransformer(
+                (observedKey, type, order, context) -> {
+                  if (key.equals(observedKey) && type == EventType.ADD_EXTERNAL_DEP) {
+                    future.set(new StringValue("ready"));
+                  }
+                })
+            .transform(new InMemoryGraphImpl());
+
+    assertThat(eval(/* keepGoing= */ false, key)).isEqualTo(new StringValue("ready"));
   }
 
   @Test
