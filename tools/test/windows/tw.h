@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "tools/test/test_wrapper_common.h"
+
 namespace bazel {
 
 namespace windows {
@@ -64,40 +66,6 @@ class FileInfo {
 
   // Whether this is a directory (true) or a regular file (false).
   bool is_dir_;
-};
-
-// Zip entry paths for devtools_ijar::ZipBuilder.
-// The function signatures mirror the signatures of ZipBuilder's functions.
-class ZipEntryPaths {
- public:
-  // Initialize the strings in this object.
-  // `root` must be an absolute mixed-style path (Windows path with "/"
-  // separators).
-  // `files` must be relative, Unix-style paths.
-  void Create(const std::string& root, const std::vector<std::string>& files);
-
-  // Returns the number of paths in `AbsPathPtrs` and `EntryPathPtrs`.
-  size_t Size() const { return size_; }
-
-  // Returns a mutable array of const pointers to const char data.
-  // Each pointer points to an absolute path: the file to archive.
-  // The pointers are owned by this object and become invalid when the object is
-  // destroyed.
-  // Each entry corresponds to the entry at the same index in `EntryPathPtrs`.
-  char const* const* AbsPathPtrs() const { return abs_path_ptrs_.get(); }
-
-  // Returns a mutable array of const pointers to const char data.
-  // Each pointer points to a relative path: an entry in the zip file.
-  // The pointers are owned by this object and become invalid when the object is
-  // destroyed.
-  // Each entry corresponds to the entry at the same index in `AbsPathPtrs`.
-  char const* const* EntryPathPtrs() const { return entry_path_ptrs_.get(); }
-
- private:
-  size_t size_;
-  std::unique_ptr<char[]> abs_paths_;
-  std::unique_ptr<char*[]> abs_path_ptrs_;
-  std::unique_ptr<char*[]> entry_path_ptrs_;
 };
 
 // Streams data from an input to two outputs.

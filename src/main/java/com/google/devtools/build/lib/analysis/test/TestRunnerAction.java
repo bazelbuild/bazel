@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1114,6 +1115,12 @@ public class TestRunnerAction extends AbstractAction
 
   public Artifact getTestXmlGeneratorScript() {
     return testXmlGeneratorScript;
+  }
+
+  /** The native POSIX wrapper doubles as the XML generator in a separate spawn. */
+  public boolean usesNativePosixXmlGenerator() {
+    return executionSettings.getExecutionOs() != OS.WINDOWS
+        && testSetupScript.equals(testXmlGeneratorScript);
   }
 
   @Nullable

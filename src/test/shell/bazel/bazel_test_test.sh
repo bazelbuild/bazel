@@ -1107,6 +1107,61 @@ EOF
   assert_equals "$(cat "$outputs_manifest")" "$(cat expected_manifest)"
 }
 
+function test_native_posix_test_wrapper_processes_undeclared_outputs() {
+  setup_undeclared_outputs_test
+
+  bazel test \
+      --incompatible_use_native_posix_test_wrapper \
+      --zip_undeclared_test_outputs \
+      //dir:test > "$TEST_log" 2>&1 \
+      || fail "native POSIX test wrapper failed"
+
+  local -r outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
+  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  assert_exists "$outputs_zip"
+  assert_exists "$outputs_manifest"
+  assert_contains $'deeply/nested/index.html\t16\ttext/html' "$outputs_manifest"
+  assert_contains $'text.txt\t10\ttext/plain' "$outputs_manifest"
+
+  bazel aquery \
+      --incompatible_use_native_posix_test_wrapper \
+      --output=text \
+      'mnemonic(TestRunner, //dir:test)' > "$TEST_log" 2>&1 \
+      || fail "failed to inspect native POSIX test wrapper"
+  expect_log 'Command Line: .*posix_tw'
+  expect_not_log 'test-setup\.sh'
+}
+
+function test_native_posix_test_wrapper_generates_fallback_xml() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p xml
+  cat > xml/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = "test", srcs = ["test.sh"], shard_count = 2)
+EOF
+  cat > xml/test.sh <<'EOF'
+#!/bin/sh
+touch "$TEST_SHARD_STATUS_FILE"
+printf 'log before ]]> log after\001\n'
+exit 42
+EOF
+  chmod +x xml/test.sh
+
+  if bazel test --incompatible_use_native_posix_test_wrapper -s \
+      --nocache_test_results //xml:test > "$TEST_log" 2>&1; then
+    fail "expected the test to fail"
+  fi
+  expect_log '.*--generate-xml '
+  expect_not_log 'generate-xml\.sh'
+  local xml_file=bazel-testlogs/xml/test/shard_1_of_2/test.xml
+  assert_exists "$xml_file"
+  assert_contains '_shard_1/2" tests="1" failures="0" errors="1"' "$xml_file"
+  assert_contains 'exited with error code 42' "$xml_file"
+  assert_contains '<!\[CDATA\[exec ${PAGER:-/usr/bin/less}' "$xml_file"
+  assert_contains 'Executing tests from //xml:test' "$xml_file"
+  assert_contains 'log before ]]>]]<!\[CDATA\[> log after?' "$xml_file"
+}
+
 function test_undeclared_outputs_are_zipped_multiple_attempts() {
   setup_undeclared_outputs_test
 
@@ -1442,6 +1497,44 @@ EOF
   bazel build --test_env=FOO=bar "${pkg}:my_rule" >$TEST_log 2>&1 \
    || fail "expected build to pass"
   expect_not_log "my_rule is being analyzed"
+}
+
+function test_failing_test_runs_without_execution_os_constraint() {
+  mkdir -p osless
+  cat > osless/defs.bzl <<'EOF'
+def _failing_test_impl(ctx):
+    executable = ctx.actions.declare_file(ctx.label.name + ".sh")
+    ctx.actions.write(
+        output = executable,
+        content = "#!/bin/sh\necho OSLESS_TEST_EXECUTED\nexit 42\n",
+        is_executable = True,
+    )
+    return [DefaultInfo(executable = executable)]
+
+failing_test = rule(implementation = _failing_test_impl, test = True)
+EOF
+  cat > osless/BUILD <<'EOF'
+load(":defs.bzl", "failing_test")
+
+constraint_setting(name = "test_runner")
+constraint_value(name = "osless_runner", constraint_setting = ":test_runner")
+platform(name = "execution_platform", constraint_values = [":osless_runner"])
+failing_test(
+    name = "failing_test",
+    exec_compatible_with = [":osless_runner"],
+    exec_group_compatible_with = {"test": [":osless_runner"]},
+)
+EOF
+
+  if bazel test \
+      --incompatible_use_native_posix_test_wrapper \
+      --platforms=//osless:execution_platform \
+      --extra_execution_platforms=//osless:execution_platform \
+      --test_output=all \
+      //osless:failing_test > "$TEST_log" 2>&1; then
+    fail "failing test passed without executing on its OS-less platform"
+  fi
+  expect_log "OSLESS_TEST_EXECUTED"
 }
 
 run_suite "bazel test tests"

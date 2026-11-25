@@ -460,16 +460,21 @@ public class StandaloneTestStrategy extends TestStrategy {
    */
   private static Spawn createXmlGeneratingSpawn(
       TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
-    ImmutableList<String> args =
-        ImmutableList.of(
-            action
-                .getTestXmlGeneratorScript()
-                .getExecPath()
-                .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
-            action.getTestLog().getExecPathString(),
-            action.getTestXml().getExecPathString(),
-            Integer.toString(result.getWallTimeInMs() / 1000),
-            Integer.toString(result.exitCode()));
+    ImmutableList.Builder<String> args =
+        ImmutableList.<String>builder()
+            .add(
+                action
+                    .getTestXmlGeneratorScript()
+                    .getExecPath()
+                    .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()));
+    if (action.usesNativePosixXmlGenerator()) {
+      args.add("--generate-xml");
+    }
+    args.add(
+        action.getTestLog().getExecPathString(),
+        action.getTestXml().getExecPathString(),
+        Integer.toString(result.getWallTimeInMs() / 1000),
+        Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
@@ -483,7 +488,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     return new SimpleSpawn(
         action,
-        args,
+        args.build(),
         envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on
         // the test target. In particular, this does not set the test timeout on the spawn.
