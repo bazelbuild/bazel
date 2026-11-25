@@ -778,7 +778,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder = new RuleClass.Builder("", type, true, baseParent);
     }
 
-    builder.initializer(initializer, labelConverter);
+    if (initializer != null) {
+      builder.initializer(
+          initializer,
+          new LabelConverter(BazelModuleContext.ofInnermostBzlOrThrow(thread).packageContext()));
+    }
 
     builder.setDefaultExtendableAllowlist(
         ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
