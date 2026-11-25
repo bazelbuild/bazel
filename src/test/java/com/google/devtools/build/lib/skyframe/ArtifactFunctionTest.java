@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -51,7 +49,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -70,7 +67,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -547,19 +543,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     @Override
     public String getMnemonic() {
       return "TestActionTemplate";
-    }
-
-    @Override
-    public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
-      Fingerprint fp = new Fingerprint();
-      for (TreeArtifact inputTreeArtifact : inputTreeArtifacts) {
-        fp.addPath(inputTreeArtifact.getPath());
-      }
-      for (TreeArtifact outputTreeArtifact : outputTreeArtifacts) {
-        fp.addPath(outputTreeArtifact.getPath());
-      }
-      return fp.hexDigestAndReset();
     }
 
     @Override

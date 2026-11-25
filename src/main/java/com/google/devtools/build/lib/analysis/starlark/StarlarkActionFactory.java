@@ -1258,8 +1258,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 StarlarkMapActionTemplate.ADDITIONAL_PARAMS_KEY),
             spawnActionBuilder,
             executionInfo,
-            PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
-            actionEnv,
             getMainRepoMappingSupplier(),
             mnemonic,
             implementation,

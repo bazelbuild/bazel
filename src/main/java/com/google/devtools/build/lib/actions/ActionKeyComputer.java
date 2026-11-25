@@ -19,10 +19,10 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /**
- * Partial implementation of {@link ActionAnalysisMetadata} to ensure consistent {@linkplain
- * ActionAnalysisMetadata#getKey action key} computation.
+ * Partial implementation of {@link ActionExecutionMetadata} to ensure consistent {@linkplain
+ * ActionExecutionMetadata#getKey action key} computation.
  */
-public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
+public abstract class ActionKeyComputer implements ActionExecutionMetadata {
 
   /**
    * Integer embedded in every action key.
@@ -57,7 +57,7 @@ public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
   }
 
   /**
-   * See the javadoc for {@link Action} and {@link ActionAnalysisMetadata#getKey} for the contract
+   * See the javadoc for {@link Action} and {@link ActionExecutionMetadata#getKey} for the contract
    * of this method.
    */
   protected abstract void computeKey(

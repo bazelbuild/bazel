@@ -20,18 +20,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyComputer;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -39,15 +33,13 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
-public final class CppCompileActionTemplate extends ActionKeyComputer
-    implements ActionTemplate<CppCompileAction> {
+public final class CppCompileActionTemplate implements ActionTemplate<CppCompileAction> {
   private final CppCompileActionBuilder cppCompileActionBuilder;
   private final TreeArtifact sourceTreeArtifact;
   private final TreeArtifact outputTreeArtifact;
@@ -195,43 +187,6 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
     }
 
     return expandedActions.build();
-  }
-
-  @Override
-  protected void computeKey(
-      ActionKeyContext actionKeyContext,
-      @Nullable InputMetadataProvider inputMetadataProvider,
-      Fingerprint fp)
-      throws CommandLineExpansionException, InterruptedException {
-    CompileCommandLine commandLine =
-        CppCompileAction.buildCommandLine(
-            CppActionNames.CPP_COMPILE,
-            cppCompileActionBuilder.getFeatureConfiguration(),
-            cppCompileActionBuilder.getVariables());
-    try {
-      CppCompileAction.computeKey(
-          actionKeyContext,
-          fp,
-          cppCompileActionBuilder.getActionEnvironment(),
-          commandLine.getEnvironment(PathMapper.NOOP),
-          cppCompileActionBuilder.getExecutionInfo(),
-          CppCompileAction.computeCommandLineKey(
-              commandLine.getCompilerOptions(/* overwrittenVariables= */ null, PathMapper.NOOP)),
-          CppCompileAction.getParameterFileType(cppCompileActionBuilder.getFeatureConfiguration()),
-          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-          mandatoryInputs,
-          mandatoryInputs,
-          cppCompileActionBuilder.getPrunableHeaders(),
-          cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-          cppCompileActionBuilder.getInputsForInvalidation(),
-          getMnemonic(),
-          // This method is not called during actual execution (action templates are always expanded
-          // into individual actions that then have their action key computed), so path mapping is
-          // supported and fingerprinted correctly even with this set to OFF.
-          OutputPathsMode.OFF);
-    } catch (EvalException e) {
-      throw new CommandLineExpansionException(e.getMessage());
-    }
   }
 
   private boolean shouldCompileHeaders() {

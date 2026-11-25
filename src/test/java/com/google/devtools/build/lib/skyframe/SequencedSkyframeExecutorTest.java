@@ -1397,17 +1397,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
-      Fingerprint fp = new Fingerprint();
-      for (TreeArtifact inputArtifact : inputArtifacts) {
-        fp.addPath(inputArtifact.getPath());
-      }
-      fp.addPath(outputArtifact.getPath());
-      return fp.hexDigestAndReset();
-    }
-
-    @Override
     public ImmutableList<TreeArtifact> getInputTreeArtifacts() {
       return inputArtifacts;
     }

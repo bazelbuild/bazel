@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -57,7 +56,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
@@ -80,7 +78,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -566,17 +563,6 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public String getMnemonic() {
       return "TestActionTemplate";
-    }
-
-    @Override
-    public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
-      Fingerprint fp = new Fingerprint();
-      for (TreeArtifact inputTreeArtifact : inputTreeArtifacts) {
-        fp.addPath(inputTreeArtifact.getPath());
-      }
-      fp.addPath(outputTreeArtifact.getPath());
-      return fp.hexDigestAndReset();
     }
 
     @Override

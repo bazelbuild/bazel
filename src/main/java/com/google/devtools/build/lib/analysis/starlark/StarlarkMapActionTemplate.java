@@ -22,24 +22,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionConflictException;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyComputer;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -52,9 +44,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.ExpandedDirectoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map.Entry;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -68,8 +58,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 
 /** An {@link ActionTemplate} generated from Starlark's `ctx.actions.map_directory()` API. */
-public final class StarlarkMapActionTemplate extends ActionKeyComputer
-    implements ActionTemplate<AbstractAction> {
+public final class StarlarkMapActionTemplate implements ActionTemplate<AbstractAction> {
 
   private static final String INTERNAL_MAP_ACTION_TEMPLATE_MNEMONIC = "StarlarkMapActionTemplate";
 
@@ -98,8 +87,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   // Comprises of the inputs that get passed along to each SpawnAction.
   private final SpawnAction.Builder spawnActionBuilder;
   private final ImmutableMap<String, String> executionRequirements;
-  private final OutputPathsMode outputPathsMode;
-  private final ActionEnvironment env;
   private final RepositoryMapping repoMapping;
   private final String expandedActionsMnemonic;
   private final StarlarkFunction implementation;
@@ -116,8 +103,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       Dict<String, Object> additionalParams,
       SpawnAction.Builder spawnActionBuilder,
       ImmutableMap<String, String> executionRequirements,
-      OutputPathsMode outputPathsMode,
-      ActionEnvironment env,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
       String expandedActionsMnemonic,
       StarlarkFunction implementation,
@@ -143,8 +128,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     this.additionalParams = Dict.<String, Object>immutableCopyOf(additionalParams);
     this.spawnActionBuilder = spawnActionBuilder;
     this.executionRequirements = executionRequirements;
-    this.outputPathsMode = outputPathsMode;
-    this.env = env;
     this.repoMapping = repoMappingSupplier.get();
     this.expandedActionsMnemonic = expandedActionsMnemonic;
     this.implementation = implementation;
@@ -319,34 +302,6 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
                         FailureDetails.Execution.Code
                             .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE))
             .build());
-  }
-
-  @Override
-  protected void computeKey(
-      ActionKeyContext actionKeyContext,
-      @Nullable InputMetadataProvider inputMetadataProvider,
-      Fingerprint fp)
-      throws CommandLineExpansionException, InterruptedException {
-    // Already contains input_directories, additional_inputs and tools.
-    actionKeyContext.addNestedSetToFingerprint(fp, allInputs);
-    for (Entry<String, TreeArtifact> entry : outputDirectories.entrySet()) {
-      fp.addString(entry.getKey());
-      fp.addPath(entry.getValue().getExecPath());
-    }
-    fp.addStringMap(executionRequirements);
-    fp.addString(getMnemonic());
-    fp.addString(expandedActionsMnemonic);
-    PathMappers.addToFingerprint(
-        getMnemonic(),
-        getExecutionInfo(),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        actionKeyContext,
-        outputPathsMode,
-        fp);
-    env.addTo(fp);
-    fp.addString(implementation.getName());
-    fp.addBytes(BazelModuleContext.of(implementation.getModule()).bzlTransitiveDigest());
-    fp.addBoolean(isSubdirectoryAllowed);
   }
 
   @Override

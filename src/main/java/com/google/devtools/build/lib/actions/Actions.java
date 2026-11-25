@@ -87,10 +87,11 @@ public final class Actions {
       throws InterruptedException {
     if (!(a.getMnemonic().equals(b.getMnemonic())
         // Non-Actions cannot be shared.
-        && a instanceof Action
-        && b instanceof Action
-        && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
-            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null)))) {
+        && a instanceof Action actionA
+        && b instanceof Action actionB
+        && actionA
+            .getKey(actionKeyContext, /* inputMetadataProvider= */ null)
+            .equals(actionB.getKey(actionKeyContext, /* inputMetadataProvider= */ null)))) {
       return false;
     }
     // Uses a standard comparison technique for shareable actions.

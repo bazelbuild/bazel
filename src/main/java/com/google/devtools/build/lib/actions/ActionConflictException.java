@@ -289,20 +289,20 @@ public sealed class ActionConflictException extends AbstractSaneAnalysisExceptio
     addStringDetail(sb, "Mnemonic", a.getMnemonic(), b.getMnemonic());
     addStringDetail(
         sb, "IsShareable", String.valueOf(a.isShareable()), String.valueOf(b.isShareable()));
-    try {
-      addStringDetail(
-          sb,
-          "Action key",
-          a.getKey(actionKeyContext, /* inputMetadataProvider= */ null),
-          b.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
-    } catch (InterruptedException e) {
-      // Only for debugging - skip the key and carry on.
-      addStringDetail(sb, "Action key", "<elided due to interrupt>", "<elided due to interrupt>");
-      Thread.currentThread().interrupt();
-    }
-
+    // Action templates don't have keys since they are never executed.
     if ((a instanceof ActionExecutionMetadata metadataA)
         && (b instanceof ActionExecutionMetadata metadataB)) {
+      try {
+        addStringDetail(
+            sb,
+            "Action key",
+            metadataA.getKey(actionKeyContext, /* inputMetadataProvider= */ null),
+            metadataB.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
+      } catch (InterruptedException e) {
+        // Only for debugging - skip the key and carry on.
+        addStringDetail(sb, "Action key", "<elided due to interrupt>", "<elided due to interrupt>");
+        Thread.currentThread().interrupt();
+      }
       addStringDetail(
           sb, "Progress message", metadataA.getProgressMessage(), metadataB.getProgressMessage());
       describeKeyDiff(sb, metadataA, metadataB);
