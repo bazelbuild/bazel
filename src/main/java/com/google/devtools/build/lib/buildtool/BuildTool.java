@@ -586,7 +586,8 @@ public class BuildTool {
     }
   }
 
-  private String computeActionExecutionSalt(BuildRequest request) throws AbruptExitException {
+  private String computeActionExecutionSalt(BuildRequest request)
+      throws AbruptExitException, InterruptedException {
     String salt = null;
     BlazeModule saltModule = null;
     for (BlazeModule module : runtime.getBlazeModules()) {
