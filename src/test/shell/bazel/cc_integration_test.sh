@@ -49,6 +49,80 @@ EOF
     || fail "Build failed but should have succeeded"
 }
 
+# Tests that a change to a header that is no longer declared, but remains includable, results in a
+# rebuild of the actions that include it.
+function test_include_undeclared_header_rebuild_after_change() {
+  add_rules_cc "MODULE.bazel"
+  mkdir -p pkg/inc
+  cat > pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "hdrs",
+    hdrs = ["inc/other.h", "inc/value.h"],
+)
+
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    hdrs = ["lib.h"],
+    deps = [":hdrs"],
+)
+
+cc_binary(
+    name = "bin",
+    srcs = ["main.cc"],
+    deps = [":lib"],
+)
+EOF
+  echo '#define VALUE 1' > pkg/inc/value.h
+  touch pkg/inc/other.h
+  echo 'int value();' > pkg/lib.h
+  cat > pkg/lib.cc <<'EOF'
+#include "pkg/lib.h"
+#include "pkg/inc/value.h"
+int value() { return VALUE; }
+EOF
+  cat > pkg/main.cc <<'EOF'
+#include <iostream>
+#include "pkg/lib.h"
+int main() { std::cout << "value: " << value() << std::endl; }
+EOF
+
+  bazel run --spawn_strategy=local //pkg:bin &> "$TEST_log" \
+    || fail "Expected success"
+  expect_log "value: 1"
+
+  # Headers in system include directories don't have to be declared.
+  cat > pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    hdrs = ["lib.h"],
+    features = ["system_include_paths"],
+    includes = ["inc"],
+)
+
+cc_binary(
+    name = "bin",
+    srcs = ["main.cc"],
+    deps = [":lib"],
+)
+EOF
+  bazel run --spawn_strategy=local //pkg:bin &> "$TEST_log" \
+    || fail "Expected success"
+  expect_log "value: 1"
+
+  echo '#define VALUE 2' > pkg/inc/value.h
+  bazel run --spawn_strategy=local //pkg:bin &> "$TEST_log" \
+    || fail "Expected success"
+  expect_log "value: 2"
+}
+
 function test_include_external_repo_output() {
   add_rules_java MODULE.bazel
   add_rules_cc "MODULE.bazel"
