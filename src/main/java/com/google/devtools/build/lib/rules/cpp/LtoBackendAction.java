@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
@@ -133,6 +135,32 @@ public final class LtoBackendAction extends SpawnAction {
     this.mandatoryInputs = mandatoryInputs;
     this.bitcodeFiles = bitcodeFiles;
     this.imports = imports;
+  }
+
+  private boolean isPathMappingEnabled() {
+    if (imports == null || getOutputs().size() != 1) {
+      return false;
+    }
+    ImmutableMap<String, String> executionInfo = getExecutionInfo();
+    if (executionInfo.containsKey(ExecutionRequirements.LOCAL)
+        || (executionInfo.containsKey(ExecutionRequirements.NO_SANDBOX)
+            && executionInfo.containsKey(ExecutionRequirements.NO_REMOTE))) {
+      return false;
+    }
+    return executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
+  }
+
+  @VisibleForTesting
+  PathMapper getPathMapper() {
+    if (!isPathMappingEnabled()) {
+      return PathMapper.NOOP;
+    }
+    return LtoBackendPathMapper.tryCreate(imports, getPrimaryOutput());
+  }
+
+  @Override
+  protected PathMapper getPathMapper(@Nullable InputMetadataProvider inputMetadataProvider) {
+    return getPathMapper();
   }
 
   @Override
@@ -307,18 +335,23 @@ public final class LtoBackendAction extends SpawnAction {
       Fingerprint fp)
       throws InterruptedException {
     fp.addString(GUID);
+    PathMapper pathMapper = getPathMapper();
+    // NOMUTANTS(LCR): Version salt; keeps unmapped action keys unchanged during rollout.
+    if (!pathMapper.isNoop()) {
+      fp.addString(LtoBackendPathMapper.GUID);
+    }
     try {
-      fp.addStrings(getArguments());
+      fp.addStrings(getCommandLines().allArguments(pathMapper));
     } catch (CommandLineExpansionException e) {
       throw new AssertionError("LtoBackendAction command line expansion cannot fail", e);
     }
     fp.addString(getMnemonic());
     for (Artifact input : mandatoryInputs.toList()) {
-      fp.addPath(input.getExecPath());
+      fp.addPath(pathMapper.map(input.getExecPath()));
     }
     if (imports != null) {
       bitcodeFiles.addToFingerprint(fp);
-      fp.addPath(imports.getExecPath());
+      fp.addPath(pathMapper.map(imports.getExecPath()));
     }
     getEnvironment().addTo(fp);
     fp.addStringMap(getExecutionInfo());
@@ -329,6 +362,10 @@ public final class LtoBackendAction extends SpawnAction {
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage()).append('\n');
     message.append("  GUID: ").append(GUID).append('\n');
+    PathMapper pathMapper = getPathMapper();
+    if (!pathMapper.isNoop()) {
+      message.append("  PathMapper GUID: ").append(LtoBackendPathMapper.GUID).append('\n');
+    }
     message.append("  Mnemonic: ").append(getMnemonic()).append('\n');
     for (Map.Entry<String, String> entry : getEnvironment().getFixedEnv().entrySet()) {
       message
@@ -359,7 +396,7 @@ public final class LtoBackendAction extends SpawnAction {
           .append('\n');
     }
     try {
-      for (String argument : ShellEscaper.escapeAll(getArguments())) {
+      for (String argument : ShellEscaper.escapeAll(getCommandLines().allArguments(pathMapper))) {
         message.append("  Argument: ").append(argument).append('\n');
       }
     } catch (InterruptedException ex) {
@@ -369,10 +406,16 @@ public final class LtoBackendAction extends SpawnAction {
       message.append("Could not expand command line: ").append(e).append('\n');
     }
     for (Artifact input : mandatoryInputs.toList()) {
-      message.append("  Mandatory input: ").append(input.getExecPathString()).append('\n');
+      message
+          .append("  Mandatory input: ")
+          .append(pathMapper.getMappedExecPathString(input))
+          .append('\n');
     }
     if (imports != null) {
-      message.append("  Imports: ").append(imports.getExecPathString()).append('\n');
+      message
+          .append("  Imports: ")
+          .append(pathMapper.getMappedExecPathString(imports))
+          .append('\n');
       Fingerprint fp = new Fingerprint();
       bitcodeFiles.addToFingerprint(fp);
       message
@@ -386,13 +429,45 @@ public final class LtoBackendAction extends SpawnAction {
   @VisibleForTesting
   static LtoBackendAction create(
       ActionOwner actionOwner,
-      BuildConfigurationValue configuration,
+      @Nullable BuildConfigurationValue configuration,
       NestedSet<Artifact> inputs,
       @Nullable BitcodeFiles allBitcodeFiles,
       @Nullable Artifact importsFile,
       ImmutableSet<Artifact> outputs,
       CommandLines argv,
       ActionEnvironment env) {
+    return create(
+        actionOwner,
+        configuration,
+        inputs,
+        allBitcodeFiles,
+        importsFile,
+        outputs,
+        argv,
+        env,
+        /* enablePathMapping= */ false);
+  }
+
+  static LtoBackendAction create(
+      ActionOwner actionOwner,
+      @Nullable BuildConfigurationValue configuration,
+      NestedSet<Artifact> inputs,
+      @Nullable BitcodeFiles allBitcodeFiles,
+      @Nullable Artifact importsFile,
+      ImmutableSet<Artifact> outputs,
+      CommandLines argv,
+      ActionEnvironment env,
+      boolean enablePathMapping) {
+    BuildConfigurationValue effectiveConfig =
+        configuration != null
+            ? configuration
+            : (actionOwner.getBuildConfigurationInfo() instanceof BuildConfigurationValue cfg
+                ? cfg
+                : null);
+    ImmutableMap<String, String> baseExecutionInfo =
+        enablePathMapping && importsFile != null && outputs.size() == 1
+            ? ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "")
+            : ImmutableMap.of();
     return new LtoBackendAction(
         actionOwner,
         inputs,
@@ -401,8 +476,152 @@ public final class LtoBackendAction extends SpawnAction {
         outputs,
         argv,
         env,
-        configuration == null
-            ? ImmutableMap.of()
-            : configuration.modifiedExecutionInfo(ImmutableMap.of(), MNEMONIC));
+        effectiveConfig == null
+            ? baseExecutionInfo
+            : effectiveConfig.modifiedExecutionInfo(baseExecutionInfo, MNEMONIC));
+  }
+
+  /**
+   * A {@link PathMapper} for {@link LtoBackendAction} that strips the target-specific LTO directory
+   * prefix ({@code <pkg>/<target>.lto/} and {@code <pkg>/<target>.lto-obj/}) on this action's LTO
+   * index, imports, and output object paths while preserving the configuration prefix ({@code
+   * <cfg>}).
+   *
+   * <p>Non-empty ThinLTO index files ({@code .thinlto.bc}) embed the unmapped
+   * configuration-prefixed paths of imported bitcode modules (for example, {@code
+   * bazel-out/k8-opt/bin/pkg/_objs/lib/foo.pic.o}). Stripping {@code k8-opt} to {@code cfg} via
+   * {@link com.google.devtools.build.lib.analysis.actions.StrippingPathMapper} would cause Clang's
+   * ThinLTO backend module loader to fail to locate imported bitcode files. By rewriting only this
+   * action's paired LTO index, imports, and output object paths ({@code <bin>/<pkg>/<target>.lto/}
+   * to {@code <bin>/_lto/} and {@code <bin>/<pkg>/<target>.lto-obj/} to {@code <bin>/_lto-obj/})
+   * while leaving all bitcode inputs untouched, identical ThinLTO backend compilations (including
+   * skipped {@code --start-lib} modules and shared library modules with identical import summaries)
+   * share remote cache entries across targets in the same configuration.
+   */
+  @VisibleForTesting
+  static final class LtoBackendPathMapper implements PathMapper {
+    static final String GUID = "4f8a1e72-9c3b-4d5e-b6a1-082736455463";
+    private static final String CANONICAL_LTO_SEGMENT = "_lto";
+    private static final String CANONICAL_LTO_OBJ_SEGMENT = "_lto-obj";
+    private static final String IMPORTS_EXTENSION = ".imports";
+    private static final String THINLTO_INDEX_EXTENSION = ".thinlto.bc";
+
+    private record MappedPaths(
+        PathFragment objPath,
+        PathFragment mappedObjPath,
+        PathFragment importsPath,
+        PathFragment mappedImportsPath,
+        PathFragment indexPath,
+        PathFragment mappedIndexPath) {}
+
+    private final MappedPaths mappedPaths;
+
+    private LtoBackendPathMapper(MappedPaths mappedPaths) {
+      this.mappedPaths = mappedPaths;
+    }
+
+    static PathMapper tryCreate(Artifact imports, Artifact primaryOutput) {
+      PathFragment importsPath = imports.getExecPath();
+      PathFragment objPath = primaryOutput.getExecPath();
+      PathFragment rootExecPath = primaryOutput.getRoot().getExecPath();
+      if (!imports.getRoot().getExecPath().equals(rootExecPath)) {
+        return PathMapper.NOOP;
+      }
+      int startIdx = rootExecPath.segmentCount();
+      // NOMUTANTS(AOR): Prefix directory requires at least one trailing child segment.
+      int maxIdx = Math.min(importsPath.segmentCount(), objPath.segmentCount()) - 1;
+      MappedPaths mappedPaths =
+          findMappedPaths(
+              importsPath, objPath, rootExecPath, startIdx, maxIdx, /* requireLtoObj= */ true);
+      if (mappedPaths == null) {
+        mappedPaths =
+            findMappedPaths(
+                importsPath, objPath, rootExecPath, startIdx, maxIdx, /* requireLtoObj= */ false);
+      }
+      if (mappedPaths == null) {
+        return PathMapper.NOOP;
+      }
+      return new LtoBackendPathMapper(mappedPaths);
+    }
+
+    @Nullable
+    private static MappedPaths findMappedPaths(
+        PathFragment importsPath,
+        PathFragment objPath,
+        PathFragment rootExecPath,
+        int startIdx,
+        int maxIdx,
+        boolean requireLtoObj) {
+      MappedPaths fallback = null;
+      for (int i = startIdx; i < maxIdx; i++) {
+        // Segments [0, startIdx) match because imports and primaryOutput share rootExecPath.
+        if (i > startIdx && !importsPath.getSegment(i - 1).equals(objPath.getSegment(i - 1))) {
+          return fallback;
+        }
+        String importsSeg = importsPath.getSegment(i);
+        if (!importsSeg.endsWith(".lto") || importsSeg.length() <= ".lto".length()) {
+          continue;
+        }
+        String objSeg = objPath.getSegment(i);
+        boolean matchesObj =
+            requireLtoObj
+                ? objSeg.length() == importsSeg.length() + 4
+                    && objSeg.endsWith("-obj")
+                    && objSeg.regionMatches(0, importsSeg, 0, importsSeg.length())
+                : objSeg.equals(importsSeg);
+        if (!matchesObj) {
+          continue;
+        }
+        PathFragment objRel = objPath.subFragment(i + 1, objPath.segmentCount());
+        PathFragment importsRel = importsPath.subFragment(i + 1, importsPath.segmentCount());
+        String objRelStr = objRel.getPathString();
+        String importsRelStr = importsRel.getPathString();
+        boolean hasImportsExt = importsRelStr.equals(objRelStr + IMPORTS_EXTENSION);
+        if (!hasImportsExt && !importsRelStr.equals(objRelStr)) {
+          continue;
+        }
+        PathFragment indexPrefix = importsPath.subFragment(0, i + 1);
+        PathFragment mappedIndexPrefix = rootExecPath.getChild(CANONICAL_LTO_SEGMENT);
+        PathFragment mappedObjPrefix =
+            rootExecPath.getChild(
+                requireLtoObj ? CANONICAL_LTO_OBJ_SEGMENT : CANONICAL_LTO_SEGMENT);
+        PathFragment indexRel =
+            hasImportsExt
+                ? objRel.replaceName(objRel.getBaseName() + THINLTO_INDEX_EXTENSION)
+                : objRel;
+        MappedPaths candidate =
+            new MappedPaths(
+                objPath,
+                mappedObjPrefix.getRelative(objRel),
+                importsPath,
+                mappedIndexPrefix.getRelative(importsRel),
+                indexPrefix.getRelative(indexRel),
+                mappedIndexPrefix.getRelative(indexRel));
+        if (objRel.startsWith(rootExecPath)) {
+          return candidate;
+        }
+        fallback = candidate;
+      }
+      return fallback;
+    }
+
+    @Override
+    public PathFragment map(PathFragment execPath) {
+      if (execPath.equals(mappedPaths.objPath())) {
+        return mappedPaths.mappedObjPath();
+      }
+      if (execPath.equals(mappedPaths.indexPath())) {
+        return mappedPaths.mappedIndexPath();
+      }
+      if (execPath.equals(mappedPaths.importsPath())) {
+        return mappedPaths.mappedImportsPath();
+      }
+      return execPath;
+    }
+
+    @Override
+    public Object cacheKey() {
+      return mappedPaths;
+    }
   }
 }

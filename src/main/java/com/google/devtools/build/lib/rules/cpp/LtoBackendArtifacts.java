@@ -41,30 +41,29 @@ public final class LtoBackendArtifacts {
   // LINT.IfChange(lto_backends)
   private static void addPathsToBuildVariablesBuilder(
       CcToolchainVariables.Builder buildVariablesBuilder,
-      String indexPath,
-      String objectFilePath,
-      String dwoFilePath,
-      String bitcodeFilePath) {
+      @Nullable Artifact index,
+      Artifact objectFile,
+      @Nullable Artifact dwoFile,
+      Object bitcodeFile) {
     // Ideally, those strings would come directly from the execPath of the Artifacts of
     // the LtoBackendAction.Builder; however, in order to support tree artifacts, we need
     // the bitcodeFilePath to be different from the bitcodeTreeArtifact execPath.
     // The former is a file path and the latter is the directory path.
-    // Therefore we accept strings as inputs rather than artifacts.
-    if (indexPath != null) {
-      buildVariablesBuilder.addVariable("thinlto_index", indexPath);
+    if (index != null) {
+      buildVariablesBuilder.addVariable("thinlto_index", index);
     } else {
       // An empty input indicates not to perform cross-module optimization.
       buildVariablesBuilder.addVariable("thinlto_index", "/dev/null");
     }
     // The output from the LTO backend step is a native object file.
-    buildVariablesBuilder.addVariable("thinlto_output_object_file", objectFilePath);
+    buildVariablesBuilder.addVariable("thinlto_output_object_file", objectFile);
     // The input to the LTO backend step is the bitcode file.
-    buildVariablesBuilder.addVariable("thinlto_input_bitcode_file", bitcodeFilePath);
+    buildVariablesBuilder.addVariable("thinlto_input_bitcode_file", bitcodeFile);
     // Add the context sensitive instrument path to the backend.
 
-    if (dwoFilePath != null) {
+    if (dwoFile != null) {
       buildVariablesBuilder.addVariable(
-          CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFilePath);
+          CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
       buildVariablesBuilder.addVariable(
           CompileBuildVariables.IS_USING_FISSION.getVariableName(), "");
     }
@@ -107,7 +106,6 @@ public final class LtoBackendArtifacts {
       boolean usePic) {
     CommandLine ltoCommandLine =
         new AbstractCommandLine() {
-
           @Override
           public Iterable<String> arguments() throws CommandLineExpansionException {
             return arguments(/* inputMetadataProvider= */ null, PathMapper.NOOP);
@@ -157,11 +155,23 @@ public final class LtoBackendArtifacts {
       Artifact imports,
       ImmutableSet<Artifact> outputs,
       ActionEnvironment env) {
-
     CommandLines commandLines =
         LtoBackendArtifacts.getLtoBackendCommandLine(featureConfiguration, buildVariables, usePic);
+    boolean enablePathMapping =
+        featureConfiguration
+                .getRequestedFeatures()
+                .contains(CppRuleClasses.LTO_BACKEND_PATH_MAPPING)
+            && !featureConfiguration.isEnabled(CppRuleClasses.DISABLE_LTO_BACKEND_PATH_MAPPING);
     return LtoBackendAction.create(
-        owner, configuration, inputs, allBitcodeFiles, imports, outputs, commandLines, env);
+        owner,
+        configuration,
+        inputs,
+        allBitcodeFiles,
+        imports,
+        outputs,
+        commandLines,
+        env,
+        enablePathMapping);
   }
 
   /**
@@ -222,14 +232,12 @@ public final class LtoBackendArtifacts {
         getLtoBackendActionInputs(index, imports, bitcodeArtifact, additionalInputs);
     ImmutableSet<Artifact> outputs = getLtoBackendActionOutputs(objectFile, dwoFile);
 
-    String indexPath = index == null ? null : index.getExecPathString();
-    String dwoFilePath = dwoFile == null ? null : dwoFile.getExecPathString();
     addPathsToBuildVariablesBuilder(
         buildVariablesBuilder,
-        indexPath,
-        objectFile.getExecPathString(),
-        dwoFilePath,
-        bitcodeFilePath != null ? bitcodeFilePath : bitcodeArtifact.getExecPathString());
+        index,
+        objectFile,
+        dwoFile,
+        bitcodeFilePath != null ? PathFragment.create(bitcodeFilePath) : bitcodeArtifact);
     CcToolchainVariables buildVariablesWithFiles = buildVariablesBuilder.build();
 
     return createLtoBackendActionForStarlark(
@@ -245,5 +253,4 @@ public final class LtoBackendArtifacts {
         env);
   }
   // LINT.ThenChange(@rules_cc//cc/private/link/lto_backends.bzl:lto_backends)
-
 }

@@ -194,6 +194,18 @@ public class CppRuleClasses {
   public static final String THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS =
       "thin_lto_all_linkstatic_use_shared_nonlto_backends";
 
+  /**
+   * A string constant for enabling target-prefix path mapping on ThinLTO backend compile actions
+   * ({@code CcLtoBackendCompile}).
+   */
+  public static final String LTO_BACKEND_PATH_MAPPING = "lto_backend_path_mapping";
+
+  /**
+   * A string constant for disabling target-prefix path mapping on ThinLTO backend compile actions
+   * even when {@link #LTO_BACKEND_PATH_MAPPING} is requested.
+   */
+  public static final String DISABLE_LTO_BACKEND_PATH_MAPPING = "disable_lto_backend_path_mapping";
+
   /** A string constant for native deps links. */
   public static final String NATIVE_DEPS_LINK = "native_deps_link";
 

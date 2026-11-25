@@ -19,9 +19,12 @@ import static java.util.Arrays.stream;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -45,7 +48,6 @@ import org.junit.runners.JUnit4;
 /** Tests for cc_binary with treeArtifacts, ThinLTO and separate obj dir for thinlto. */
 @RunWith(JUnit4.class)
 public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
-
   private String targetName = "bin";
 
   private ConfiguredTarget getCurrentTarget() throws Exception {
@@ -96,7 +98,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         )
         """);
   }
-  
+
   public void createBuildFiles(String... extraCcBinaryParameters) throws Exception {
     scratch.file(
         "pkg/BUILD",
@@ -774,7 +776,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     }
     return null;
   }
-  
+
   @Test
   public void testFdoInstrument() throws Exception {
     scratch.file(
@@ -1099,10 +1101,10 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
     // Checks that -fauto-profile is added to the LtoBackendAction.
-    assertThat(Joiner.on(" ").join(backendAction.getArguments())).containsMatch(
-        "-fauto-profile=[^ ]*/profile.afdo");
-    assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs())).contains(
-        "profile.afdo");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-fauto-profile=[^ ]*/profile.afdo");
+    assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
+        .contains("profile.afdo");
   }
 
   private void setupThinLTOCrosstool(String... extraFeatures) throws Exception {
@@ -2160,5 +2162,216 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   @Test
   public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromLabel() throws Exception {
     testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip");
+  }
+
+  @Test
+  public void testLtoBackendPathMappingAcrossSiblingTests() throws Exception {
+    createTestFiles("linkstatic = 1,", "");
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
+
+    // Disabled by default even when --experimental_output_paths=strip is enabled.
+    useConfiguration("--experimental_output_paths=strip");
+    ConfiguredTarget defaultPkg1 = getConfiguredTarget("//pkg:bin_test");
+    Artifact defaultArtifact1 = getFilesToBuild(defaultPkg1).getSingleton();
+    SpawnAction defaultLink1 = (SpawnAction) getGeneratingAction(defaultArtifact1);
+    String defaultRootExecPath = defaultArtifact1.getRoot().getExecPathString();
+    LtoBackendAction defaultBackend1 =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                defaultLink1,
+                "pkg/bin_test.lto-obj/" + defaultRootExecPath + "/pkg/_objs/lib/libfile.pic.o");
+    assertThat(defaultBackend1).isNotNull();
+    assertThat(defaultBackend1.getPathMapper().isNoop()).isTrue();
+    assertThat(defaultBackend1.getExecutionInfo()).doesNotContainKey("supports-path-mapping");
+
+    // Enabled explicitly via --features=lto_backend_path_mapping, independent of
+    // --experimental_output_paths.
+    useConfiguration("--features=lto_backend_path_mapping", "--experimental_output_paths=off");
+
+    ConfiguredTarget pkg1 = getConfiguredTarget("//pkg:bin_test");
+    Artifact pkgArtifact1 = getFilesToBuild(pkg1).getSingleton();
+    SpawnAction linkAction1 = (SpawnAction) getGeneratingAction(pkgArtifact1);
+
+    ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
+    Artifact pkgArtifact2 = getFilesToBuild(pkg2).getSingleton();
+    SpawnAction linkAction2 = (SpawnAction) getGeneratingAction(pkgArtifact2);
+
+    String rootExecPath = pkgArtifact1.getRoot().getExecPathString();
+    LtoBackendAction backend1 =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                linkAction1,
+                "pkg/bin_test.lto-obj/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
+    LtoBackendAction backend2 =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                linkAction2,
+                "pkg/bin_test2.lto-obj/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
+
+    assertThat(backend1).isNotNull();
+    assertThat(backend2).isNotNull();
+    assertThat(backend1.getPathMapper().isNoop()).isFalse();
+    assertThat(backend2.getPathMapper().isNoop()).isFalse();
+    assertThat(backend1.getArguments())
+        .containsAtLeast(
+            "thinlto_index="
+                + rootExecPath
+                + "/_lto/"
+                + rootExecPath
+                + "/pkg/_objs/lib/libfile.pic.o.thinlto.bc",
+            "thinlto_output_object_file="
+                + rootExecPath
+                + "/_lto-obj/"
+                + rootExecPath
+                + "/pkg/_objs/lib/libfile.pic.o",
+            "thinlto_input_bitcode_file=" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
+    assertThat(backend1.getArguments()).isEqualTo(backend2.getArguments());
+
+    // Can be disabled via negative feature flag (e.g. local builds or target-level opt-out).
+    useConfiguration("--features=lto_backend_path_mapping", "--features=-lto_backend_path_mapping");
+    ConfiguredTarget optOutPkg = getConfiguredTarget("//pkg:bin_test");
+    SpawnAction optOutLink =
+        (SpawnAction) getGeneratingAction(getFilesToBuild(optOutPkg).getSingleton());
+    LtoBackendAction optOutBackend =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                optOutLink,
+                "pkg/bin_test.lto-obj/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
+    assertThat(optOutBackend.getPathMapper().isNoop()).isTrue();
+  }
+
+  private LtoBackendActionTemplate findTreeLtoTemplate(
+      SpawnAction linkAction, String ltoObjDirPrefix) throws Exception {
+    TreeArtifact treeObj =
+        linkAction.getInputs().toList().stream()
+            .filter(Artifact::isTreeArtifact)
+            .map(TreeArtifact.class::cast)
+            .filter(artifact ->
+                artifact.getExecPathString().contains(ltoObjDirPrefix)
+                    && artifact.getExecPathString().endsWith("/tree_ccgen_gen_cc"))
+            .findFirst()
+            .orElseThrow();
+    return (LtoBackendActionTemplate) getGeneratingActionAnalysisMetadata(treeObj);
+  }
+
+  private ImmutableList<LtoBackendAction> expandLtoTemplate(LtoBackendActionTemplate template)
+      throws Exception {
+    TreeArtifact indexTree = template.getInputTreeArtifacts().get(0);
+    return template.generateActionsForInputArtifacts(
+        ImmutableList.of(
+            TreeFileArtifact.createTemplateExpansionOutput(
+                indexTree,
+                "file1.pic.o.thinlto.bc",
+                ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER),
+            TreeFileArtifact.createTemplateExpansionOutput(
+                indexTree,
+                "file1.pic.o.imports",
+                ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER)),
+        ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER,
+        reporter);
+  }
+
+  @Test
+  public void testLtoBackendActionTemplate_mapsSiblingPathsAndDisablesOnFission() throws Exception {
+    createTestFiles("linkstatic = 1,", "");
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+    useConfiguration("--features=lto_backend_path_mapping", "--experimental_output_paths=off");
+
+    ConfiguredTarget pkg1 = getConfiguredTarget("//pkg:bin_test");
+    Artifact pkgArtifact1 = getFilesToBuild(pkg1).getSingleton();
+    SpawnAction linkAction1 = (SpawnAction) getGeneratingAction(pkgArtifact1);
+    ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
+    SpawnAction linkAction2 =
+        (SpawnAction) getGeneratingAction(getFilesToBuild(pkg2).getSingleton());
+
+    LtoBackendActionTemplate template1 = findTreeLtoTemplate(linkAction1, "pkg/bin_test.lto-obj/");
+    LtoBackendActionTemplate template2 = findTreeLtoTemplate(linkAction2, "pkg/bin_test2.lto-obj/");
+    ImmutableList<LtoBackendAction> expanded1 = expandLtoTemplate(template1);
+    ImmutableList<LtoBackendAction> expanded2 = expandLtoTemplate(template2);
+
+    assertThat(expanded1).hasSize(1);
+    assertThat(expanded2).hasSize(1);
+    LtoBackendAction action1 = expanded1.get(0);
+    LtoBackendAction action2 = expanded2.get(0);
+    String rootExecPath = pkgArtifact1.getRoot().getExecPathString();
+    assertThat(action1.getPathMapper().isNoop()).isFalse();
+    assertThat(action1.getArguments())
+        .containsAtLeast(
+            "thinlto_index="
+                + rootExecPath
+                + "/_lto/"
+                + rootExecPath
+                + "/pkg/_pic_objs/tree/tree_ccgen_gen_cc/file1.pic.o.thinlto.bc",
+            "thinlto_output_object_file="
+                + rootExecPath
+                + "/_lto-obj/"
+                + rootExecPath
+                + "/pkg/_pic_objs/tree/tree_ccgen_gen_cc/file1.pic.o",
+            "thinlto_input_bitcode_file="
+                + rootExecPath
+                + "/pkg/_pic_objs/tree/tree_ccgen_gen_cc/file1.pic.o");
+    assertThat(action1.getArguments()).isEqualTo(action2.getArguments());
+    assertThat(action1.getPathMapper().map(action1.getPrimaryOutput().getExecPath()))
+        .isEqualTo(action2.getPathMapper().map(action2.getPrimaryOutput().getExecPath()));
+    assertThat(template1.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
+        .isNotEqualTo(template2.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
+
+    useConfiguration("--fission=yes", "--features=lto_backend_path_mapping");
+    ConfiguredTarget fissionPkg = getConfiguredTarget("//pkg:bin_test");
+    SpawnAction fissionLink =
+        (SpawnAction) getGeneratingAction(getFilesToBuild(fissionPkg).getSingleton());
+    LtoBackendAction fissionAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                fissionLink,
+                "pkg/bin_test.lto-obj/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
+    assertThat(fissionAction.getOutputs()).hasSize(2);
+    assertThat(fissionAction.getPathMapper().isNoop()).isTrue();
+    assertThat(fissionAction.getArguments()).contains("per_object_debug_info_option");
+    assertThat(fissionAction.getArguments())
+        .contains(
+            "thinlto_output_object_file="
+                + rootExecPath
+                + "/pkg/bin_test.lto-obj/"
+                + rootExecPath
+                + "/pkg/_objs/lib/libfile.pic.o");
+
+    CcToolchainFeatures.FeatureConfiguration featureConfiguration =
+        CppHelper.getToolchain(getRuleContext(fissionPkg))
+            .getFeatures()
+            .getFeatureConfiguration(
+                ImmutableSet.of(
+                    CppActionNames.LTO_BACKEND,
+                    CppRuleClasses.THIN_LTO,
+                    CppRuleClasses.LTO_BACKEND_PATH_MAPPING,
+                    CppRuleClasses.PER_OBJECT_DEBUG_INFO));
+    Artifact dwoBitcode = getBinArtifactWithNoOwner("pkg/_objs/lib/dwo_test.pic.o");
+    Artifact dwoIndex =
+        getBinArtifactWithNoOwner("pkg/test_a.lto/pkg/_objs/lib/dwo_test.pic.o.thinlto.bc");
+    Artifact dwoImports =
+        getBinArtifactWithNoOwner("pkg/test_a.lto/pkg/_objs/lib/dwo_test.pic.o.imports");
+    Artifact dwoObj = getBinArtifactWithNoOwner("pkg/test_a.lto-obj/pkg/_objs/lib/dwo_test.pic.o");
+    Artifact dwoOutput =
+        getBinArtifactWithNoOwner("pkg/test_a.lto-obj/pkg/_objs/lib/dwo_test.pic.dwo");
+    LtoBackendAction templateFissionAction =
+        LtoBackendArtifacts.createLtoBackendActionForTemplate(
+            fissionAction.getOwner(),
+            fissionAction.getOriginalInputs(),
+            fissionAction.getEnvironment(),
+            CcToolchainVariables.builder().build(),
+            featureConfiguration,
+            dwoIndex,
+            dwoImports,
+            dwoBitcode,
+            dwoObj,
+            new BitcodeFiles(fissionAction.getAllowedDerivedInputs()),
+            dwoOutput,
+            /* usePic= */ true,
+            /* bitcodeFilePath= */ null,
+            /* isDummyAction= */ false);
+    assertThat(templateFissionAction.getOutputs()).hasSize(2);
+    assertThat(templateFissionAction.getPathMapper().isNoop()).isTrue();
+    assertThat(templateFissionAction.getArguments())
+        .contains("thinlto_output_object_file=" + dwoObj.getExecPathString());
   }
 }
