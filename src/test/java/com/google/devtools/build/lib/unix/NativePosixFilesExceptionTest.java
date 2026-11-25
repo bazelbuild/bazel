@@ -15,15 +15,75 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.unix.NativePosixFilesException.PosixError;
+import com.google.devtools.build.lib.util.OS;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.Assume;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.rules.TemporaryFolder;
 
 /** Tests for {@link NativePosixFilesException}. */
 @RunWith(JUnit4.class)
 public final class NativePosixFilesExceptionTest {
+  @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  @Test
+  public void clonefileCreatesIndependentCopyOnMac() throws Exception {
+    Assume.assumeTrue(OS.getCurrent() == OS.DARWIN);
+    Path source = temporaryFolder.newFile("source").toPath();
+    Files.writeString(source, "original");
+    Path target = source.resolveSibling("target");
+    NativePosixFilesServiceImpl service = new NativePosixFilesServiceImpl();
+    service.clonefile(source.toString(), target.toString());
+    assertThat(Files.readString(target)).isEqualTo("original");
+    assertThat(Files.isSymbolicLink(target)).isFalse();
+    Files.writeString(target, "modified");
+    assertThat(Files.readString(source)).isEqualTo("original");
+
+    Path alias = source.resolveSibling("alias");
+    Files.createSymbolicLink(alias, source.getFileName());
+    Path clonedAlias = source.resolveSibling("clonedAlias");
+    service.clonefile(alias.toString(), clonedAlias.toString());
+    assertThat(Files.isSymbolicLink(clonedAlias)).isFalse();
+    assertThat(Files.readString(clonedAlias)).isEqualTo("original");
+
+    assertThat(
+            assertThrows(
+                    NativePosixFilesException.class,
+                    () -> service.clonefile(source.toString(), target.toString()))
+                .getMessage())
+        .contains("clonefile(");
+  }
+
+  @Test
+  public void clonefileClonesDirectoryTreeOnMac() throws Exception {
+    Assume.assumeTrue(OS.getCurrent() == OS.DARWIN);
+    Path source = temporaryFolder.newFolder("tree").toPath();
+    Path nested = Files.createDirectory(source.resolve("nested"));
+    Files.writeString(nested.resolve("file"), "original");
+    Files.createSymbolicLink(source.resolve("link"), Path.of("nested/file"));
+    Path target = source.resolveSibling("clone");
+
+    new NativePosixFilesServiceImpl().clonefile(source.toString(), target.toString());
+
+    assertThat(Files.isSymbolicLink(target.resolve("link"))).isTrue();
+    assertThat(Files.readString(target.resolve("link"))).isEqualTo("original");
+    Files.writeString(target.resolve("nested/file"), "changed");
+    assertThat(Files.readString(nested.resolve("file"))).isEqualTo("original");
+
+    Path alias = source.resolveSibling("treeAlias");
+    Files.createSymbolicLink(alias, source.getFileName());
+    Path clonedAlias = source.resolveSibling("clonedTreeAlias");
+    new NativePosixFilesServiceImpl().clonefile(alias.toString(), clonedAlias.toString());
+    assertThat(Files.isSymbolicLink(clonedAlias)).isFalse();
+    assertThat(Files.readString(clonedAlias.resolve("link"))).isEqualTo("original");
+  }
 
   @Test
   public void testErrorMapping() {

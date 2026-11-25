@@ -142,4 +142,36 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
           .containsExactly("--foo", "--bar");
     }
   }
+
+  @Test
+  public void testCopyInputsDoesNotExposeHostSymlink() throws Exception {
+    addOptions("--experimental_darwin_sandbox_clone_inputs");
+    commandEnvironment = runtimeWrapper.newCommand();
+    commandEnvironment
+        .getLocalResourceManager()
+        .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
+
+    DarwinSandboxedSpawnRunner runner =
+        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
+    Spawn spawn =
+        new SpawnBuilder("/bin/sh", "-c", "test ! -L params/param-file && cp params/param-file out")
+            .withInput(
+                new ParamFileActionInput(
+                    PathFragment.create("params/param-file"),
+                    ImmutableList.of("hello"),
+                    ParameterFileType.UNQUOTED))
+            .withOutput("out")
+            .build();
+    FileOutErr fileOutErr =
+        new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
+    SpawnExecutionContextForTesting policy =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
+
+    assertThat(runner.exec(spawn, policy).status()).isEqualTo(Status.SUCCESS);
+    Path output = commandEnvironment.getExecRoot().getRelative("out");
+    try (InputStream inputStream = output.getInputStream()) {
+      assertThat(new String(ByteStreams.toByteArray(inputStream), StandardCharsets.UTF_8))
+          .isEqualTo("hello\n");
+    }
+  }
 }
