@@ -177,24 +177,14 @@ public sealed interface MerkleTree {
         case DeterministicWriter deterministicWriter ->
             Optional.of(
                 uploader.uploadDeterministicWriter(context, digest, deterministicWriter, force));
-        case ActionInput actionInput -> {
-          var spawnExecutionContext = context.getSpawnExecutionContext();
-          var pathResolver =
-              // This can only be null when uploading a tree created by
-              // MerkleTreeComputer#buildForFiles, which only happens for remote repo execution and
-              // tests. Only the latter actually reach this code path since remote repo execution
-              // doesn't upload any inputs.
-              spawnExecutionContext != null
-                  ? spawnExecutionContext.getPathResolver()
-                  : MerkleTreeComputer.PATH_ACTION_INPUT_RESOLVER;
-          yield Optional.of(
-              uploader.uploadFile(
-                  context,
-                  digest,
-                  MerkleTreeComputer.resolveInputPath(actionInput, pathResolver),
-                  actionInput.getExecPath(),
-                  force));
-        }
+        case ActionInput actionInput ->
+            Optional.of(
+                uploader.uploadFile(
+                    context,
+                    digest,
+                    MerkleTreeComputer.resolveInputPath(actionInput, context),
+                    actionInput.getExecPath(),
+                    force));
         case null -> Optional.empty();
         default -> throw new IllegalStateException("Unexpected blob type: " + blobs.get(digest));
       };

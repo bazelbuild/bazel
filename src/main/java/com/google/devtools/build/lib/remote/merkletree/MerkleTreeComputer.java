@@ -433,7 +433,14 @@ public final class MerkleTreeComputer {
     }
   }
 
-  static Path resolveInputPath(ActionInput input, ArtifactPathResolver pathResolver) {
+  static Path resolveInputPath(ActionInput input, RemoteActionExecutionContext context) {
+    // Trees built by buildForFiles have no spawn. Their inputs carry the file paths directly.
+    var spawnContext = context.getSpawnExecutionContext();
+    return resolveInputPath(
+        input, spawnContext == null ? PATH_ACTION_INPUT_RESOLVER : spawnContext.getPathResolver());
+  }
+
+  private static Path resolveInputPath(ActionInput input, ArtifactPathResolver pathResolver) {
     if (input instanceof ChildActionInput child) {
       // Read children from the directory that was enumerated. A cached external repository can
       // be available through the parent artifact without a corresponding execroot symlink.
@@ -472,7 +479,7 @@ public final class MerkleTreeComputer {
     }
   }
 
-  static final ArtifactPathResolver PATH_ACTION_INPUT_RESOLVER =
+  private static final ArtifactPathResolver PATH_ACTION_INPUT_RESOLVER =
       new ArtifactPathResolver() {
         @Override
         public Path toPath(ActionInput actionInput) {
