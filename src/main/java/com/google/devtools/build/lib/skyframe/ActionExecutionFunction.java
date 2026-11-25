@@ -1013,8 +1013,7 @@ public class ActionExecutionFunction implements SkyFunction {
             }
             if (!afterExecution || nonLeafKey.equals(schedulingDepsKey)) {
               // For C++ actions without include scanning, this is getDeclaredIncludeSrcs().
-              // For C++ actions with include scanning, this contains
-              // requiredModules.transitivelyUsed().
+              // For C++ actions with include scanning, this is requiredModules.transitivelyUsed().
               // Both of which are nested sets shared across actions, so it makes sense to request
               // them using ArtifactNestedSetKey.
               nonLeafKeys.add(nonLeafKey);
