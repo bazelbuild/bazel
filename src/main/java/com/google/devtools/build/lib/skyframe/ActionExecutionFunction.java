@@ -106,11 +106,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -989,14 +991,29 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     Set<Artifact> directUnknownLeaves = CompactHashSet.create();
-    List<ArtifactNestedSetKey> nonLeafKeys = new ArrayList<>(1);
+    Map<ArtifactNestedSetKey, List<Artifact>> indirectUnknownLeaves = new LinkedHashMap<>();
     List<SkyKey> keysToRequest = new ArrayList<>();
+    // Like individual inputs, nested sets are only requested if there is something to learn from
+    // them. Otherwise, actions that already know their inputs, e.g. from the action cache, would
+    // depend on them twice.
+    Consumer<ArtifactNestedSetKey> requestNonLeafKey =
+        nonLeafKey -> {
+          List<Artifact> unknownLeaves = new ArrayList<>();
+          for (Artifact leaf : nonLeafKey.expandToArtifacts()) {
+            if (state.getKnownDiscoveredInputMetadata(leaf) == null) {
+              unknownLeaves.add(leaf);
+            }
+          }
+          if (!unknownLeaves.isEmpty()) {
+            indirectUnknownLeaves.put(nonLeafKey, unknownLeaves);
+            keysToRequest.add(nonLeafKey);
+          }
+        };
     if (!discoveredInputs.isSingleton()
         && ArtifactNestedSetKey.create(discoveredInputs).equals(schedulingDepsKey)) {
       // Reuse the already-requested ArtifactNestedSetKey(schedulingDependencies) instead of
       // unwrapping its leaves into individual Skyframe requests.
-      nonLeafKeys.add(schedulingDepsKey);
-      keysToRequest.add(schedulingDepsKey);
+      requestNonLeafKey.accept(schedulingDepsKey);
     } else {
       ArtifactNestedSetKey.visitDirectDeps(
           discoveredInputs,
@@ -1016,8 +1033,7 @@ public class ActionExecutionFunction implements SkyFunction {
               // For C++ actions with include scanning, this is requiredModules.transitivelyUsed().
               // Both of which are nested sets shared across actions, so it makes sense to request
               // them using ArtifactNestedSetKey.
-              nonLeafKeys.add(nonLeafKey);
-              keysToRequest.add(nonLeafKey);
+              requestNonLeafKey.accept(nonLeafKey);
               return;
             }
             // After execution, C++ actions have the result of .d file parsing here, which is unique
@@ -1038,8 +1054,9 @@ public class ActionExecutionFunction implements SkyFunction {
 
     SkyframeLookupResult nonMandatoryDiscovered = env.getValuesAndExceptions(keysToRequest);
 
-    List<Artifact> indirectUnknownLeaves = new ArrayList<>();
-    for (ArtifactNestedSetKey nonLeafKey : nonLeafKeys) {
+    List<Artifact> availableIndirectLeaves = new ArrayList<>();
+    for (var entry : indirectUnknownLeaves.entrySet()) {
+      ArtifactNestedSetKey nonLeafKey = entry.getKey();
       try {
         SkyValue value =
             nonMandatoryDiscovered.getOrThrow(nonLeafKey, ArtifactNestedSetEvalException.class);
@@ -1066,14 +1083,10 @@ public class ActionExecutionFunction implements SkyFunction {
               "Unexpected exception type: " + inputException + ", key: " + skyKey, inputException);
         }
       }
-      for (Artifact leaf : nonLeafKey.expandToArtifacts()) {
-        if (state.getKnownDiscoveredInputMetadata(leaf) == null) {
-          indirectUnknownLeaves.add(leaf);
-        }
-      }
+      availableIndirectLeaves.addAll(entry.getValue());
     }
 
-    int totalUnknown = directUnknownLeaves.size() + indirectUnknownLeaves.size();
+    int totalUnknown = directUnknownLeaves.size() + availableIndirectLeaves.size();
     if (totalUnknown == 0) {
       return;
     }
@@ -1086,12 +1099,12 @@ public class ActionExecutionFunction implements SkyFunction {
     populateDirectDiscoveredInputs(
         directUnknownLeaves, nonMandatoryDiscovered, inputData, env, action);
 
-    if (indirectUnknownLeaves.isEmpty()) {
+    if (availableIndirectLeaves.isEmpty()) {
       return;
     }
 
     List<Artifact> fallbackToRequest = new ArrayList<>(0);
-    for (Artifact input : indirectUnknownLeaves) {
+    for (Artifact input : availableIndirectLeaves) {
       SkyValue value = lookupIndirectInput(Artifact.key(input));
       if (value != null) {
         addDiscoveredInputToMap(inputData, input, value);
