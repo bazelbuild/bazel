@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionResolver;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.query2.query.hash.DirectTargetHashFunction;
 import com.google.devtools.build.lib.query2.query.hash.RepoContentDigestFunction;
 import com.google.devtools.build.lib.query2.query.hash.SourceFileDigestFunction;
@@ -167,7 +169,9 @@ public class HashesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest
 
   /** Returns the hash printed for each target, keyed by label and configuration. */
   private Map<String, String> getHashes(String queryExpression) throws Exception {
-    QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
+    QueryExpression expression =
+        QueryExpressionResolver.resolve(
+            QueryParser.parse(queryExpression, ParserOptions.DEFAULT), getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     PostAnalysisQueryEnvironment<CqueryNode> env =
