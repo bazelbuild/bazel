@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.profiler;
 import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.INDENT_2;
 import static com.google.devtools.build.lib.profiler.JsonTraceFileWriter.NO_INDENT;
 
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** This class is used to insert metadata about threads into the JSON trace profile. */
-@ScOnly
 class ThreadMetadata implements TraceData {
   private final String readableName;
   private final long threadId;
@@ -85,6 +83,7 @@ class ThreadMetadata implements TraceData {
   private static final long SKYFRAME_EVALUATOR_CPU_HEAVY_SHIFT = 20_000;
   private static final long SKYFRAME_EVALUATOR_EXECUTION_SHIFT = 30_000;
   private static final long SKYFRAME_EVALUATOR_MEMOIZING_SHIFT = 40_000;
+  private static final long SKYFRAME_EVALUATOR_POST_ANALYSIS_SHIFT = 50_000;
 
   private static final long DYNAMIC_EXECUTION_SHIFT = 100_000;
   private static final long INCLUDE_SCANNER_SHIFT = 200_000;
@@ -128,6 +127,9 @@ class ThreadMetadata implements TraceData {
       }
       if (threadName.startsWith("skyframe-evaluator-memoizing")) {
         return SKYFRAME_EVALUATOR_MEMOIZING_SHIFT + extractedNumber;
+      }
+      if (threadName.startsWith("skyframe-evaluator-post-analysis")) {
+        return SKYFRAME_EVALUATOR_POST_ANALYSIS_SHIFT + extractedNumber;
       }
       return SKYFRAME_EVALUATOR_SHIFT + extractedNumber;
     }

@@ -120,7 +120,6 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
       return builder
           .requiresConfigurationFragments(fragmentClass)
           .removeAttribute("licenses")
-          .removeAttribute("distribs")
           .advertiseProvider(AliasProvider.LateBoundAliasProvider.class)
           .addAttribute(attribute)
           .build();

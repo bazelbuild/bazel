@@ -22,6 +22,8 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
     CPU_HEAVY,
     // Reserved for execution-phase tasks.
     EXECUTION_PHASE,
+    // Reserved for post-analysis tasks.
+    POST_ANALYSIS,
     REGULAR,
   }
 
@@ -40,4 +42,7 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
 
   /** Only true when in Skymeld mode. */
   boolean hasSeparatePoolForExecutionTasks();
+
+  /** Returns whether a separate non-priority pool is available for post-analysis tasks. */
+  boolean hasSeparatePoolForPostAnalysisTasks();
 }

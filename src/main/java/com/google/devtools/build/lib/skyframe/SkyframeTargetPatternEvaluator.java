@@ -17,6 +17,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -50,6 +52,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -250,11 +253,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
   }
 
   private static class NormalLookup extends PatternLookup {
-    private final TargetPatternsResultBuilder resultBuilder;
-
     private NormalLookup(String targetPattern, TargetPatternKey key) {
       super(targetPattern, key);
-      this.resultBuilder = new TargetPatternsResultBuilder();
     }
 
     @Override
@@ -264,10 +264,28 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         WalkableGraph walkableGraph,
         boolean keepGoing)
         throws InterruptedException, TargetParsingException {
-      TargetPatternValue resultValue = (TargetPatternValue) value;
-      ResolvedTargets<Label> results = resultValue.getTargets();
-      resultBuilder.addLabelsOfPositivePattern(results);
-      return resultBuilder.build(walkableGraph);
+      ResolvedTargets<Label> results = ((TargetPatternValue) value).getTargets();
+      Preconditions.checkArgument(results.getFilteredTargets().isEmpty());
+      Map<PackageIdentifier, Package> packages = new HashMap<>();
+      ImmutableList.Builder<Target> targets =
+          ImmutableList.builderWithExpectedSize(results.getTargets().size());
+      for (Label label : results.getTargets()) {
+        PackageIdentifier packageId = label.getPackageIdentifier();
+        Package pkg = packages.get(packageId);
+        if (pkg == null) {
+          pkg =
+              Preconditions.checkNotNull(
+                      (PackageValue) walkableGraph.getValue(packageId), packageId)
+                  .getPackage();
+          packages.put(packageId, pkg);
+        }
+        try {
+          targets.add(pkg.getTarget(label.getName()));
+        } catch (NoSuchTargetException e) {
+          throw new IllegalStateException(e);
+        }
+      }
+      return targets.build();
     }
   }
 

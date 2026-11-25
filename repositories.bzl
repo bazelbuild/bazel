@@ -35,6 +35,8 @@ DIST_ARCHIVE_REPOS = [
     "googleapis-rules-registry+",
     "grpc+",
     "grpc-java+",
+    "hermetic_launcher+",
+    "llvm+",
     "package_metadata+",
     "platforms",
     "protobuf+",
@@ -53,6 +55,7 @@ DIST_ARCHIVE_REPOS = [
     "rules_pkg+",
     "rules_proto+",
     "rules_python+",
+    "rules_rs+",
     "rules_shell+",
     "rules_swift+",
     "stardoc+",
@@ -80,6 +83,10 @@ _ASYNC_PROFILER_FILES = {
 DIST_ARCHIVE_ARTIFACTS = {
     # bats-core is fetched by @bazel_lib's bats toolchain extension.
     "https://github.com/bats-core/bats-core/archive/v1.10.0.tar.gz": "sha256-oan3h1qktqlIDKOE1YZfHM8bCx+urWtHqkfXlwmlxf0=",
+    # rules_rust and tinyjson are fetched by @rules_rs's reproducible
+    # rules_rust extension and use_repo_rule.
+    "https://github.com/hermeticbuild/rules_rust/releases/download/source-0ff2996ca9267312baab2c2c16040561a8a649bb/rules_rust-0ff2996ca9267312baab2c2c16040561a8a649bb.tar.gz": "sha256-Q55FIsJ+oVKXrjZTvQAaH2YTjIPq/3X1qoY/lSPHSLo=",
+    "https://static.crates.io/crates/tinyjson/tinyjson-2.5.1.crate": "sha256-mrlXNeosj9URVNAeOc8TkSp4BxwtiavEmn7xAqfdclo=",
 } | {
     _ASYNC_PROFILER_URL + file: integrity
     for file, integrity in _ASYNC_PROFILER_FILES.items()

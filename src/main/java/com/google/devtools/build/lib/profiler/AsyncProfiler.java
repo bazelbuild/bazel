@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.profiler;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Consumer;
 
@@ -24,7 +23,6 @@ import java.util.function.Consumer;
  * <p>This profiler is thread-compatible but not thread-safe. You should create one profiler per
  * task.
  */
-@SkybridgeInterface
 public interface AsyncProfiler extends SilentCloseable {
 
   SilentCloseable profile(ProfilerTask type, String description);

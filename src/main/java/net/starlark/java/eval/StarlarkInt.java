@@ -15,6 +15,7 @@
 package net.starlark.java.eval;
 
 import java.math.BigInteger;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
@@ -47,7 +48,7 @@ public abstract sealed class StarlarkInt implements StarlarkValue, Comparable<St
 
   // A cache of small integers >= LEAST_SMALLINT.
   private static final int LEAST_SMALLINT = -128;
-  private static final Int32[] smallints = new Int32[100_000];
+  private static final AtomicReferenceArray<Int32> smallints = new AtomicReferenceArray<>(100_000);
 
   static final StarlarkInt ZERO = StarlarkInt.of(0);
   private static final StarlarkInt ONE = StarlarkInt.of(1);
@@ -59,11 +60,13 @@ public abstract sealed class StarlarkInt implements StarlarkValue, Comparable<St
   /** Returns the Starlark int value that represents x. */
   public static StarlarkInt of(int x) {
     int index = x - LEAST_SMALLINT; // (may overflow)
-    if (0 <= index && index < smallints.length) {
-      Int32 xi = smallints[index];
+    if (0 <= index && index < smallints.length()) {
+      // Opaque access avoids a Java Memory Model data race without adding memory barrier overhead,
+      // and Int32's final field ensures safe publication.
+      Int32 xi = smallints.getOpaque(index);
       if (xi == null) {
         xi = new Int32(x);
-        smallints[index] = xi;
+        smallints.setOpaque(index, xi);
       }
       return xi;
     }

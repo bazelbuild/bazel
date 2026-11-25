@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -242,6 +243,89 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         actionKeyContext,
         outputPathsMode,
         fp);
+  }
+
+  @Override
+  public String describeKey() {
+    StringBuilder message = new StringBuilder();
+    message.append(getProgressMessage()).append('\n');
+    message.append("  GUID: ").append(GUID).append('\n');
+    message.append("  Classpath mode: ").append(classpathMode).append('\n');
+    CoreOptions.OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
+    CoreOptions.OutputPathsMode effectiveOutputPathsMode =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
+    message.append("  Output paths mode: ").append(effectiveOutputPathsMode).append('\n');
+    for (Map.Entry<String, String> entry : getEnvironment().getFixedEnv().entrySet()) {
+      message
+          .append("  Environment variable: ")
+          .append(ShellEscaper.escapeString(entry.getKey()))
+          .append('=')
+          .append(ShellEscaper.escapeString(entry.getValue()))
+          .append('\n');
+    }
+    for (String var : getEnvironment().getInheritedEnv()) {
+      message
+          .append("  Environment variables taken from the client environment: ")
+          .append(ShellEscaper.escapeString(var))
+          .append('\n');
+    }
+    for (String var : getEnvironment().getUnsetEnv()) {
+      message
+          .append("  Unset environment variable: ")
+          .append(ShellEscaper.escapeString(var))
+          .append('\n');
+    }
+    for (Map.Entry<String, String> entry : executionInfo.entrySet()) {
+      message
+          .append("  Execution info: ")
+          .append(entry.getKey())
+          .append('=')
+          .append(entry.getValue())
+          .append('\n');
+    }
+    message
+        .append("  Inmemory jdeps: ")
+        .append(
+            outputDepsProto != null
+                && configuration.getFragment(JavaConfiguration.class).inmemoryJdepsFiles())
+        .append('\n');
+    try {
+      for (String arg : ShellEscaper.escapeAll(getArguments())) {
+        message.append("  Argument: ").append(arg).append('\n');
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      message.append("Interrupted while expanding command line\n");
+    } catch (CommandLineExpansionException e) {
+      message.append("Could not expand command line: ").append(e).append('\n');
+    }
+    Fingerprint transitiveInputsFp = new Fingerprint();
+    try {
+      ActionKeyContext actionKeyContext = new ActionKeyContext();
+      actionKeyContext.addNestedSetToFingerprint(transitiveInputsFp, transitiveInputs);
+      message
+          .append("  Transitive inputs digest: ")
+          .append(transitiveInputsFp.hexDigestAndReset())
+          .append('\n');
+      Fingerprint pathMappingFp = new Fingerprint();
+      PathMappers.addToFingerprint(
+          getMnemonic(),
+          getExecutionInfo(),
+          getAdditionalArtifactsForPathMapping(),
+          actionKeyContext,
+          outputPathsMode,
+          pathMappingFp);
+      message
+          .append("  Path mapping digest: ")
+          .append(pathMappingFp.hexDigestAndReset())
+          .append('\n');
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      message.append("Interrupted while fingerprinting transitive inputs\n");
+    } catch (CommandLineExpansionException e) {
+      message.append("Could not fingerprint path mapping: ").append(e).append('\n');
+    }
+    return message.toString();
   }
 
   /**

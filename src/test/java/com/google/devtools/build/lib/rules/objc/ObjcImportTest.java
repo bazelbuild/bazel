@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,7 +106,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkDefaultFalse() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=false",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=false");
     addTrivialImportLibrary();
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
@@ -125,7 +128,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkDefaultTrue() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=true");
     addTrivialImportLibrary();
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
@@ -146,7 +151,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkTrueDefaultFalse() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=false",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=false");
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file("imp/precomp_lib.a");
@@ -178,7 +185,9 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   @Test
   public void testAlwaysLinkFalseDefaultTrue() throws Exception {
-    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    useConfiguration(
+        "--incompatible_objc_alwayslink_by_default=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_objc_alwayslink_by_default=true");
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file("imp/precomp_lib.a");

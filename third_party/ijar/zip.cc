@@ -20,8 +20,6 @@
 // See http://www.pkware.com/documents/casestudies/APPNOTE.TXT
 // for definition of PKZIP file format.
 
-#define _FILE_OFFSET_BITS 64  // Support zip files larger than 2GB
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>

@@ -32,7 +32,7 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 # of the auto-configured host toolchain. Combine with --platforms to
 # cross-compile, e.g.:
 #   bazel build --platforms=@llvm//platforms:linux_x86_64 //src:bazel
-#   bazel build --platforms=@llvm//platforms:windows_x86_64 //src:bazel
+#   bazel build --platforms=//:windows_x86_64 //src:bazel
 #   bazel build --platforms=@llvm//platforms:macos_aarch64 //src:bazel
 common --extra_toolchains=@llvm//toolchain:all
 common --extra_toolchains=//src:llvm_rc_toolchain
@@ -43,6 +43,14 @@ common --enable_platform_specific_config
 # On Linux, build against the oldest glibc that the LLVM toolchains support, so
 # that the binaries run on old distributions. See //:linux_host_platform.
 common:linux --host_platform=//:linux_host_platform
+
+# On Windows, pair the hermetic MinGW LLVM toolchain with `windows-gnullvm` Rust
+# and shorten platform output dir names to keep generated Rust sysroot `.rlib`
+# paths under Windows's 260-character MAX_PATH limit.
+common:windows --extra_execution_platforms=//:windows_host_platform
+common:windows --host_platform=//:windows_host_platform
+common:windows --experimental_override_name_platform_in_output_dir=//:windows_host_platform=w
+common:windows --experimental_override_name_platform_in_output_dir=//:windows_arm64=wa
 
 # With the LLVM toolchains, layering_check reports errors for generated headers
 # of grpc when the build runs on a Windows host (still the case with llvm

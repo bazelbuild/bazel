@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.concurrent.safeexecutor;
 
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.RestrictedApi;
 import java.util.concurrent.Executor;
 
@@ -38,7 +37,6 @@ import java.util.concurrent.Executor;
  *       rejection notifications for those dropped tasks are dispatched.
  * </ul>
  */
-@SkybridgeInterface
 public interface SafeExecutor {
 
   /**

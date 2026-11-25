@@ -30,6 +30,19 @@ java_test(
 )
 
 java_test(
+    name = "InstrumentedFilesCollectorTest",
+    srcs = ["InstrumentedFilesCollectorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "TestActionBuilderTest",
     srcs = ["TestActionBuilderTest.java"],
     deps = [
@@ -68,6 +81,22 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//third_party/java/junit",
         "//third_party/java/truth/extensions:proto",
+    ],
+)
+
+java_test(
+    name = "TestRunnerActionTest",
+    srcs = ["TestRunnerActionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:test_status_java_proto",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 

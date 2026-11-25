@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -129,6 +130,27 @@ public class RegexFilterTest {
         .contains(
             "Failed to build valid regular expression: Dangling meta character '*' "
                 + "near index");
+  }
+
+  @Test
+  public void nonAsciiPatterns() throws Exception {
+    createFilter(unicodeToInternal("^[äö].$,-ü"));
+    assertThat(filter.toString()).isEqualTo(unicodeToInternal("(?:(?>^[äö].$)),-(?:(?>ü))"));
+    assertIncluded(unicodeToInternal("ä🌱"));
+    assertIncluded(unicodeToInternal("öx"));
+    assertExcluded(unicodeToInternal("öü"));
+    assertExcluded(unicodeToInternal("äöx"));
+    assertExcluded(unicodeToInternal("a🌱"));
+  }
+
+  @Test
+  public void invalidNonAsciiExpression() throws Exception {
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> createFilter(unicodeToInternal("ä✓(")));
+    assertThat(e)
+        .hasMessageThat()
+        .startsWith("Failed to build valid regular expression: Unclosed group near index");
+    assertThat(e).hasMessageThat().contains(unicodeToInternal("(?:(?>ä✓())"));
   }
 
   @Test

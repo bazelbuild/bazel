@@ -59,8 +59,8 @@ static int GetCpuSpeed() {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerCPUSpeedNative(
-    JNIEnv* env, jobject, jobject callback) {
+Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_registerCPUSpeedNative(
+    JNIEnv* env, jclass, jobject callback) {
   if (!blaze_jni::RegisterIntConsumerCallback(
           env, callback, &g_cpu_speed_callback, "cpu speed")) {
     return;
@@ -93,8 +93,8 @@ Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_regist
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_cpuSpeedNative(
-    JNIEnv*, jobject) {
+Java_com_google_devtools_build_lib_platform_SystemCPUSpeedModule_cpuSpeedNative(
+    JNIEnv*, jclass) {
   return GetCpuSpeed();
 }
 

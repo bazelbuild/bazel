@@ -53,8 +53,8 @@ static void call_memory_pressure_callback(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerMemoryPressureNative(
-    JNIEnv* env, jobject, jobject callback) {
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_registerMemoryPressureNative(
+    JNIEnv* env, jclass, jobject callback) {
   if (!blaze_jni::RegisterIntConsumerCallback(
           env, callback, &g_memory_pressure_callback, "memory pressure")) {
     return;
@@ -120,8 +120,8 @@ Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_regist
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemMemoryPressureNative(
-    JNIEnv*, jobject) {
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_systemMemoryPressureNative(
+    JNIEnv*, jclass) {
   return g_memory_pressure_level;
 }
 

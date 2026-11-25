@@ -105,6 +105,7 @@ StartupOptions::StartupOptions(const string& product_name,
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
+      allow_server_subprocesses(true),
 #ifdef __linux__
       cgroup_parent(),
       run_in_user_cgroup(false),
@@ -155,6 +156,8 @@ StartupOptions::StartupOptions(const string& product_name,
                              &remote_repo_contents_cache);
   RegisterNullaryStartupFlag("experimental_use_compact_object_headers",
                              &use_compact_object_headers_);
+  RegisterNullaryStartupFlag("allow_server_subprocesses",
+                             &allow_server_subprocesses);
 #ifdef __linux__
   RegisterNullaryStartupFlag("experimental_run_in_user_cgroup",
                              &run_in_user_cgroup);

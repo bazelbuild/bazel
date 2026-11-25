@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.time.Instant;
 
 /** A lifecycle event. */
-@SkybridgeInterface
 public interface LifecycleEvent {
   /** The time at which the event occurred. */
   Instant eventTime();

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.
 import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.writeShort;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext.FieldSetter;
 
@@ -404,7 +405,13 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     return handlers;
   }
 
-  private static <T> List<Field> getSerializableFields(Class<T> type) {
+  /**
+   * Returns the fields of {@code type} that are serialized, in wire order: non-static,
+   * non-transient fields declared by {@code type} and its superclasses, ordered by {@link
+   * FieldComparator}.
+   */
+  @VisibleForTesting
+  static <T> List<Field> getSerializableFields(Class<T> type) {
     ArrayList<Field> fields = new ArrayList<>();
     for (Class<? super T> next = type; next != null; next = next.getSuperclass()) {
       for (Field field : next.getDeclaredFields()) {

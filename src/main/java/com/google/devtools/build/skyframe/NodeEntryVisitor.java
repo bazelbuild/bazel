@@ -309,6 +309,10 @@ class NodeEntryVisitor {
       // Only possible with --experimental_merged_skyframe_analysis_execution.
       return ThreadPoolType.EXECUTION_PHASE;
     }
+    if (executor.hasSeparatePoolForPostAnalysisTasks() && key instanceof PostAnalysisPhaseSkyKey) {
+      // Only possible with --experimental_merged_skyframe_analysis_execution.
+      return ThreadPoolType.POST_ANALYSIS;
+    }
     return ThreadPoolType.REGULAR;
   }
 }

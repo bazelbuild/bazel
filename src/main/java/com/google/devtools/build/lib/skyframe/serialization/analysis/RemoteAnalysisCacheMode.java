@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.List;
 
 /** The transport direction for the remote analysis cache. */
-@SkybridgeInterface
 public final class RemoteAnalysisCacheMode {
   /** Serializes and uploads Skyframe analysis nodes after the build command finishes. */
   public static final RemoteAnalysisCacheMode UPLOAD = new RemoteAnalysisCacheMode("UPLOAD");

@@ -1145,6 +1145,8 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
     result.setActionEnvironment(normalizeEnvVars(getActionEnvironment()));
     result.setHostActionEnvironment(normalizeEnvVars(getHostActionEnvironment()));
     result.setCommandLineFlagAliases(sortEntries(normalizeEntries(getCommandLineFlagAliases())));
+    // Deduplicate without sorting so key order matches ParsedFlagsValue.updateOptionValue().
+    result.setOverridePlatformCpuName(normalizeEntries(getOverridePlatformCpuName()));
 
     return result;
   }

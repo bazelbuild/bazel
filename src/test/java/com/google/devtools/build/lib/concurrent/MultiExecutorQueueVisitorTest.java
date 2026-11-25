@@ -96,6 +96,7 @@ public class MultiExecutorQueueVisitorTest {
             regular,
             cpuHeavy,
             executionPhase,
+            /* postAnalysisPhaseExecutorService= */ null,
             ExceptionHandlingMode.KEEP_GOING,
             ErrorClassifier.DEFAULT);
 
@@ -120,6 +121,44 @@ public class MultiExecutorQueueVisitorTest {
   }
 
   @Test
+  public void testGetExecutorServiceByThreadPoolType_postAnalysis() {
+    ExecutorService regular = mock(ExecutorService.class);
+    ExecutorService cpuHeavy = mock(ExecutorService.class);
+    ExecutorService executionPhase = mock(ExecutorService.class);
+    ExecutorService postAnalysis = mock(ExecutorService.class);
+
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular,
+            cpuHeavy,
+            executionPhase,
+            postAnalysis,
+            ExceptionHandlingMode.KEEP_GOING,
+            ErrorClassifier.DEFAULT);
+
+    assertThat(queueVisitor.hasSeparatePoolForPostAnalysisTasks()).isTrue();
+    assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.POST_ANALYSIS))
+        .isEqualTo(postAnalysis);
+    queueVisitor.shutdownExecutorService(/* catastrophe= */ null);
+    verify(postAnalysis).shutdown();
+  }
+
+  @Test
+  public void testGetExecutorServiceByThreadPoolType_postAnalysisWithoutExecutor_throwsNPE() {
+    ExecutorService regular = mock(ExecutorService.class);
+    ExecutorService cpuHeavy = mock(ExecutorService.class);
+
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
+
+    assertThat(queueVisitor.hasSeparatePoolForPostAnalysisTasks()).isFalse();
+    assertThrows(
+        NullPointerException.class,
+        () -> queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.POST_ANALYSIS));
+  }
+
+  @Test
   public void testOrdersTasksByPriority() {
     ExecutorService regularPriority =
         AbstractQueueVisitor.createPriorityExecutorService(
@@ -136,6 +175,7 @@ public class MultiExecutorQueueVisitorTest {
             regularPriority,
             cpuHeavyPriority,
             executionDefault,
+            /* postAnalysisPhaseExecutorService= */ null,
             ExceptionHandlingMode.KEEP_GOING,
             ErrorClassifier.DEFAULT);
     try {
@@ -181,6 +221,17 @@ public class MultiExecutorQueueVisitorTest {
               MultiExecutorQueueVisitor.createWithExecutorServices(
                   regularPriority,
                   cpuHeavyPriority,
+                  executionPriority,
+                  /* postAnalysisPhaseExecutorService= */ null,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  regularPriority,
+                  cpuHeavyPriority,
+                  nonPriority,
                   executionPriority,
                   ExceptionHandlingMode.KEEP_GOING,
                   ErrorClassifier.DEFAULT));

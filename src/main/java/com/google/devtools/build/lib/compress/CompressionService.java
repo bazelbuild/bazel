@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.compress;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 /** A {@link BlazeService} providing access to compression libraries. */
-@SkybridgeInterface
 public interface CompressionService extends BlazeService {
 
   /** Returns an {@link InputStream} that decompresses the given {@link InputStream} using zstd. */

@@ -131,7 +131,7 @@ public final class TypeChecker extends NodeVisitor {
         switch (binding.getScope()) {
           case UNIVERSAL -> checkNotNull(module.getUniversalSymbolType(binding.getName()));
           case PREDECLARED -> checkNotNull(module.getPredeclaredSymbolType(binding.getName()));
-          default -> typeTable.getType(binding);
+          default -> typeTable.getAndCacheType(binding);
         };
     return type != null ? type : Types.ANY;
   }
@@ -173,12 +173,14 @@ public final class TypeChecker extends NodeVisitor {
                 typeTable.getType(lambda.getResolvedFunction()),
                 "type tagger should have set type for lambda expr '%s'",
                 lambda);
-        if (!originalType.getReturnType().equals(inferedReturnType)) {
+        if (originalType.getReturnType().equals(inferedReturnType)) {
+          yield originalType;
+        } else {
           // Update the lambda function type with a more precise return type.
-          typeTable.setType(
-              lambda.getResolvedFunction(), originalType.withReturnType(inferedReturnType));
+          Types.GeneralCallableType updatedType = originalType.withReturnType(inferedReturnType);
+          typeTable.setAnnotatedType(lambda.getResolvedFunction(), updatedType);
+          yield updatedType;
         }
-        yield typeTable.getType(lambda.getResolvedFunction());
       }
       case ListExpression list -> {
         List<StarlarkType> elementTypes = new ArrayList<>();
@@ -1087,7 +1089,7 @@ public final class TypeChecker extends NodeVisitor {
       }
     }
 
-    if (lhs instanceof Identifier id && typeTable.getType(id.getBinding()) == null) {
+    if (lhs instanceof Identifier id && typeTable.getAndCacheType(id.getBinding()) == null) {
       // If a variable has not been typed, infer its type from the rhs of the first assignment.
       typeTable.setInferredType(id.getBinding(), rhsType.toLvalue());
     }
@@ -1387,15 +1389,13 @@ public final class TypeChecker extends NodeVisitor {
     checkState(!functionStack.isEmpty());
     FunctionStackEntry functionStackEntry = functionStack.peek();
     Resolver.Function function = functionStackEntry.function();
-    // May be null if function is the toplevel
-    @Nullable Types.CallableType callableType = typeTable.getType(function);
-    if (callableType != null
-        && !StarlarkType.assignableFrom(callableType.getReturnType(), returnType, typeContext)) {
+    StarlarkType expectedReturnType = typeTable.getReturnType(function);
+    if (!StarlarkType.assignableFrom(expectedReturnType, returnType, typeContext)) {
       errorf(
           ret.getResult().getStartLocation(),
           "%s() declares return type '%s' but may return '%s'",
           function.getName(),
-          callableType.getReturnType().typeRepr(),
+          expectedReturnType.typeRepr(),
           returnType.typeRepr());
     }
     functionStackEntry.returns().add(ret);

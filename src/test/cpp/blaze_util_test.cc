@@ -298,4 +298,21 @@ TEST_F(BlazeUtilTest, GetUserNameReplacesSlashesAndBackslashes) {
   ASSERT_EQ("foo_bar_baz", GetUserName());
 }
 
+TEST_F(BlazeUtilTest, IsRunningWithinTestChecksTestTmpdir) {
+  {
+    WithEnvVars env_vars(
+        {{"TEST_TMPDIR", EnvVarValue(EnvVarAction::UNSET, "")}});
+    EXPECT_FALSE(IsRunningWithinTest());
+  }
+  {
+    WithEnvVars env_vars({{"TEST_TMPDIR", EnvVarValue(EnvVarAction::SET, "")}});
+    EXPECT_TRUE(IsRunningWithinTest());
+  }
+  {
+    WithEnvVars env_vars(
+        {{"TEST_TMPDIR", EnvVarValue(EnvVarAction::SET, "/tmp/test")}});
+    EXPECT_TRUE(IsRunningWithinTest());
+  }
+}
+
 }  // namespace blaze

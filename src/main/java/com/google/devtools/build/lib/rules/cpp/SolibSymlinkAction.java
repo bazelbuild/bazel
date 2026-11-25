@@ -129,6 +129,13 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   @Override
+  public String describeKey() {
+    return String.format(
+        "SolibSymlink\n  Symlink: %s\n  Target: %s\n",
+        symlink.getExecPathString(), getPrimaryInput().getExecPathString());
+  }
+
+  @Override
   public String getMnemonic() {
     return "SolibSymlink";
   }

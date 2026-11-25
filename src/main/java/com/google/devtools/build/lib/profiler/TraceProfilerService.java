@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.profiler;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,7 +45,6 @@ import java.util.function.Supplier;
  *
  * @see ProfilerTask enum for recognized task types.
  */
-@SkybridgeInterface
 @SuppressWarnings("GoodTime") // This code is very performance sensitive.
 public interface TraceProfilerService extends BlazeService {
 

@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 
 /** The result of a remote analysis cache lookup. */
 @SuppressWarnings("ArrayRecordComponent") // To keep the SkybridgeInterface simple.
-@SkybridgeInterface
 public interface LookupResult {
   /** The serialized SkyValue, or empty if the lookup missed. */
   byte[] value();

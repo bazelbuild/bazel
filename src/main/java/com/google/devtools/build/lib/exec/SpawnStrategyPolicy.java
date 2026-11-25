@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.runtime.proto.MnemonicPolicy;
 import com.google.devtools.build.lib.runtime.proto.StrategiesForMnemonic;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.List;
 
 /** Policy for filtering spawn strategies. */
@@ -41,7 +42,7 @@ public interface SpawnStrategyPolicy {
         ImmutableMap.builder();
     for (StrategiesForMnemonic strategiesForMnemonic : policy.getStrategyAllowlistList()) {
       perMnemonicAllowList.put(
-          strategiesForMnemonic.getMnemonic(),
+          StringEncoding.unicodeToInternal(strategiesForMnemonic.getMnemonic()),
           ImmutableSet.copyOf(strategiesForMnemonic.getStrategyList()));
     }
     return new SpawnStrategyPolicyImpl(

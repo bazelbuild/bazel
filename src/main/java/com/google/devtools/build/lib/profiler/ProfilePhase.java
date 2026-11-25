@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** Build phase markers. Used as a separators between different build phases. */
-@SkybridgeInterface
 public final class ProfilePhase {
   public static final ProfilePhase LAUNCH = new ProfilePhase("launch", "Launch Blaze");
   public static final ProfilePhase INIT = new ProfilePhase("init", "Initialize command");

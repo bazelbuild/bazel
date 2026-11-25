@@ -341,7 +341,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public String describeKey() {
-    return null;
+    return "key for " + getClass().getName();
   }
 
   @Override

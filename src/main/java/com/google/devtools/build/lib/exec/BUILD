@@ -296,6 +296,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect:object_to_int_map",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -311,7 +312,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party/google/protobuf:duration_java_proto",
-        "//third_party/java/fastutil:object-to-int-open-hash-map",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
@@ -372,6 +372,7 @@ java_library(
     name = "spawn_strategy_policy",
     srcs = ["SpawnStrategyPolicy.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/protobuf:strategy_policy_java_proto",
         "//third_party/java/guava:collect",
     ],

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.profiler.memory;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -23,7 +21,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -60,22 +57,8 @@ public class AllocationTrackerModule extends BlazeModule {
    */
   private static final int VARIANCE = 100;
 
-  private AllocationTrackerService allocationTrackerService;
-
   private boolean enabled;
   @Nullable private AllocationTracker tracker = null;
-
-  @Override
-  public void globalInit(
-      OptionsParsingResult optionsParsingResult, Iterable<BlazeService> blazeServices) {
-    for (BlazeService blazeService : blazeServices) {
-      if (blazeService instanceof AllocationTrackerService allocationTrackerService) {
-        this.allocationTrackerService = allocationTrackerService;
-        break;
-      }
-    }
-    checkNotNull(allocationTrackerService, "expected AllocationTrackerService to be available");
-  }
 
   @Override
   public void blazeStartup(
@@ -85,19 +68,19 @@ public class AllocationTrackerModule extends BlazeModule {
       FileSystem fileSystem,
       ServerDirectories directories,
       Clock clock) {
-    enabled = isRequested();
-    if (enabled && allocationTrackerService.isSupported()) {
+    enabled = isRequested() && isSupported();
+    if (enabled) {
       tracker = new AllocationTracker(SAMPLE_SIZE, VARIANCE);
       Debug.setThreadHook(tracker);
       CurrentRuleTracker.setEnabled(true);
-      allocationTrackerService.installAllocationTracker(tracker);
+      AllocationTrackerInstaller.installAllocationTracker(tracker);
     }
   }
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    if (enabled && allocationTrackerService.isSupported()) {
+    if (enabled) {
       builder.setAllocationTracker(tracker);
     }
   }
@@ -117,5 +100,14 @@ public class AllocationTrackerModule extends BlazeModule {
   private static boolean isRequested() {
     String memoryTrackerProperty = System.getProperty("RULE_MEMORY_TRACKER");
     return memoryTrackerProperty != null && memoryTrackerProperty.equals("1");
+  }
+
+  private static boolean isSupported() {
+    try {
+      Class.forName("com.google.monitoring.runtime.instrumentation.Sampler");
+      return true;
+    } catch (ClassNotFoundException e) {
+      return false;
+    }
   }
 }

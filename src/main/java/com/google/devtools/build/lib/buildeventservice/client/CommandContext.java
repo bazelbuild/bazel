@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Context for a build command. */
-@SkybridgeInterface
 public interface CommandContext {
   String buildId();
 

@@ -16,12 +16,20 @@ package com.google.devtools.build.lib.platform;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.util.OS;
+import java.util.function.IntConsumer;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A singleton that is the java side interface for dealing with memory pressure events. */
 public final class SystemMemoryPressureMonitor {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final boolean IS_DARWIN = OS.getCurrent() == OS.DARWIN;
+
+  static {
+    JniLoader.loadJni();
+  }
 
   private static final SystemMemoryPressureMonitor singleton = new SystemMemoryPressureMonitor();
 
@@ -29,18 +37,27 @@ public final class SystemMemoryPressureMonitor {
   @Nullable
   private Reporter reporter;
 
-  private PlatformNativeDepsService service;
-
   public static SystemMemoryPressureMonitor getInstance() {
     return singleton;
   }
 
-  private SystemMemoryPressureMonitor() {}
-
-  public void registerJniService(PlatformNativeDepsService service) {
-    this.service = service;
-    service.registerMemoryPressureJni(this::memoryPressureCallback);
+  private SystemMemoryPressureMonitor() {
+    registerMemoryPressureJni(this::memoryPressureCallback);
   }
+
+  static void registerMemoryPressureJni(IntConsumer callback) {
+    if (IS_DARWIN) {
+      registerMemoryPressureNative(callback);
+    }
+  }
+
+  private static native void registerMemoryPressureNative(IntConsumer callback);
+
+  static int systemMemoryPressure() {
+    return IS_DARWIN ? systemMemoryPressureNative() : 0;
+  }
+
+  private static native int systemMemoryPressureNative();
 
   /** The possible memory pressure levels. */
   public enum Level {
@@ -74,12 +91,12 @@ public final class SystemMemoryPressureMonitor {
 
   /** Return current memory pressure */
   public Level level() {
-    return Level.fromInt(service.systemMemoryPressure());
+    return Level.fromInt(systemMemoryPressure());
   }
 
   public synchronized void setReporter(@Nullable Reporter reporter) {
     this.reporter = reporter;
-    int pressure = service.systemMemoryPressure();
+    int pressure = systemMemoryPressure();
     if (Level.fromInt(pressure) != Level.NORMAL) {
       memoryPressureCallback(pressure);
     }

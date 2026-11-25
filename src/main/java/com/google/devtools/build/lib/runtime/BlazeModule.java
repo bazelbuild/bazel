@@ -284,6 +284,23 @@ public abstract class BlazeModule implements OptionsSupplier {
   public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {}
 
   /**
+   * Returns an opaque action execution salt (typically a digest) for the current build, or {@code
+   * null} if this module does not contribute one.
+   *
+   * <p>The salt communicates information about the action execution environment that is not already
+   * incorporated into the action key, so Skyframe and action caches can invalidate or partition
+   * cached action results when it changes.
+   *
+   * <p>Called once per build before analysis starts. At most one module may return a non-null
+   * value; if multiple modules do, an {@link IllegalStateException} is thrown.
+   */
+  @Nullable
+  public String getActionExecutionSalt(CommandEnvironment env, BuildRequest request)
+      throws AbruptExitException {
+    return null;
+  }
+
+  /**
    * Called when Bazel initializes the action execution subsystem. This is called once per build if
    * action execution is enabled. Modules can override this method to affect how execution is
    * performed.

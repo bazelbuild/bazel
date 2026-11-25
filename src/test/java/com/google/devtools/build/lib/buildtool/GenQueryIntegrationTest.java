@@ -1023,6 +1023,46 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError("ext failed");
   }
 
+  @Test
+  public void testMaxQueryExpressionDepthExceededFails() throws Exception {
+    write(
+        "fruits/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = "melon")
+
+        genquery(
+            name = "q",
+            expression = "deps(deps(//fruits:melon))",
+            opts = ["--max_query_expression_depth=1"],
+            scope = [":melon"],
+        )
+        """);
+
+    assertThrows(expectedExceptionClass(), () -> buildTarget("//fruits:q"));
+
+    events.assertContainsError("query syntax error: query exceeds maximum nesting depth of 1");
+  }
+
+  @Test
+  public void testMaxQueryExpressionDepthWithinLimitSucceeds() throws Exception {
+    write(
+        "fruits/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = "melon")
+
+        genquery(
+            name = "q",
+            expression = "deps(deps(//fruits:melon))",
+            opts = ["--max_query_expression_depth=2"],
+            scope = [":melon"],
+        )
+        """);
+
+    assertQueryResult("//fruits:q", "//fruits:melon");
+  }
+
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {
     assertThat(getQueryResult(queryTarget).split("\n"))
         .asList()

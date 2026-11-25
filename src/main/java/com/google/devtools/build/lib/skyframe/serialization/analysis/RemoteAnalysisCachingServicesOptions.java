@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -39,7 +38,6 @@ import java.time.Duration;
  * <p>A flag should be in the SC otherwise, as it offers simpler backwards compatibility.
  */
 @OptionsClass
-@ScOnly
 public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
   @VisibleForTesting public static final int MAX_CPU_CONCURRENCY = 1024;

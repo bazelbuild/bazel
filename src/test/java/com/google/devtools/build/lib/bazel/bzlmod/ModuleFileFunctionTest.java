@@ -39,7 +39,10 @@ import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -79,12 +82,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -92,6 +97,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ModuleFileFunction}. */
 @RunWith(JUnit4.class)
 public class ModuleFileFunctionTest extends FoundationTestCase {
+
+  @Rule public final TestHttpServer httpServer = new TestHttpServer();
 
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
@@ -104,10 +111,17 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   private void setUpWithBuiltinModules(ImmutableMap<String, NonRegistryOverride> builtinModules) {
+    registryFactory = new FakeRegistry.Factory();
+    setUpEvaluator(builtinModules, registryFactory, /* downloadManager= */ null);
+  }
+
+  private void setUpEvaluator(
+      ImmutableMap<String, NonRegistryOverride> builtinModules,
+      RegistryFactory customRegistryFactory,
+      @Nullable DownloadManager downloadManager) {
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
-    registryFactory = new FakeRegistry.Factory();
     AtomicReference<PathPackageLocator> packageLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -126,6 +140,13 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             directories);
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
+    ModuleFileFunction moduleFileFunction =
+        new ModuleFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(), rootDirectory, builtinModules);
+    if (downloadManager != null) {
+      moduleFileFunction.setDownloadManager(downloadManager);
+    }
+
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -142,12 +163,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.BAZEL_LOCK_FILE,
                     new BazelLockFileFunction(rootDirectory, directories.getOutputBase()))
-                .put(
-                    SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(
-                        ruleClassProvider.getBazelStarlarkEnvironment(),
-                        rootDirectory,
-                        builtinModules))
+                .put(SkyFunctions.MODULE_FILE, moduleFileFunction)
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -165,7 +181,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories))
                 .put(
                     SkyFunctions.REGISTRY,
-                    new RegistryFunction(registryFactory, directories.getWorkspace()))
+                    new RegistryFunction(customRegistryFactory, directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
@@ -2676,5 +2692,61 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         module extension 'ext' at /workspace/MODULE.bazel:4:12. Please refer \
         to @my_repo directly.\
         """);
+  }
+
+  @Test
+  public void testPinnedModuleFileMissingDoesNotFailOverToNextRegistry() throws Exception {
+    httpServer.serve(
+        "/primary/modules/foo/1.0/MODULE.bazel", "module(name = 'foo', version = '1.0')");
+    httpServer.serve(
+        "/secondary/modules/foo/1.0/MODULE.bazel", "module(name = 'foo', version = '1.0')");
+    httpServer.start();
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name = 'root', version = '1.0')",
+        "bazel_dep(name = 'foo', version = '1.0')");
+
+    String primaryUrl = httpServer.getUrl() + "/primary";
+    ImmutableList<String> registries =
+        ImmutableList.of(primaryUrl, httpServer.getUrl() + "/secondary");
+    SkyKey fooKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+
+    setUpHttpRegistryEvaluator(registries, scratch.dir("cache_initial"));
+    EvaluationResult<ModuleFileValue> initialResult =
+        evaluator.evaluate(ImmutableList.of(fooKey), evaluationContext);
+    assertThat(initialResult.hasError()).isFalse();
+    ModuleFileValue initialValue = initialResult.get(fooKey);
+    assertThat(initialValue.module().getRegistryUrl()).isEqualTo(primaryUrl);
+    BazelLockFileModule.updateLockfile(
+        rootDirectory,
+        BazelLockFileValue.builder()
+            .setRegistryFileHashes(initialValue.registryFileHashes())
+            .build());
+
+    httpServer.unserve("/primary/modules/foo/1.0/MODULE.bazel");
+    reporter.removeHandler(failFastHandler);
+
+    setUpHttpRegistryEvaluator(registries, scratch.dir("cache_cold"));
+    EvaluationResult<ModuleFileValue> failedResult =
+        evaluator.evaluate(ImmutableList.of(fooKey), evaluationContext);
+    assertThat(failedResult.hasError()).isTrue();
+    assertThat(failedResult.getError().getException())
+        .hasMessageThat()
+        .contains(
+            ("Error accessing registry %s: Failed to fetch registry file"
+                    + " %s/modules/foo/1.0/MODULE.bazel recorded in MODULE.bazel.lock: GET"
+                    + " returned 404 Not Found")
+                .formatted(primaryUrl, primaryUrl));
+  }
+
+  private void setUpHttpRegistryEvaluator(ImmutableList<String> registries, Path cacheDir) {
+    DownloadCache downloadCache = new DownloadCache();
+    downloadCache.setPath(cacheDir);
+    HttpDownloader httpDownloader = new HttpDownloader();
+    setUpEvaluator(
+        ImmutableMap.of(),
+        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of())),
+        new DownloadManager(downloadCache, httpDownloader, httpDownloader, reporter));
+    ModuleFileFunction.REGISTRIES.set(differencer, registries);
   }
 }

@@ -31,6 +31,7 @@ java_library(
     ],
     deps = [
         ":options_internal",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
@@ -68,7 +69,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",

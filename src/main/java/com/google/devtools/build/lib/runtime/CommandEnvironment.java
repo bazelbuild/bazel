@@ -183,6 +183,7 @@ public class CommandEnvironment {
   @Nullable // Optionally set in `beforeCommand` phase.
   private LongVersionGetter versionGetter;
   private boolean useFakeStampData = false;
+  @Nullable private String originatingUser;
 
   private UiEventHandler uiEventHandler;
 
@@ -1135,6 +1136,15 @@ public class CommandEnvironment {
 
   public boolean getUseFakeStampData() {
     return useFakeStampData;
+  }
+
+  public void setOriginatingUser(@Nullable String originatingUser) {
+    this.originatingUser = originatingUser;
+  }
+
+  @Nullable
+  public String getOriginatingUser() {
+    return originatingUser;
   }
 
   public void setUiEventHandler(UiEventHandler uiEventHandler) {
