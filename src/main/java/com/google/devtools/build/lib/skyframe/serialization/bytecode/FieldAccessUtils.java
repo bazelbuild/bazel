@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.bytecode;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -60,6 +62,35 @@ public final class FieldAccessUtils {
       return LOOKUP
           .unreflectSetter(field)
           .asType(MethodType.methodType(void.class, Object.class, valueType));
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException("Failed to unreflect setter for " + field, e);
+    }
+  }
+
+  /**
+   * Returns a setter {@link MethodHandle} for {@code field} with exact signature {@code
+   * (targetType, valueType)void}, for callers that can name {@code targetType}.
+   *
+   * <p>{@code targetType}, the type of the object the setter writes to, must be the field's
+   * declaring class or a subclass of it, so that, unlike {@link #unreflectAdaptedSetter}, the
+   * target needs no cast. {@code valueType} is the field's type, or {@code Object} to cast the
+   * value inside the setter.
+   *
+   * @throws IllegalArgumentException if {@code targetType} is not a subclass of the field's
+   *     declaring class
+   */
+  public static MethodHandle unreflectTypedSetter(
+      Field field, Class<?> targetType, Class<?> valueType) {
+    checkArgument(
+        field.getDeclaringClass().isAssignableFrom(targetType),
+        "%s does not declare or inherit %s",
+        targetType,
+        field);
+    try {
+      field.setAccessible(true);
+      return LOOKUP
+          .unreflectSetter(field)
+          .asType(MethodType.methodType(void.class, targetType, valueType));
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Failed to unreflect setter for " + field, e);
     }

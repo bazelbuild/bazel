@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skyframe.serialization.bytecode;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.bytecode.FieldAccessUtils.unreflectAdaptedGetter;
 import static com.google.devtools.build.lib.skyframe.serialization.bytecode.FieldAccessUtils.unreflectAdaptedSetter;
+import static com.google.devtools.build.lib.skyframe.serialization.bytecode.FieldAccessUtils.unreflectTypedSetter;
 import static org.junit.Assert.assertThrows;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -87,6 +89,64 @@ public final class FieldAccessUtilsTest {
     Object badValue = 123;
 
     assertThrows(ClassCastException.class, () -> invokeObjectSetter(textSetter, target, badValue));
+  }
+
+  @Test
+  public void unreflectTypedSetter_takesDeclaringClassTarget() throws Throwable {
+    Field finalText = SampleHolder.class.getDeclaredField("finalText");
+    Field packageCount = SampleHolder.class.getDeclaredField("packageCount");
+    MethodHandle textSetter = unreflectTypedSetter(finalText, SampleHolder.class, String.class);
+    MethodHandle countSetter = unreflectTypedSetter(packageCount, SampleHolder.class, int.class);
+
+    assertThat(textSetter.type())
+        .isEqualTo(MethodType.methodType(void.class, SampleHolder.class, String.class));
+    assertThat(countSetter.type())
+        .isEqualTo(MethodType.methodType(void.class, SampleHolder.class, int.class));
+
+    SampleHolder holder = new SampleHolder("before", 1);
+    textSetter.invokeExact(holder, "after");
+    countSetter.invokeExact(holder, 99);
+    assertThat(holder.finalText).isEqualTo("after");
+    assertThat(holder.packageCount).isEqualTo(99);
+  }
+
+  @Test
+  public void unreflectTypedSetter_subclassTarget_writesInheritedPrivateField() throws Throwable {
+    // A private field of a superclass in another package.
+    Field detailMessage = Throwable.class.getDeclaredField("detailMessage");
+    MethodHandle setter = unreflectTypedSetter(detailMessage, CustomException.class, Object.class);
+
+    assertThat(setter.type())
+        .isEqualTo(MethodType.methodType(void.class, CustomException.class, Object.class));
+    CustomException ex = new CustomException("initial");
+    setter.invokeExact(ex, (Object) "updated");
+    assertThat(ex).hasMessageThat().isEqualTo("updated");
+  }
+
+  @Test
+  public void unreflectTypedSetter_objectValue_wrongValueType_throwsClassCastException()
+      throws Exception {
+    Field finalText = SampleHolder.class.getDeclaredField("finalText");
+    MethodHandle setter = unreflectTypedSetter(finalText, SampleHolder.class, Object.class);
+    SampleHolder holder = new SampleHolder("before", 1);
+    Object badValue = 123;
+
+    assertThrows(ClassCastException.class, () -> invokeHolderSetter(setter, holder, badValue));
+  }
+
+  @Test
+  public void unreflectTypedSetter_unrelatedTarget_throwsIllegalArgumentException()
+      throws Exception {
+    Field finalText = SampleHolder.class.getDeclaredField("finalText");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> unreflectTypedSetter(finalText, CustomException.class, Object.class));
+  }
+
+  private static void invokeHolderSetter(MethodHandle setter, SampleHolder target, Object value)
+      throws Throwable {
+    setter.invokeExact(target, value);
   }
 
   private static void invokeObjectSetter(MethodHandle setter, Object target, Object value)
