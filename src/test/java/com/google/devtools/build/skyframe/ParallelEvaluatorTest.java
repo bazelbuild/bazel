@@ -259,6 +259,47 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void interruptedEvaluationClosesSuspendedWorker() throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey workerKey = skyKey("worker");
+    SkyKey dep = skyKey("dep");
+    Thread evaluationThread = Thread.currentThread();
+    tester
+        .getOrCreate(dep)
+        .setBuilder((unused, env) -> {
+          // Skyframe schedules this dependency after the worker yields for a fresh environment.
+          evaluationThread.interrupt();
+          env.dependOnFuture(SettableFuture.create());
+          return null;
+        });
+    var workerInterrupted = new AtomicBoolean();
+    try (var state = new WorkerSkyKeyComputeState<SkyValue>()) {
+      tester
+          .getOrCreate(workerKey)
+          .setBuilder((unused, env) -> {
+            try {
+              return env.getState(() -> state)
+                  .startOrContinueWork(
+                      env,
+                      "worker",
+                      workerEnv -> {
+                        try {
+                          return workerEnv.getValue(dep);
+                        } catch (InterruptedException e) {
+                          workerInterrupted.set(true);
+                          throw e;
+                        }
+                      });
+            } catch (ExecutionException e) {
+              throw new AssertionError(e);
+            }
+          });
+      assertThrows(InterruptedException.class, () -> eval(/* keepGoing= */ false, workerKey));
+      assertThat(workerInterrupted.get()).isTrue();
+    }
+  }
+
+  @Test
   public void enqueueBadFuture() throws Exception {
     SkyKey parentKey = skyKey("parentKey");
     CountDownLatch doneLatch = new CountDownLatch(1);
