@@ -91,6 +91,14 @@ public class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
     T call(Environment workerEnv) throws Exception;
   }
 
+  /** Yields this evaluation until a started future completes, when called by a worker. */
+  public static void yieldForFuture(Environment env, ListenableFuture<?> future)
+      throws InterruptedException {
+    if (env instanceof WorkerSkyFunctionEnvironment workerEnv) {
+      workerEnv.yieldForFuture(future);
+    }
+  }
+
   /**
    * Starts a worker performing the given {@link WorkerCallable}, or if such a worker already exists
    * and is waiting for a Skyframe restart, sends over a fresh Environment and asks it to continue
