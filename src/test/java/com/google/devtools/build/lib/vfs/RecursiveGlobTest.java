@@ -22,9 +22,13 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemOps;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -135,6 +139,33 @@ public class RecursiveGlobTest {
       expectedFiles.add(file);
     }
     return expectedFiles;
+  }
+
+  @Test
+  public void recursiveSuffixSkipsDirectoryAfterCancellation() throws Exception {
+    var tasks = new ArrayDeque<Runnable>();
+    var visited = new ArrayList<Path>();
+    var result = new AtomicReference<Future<?>>();
+    result.set(
+        new UnixGlob.Builder(tmpPath, FilesystemOps.DIRECT)
+            .addPattern("**/file")
+            .setExecutor(tasks::addLast)
+            .setPathDiscriminator(
+                new TestUnixGlobPathDiscriminator(
+                    path -> {
+                      visited.add(path);
+                      result.get().cancel(false);
+                      return true;
+                    },
+                    (path, isDirectory) -> true))
+            .globAsync());
+
+    while (!tasks.isEmpty()) {
+      tasks.removeFirst().run();
+    }
+
+    assertThat(result.get().isCancelled()).isTrue();
+    assertThat(visited).containsExactly(tmpPath);
   }
 
   @Test
