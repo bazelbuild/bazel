@@ -620,11 +620,17 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   @Override
-  public synchronized void setLastModifiedTimeNanos(PathFragment path, long newTime)
+  public synchronized boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
       throws IOException {
-    InMemoryContentInfo status = inodeStat(path, true);
-    status.setLastModifiedTimeNanos(
-        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() * 1_000_000 : newTime);
+    InodeOrErrno status = inodeStatErrno(path, /* followSymlinks= */ true);
+    if (status == Errno.ENOENT) {
+      return false;
+    }
+    status
+        .inodeOrThrow(path)
+        .setLastModifiedTimeNanos(
+            newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() * 1_000_000 : newTime);
+    return true;
   }
 
   @Override

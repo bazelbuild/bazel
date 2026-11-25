@@ -791,6 +791,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   @Override
+  public boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
+      throws IOException {
+    return fsForPath(path).setLastModifiedTimeNanosIfExists(path, newTime);
+  }
+
+  @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).stat(path, followSymlinks);
   }

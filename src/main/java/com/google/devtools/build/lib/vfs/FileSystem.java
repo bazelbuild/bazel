@@ -340,7 +340,16 @@ public abstract class FileSystem {
    * denoted by {@code path}. See {@link Path#setLastModifiedTimeNanos} for specification.
    */
   @SuppressWarnings("GoodTime") // performance-sensitive
-  public abstract void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException;
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    if (!setLastModifiedTimeNanosIfExists(path, newTime)) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    }
+  }
+
+  /** Like {@link #setLastModifiedTimeNanos}, but returns false if the file does not exist. */
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public abstract boolean setLastModifiedTimeNanosIfExists(PathFragment path, long newTime)
+      throws IOException;
 
   /**
    * Returns value of the given extended attribute name or null if attribute does not exist or file

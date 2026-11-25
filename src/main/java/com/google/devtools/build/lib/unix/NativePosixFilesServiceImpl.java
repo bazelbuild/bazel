@@ -56,7 +56,7 @@ public final class NativePosixFilesServiceImpl implements NativePosixFilesServic
 
   @Override
   @SuppressWarnings("GoodTime") // performance-sensitive
-  public native void utimensat(String path, boolean now, long epochNanos)
+  public native boolean utimensat(String path, boolean now, long epochNanos)
       throws NativePosixFilesException;
 
   @Override

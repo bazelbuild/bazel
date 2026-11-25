@@ -119,10 +119,11 @@ public interface NativePosixFilesService extends BlazeService {
    * @param path the file whose modification time should be changed.
    * @param now if true, ignore {@code epochNanos} and use the current time.
    * @param epochNanos the file modification time in nanoseconds since the UNIX epoch.
-   * @throws NativePosixFilesException if the operation failed.
+   * @return true if the time was updated, or false if the file was missing
+   * @throws NativePosixFilesException if the operation failed for a reason other than ENOENT
    */
   @SuppressWarnings("GoodTime") // performance-sensitive
-  void utimensat(String path, boolean now, long epochNanos) throws NativePosixFilesException;
+  boolean utimensat(String path, boolean now, long epochNanos) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.
