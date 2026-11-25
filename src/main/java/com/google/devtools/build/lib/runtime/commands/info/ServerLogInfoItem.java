@@ -14,15 +14,13 @@
 
 package com.google.devtools.build.lib.runtime.commands.info;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.base.Supplier;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ServerLogPathService;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import java.io.IOException;
 
 /** Info item for server_log path. */
@@ -41,10 +39,8 @@ public class ServerLogInfoItem extends InfoItem {
   @Override
   public byte[] get(Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
       throws AbruptExitException {
-    ServerLogPathService serverLogPathService =
-        checkNotNull(env.getRuntime().getBlazeService(ServerLogPathService.class));
     try {
-      return print(serverLogPathService.getServerLogPath().orElse(""));
+      return print(DebugLoggerConfigurator.getServerLogPath().orElse(""));
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to determine server log location");
       return print("UNKNOWN LOG LOCATION");

@@ -26,8 +26,7 @@ public final class BazelServices {
           new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
           new com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl(),
           new com.google.devtools.build.lib.server.GrpcCommandServerServiceImpl(),
-          new com.google.devtools.build.lib.starlarkprofiler.CpuProfilerServiceImpl(),
-          new com.google.devtools.build.lib.util.ServerLogPathServiceImpl());
+          new com.google.devtools.build.lib.starlarkprofiler.CpuProfilerServiceImpl());
 
   private BazelServices() {}
 }
