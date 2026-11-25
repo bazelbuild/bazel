@@ -148,7 +148,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       try (ResourceHandle handle =
           resourceManager.acquireResources(
               owner,
-              spawn.getLocalResources(),
+              spawn.getLocalResources(context.getInputMetadataProvider()),
               context.speculating()
                   ? ResourcePriority.DYNAMIC_STANDALONE
                   : ResourcePriority.LOCAL)) {

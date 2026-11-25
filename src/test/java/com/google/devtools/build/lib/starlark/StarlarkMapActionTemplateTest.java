@@ -585,7 +585,7 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
       TreeFileArtifact output =
           getTreeFileArtifact(outputTree, "input_dir_f" + (index + 1) + ".out", index);
       SpawnAction action = (SpawnAction) getGeneratingAction(output);
-      assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+      assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, () -> 2))
           .isEqualTo(ResourceSet.create(768, 3, 0));
     }
   }

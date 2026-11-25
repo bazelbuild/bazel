@@ -779,9 +779,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2))
         .isEqualTo(ResourceSet.create(370, 1, 0));
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, () -> 2))
         .isEqualTo(ResourceSet.create(390, 2, 2));
   }
 
@@ -805,7 +805,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2))
         .isEqualTo(ResourceSet.create(250, 1, 0));
   }
 
@@ -850,7 +850,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Exception thrown =
         assertThrows(
             ExecException.class,
-            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2));
     assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
   }
 
@@ -872,7 +872,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2))
         .isEqualTo(ResourceSet.create(250, 2, 2));
   }
 
@@ -894,7 +894,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 0))
         .isEqualTo(ResourceSet.create(2, 1, 3));
   }
 
@@ -919,7 +919,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Exception thrown =
         assertThrows(
             ExecException.class,
-            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2));
     assertThat(thrown).hasMessageThat().contains("got string for 'resource_set', want dict");
   }
 
@@ -944,7 +944,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Exception thrown =
         assertThrows(
             ExecException.class,
-            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2));
     assertThat(thrown).hasMessageThat().contains("Illegal resource value type for key local_test");
   }
 
@@ -970,7 +970,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     Exception thrown =
         assertThrows(
             ExecException.class,
-            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2));
+            () -> action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 2));
     assertThat(thrown)
         .hasMessageThat()
         .contains("get_resources() accepts no more than 1 positional argument but got 2");
@@ -992,9 +992,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 0))
         .isEqualTo(ResourceSet.create(512, 4, 0));
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 100))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, () -> 100))
         .isEqualTo(ResourceSet.create(512, 4, 0));
     // The action retains a compact representation rather than a full ResourceSet.
     assertThat(action.getResourceSetOrBuilder()).isNotInstanceOf(ResourceSet.class);
@@ -1043,7 +1043,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
 
-    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, () -> 0))
         .isEqualTo(ResourceSet.create(1024, 8, 2));
   }
 
