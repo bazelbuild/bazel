@@ -30,6 +30,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/test/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/test/java/com/google/devtools/build/lib/collect:srcs",
+        "//src/test/java/com/google/devtools/build/lib/compress:srcs",
         "//src/test/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/test/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/test/java/com/google/devtools/build/lib/events:srcs",
