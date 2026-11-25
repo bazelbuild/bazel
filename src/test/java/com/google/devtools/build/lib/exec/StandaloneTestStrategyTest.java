@@ -631,6 +631,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void testThatTestLogAndOutputAreReturnedWithSplitXmlGeneration() throws Exception {
+    useConfiguration("--incompatible_separate_test_spawn_mnemonics");
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     executionOptions.setTestOutput(ExecutionOptions.TestOutputFormat.ERRORS);
@@ -657,31 +658,33 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     SpawnResult xmlGeneratorSpawnResult = PASSED_TEST_SPAWN;
     List<FileOutErr> called = new ArrayList<>();
     when(spawnStrategy.exec(any(), any()))
-        .thenAnswer(
-            (invocation) -> {
-              Spawn spawn = invocation.getArgument(0);
-              // Test that both spawns have the local tag attached as a execution info
-              assertThat(spawn.getExecutionInfo()).containsKey("local");
-              ActionExecutionContext context = invocation.getArgument(1);
-              FileOutErr outErr = context.getFileOutErr();
-              called.add(outErr);
-              if (spawn.getOutputFiles().size() != 1) {
-                try (OutputStream stream = outErr.getOutputStream()) {
-                  stream.write("This will not appear in the test output: bla\n".getBytes(UTF_8));
-                  stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
-                  stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
-                }
-                throw new SpawnExecException(
-                    "Failure!!",
-                    testSpawnResult,
-                    /* forciblyRunRemotely= */ false,
-                    /* catastrophe= */ false);
-              } else {
-                String testName = "standalone/failing_test";
-                assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
-                return ImmutableList.of(xmlGeneratorSpawnResult);
-              }
-            });
+        .thenAnswer(invocation -> {
+          Spawn spawn = invocation.getArgument(0);
+          // Test that both spawns have the local tag attached as a execution info
+          assertThat(spawn.getExecutionInfo()).containsKey("local");
+          ActionExecutionContext context = invocation.getArgument(1);
+          FileOutErr outErr = context.getFileOutErr();
+          called.add(outErr);
+          if (spawn.getOutputFiles().size() != 1) {
+            assertThat(spawn.getMnemonic()).isEqualTo(TestRunnerAction.MNEMONIC);
+            try (OutputStream stream = outErr.getOutputStream()) {
+              stream.write("This will not appear in the test output: bla\n".getBytes(UTF_8));
+              stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
+              stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
+            }
+            throw new SpawnExecException(
+                "Failure!!",
+                testSpawnResult,
+                /* forciblyRunRemotely= */ false,
+                /* catastrophe= */ false);
+          } else {
+            String testName = "standalone/failing_test";
+            assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
+            assertThat(spawn.getMnemonic())
+                .isEqualTo(TestRunnerAction.TEST_XML_GENERATION_MNEMONIC);
+            return ImmutableList.of(xmlGeneratorSpawnResult);
+          }
+        });
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
@@ -715,6 +718,18 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void xmlGeneratingSpawnDoesNotInheritTestResourceDeclarations() throws Exception {
+    useConfiguration("--incompatible_separate_test_spawn_mnemonics");
+    assertXmlGeneratingSpawnResources(TestRunnerAction.TEST_XML_GENERATION_MNEMONIC);
+  }
+
+  @Test
+  public void xmlGeneratingSpawnWithLegacyMnemonicDoesNotInheritTestResourceDeclarations()
+      throws Exception {
+    useConfiguration("--noincompatible_separate_test_spawn_mnemonics");
+    assertXmlGeneratingSpawnResources(TestRunnerAction.MNEMONIC);
+  }
+
+  private void assertXmlGeneratingSpawnResources(String expectedMnemonic) throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
@@ -755,6 +770,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(spawns).hasSize(2);
     Spawn testSpawn = spawns.get(0);
     Spawn xmlGeneratingSpawn = spawns.get(1);
+    assertThat(xmlGeneratingSpawn.getMnemonic()).isEqualTo(expectedMnemonic);
     assertThat(xmlGeneratingSpawn.getOutputFiles()).containsExactly(testRunnerAction.getTestXml());
 
     // The test spawn honours the declared resources...

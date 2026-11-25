@@ -97,7 +97,8 @@ EOF
   expect_not_log "index"
 }
 
-function test_sh_test_with_genrule_dep() {
+function run_sh_test_with_genrule_dep() {
+  local -r separate_mnemonics="$1"
   if is_windows; then
     # Windows uses launcher executables and disables runfile symlink trees by default.
     return 0
@@ -118,8 +119,9 @@ EOF
   bazel clean || fail "Cleaning failed"
   bazel test --experimental_enable_execution_graph_log \
       --experimental_execution_graph_log_path="$OUTPUT_PATH" \
-      --experimental_execution_graph_log_dep_type=all //foo:shell_test \
-      > "$TEST_log" || fail "Build failed"
+      --experimental_execution_graph_log_dep_type=all \
+      --incompatible_separate_test_spawn_mnemonics="$separate_mnemonics" \
+      //foo:shell_test > "$TEST_log" || fail "Build failed"
   dump_execution_graph
   if [[ "$PRODUCT_NAME" == "bazel" ]]; then
     # Includes RepoMappingManifest and its dependency edge on TestRunner.
@@ -131,11 +133,26 @@ EOF
   fi
   expect_log_n "mnemonic: \".*Symlink.*\"" 3
   expect_log_n "mnemonic: \"Genrule\"" 1
-  expect_log_n "mnemonic: \"TestRunner\"" 2
+  if [[ "$separate_mnemonics" == "true" ]]; then
+    expect_log_n "mnemonic: \"TestRunner\"" 1
+    expect_log_n "mnemonic: \"TestXmlGeneration\"" 1
+  else
+    expect_log_n "mnemonic: \"TestRunner\"" 2
+    expect_not_log "mnemonic: \"TestXmlGeneration\""
+  fi
   expect_log_n "^index: 6$" 1
 }
 
-function test_flaky_sh_test() {
+function test_sh_test_with_genrule_dep() {
+  run_sh_test_with_genrule_dep true
+}
+
+function test_sh_test_with_genrule_dep_legacy_mnemonics() {
+  run_sh_test_with_genrule_dep false
+}
+
+function run_flaky_sh_test() {
+  local -r separate_mnemonics="$1"
   if is_windows; then
     # Windows uses launcher executables and disables runfile symlink trees by default.
     return 0
@@ -155,8 +172,9 @@ EOF
   bazel clean || fail "Cleaning failed"
   bazel test --experimental_enable_execution_graph_log \
       --experimental_execution_graph_log_path="$OUTPUT_PATH" \
-      --experimental_execution_graph_log_dep_type=all //foo:shell_test \
-      > "$TEST_log" || true
+      --experimental_execution_graph_log_dep_type=all \
+      --incompatible_separate_test_spawn_mnemonics="$separate_mnemonics" \
+      //foo:shell_test > "$TEST_log" || true
   dump_execution_graph
   if [[ "$PRODUCT_NAME" == "bazel" ]]; then
     # RepoMappingManifest adds 1 node and shifts TestRunner indices by +1.
@@ -169,8 +187,22 @@ EOF
     expect_log_n "retry_of: 6" 1
   fi
   expect_log_n "mnemonic: \".*Symlink.*\"" 3
-  expect_log_n "mnemonic: \"TestRunner\"" 6
+  if [[ "$separate_mnemonics" == "true" ]]; then
+    expect_log_n "mnemonic: \"TestRunner\"" 3
+    expect_log_n "mnemonic: \"TestXmlGeneration\"" 3
+  else
+    expect_log_n "mnemonic: \"TestRunner\"" 6
+    expect_not_log "mnemonic: \"TestXmlGeneration\""
+  fi
   expect_log_n "mnemonic: \"RunfilesTree\"" 1
+}
+
+function test_flaky_sh_test() {
+  run_flaky_sh_test true
+}
+
+function test_flaky_sh_test_legacy_mnemonics() {
+  run_flaky_sh_test false
 }
 
 function test_shared_actions() {

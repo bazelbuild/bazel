@@ -438,6 +438,8 @@ public final class TestActionBuilder {
                 : CancelConcurrentTests.NEVER;
 
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
+        boolean incompatibleSeparateTestSpawnMnemonics =
+            testConfiguration.incompatibleSeparateTestSpawnMnemonics();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 actionOwner,
@@ -465,6 +467,7 @@ public final class TestActionBuilder {
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
+                incompatibleSeparateTestSpawnMnemonics,
                 lcovMergerFilesToRun,
                 unrunnableReason);
 

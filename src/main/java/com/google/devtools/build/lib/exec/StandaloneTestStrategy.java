@@ -499,7 +499,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         // describe the test process, not this script. Letting them override the default would
         // make a log-to-XML conversion book the whole test's CPU/memory/custom resources and
         // queue behind unrelated actions.
-        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET),
+        derivedSpawnMnemonic(action, TestRunnerAction.TEST_XML_GENERATION_MNEMONIC));
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -540,7 +541,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* mandatoryOutputs= */ null,
         // As in createXmlGeneratingSpawn: the test target's `resources:` entries describe the
         // test process, not this post-processing step.
-        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET),
+        derivedSpawnMnemonic(action, TestRunnerAction.TEST_COVERAGE_POST_PROCESSING_MNEMONIC));
+  }
+
+  private static String derivedSpawnMnemonic(TestRunnerAction action, String separateMnemonic) {
+    return action.usesSeparateSpawnMnemonics() ? separateMnemonic : action.getMnemonic();
   }
 
   private static Map<String, String> createEnvironment(

@@ -110,6 +110,8 @@ public class TestRunnerAction extends AbstractAction
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
   public static final String MNEMONIC = "TestRunner";
+  public static final String TEST_XML_GENERATION_MNEMONIC = "TestXmlGeneration";
+  public static final String TEST_COVERAGE_POST_PROCESSING_MNEMONIC = "TestCoveragePostProcessing";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -170,6 +172,7 @@ public class TestRunnerAction extends AbstractAction
   private final CancelConcurrentTests cancelConcurrentTests;
 
   private final boolean splitCoveragePostProcessing;
+  private final boolean incompatibleSeparateTestSpawnMnemonics;
   private final NestedSet<Artifact> lcovMergerFilesToRun;
 
   /**
@@ -220,6 +223,7 @@ public class TestRunnerAction extends AbstractAction
       @Nullable PathFragment shExecutable,
       CancelConcurrentTests cancelConcurrentTests,
       boolean splitCoveragePostProcessing,
+      boolean incompatibleSeparateTestSpawnMnemonics,
       NestedSet<Artifact> lcovMergerFilesToRun,
       @Nullable String unrunnableReason) {
     super(
@@ -283,6 +287,7 @@ public class TestRunnerAction extends AbstractAction
             this.extraTestEnv.getInheritedEnv());
     this.cancelConcurrentTests = cancelConcurrentTests;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
+    this.incompatibleSeparateTestSpawnMnemonics = incompatibleSeparateTestSpawnMnemonics;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
     this.unrunnableReason = unrunnableReason;
 
@@ -364,6 +369,11 @@ public class TestRunnerAction extends AbstractAction
 
   public boolean getSplitCoveragePostProcessing() {
     return splitCoveragePostProcessing;
+  }
+
+  /** Returns whether derived test spawns use mnemonics distinct from TestRunner. */
+  public boolean usesSeparateSpawnMnemonics() {
+    return incompatibleSeparateTestSpawnMnemonics;
   }
 
   public NestedSet<Artifact> getLcovMergerFilesToRun() {
