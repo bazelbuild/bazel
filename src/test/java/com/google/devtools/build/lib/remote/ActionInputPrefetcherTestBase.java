@@ -308,7 +308,7 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     verify(prefetcher, never())
-        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
@@ -346,7 +346,7 @@ public abstract class ActionInputPrefetcherTestBase {
         prefetcher.prefetchFilesInterruptibly(
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
-    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
@@ -401,7 +401,7 @@ public abstract class ActionInputPrefetcherTestBase {
     // still in place, but doesn't download it again as it is intact.
     verify(fs).statIfFound(a.getPath().asFragment(), /* followSymlinks= */ true);
     verify(prefetcher, times(1))
-        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
   }
 
@@ -1227,7 +1227,7 @@ public abstract class ActionInputPrefetcherTestBase {
     doAnswer(
             invocation -> {
               Path path = invocation.getArgument(3);
-              FileArtifactValue metadata = invocation.getArgument(4);
+              FileArtifactValue metadata = invocation.getArgument(5);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
                 return Futures.immediateFailedFuture(new IOException("Not found"));
@@ -1236,7 +1236,7 @@ public abstract class ActionInputPrefetcherTestBase {
               return resultSupplier.get();
             })
         .when(prefetcher)
-        .doDownloadFile(any(), any(), any(), any(), any(), any(), any());
+        .doDownloadFile(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {
