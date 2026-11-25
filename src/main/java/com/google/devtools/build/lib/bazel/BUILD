@@ -179,8 +179,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -191,7 +189,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
-        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -287,7 +284,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service_impl",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_service_impl",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//third_party/java/guava:collect",
     ],
 )

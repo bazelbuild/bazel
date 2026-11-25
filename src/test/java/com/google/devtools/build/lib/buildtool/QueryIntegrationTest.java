@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -114,10 +113,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     final Map<PathFragment, Runnable> watchedPaths = new ConcurrentHashMap<>();
 
     CustomFileSystem() {
-      super(
-          DigestHashFunction.SHA256,
-          /* hashAttributeName= */ "",
-          new NativePosixFilesServiceImpl());
+      super(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {

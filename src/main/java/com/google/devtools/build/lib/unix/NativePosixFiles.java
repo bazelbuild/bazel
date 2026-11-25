@@ -14,11 +14,19 @@
 
 package com.google.devtools.build.lib.unix;
 
-import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.jni.JniLoader;
 import javax.annotation.Nullable;
 
-/** A {@link BlazeService} providing access to POSIX filesystem calls. */
-public interface NativePosixFilesService extends BlazeService {
+/** Utility class providing access to POSIX filesystem calls via JNI. */
+final class NativePosixFiles {
+
+  static {
+    JniLoader.loadJni();
+  }
+
+  private NativePosixFiles() {}
+
   /**
    * Native wrapper around Linux readlink(2) call.
    *
@@ -28,7 +36,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException iff the readlink() call failed for any other reason
    */
   @Nullable
-  String readlink(String path) throws NativePosixFilesException;
+  static native String readlink(String path) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX chmod(2) syscall.
@@ -37,7 +45,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @param mode the POSIX type and permission mode bits to set
    * @throws NativePosixFilesException iff the chmod() call failed.
    */
-  void chmod(String path, int mode) throws NativePosixFilesException;
+  static native void chmod(String path, int mode) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX symlink(2) syscall.
@@ -46,7 +54,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @param newpath the new path for the link
    * @throws NativePosixFilesException iff the symlink() syscall failed.
    */
-  void symlink(String oldpath, String newpath) throws NativePosixFilesException;
+  static native void symlink(String oldpath, String newpath) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX link(2) syscall.
@@ -55,10 +63,10 @@ public interface NativePosixFilesService extends BlazeService {
    * @param newpath the new path for the link
    * @throws NativePosixFilesException iff the link() syscall failed.
    */
-  void link(String oldpath, String newpath) throws NativePosixFilesException;
+  static native void link(String oldpath, String newpath) throws NativePosixFilesException;
 
   /** How stat() and lstat() should handle errors. */
-  public final class StatErrorHandling {
+  static final class StatErrorHandling {
     private final char code;
 
     private StatErrorHandling(char code) {
@@ -66,52 +74,57 @@ public interface NativePosixFilesService extends BlazeService {
     }
 
     /** Always throw an exception. */
-    public static final StatErrorHandling ALWAYS_THROW = new StatErrorHandling('a');
+    static final StatErrorHandling ALWAYS_THROW = new StatErrorHandling('a');
 
     /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
-    public static final StatErrorHandling THROW_UNLESS_NOT_FOUND = new StatErrorHandling('f');
+    static final StatErrorHandling THROW_UNLESS_NOT_FOUND = new StatErrorHandling('f');
 
-    /* Never throw an exception. Return null instead. */
-    public static final StatErrorHandling NEVER_THROW = new StatErrorHandling('n');
+    /** Never throw an exception. Return null instead. */
+    static final StatErrorHandling NEVER_THROW = new StatErrorHandling('n');
 
-    public char getCode() {
+    private char getCode() {
       return code;
     }
   }
 
   /** File metadata, as returned by stat() or lstat(). */
   @SuppressWarnings("GoodTime")
-  public interface Stat {
-    int mode();
-
-    long mtimeNanos();
-
-    long ctimeNanos();
-
-    long size();
-
-    long ino();
-  }
+  record Stat(int mode, long mtimeNanos, long ctimeNanos, long size, long ino) {}
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
    *
    * @param path the file to stat.
    * @param errorHandling how to handle errors.
-   * @return a {@link Stat} containing the metadata.
+   * @return a {@link Stat} containing the metadata, or {@code null} if the syscall failed and
+   *     {@code errorHandling} suppressed the exception.
    * @throws NativePosixFilesException if the stat() syscall failed.
    */
-  Stat stat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException;
+  @Nullable
+  static Stat stat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException {
+    return stat(path, errorHandling.getCode());
+  }
+
+  @Nullable
+  private static native Stat stat(String path, char errorHandling) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX lstat(2) syscall.
    *
    * @param path the file to lstat.
    * @param errorHandling how to handle errors.
-   * @return a {@link Stat} containing the metadata.
+   * @return a {@link Stat} containing the metadata, or {@code null} if the syscall failed and
+   *     {@code errorHandling} suppressed the exception.
    * @throws NativePosixFilesException if the lstat() syscall failed.
    */
-  Stat lstat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException;
+  @Nullable
+  static Stat lstat(String path, StatErrorHandling errorHandling) throws NativePosixFilesException {
+    return lstat(path, errorHandling.getCode());
+  }
+
+  @Nullable
+  private static native Stat lstat(String path, char errorHandling)
+      throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX utimensat(2) syscall.
@@ -122,7 +135,8 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException if the operation failed.
    */
   @SuppressWarnings("GoodTime") // performance-sensitive
-  void utimensat(String path, boolean now, long epochNanos) throws NativePosixFilesException;
+  static native void utimensat(String path, boolean now, long epochNanos)
+      throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.
@@ -136,7 +150,7 @@ public interface NativePosixFilesService extends BlazeService {
    *     EEXIST because some kind of a file (not necessarily a directory) already exists.
    * @throws NativePosixFilesException if the mkdir() syscall failed for any other reason.
    */
-  boolean mkdir(String path, int mode) throws NativePosixFilesException;
+  static native boolean mkdir(String path, int mode) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX opendir(2)/readdir(3)/closedir(3) syscalls.
@@ -147,39 +161,35 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException if the opendir(), readdir() or closedir() calls failed for
    *     any reason.
    */
-  Dirent[] readdir(String path) throws NativePosixFilesException;
+  static native Dirent[] readdir(String path) throws NativePosixFilesException;
 
   /** A directory entry and its corresponding type, as returned by readdir(). */
-  public interface Dirent {
-    String name();
-
-    Type type();
-
+  record Dirent(String name, Type type) {
     /** The type of the directory entry. */
-    public static final class Type {
+    static final class Type {
       /** Regular file. */
-      public static final Type FILE = new Type();
+      static final Type FILE = new Type();
 
       /** Directory. */
-      public static final Type DIRECTORY = new Type();
+      static final Type DIRECTORY = new Type();
 
       /** Symbolic link. */
-      public static final Type SYMLINK = new Type();
+      static final Type SYMLINK = new Type();
 
       /** Character special device. */
-      public static final Type CHAR = new Type();
+      static final Type CHAR = new Type();
 
-      /* Block special device. */
-      public static final Type BLOCK = new Type();
+      /** Block special device. */
+      static final Type BLOCK = new Type();
 
       /** Named pipe. */
-      public static final Type FIFO = new Type();
+      static final Type FIFO = new Type();
 
       /** Unix domain socket. */
-      public static final Type SOCKET = new Type();
+      static final Type SOCKET = new Type();
 
       /** Unknown type. */
-      public static final Type UNKNOWN = new Type();
+      static final Type UNKNOWN = new Type();
 
       private Type() {}
     }
@@ -192,7 +202,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @param newpath the destination location.
    * @throws NativePosixFilesException if the rename failed for any reason.
    */
-  void rename(String oldpath, String newpath) throws NativePosixFilesException;
+  static native void rename(String oldpath, String newpath) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX remove(3) C library call.
@@ -202,7 +212,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException if the remove failed, but the file was present prior to the
    *     call.
    */
-  boolean remove(String path) throws NativePosixFilesException;
+  static native boolean remove(String path) throws NativePosixFilesException;
 
   /**
    * Native wrapper around POSIX mkfifo(3) C library call.
@@ -211,7 +221,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @param mode the mode with which to create the pipe.
    * @throws NativePosixFilesException if the mkfifo failed.
    */
-  void mkfifo(String path, int mode) throws NativePosixFilesException;
+  static native void mkfifo(String path, int mode) throws NativePosixFilesException;
 
   /**
    * Native wrapper around Linux getxattr(2) syscall.
@@ -220,11 +230,10 @@ public interface NativePosixFilesService extends BlazeService {
    * @param name the name of the extended attribute key.
    * @return the value of the extended attribute associated with 'path', if any, or null if extended
    *     attributes are unsupported by the filesystem or if no such extended attribute is defined
-   *     attribute is defined
    * @throws NativePosixFilesException if the call failed for any other reason
    */
   @Nullable
-  byte[] getxattr(String path, String name) throws NativePosixFilesException;
+  static native byte[] getxattr(String path, String name) throws NativePosixFilesException;
 
   /**
    * Native wrapper around Linux lgetxattr(2) syscall.
@@ -236,7 +245,7 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException if the call failed for any other reason
    */
   @Nullable
-  byte[] lgetxattr(String path, String name) throws NativePosixFilesException;
+  static native byte[] lgetxattr(String path, String name) throws NativePosixFilesException;
 
   /**
    * Deletes all directory trees recursively beneath the given path, which is expected to be a
@@ -246,5 +255,11 @@ public interface NativePosixFilesService extends BlazeService {
    * @throws NativePosixFilesException if the hierarchy cannot be removed successfully or if the
    *     given path is not a directory
    */
-  void deleteTreesBelow(String dir) throws NativePosixFilesException;
+  static native void deleteTreesBelow(String dir) throws NativePosixFilesException;
+
+  /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
+  private static void logBadPath(String path) {
+    BugReport.sendNonFatalBugReport(
+        new IllegalStateException("Path string does not have a Latin-1 coder: %s".formatted(path)));
+  }
 }

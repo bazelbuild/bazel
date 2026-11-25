@@ -53,8 +53,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   protected FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
-    return new UnixFileSystem(
-        digestHashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
+    return new UnixFileSystem(digestHashFunction, /* hashAttributeName= */ "");
   }
 
   @Override
@@ -99,7 +98,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path regular = absolutize("regular");
     Path fifo = absolutize("fifo");
     FileSystemUtils.createEmptyFile(regular);
-    new NativePosixFilesServiceImpl().mkfifo(fifo.toString(), 0777);
+    NativePosixFiles.mkfifo(fifo.toString(), 0777);
 
     assertThat(regular.isFile()).isTrue();
     assertThat(regular.isSpecialFile()).isFalse();
@@ -118,7 +117,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path fifo = dir.getChild("fifo");
     dir.createDirectoryAndParents();
     symlink.createSymbolicLink(fifo.asFragment());
-    new NativePosixFilesServiceImpl().mkfifo(fifo.toString(), 0777);
+    NativePosixFiles.mkfifo(fifo.toString(), 0777);
 
     assertThat(dir.getDirectoryEntries()).containsExactly(symlink, fifo);
 

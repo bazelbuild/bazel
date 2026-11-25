@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.util;
 
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -31,8 +30,7 @@ public final class FileSystems {
     if (OS.getCurrent() == OS.WINDOWS) {
       return new WindowsFileSystem(digestHashFunction, /* createSymbolicLinks= */ true);
     } else {
-      return new UnixFileSystem(
-          digestHashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
+      return new UnixFileSystem(digestHashFunction, /* hashAttributeName= */ "");
     }
   }
 
