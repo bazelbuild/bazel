@@ -2745,7 +2745,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     HttpDownloader httpDownloader = new HttpDownloader();
     setUpEvaluator(
         ImmutableMap.of(),
-        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of())),
+        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()), rootDirectory),
         new DownloadManager(downloadCache, httpDownloader, httpDownloader, reporter));
     ModuleFileFunction.REGISTRIES.set(differencer, registries);
   }

@@ -97,7 +97,7 @@ public class RegistryFunction implements SkyFunction {
         return null;
       }
       return registryFactory.createRegistry(
-          url,
+          key.url(),
           lockfileMode,
           lockfile.getRegistryFileHashes(),
           lockfile.getSelectedYankedVersions(),

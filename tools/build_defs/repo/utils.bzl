@@ -70,14 +70,21 @@ def _use_native_patch(patch_args):
             return False
     return True
 
+def _expand_workspace(ctx, urls):
+    # URLs of files in a registry at file://%workspace%/... keep %workspace% so
+    # that the repo definition doesn't depend on the location of the workspace.
+    workspace_root = str(ctx.workspace_root)
+    return [url.replace("%workspace%", workspace_root) for url in urls]
+
 def _download_patch(ctx, patch_url, integrity, auth = None):
     name = patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
+    urls = _expand_workspace(ctx, [patch_url])
     download_info = ctx.download(
-        patch_url,
+        urls,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
-        auth = get_auth(ctx, [patch_url]) if auth == None else auth,
+        auth = get_auth(ctx, urls) if auth == None else auth,
         integrity = integrity,
     )
     return patch_path, download_info
@@ -99,19 +106,19 @@ def download_remote_files(ctx, auth = None):
     Returns:
         dict mapping file paths to a download info.
     """
-    pending = {
-        path: ctx.download(
-            remote_file_urls,
+    pending = {}
+    for path, remote_file_urls in ctx.attr.remote_file_urls.items():
+        urls = _expand_workspace(ctx, remote_file_urls)
+        pending[path] = ctx.download(
+            urls,
             path,
             canonical_id = ctx.attr.canonical_id,
-            auth = get_auth(ctx, remote_file_urls) if auth == None else auth,
+            auth = get_auth(ctx, urls) if auth == None else auth,
             integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
             # Overlaid files may be shell scripts.
             executable = True,
         )
-        for path, remote_file_urls in ctx.attr.remote_file_urls.items()
-    }
 
     # Wait until the requests are done
     return {path: token.wait() for path, token in pending.items()}
@@ -216,10 +223,11 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         if not ctx.attr.remote_module_file_integrity:
             fail("remote_module_file_integrity must be set when remote_module_file_urls is set")
         ctx.delete("MODULE.bazel")
+        remote_module_file_urls = _expand_workspace(ctx, remote_module_file_urls)
         ctx.download(
             remote_module_file_urls,
             "MODULE.bazel",
-            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            auth = get_auth(ctx, remote_module_file_urls),
             integrity = ctx.attr.remote_module_file_integrity,
         )
 

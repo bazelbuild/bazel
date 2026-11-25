@@ -57,7 +57,7 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
 
   /** Constructs a mock {@link Registry} with dummy information. */
   private Registry mockRegistry() throws Exception {
-    return new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()))
+    return new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()), rootDirectory)
         .createRegistry(
             "https://fake.registry",
             LockfileMode.UPDATE,
