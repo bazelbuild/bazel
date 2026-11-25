@@ -1508,6 +1508,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
