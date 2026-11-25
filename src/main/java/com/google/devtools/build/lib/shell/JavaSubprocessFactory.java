@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.shell;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
@@ -126,29 +125,18 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // Subprocesses fork from this platform thread to ensure the subprocess's parent is long lived,
   // which prevents actions from being killed erroneously. See the doc comment on
   // startOnPlatformThread for more details.
-  @VisibleForTesting
-  static final ExecutorService DEFAULT_FORK_EXECUTOR =
-      Executors.newSingleThreadExecutor(
-          runnable -> {
-            Thread thread = new Thread(runnable, "subprocess-fork");
-            thread.setDaemon(true);
-            return thread;
-          });
+  private static final ExecutorService FORK_EXECUTOR =
+      Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "subprocess-fork");
+        thread.setDaemon(true);
+        return thread;
+      });
 
   private final ReentrantLock lock = new ReentrantLock();
-  private final ExecutorService forkExecutor;
 
-  public static final JavaSubprocessFactory INSTANCE =
-      new JavaSubprocessFactory(DEFAULT_FORK_EXECUTOR);
+  public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
 
-  private JavaSubprocessFactory(ExecutorService forkExecutor) {
-    this.forkExecutor = forkExecutor;
-  }
-
-  @VisibleForTesting
-  static JavaSubprocessFactory createForTesting(ExecutorService forkExecutor) {
-    return new JavaSubprocessFactory(forkExecutor);
-  }
+  private JavaSubprocessFactory() {}
 
   // since we are a singleton, we represent an ideal global lock for
   // process invocations, which is required due to the following race condition:
@@ -204,7 +192,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
    * parent, builds can fail unexpectedly when actions take longer than 30 seconds.
    */
   private Process startOnPlatformThread(ProcessBuilder builder) throws IOException {
-    Future<Process> future = forkExecutor.submit(builder::start);
+    Future<Process> future = FORK_EXECUTOR.submit(builder::start);
     try {
       return Uninterruptibles.getUninterruptibly(future);
     } catch (ExecutionException e) {
@@ -224,13 +212,12 @@ public class JavaSubprocessFactory implements SubprocessFactory {
     builder.command(Lists.transform(params.getArgv(), StringEncoding::internalToPlatform));
     builder.environment().clear();
     (params.getEnv() != null ? params.getEnv() : params.getClientEnv())
-        .forEach(
-            (key, value) ->
-                builder
-                    .environment()
-                    .put(
-                        StringEncoding.internalToPlatform(key),
-                        StringEncoding.internalToPlatform(value)));
+        .forEach((key, value) ->
+            builder
+                .environment()
+                .put(
+                    StringEncoding.internalToPlatform(key),
+                    StringEncoding.internalToPlatform(value)));
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));
     builder.redirectError(getRedirect(params.getStderr(), params.getStderrFile()));
