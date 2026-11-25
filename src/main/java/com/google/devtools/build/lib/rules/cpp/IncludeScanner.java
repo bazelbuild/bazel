@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -173,21 +174,55 @@ public interface IncludeScanner {
      */
     @Nullable private final Predicate<Artifact> isValidUndeclaredHeader;
 
+    /**
+     * Basenames of non-source (generated) headers in {@code pathToDeclaredHeader}, or null when
+     * none are known to be present. Allows {@code LegacyIncludeScanner} to confirm in O(1) that no
+     * generated header can shadow a cached inclusion lookup.
+     */
+    @Nullable private final Set<String> generatedHeaderBaseNames;
+
     public IncludeScanningHeaderData(
         Map<PathFragment, Artifact> pathToDeclaredHeader,
         Set<Artifact> modularHeaders,
         List<PathFragment> systemIncludeDirs,
         List<String> cmdlineIncludes,
         @Nullable Predicate<Artifact> isValidUndeclaredHeader) {
+      this(
+          pathToDeclaredHeader,
+          modularHeaders,
+          systemIncludeDirs,
+          cmdlineIncludes,
+          isValidUndeclaredHeader,
+          extractGeneratedHeaderBaseNames(pathToDeclaredHeader));
+    }
+
+    private IncludeScanningHeaderData(
+        Map<PathFragment, Artifact> pathToDeclaredHeader,
+        Set<Artifact> modularHeaders,
+        List<PathFragment> systemIncludeDirs,
+        List<String> cmdlineIncludes,
+        @Nullable Predicate<Artifact> isValidUndeclaredHeader,
+        @Nullable Set<String> generatedHeaderBaseNames) {
       this.pathToDeclaredHeader = pathToDeclaredHeader;
       this.modularHeaders = modularHeaders;
       this.systemIncludeDirs = systemIncludeDirs;
       this.cmdlineIncludes = cmdlineIncludes;
       this.isValidUndeclaredHeader = isValidUndeclaredHeader;
+      this.generatedHeaderBaseNames = generatedHeaderBaseNames;
     }
 
     public boolean isDeclaredHeader(PathFragment header) {
       return pathToDeclaredHeader.containsKey(header);
+    }
+
+    /** Returns false when this action is known to declare no generated headers. */
+    public boolean hasGeneratedHeaders() {
+      return generatedHeaderBaseNames != null;
+    }
+
+    /** Returns true if a declared generated header has the given basename. */
+    public boolean hasPotentialGeneratedHeader(String baseName) {
+      return generatedHeaderBaseNames != null && generatedHeaderBaseNames.contains(baseName);
     }
 
     public Artifact getHeaderArtifact(PathFragment header) {
@@ -212,9 +247,28 @@ public interface IncludeScanner {
           || isValidUndeclaredHeader.test(header);
     }
 
+    @Nullable
+    private static Set<String> extractGeneratedHeaderBaseNames(
+        Map<PathFragment, Artifact> pathToDeclaredHeader) {
+      CompactHashSet<String> baseNames = null;
+      for (Artifact header : pathToDeclaredHeader.values()) {
+        if (header.isSourceArtifact() || header.isTreeArtifact()) {
+          continue;
+        }
+        if (baseNames == null) {
+          baseNames = CompactHashSet.create();
+        }
+        baseNames.add(header.getExecPath().getBaseName());
+      }
+      return baseNames;
+    }
+
+    /** A builder for {@link IncludeScanningHeaderData}. */
     public static class Builder {
       private final Map<PathFragment, Artifact> pathToDeclaredHeader;
       private final Set<Artifact> modularHeaders;
+      private final boolean precomputedGeneratedBaseNames;
+      @Nullable private Set<String> generatedHeaderBaseNames;
       private List<PathFragment> systemIncludeDirs = ImmutableList.of();
       private List<String> cmdlineIncludes = ImmutableList.of();
       @Nullable private Predicate<Artifact> isValidUndeclaredHeader = null;
@@ -223,6 +277,23 @@ public interface IncludeScanner {
           Map<PathFragment, Artifact> pathToDeclaredHeader, Set<Artifact> modularHeaders) {
         this.pathToDeclaredHeader = pathToDeclaredHeader;
         this.modularHeaders = modularHeaders;
+        this.precomputedGeneratedBaseNames = false;
+        this.generatedHeaderBaseNames = null;
+      }
+
+      /**
+       * Creates a builder with precomputed basenames of generated headers already present in {@code
+       * pathToDeclaredHeader}. If non-null, {@code generatedHeaderBaseNames} must be mutable so
+       * {@link #addDeclaredHeaders} can append to it.
+       */
+      Builder(
+          Map<PathFragment, Artifact> pathToDeclaredHeader,
+          Set<Artifact> modularHeaders,
+          @Nullable Set<String> generatedHeaderBaseNames) {
+        this.pathToDeclaredHeader = pathToDeclaredHeader;
+        this.modularHeaders = modularHeaders;
+        this.precomputedGeneratedBaseNames = true;
+        this.generatedHeaderBaseNames = generatedHeaderBaseNames;
       }
 
       @CanIgnoreReturnValue
@@ -263,23 +334,33 @@ public interface IncludeScanner {
           // registering them would be redundant. Skipping them keeps this map empty for the
           // common case of a source-file sysroot (e.g. GRTE), leaving those toolchains
           // entirely unaffected. Tree artifacts are handled separately and are skipped.
-          if (!header.isSourceArtifact() && !header.isTreeArtifact()) {
-            // Use putIfAbsent so a header the target already declared for this exec path takes
-            // precedence: the target's own mapping is authoritative and must not be shadowed by
-            // a toolchain/prunable header that happens to share the path.
-            pathToDeclaredHeader.putIfAbsent(header.getExecPath(), header);
+          if (header.isSourceArtifact() || header.isTreeArtifact()) {
+            continue;
           }
+          // Use putIfAbsent so a header the target already declared for this exec path takes
+          // precedence: the target's own mapping is authoritative and must not be shadowed by
+          // a toolchain/prunable header that happens to share the path.
+          pathToDeclaredHeader.putIfAbsent(header.getExecPath(), header);
+          if (generatedHeaderBaseNames == null) {
+            generatedHeaderBaseNames = CompactHashSet.create();
+          }
+          generatedHeaderBaseNames.add(header.getExecPath().getBaseName());
         }
         return this;
       }
 
       public IncludeScanningHeaderData build() {
+        Set<String> baseNames =
+            precomputedGeneratedBaseNames
+                ? generatedHeaderBaseNames
+                : extractGeneratedHeaderBaseNames(pathToDeclaredHeader);
         return new IncludeScanningHeaderData(
             pathToDeclaredHeader,
             modularHeaders,
             systemIncludeDirs,
             cmdlineIncludes,
-            isValidUndeclaredHeader);
+            isValidUndeclaredHeader,
+            baseNames);
       }
     }
   }
