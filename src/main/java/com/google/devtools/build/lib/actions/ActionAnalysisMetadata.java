@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -25,6 +26,11 @@ import javax.annotation.Nullable;
  * side-effect-free query methods for information needed during action analysis.
  */
 public interface ActionAnalysisMetadata {
+  /** An action whose complete emitted file contents can be fingerprinted during analysis. */
+  interface AnalysisTimeFileContents {
+    void fingerprintFileContents(Fingerprint fingerprint);
+  }
+
 
   /**
    * Return this key from {@link #getKey} to signify a failed key computation.

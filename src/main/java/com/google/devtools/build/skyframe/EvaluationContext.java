@@ -38,6 +38,7 @@ public class EvaluationContext {
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
   private final boolean detectCycles;
+  private final boolean orderedRootResults;
 
   protected EvaluationContext(
       int parallelism,
@@ -48,7 +49,8 @@ public class EvaluationContext {
       boolean mergingSkyframeAnalysisExecutionPhases,
       boolean storeExactCycles,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
-      boolean detectCycles) {
+      boolean detectCycles,
+      boolean orderedRootResults) {
     this.parallelism = parallelism;
     this.executor = executor;
     this.keepGoing = keepGoing;
@@ -58,6 +60,7 @@ public class EvaluationContext {
     this.storeExactCycles = storeExactCycles;
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
     this.detectCycles = detectCycles;
+    this.orderedRootResults = orderedRootResults;
   }
 
   public int getParallelism() {
@@ -128,6 +131,10 @@ public class EvaluationContext {
     return detectCycles;
   }
 
+  public boolean orderedRootResults() {
+    return orderedRootResults;
+  }
+
   public Builder builder() {
     return newBuilder().copyFrom(this);
   }
@@ -149,6 +156,7 @@ public class EvaluationContext {
         UnnecessaryTemporaryStateDropperReceiver.NULL;
 
     protected boolean detectCycles = true;
+    private boolean orderedRootResults;
 
     protected Builder() {}
 
@@ -165,6 +173,7 @@ public class EvaluationContext {
       this.unnecessaryTemporaryStateDropperReceiver =
           evaluationContext.unnecessaryTemporaryStateDropperReceiver;
       this.detectCycles = evaluationContext.detectCycles;
+      this.orderedRootResults = evaluationContext.orderedRootResults;
       return this;
     }
 
@@ -224,6 +233,16 @@ public class EvaluationContext {
       return this;
     }
 
+    /**
+     * Allows completed evaluations to store values in root order for a positional consumer.
+     * The result may still use keyed storage, and keyed lookups remain available.
+     */
+    @CanIgnoreReturnValue
+    public Builder setOrderedRootResults(boolean orderedRootResults) {
+      this.orderedRootResults = orderedRootResults;
+      return this;
+    }
+
     public EvaluationContext build() {
       return new EvaluationContext(
           parallelism,
@@ -234,7 +253,8 @@ public class EvaluationContext {
           mergingSkyframeAnalysisExecutionPhases,
           storeExactCycles,
           unnecessaryTemporaryStateDropperReceiver,
-          detectCycles);
+          detectCycles,
+          orderedRootResults);
     }
   }
 }

@@ -13,14 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
+import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -30,10 +38,14 @@ import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.query.hash.DirectTargetHashFunction;
+import com.google.devtools.build.lib.query2.query.hash.TransitiveHashes;
+import com.google.devtools.build.lib.query2.query.output.HashOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
+import com.google.devtools.build.lib.query2.query.output.StreamedProtoOutputFormatter;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -48,11 +60,16 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Either;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /** Command line wrapper for executing a query with blaze. */
 @Command(
@@ -71,6 +88,8 @@ import java.util.Set;
     binaryStdOut = true,
     completion = "label")
 public final class QueryCommand extends QueryEnvironmentBasedCommand {
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
+  private static final int MIN_ORDERED_HASH_KEYS = 4_096;
 
   @Override
   protected Either<BlazeCommandResult, QueryEvalResult> doQuery(
@@ -101,7 +120,9 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     try {
-      formatter.verifyCompatible(queryEnv, expr);
+      if (!queryOptions.getGenerateHashes()) {
+        formatter.verifyCompatible(queryEnv, expr);
+      }
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return Either.ofLeft(BlazeCommandResult.failureDetail(e.getFailureDetail()));
@@ -130,7 +151,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     ThreadSafeOutputFormatterCallback<Target> callback;
     HashFunction hashFunction =
         env.getRuntime().getFileSystem().getDigestFunction().getHashFunction();
-    if (streamResults) {
+    boolean generateHashes = queryOptions.getGenerateHashes();
+    if (generateHashes) {
+      // Hashes are computed after evaluation, so aggregate the results instead of streaming them.
+      callback = QueryUtil.newLexicographicallySortedTargetAggregator(/* parallelSort= */ true);
+    } else if (streamResults) {
       disableAnsiCharactersFiltering(env);
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
@@ -148,10 +173,13 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     QueryEvalResult result;
+    long evaluationStart = System.nanoTime();
+    long evaluationNanos;
     boolean catastrophe = true;
     try {
       try (SilentCloseable closeable = Profiler.instance().profile("queryEnv.evaluateQuery")) {
         result = queryEnv.evaluateQuery(expr, callback);
+        evaluationNanos = System.nanoTime() - evaluationStart;
         catastrophe = false;
       } catch (QueryException e) {
         catastrophe = false;
@@ -176,7 +204,49 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
           out.flush();
         }
       }
-      if (!streamResults || lexicographicallySortOutput) {
+      if (generateHashes) {
+        disableAnsiCharactersFiltering(env);
+        try (SilentCloseable closeable = Profiler.instance().profile("QueryCommand.outputHashes")) {
+          long sortStart = System.nanoTime();
+          Set<Target> targets =
+              ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
+          long sortNanos = System.nanoTime() - sortStart;
+          HashOutputFormatter catalog = null;
+          if (formatter instanceof HashOutputFormatter hashed) {
+            // Require complete enumeration before writing any snapshot rows.
+            if (!result.getSuccess()) {
+              return Either.ofRight(result);
+            }
+            hashed.setOptions(
+                queryOptions,
+                queryOptions
+                    .getAspectDeps()
+                    .createResolver(env.getPackageManager(), env.getReporter()),
+                hashFunction);
+            hashed.setEventHandler(env.getReporter());
+            catalog = hashed;
+          }
+          BlazeCommandResult failure =
+              outputHashes(
+                  env,
+                  queryOptions,
+                  targets,
+                  out,
+                  queryEnv.getLabelPrinter(),
+                  catalog,
+                  evaluationNanos,
+                  sortNanos);
+          if (failure != null) {
+            return Either.ofLeft(failure);
+          }
+        } catch (ClosedByInterruptException | InterruptedException e) {
+          return reportAndCreateInterruptedResult(env);
+        } catch (IOException e) {
+          return reportAndCreateIOExceptionResult(env, e.getMessage());
+        } finally {
+          out.flush();
+        }
+      } else if (!streamResults || lexicographicallySortOutput) {
         disableAnsiCharactersFiltering(env);
         try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
           Set<Target> targets =
@@ -206,6 +276,154 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     }
 
     return Either.ofRight(result);
+  }
+
+  /**
+   * Writes transitive hashes, including metadata for every target when a catalog is requested.
+   * Returns a failure result if a hash could not be computed or may be wrong, or null.
+   */
+  @Nullable
+  private static BlazeCommandResult outputHashes(
+      CommandEnvironment env,
+      QueryOptions queryOptions,
+      Set<Target> targets,
+      OutputStream out,
+      LabelPrinter labelPrinter,
+      @Nullable HashOutputFormatter catalog,
+      long evaluationNanos,
+      long sortNanos)
+      throws IOException, InterruptedException {
+    ImmutableSet<Label> labels = targets.stream().map(Target::getLabel).collect(toImmutableSet());
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setParallelism(
+                env.getOptions().getOptions(LoadingPhaseThreadsOption.class).getThreads())
+            .setEventHandler(env.getReporter())
+            .build();
+    EvaluationContext orderedEvaluationContext =
+        evaluationContext.builder().setOrderedRootResults(true).build();
+    Stopwatch skyframeTime = Stopwatch.createUnstarted();
+    TransitiveHashes.Result result =
+        TransitiveHashes.compute(
+            labels,
+            keys -> {
+              skyframeTime.start();
+              try {
+                boolean useOrderedValues =
+                    keys.size() >= MIN_ORDERED_HASH_KEYS
+                        && keys.iterator().next() instanceof DirectTargetHashFunction.Key;
+                return env.getSkyframeExecutor()
+                    .prepareAndGet(
+                        keys, useOrderedValues ? orderedEvaluationContext : evaluationContext);
+              } finally {
+                skyframeTime.stop();
+              }
+            },
+            message -> env.getReporter().handle(Event.progress(message)),
+            queryOptions.getQueryHashFailureImpact(),
+            queryOptions.getQueryBatchDirectRuleHashes());
+    CountingOutputStream binary = null;
+    if (catalog instanceof StreamedProtoOutputFormatter) {
+      binary = new CountingOutputStream(out);
+      out = binary;
+    }
+    String lineTerminator = queryOptions.getLineTerminator();
+    long writeStart = System.nanoTime();
+    if (catalog != null) {
+      catalog.writeHashedTargets(targets, labelPrinter, result.hashes(), out);
+    } else {
+      for (Target target : targets) {
+        Label label = target.getLabel();
+        var hash = result.hashes().get(label);
+        if (hash != null) {
+          out.write(
+              (labelPrinter.toString(label)
+                      + " "
+                      + HEX_FORMAT.formatHex(hash.toByteArray())
+                      + lineTerminator)
+                  .getBytes(UTF_8));
+        }
+      }
+    }
+    long writeEnd = System.nanoTime();
+    long writeNanos = writeEnd - writeStart;
+    if (catalog != null) {
+      Profiler.instance().logSimpleTask(
+          writeStart, writeEnd, ProfilerTask.INFO, "NativeQuery.writeCatalog");
+    }
+    result
+        .errors()
+        .forEach(
+            (label, error) ->
+                env.getReporter()
+                    .handle(
+                        Event.error(
+                            String.format(
+                                "failed to compute hash for %s: %s",
+                                labelPrinter.toString(label),
+                                error.getException() != null
+                                    ? error.getException().getMessage()
+                                    : error.toString()))));
+    int omitted = labels.size() - result.hashes().size();
+    if (binary != null) {
+      long flushStart = System.nanoTime();
+      binary.flush();
+      long outputNanos = writeNanos + (System.nanoTime() - flushStart);
+      var timing = result.timing();
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      Locale.ROOT,
+                      "Native query phases (ms): file_diff=%d evaluate=%d sort=%d discovery=%d"
+                          + " skyframe=%d combine=%d assemble=%d output=%d",
+                      env.getSkyframeExecutor().getSourceDiffCheckingDuration().toMillis(),
+                      TimeUnit.NANOSECONDS.toMillis(evaluationNanos),
+                      TimeUnit.NANOSECONDS.toMillis(sortNanos),
+                      timing.discoveryMs(),
+                      skyframeTime.elapsed(TimeUnit.MILLISECONDS),
+                      timing.combineMs(),
+                      timing.assembleMs(),
+                      TimeUnit.NANOSECONDS.toMillis(outputNanos))));
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      "Streamed %d query hash records (%d unknown, %d bytes)",
+                      targets.size(), omitted, binary.getCount())));
+    }
+    if (omitted == 0 && result.errors().isEmpty()) {
+      return null;
+    }
+    result
+        .failureImpact()
+        .forEach(
+            (label, impact) ->
+                env.getReporter()
+                    .handle(
+                        Event.info(
+                            String.format(
+                                "Unknown hash impact of %s: %d affected, %d exclusive",
+                                label, impact.affected(), impact.exclusive()))));
+    if (result.unlistedFailureImpact() != 0) {
+      env.getReporter().handle(
+          Event.info(
+              String.format(
+                  "Unknown hash impact of remaining failures: %d affected",
+                  result.unlistedFailureImpact())));
+    }
+    String message =
+        String.format(
+            "omitted %d of %d requested hashes because dependency information was incomplete"
+                + " (%d reported errors)",
+            omitted, labels.size(), result.errors().size());
+    env.getReporter().handle(Event.error(message));
+    return BlazeCommandResult.detailedExitCode(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setQuery(Query.newBuilder().setCode(Code.BUILD_FILE_ERROR))
+                .build()));
   }
 
   /**

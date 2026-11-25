@@ -47,6 +47,52 @@ public abstract class QueryOptions extends CommonQueryOptions {
   public abstract String getOutputFormat();
 
   @Option(
+      name = "experimental_generate_hashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set, prints each target in the query result followed by a hash of the target and"
+              + " its transitive dependencies (attribute values, rule definitions, source file"
+              + " contents and the toolchains registered for the toolchain types it uses)."
+              + " With --output=streamed_proto, each length-delimited Target contains its raw"
+              + " transitive_hash when available."
+              + " With --output=streamed_jsonproto, each JSON record contains the usual target"
+              + " metadata in the target field and its digest in the hash field (null when"
+              + " unresolved). Other output formats print only label and hash pairs."
+              + " Two targets with equal hashes are expected to build"
+              + " the same, given the same Bazel version, build options and host. Edits inside"
+              + " fetched external repos that don't cause a refetch, --extra_toolchains and"
+              + " build options are not taken into account; use cquery"
+              + " --experimental_generate_hashes for the latter two.")
+  public abstract boolean getGenerateHashes();
+
+  @Option(
+      name = "experimental_query_batch_direct_rule_hashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "With --experimental_generate_hashes, group direct rule hashes by main repository package"
+              + " for queries returning at least 1024 targets. This may reduce evaluation overhead"
+              + " without changing the generated hashes.")
+  public abstract boolean getQueryBatchDirectRuleHashes();
+
+  @Option(
+      name = "experimental_query_hash_failure_impact",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "With --experimental_generate_hashes, report how many requested targets reach each"
+              + " failed repository or main-repository dependency, and how many reach only that"
+              + " failure group.")
+  public abstract boolean getQueryHashFailureImpact();
+
+  @Option(
       name = "output:display_full_kind",
       defaultValue = "False",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -192,7 +238,8 @@ public abstract class QueryOptions extends CommonQueryOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, --output=streamed_proto serializes targets in parallel while preserving output"
-              + " order. Has no effect when --proto:rule_classes is enabled.")
+              + " order. With --experimental_generate_hashes, serialization uses up to four workers"
+              + " regardless of this flag. --proto:rule_classes uses a single thread.")
   public abstract boolean getParallelStreamedProtoOutput();
 
   /** Return the current options as a set of QueryEnvironment settings. */

@@ -858,6 +858,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
     DetailedExitCode moduleExitCode = null;
+    DetailedExitCode hashStreamEviction = null;
 
     try {
       workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
@@ -880,7 +881,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       } catch (AbruptExitException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         logger.atWarning().withCause(e).log("While running afterCommand() on %s", module);
-        moduleExitCode = chooseMoreImportantWithFirstIfTie(moduleExitCode, e.getDetailedExitCode());
+        if (e.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)
+            && env.usesCqueryHashStreamReceipt()) {
+          hashStreamEviction = e.getDetailedExitCode();
+        } else {
+          moduleExitCode = chooseMoreImportantWithFirstIfTie(moduleExitCode, e.getDetailedExitCode());
+        }
       }
     }
 
@@ -893,6 +899,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         env.getOptions().getOptions(KeepStateAfterBuildOption.class);
     if (!keepStateAfterBuildOption.getKeepStateAfterBuild() && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
+    }
+
+    // An eviction may explain an ordinary loading error. Preserve cancellation and other module
+    // failures when choosing whether to request a fresh invocation.
+    if (moduleExitCode == null
+        && hashStreamEviction != null
+        && !commandResult.getExitCode().equals(ExitCode.INTERRUPTED)
+        && !Thread.currentThread().isInterrupted()) {
+      moduleExitCode = hashStreamEviction;
     }
 
     BlazeCommandResult finalCommandResult;

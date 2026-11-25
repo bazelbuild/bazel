@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFut
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.AbstractSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -34,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -103,6 +106,11 @@ public final class QueryUtil {
   private static final class LexicographicallySortedTargetAggregator
       extends AggregateAllOutputFormatterCallback<Target, Set<Target>> {
     private final Map<Label, Target> resultMap = new HashMap<>();
+    private final boolean parallelSort;
+
+    private LexicographicallySortedTargetAggregator(boolean parallelSort) {
+      this.parallelSort = parallelSort;
+    }
 
     @Override
     public synchronized void processOutput(Iterable<Target> partialResult) {
@@ -113,8 +121,15 @@ public final class QueryUtil {
 
     @Override
     public synchronized ImmutableSortedSet<Target> getResult() {
-      return ImmutableSortedSet.copyOf(
-          LexicographicallySortedTargetAggregator::compareTargetsByLabel, resultMap.values());
+      Comparator<Target> order = LexicographicallySortedTargetAggregator::compareTargetsByLabel;
+      if (parallelSort
+          && resultMap.size() >= 65_536
+          && ForkJoinPool.getCommonPoolParallelism() > 1) {
+        Target[] targets = resultMap.values().toArray(Target[]::new);
+        Arrays.parallelSort(targets, order);
+        return ImmutableSortedSet.copyOf(order, Arrays.asList(targets));
+      }
+      return ImmutableSortedSet.copyOf(order, resultMap.values());
     }
 
     // A reference to this method is significantly more efficient than using Comparator#comparing.
@@ -140,7 +155,13 @@ public final class QueryUtil {
    */
   public static AggregateAllOutputFormatterCallback<Target, Set<Target>>
       newLexicographicallySortedTargetAggregator() {
-    return new LexicographicallySortedTargetAggregator();
+    return new LexicographicallySortedTargetAggregator(/* parallelSort= */ false);
+  }
+
+  /** Returns a label-sorted aggregator that can sort a large hash catalog in parallel. */
+  public static AggregateAllOutputFormatterCallback<Target, Set<Target>>
+      newLexicographicallySortedTargetAggregator(boolean parallelSort) {
+    return new LexicographicallySortedTargetAggregator(parallelSort);
   }
 
   /**

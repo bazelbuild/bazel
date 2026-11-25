@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
@@ -510,6 +511,16 @@ public class CommandEnvironment {
 
   public String getCommandName() {
     return command.name();
+  }
+
+  public boolean usesCqueryHashStreamReceipt() {
+    if (!getCommandName().equals("cquery")) {
+      return false;
+    }
+    var cqueryOptions = getOptions().getOptions(CqueryOptions.class);
+    return cqueryOptions != null
+        && cqueryOptions.useTopLevelHashOutput()
+        && cqueryOptions.getHashStreamReceipt();
   }
 
   public OptionsParsingResult getOptions() {

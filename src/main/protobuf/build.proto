@@ -531,6 +531,9 @@ message Target {
 
   // An environment group.
   optional EnvironmentGroup environment_group = 6;
+
+  // With query --experimental_generate_hashes, the transitive digest if it was computed.
+  optional bytes transitive_hash = 7;
 }
 
 // Container for all of the blaze query results.

@@ -23,6 +23,7 @@ java_library(
     name = "analysis_core",
     srcs = [
         "Allowlist.java",
+        "AnalysisRepoMappingDigest.java",
         "AnalysisUtils.java",
         "AspectBaseTargetResolvedToolchainContext.java",
         "AspectContext.java",

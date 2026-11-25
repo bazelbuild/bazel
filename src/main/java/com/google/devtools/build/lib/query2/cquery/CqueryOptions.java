@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnumConverter;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
 
 /** Options class for cquery specific query options. */
@@ -30,6 +32,13 @@ public abstract class CqueryOptions extends CommonQueryOptions {
   public static class TransitionsConverter extends EnumConverter<Transitions> {
     public TransitionsConverter() {
       super(Transitions.class, "transition verbosity");
+    }
+  }
+
+  /** Validates the configured hash worker count. */
+  public static final class HashWorkersConverter extends RangeConverter {
+    public HashWorkersConverter() {
+      super(0, Integer.MAX_VALUE);
     }
   }
 
@@ -51,6 +60,77 @@ public abstract class CqueryOptions extends CommonQueryOptions {
               + "If you select 'transitions', you also have to specify the "
               + "--transitions=(lite|full) option.")
   public abstract String getOutputFormat();
+
+  @Option(
+      name = "experimental_generate_hashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set, prints each configured target in the cquery result followed by a hash of the"
+              + " target, its configuration, and its transitive configured dependencies"
+              + " (including resolved toolchains), instead of using --output. Unlike query"
+              + " --experimental_generate_hashes, select()s are resolved, so the hashes are only"
+              + " valid for the build options they were computed with.")
+  public abstract boolean getGenerateHashes();
+
+  @Option(
+      name = "experimental_cquery_hash_top_level",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "With --experimental_generate_hashes, limit output to the analyzed top-level"
+              + " configured keys in the query result. Print tab-separated canonical label,"
+              + " full configuration checksum (or 'none'), hash (empty if unavailable),"
+              + " and actual label (empty for non-aliases).")
+  public abstract boolean getTopLevelHashOutput();
+
+  public final boolean useTopLevelHashOutput() {
+    return getGenerateHashes() && getTopLevelHashOutput();
+  }
+
+  @Option(
+      name = "experimental_cquery_hash_stream_receipt",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Frame top-level hash output for //... or --target_pattern_file with the invocation ID,"
+              + " an options fingerprint, and a completion record.")
+  public abstract boolean getHashStreamReceipt();
+
+  @Option(
+      name = "experimental_cquery_rule_catalog",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Write unconfigured rules matching the literal //... query to this file using"
+              + " streamed_jsonproto and the --proto options. Requires top-level hash output."
+              + " The catalog includes rules that fail analysis and is written only if loading"
+              + " succeeds.")
+  public abstract String getRuleCatalogOutput();
+
+  @Option(
+      name = "experimental_cquery_hash_workers",
+      converter = HashWorkersConverter.class,
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Maximum number of workers for configured query hashing. One uses the serial path. "
+              + "Zero uses all processors available to this JVM.")
+  public abstract int getHashWorkers();
+
+  /** Whether the caller requested the parallel hashing path, even on a single-processor JVM. */
+  final boolean useParallelHashing() {
+    return getHashWorkers() != 1;
+  }
 
   @Option(
       name = "transitions",

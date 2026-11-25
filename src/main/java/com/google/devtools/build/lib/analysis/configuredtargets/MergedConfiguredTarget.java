@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisRepoMappingDigest;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -274,7 +275,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
             || AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
             || FileProvider.class.equals(providerKey)
             || ExtraActionArtifactsProvider.class.equals(providerKey)
-            || RequiredConfigFragmentsProvider.class.equals(providerKey)) {
+            || RequiredConfigFragmentsProvider.class.equals(providerKey)
+            || AnalysisRepoMappingDigest.class.equals(providerKey)) {
           continue;
         }
 

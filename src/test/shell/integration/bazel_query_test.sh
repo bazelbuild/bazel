@@ -1600,4 +1600,276 @@ EOF
   expect_log "platform rule //foo:p"
 }
 
+function write_generate_hashes_workspace() {
+  mkdir -p hashes
+  cat > hashes/repo.bzl <<'EOF2'
+def _impl(rctx):
+    rctx.file("BUILD", "filegroup(name = 'fg', srcs = ['link.txt'], visibility = ['//visibility:public'])")
+    rctx.file("real.txt", "real")
+    # Creates an absolute symlink into the output base. The repo rule doesn't declare itself
+    # reproducible, so Bazel doesn't make it relative.
+    rctx.symlink("real.txt", "link.txt")
+
+symlink_repo = repository_rule(implementation = _impl)
+
+def _local_impl(rctx):
+    # Like a toolchain that can't be configured on the host, puts the output base path into an
+    # attribute value.
+    rctx.file("BUILD", "filegroup(name = 'fg', tags = ['%s'], visibility = ['//visibility:public'])" % rctx.path("."))
+
+local_path_repo = repository_rule(implementation = _local_impl, local = True)
+EOF2
+  cat >> MODULE.bazel <<'EOF2'
+symlink_repo = use_repo_rule("//hashes:repo.bzl", "symlink_repo")
+symlink_repo(name = "symlink_repo")
+local_path_repo = use_repo_rule("//hashes:repo.bzl", "local_path_repo")
+local_path_repo(name = "local_path_repo")
+EOF2
+  cat > hashes/BUILD <<'EOF2'
+filegroup(name = "a", srcs = ["a.txt", ":b"])
+filegroup(name = "b", srcs = ["b.txt"])
+filegroup(name = "ext", srcs = ["@symlink_repo//:fg", "@local_path_repo//:fg"])
+EOF2
+  echo a > hashes/a.txt
+  echo b > hashes/b.txt
+}
+
+function test_generate_hashes() {
+  write_generate_hashes_workspace
+
+  bazel query --experimental_generate_hashes '//hashes:a + //hashes:b' > output \
+    2> $TEST_log || fail "Expected success"
+  assert_equals 2 "$(awk 'END { print NR }' output)"
+  grep -Eq '^//hashes:a [0-9a-f]{64}$' output || fail "Unexpected output: $(cat output)"
+  grep -Eq '^//hashes:b [0-9a-f]{64}$' output || fail "Unexpected output: $(cat output)"
+  cp output before
+
+  # Neither comments in BUILD files nor unrelated files change hashes.
+  echo "# comment" >> hashes/BUILD
+  echo unrelated > hashes/unrelated.txt
+  bazel query --experimental_generate_hashes '//hashes:a + //hashes:b' > output \
+    2> $TEST_log || fail "Expected success"
+  diff before output || fail "Expected unchanged hashes"
+
+  # A change to a dependency changes the hashes of its dependents only.
+  echo changed > hashes/b.txt
+  bazel query --experimental_generate_hashes '//hashes:a + //hashes:b' > output \
+    2> $TEST_log || fail "Expected success"
+  [[ "$(grep //hashes:a before)" != "$(grep //hashes:a output)" ]] \
+    || fail "Expected the hash of //hashes:a to change"
+  [[ "$(grep //hashes:b before)" != "$(grep //hashes:b output)" ]] \
+    || fail "Expected the hash of //hashes:b to change"
+}
+
+function test_generate_hashes_with_target_metadata() {
+  mkdir -p hashed_catalog
+  cat > hashed_catalog/repo.bzl <<'EOF'
+def _impl(rctx):
+    fail("unavailable repository")
+
+broken_repo = repository_rule(implementation = _impl)
+
+def _aspect_impl(target, ctx):
+    return []
+
+_a = aspect(implementation = _aspect_impl, attrs = {"_tool": attr.label(default = "//hashed_catalog:tool")})
+
+def _rule_impl(ctx):
+    return []
+
+with_aspect = rule(implementation = _rule_impl, attrs = {"dep": attr.label(aspects = [_a])})
+EOF
+  cat >> MODULE.bazel <<'EOF'
+broken_repo = use_repo_rule("//hashed_catalog:repo.bzl", "broken_repo")
+broken_repo(name = "unavailable_catalog_repo")
+EOF
+  cat > hashed_catalog/BUILD <<'EOF'
+load(":repo.bzl", "with_aspect")
+filegroup(name = "tool")
+filegroup(name = "leaf")
+with_aspect(name = "known", dep = ":leaf", tags = ["catalog-tag"])
+filegroup(name = "unknown", srcs = ["@unavailable_catalog_repo//:target"])
+EOF
+  local -a flags=(--experimental_generate_hashes --output=streamed_jsonproto --keep_going)
+  local expr='//hashed_catalog:known + //hashed_catalog:unknown'
+  bazel query --experimental_generate_hashes //hashed_catalog:known > known 2> "$TEST_log" \
+    || fail "Expected a known hash"
+  local digest
+  digest="$(awk '{print $2}' known)"
+  [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || fail "Invalid digest"
+  local status=0
+  bazel query "${flags[@]}" "$expr" > snapshot 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  assert_equals 2 "$(awk 'END { print NR }' snapshot)"
+  grep -F "\"hash\":\"$digest\"" snapshot | grep -F 'catalog-tag' > /dev/null \
+    || fail "Missing hash or tags for known rule"
+  grep -F '"hash":null' snapshot | grep -F '"name":"//hashed_catalog:unknown"' > /dev/null \
+    || fail "Missing metadata for unresolved rule"
+
+  # Binary snapshots use the normal delimited Target records and append field 7 only
+  # when a hash exists. Check that the metadata is byte-for-byte unchanged in both cases.
+  for rule in known unknown; do
+    bazel query --output=streamed_proto "//hashed_catalog:$rule" > "${rule}.pb" 2> "$TEST_log" \
+      || fail "Expected metadata for $rule"
+  done
+  status=0
+  bazel query "${flags[@]}" --output=streamed_proto "$expr" > snapshot.pb 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  expect_log "Streamed 2 query hash records (1 unknown, $(wc -c < snapshot.pb | tr -d ' ') bytes)"
+  python3 - "$digest" <<'PYTHON' || fail "Incorrect binary snapshot"
+import sys
+
+def records(path):
+    with open(path, "rb") as src:
+        while True:
+            byte = src.read(1)
+            if not byte:
+                break
+            size = byte[0] & 127
+            shift = 7
+            while byte[0] & 128:
+                byte = src.read(1)
+                size |= (byte[0] & 127) << shift
+                shift += 7
+            record = src.read(size)
+            assert len(record) == size
+            yield record
+
+known, = records("known.pb")
+unknown, = records("unknown.pb")
+assert sorted(records("snapshot.pb")) == sorted([known + b"\x3a\x20" + bytes.fromhex(sys.argv[1]), unknown])
+PYTHON
+
+  # Restricting the catalog does not change the target hash or drop requested derived attributes.
+  bazel query "${flags[@]}" --proto:output_rule_attrs=tags //hashed_catalog:known > filtered \
+    2> "$TEST_log" || fail "Expected a filtered catalog"
+  bazel query "${flags[@]}" '--proto:output_rule_attrs=tags,$tool,$rule_implementation_hash' \
+    //hashed_catalog:known > with_extra 2> "$TEST_log" || fail "Expected explicit attributes"
+  python3 - "$digest" <<'PYTHON' || fail "Unexpected hash or attributes"
+import json
+import sys
+
+for path, names in [("filtered", {"tags"}), ("with_extra", {"tags", "$tool", "$rule_implementation_hash"})]:
+    with open(path) as f:
+        row = json.load(f)
+    assert row["hash"] == sys.argv[1]
+    assert {a["name"] for a in row["target"]["rule"]["attribute"]} == names
+PYTHON
+
+  # An incomplete target enumeration cannot serve as a snapshot of the requested scope.
+  bazel query "${flags[@]}" '//hashed_catalog:known + //no_such_catalog_package:target' \
+    > snapshot 2> "$TEST_log" && fail "Expected enumeration failure"
+  [[ ! -s snapshot ]] || fail "Wrote a partial catalog"
+  bazel query "${flags[@]}" --output=streamed_proto '//hashed_catalog:known + //no_such_catalog_package:target' \
+    > snapshot.pb 2> "$TEST_log" && fail "Expected enumeration failure"
+  [[ ! -s snapshot.pb ]] || fail "Wrote an incomplete target set"
+  expect_not_log "Streamed .* query hash records"
+  bazel query "${flags[@]}" --output=streamed_proto //hashed_catalog:known > snapshot.pb 2> "$TEST_log" \
+    || fail "Expected a complete binary snapshot"
+  expect_log "Streamed 1 query hash records (0 unknown, $(wc -c < snapshot.pb | tr -d ' ') bytes)"
+}
+
+function test_generate_hashes_report_overlapping_failures() {
+  mkdir -p hash_failures
+  cat > hash_failures/repos.bzl <<'EOF'
+def _impl(rctx):
+    fail("unavailable repository")
+
+broken = repository_rule(implementation = _impl)
+EOF
+  cat >> MODULE.bazel <<'EOF'
+broken = use_repo_rule("//hash_failures:repos.bzl", "broken")
+broken(name = "alpha")
+broken(name = "beta")
+EOF
+  cat > hash_failures/BUILD <<'EOF'
+filegroup(name = "known")
+filegroup(name = "a", srcs = ["@alpha//:first", "@alpha//:second"])
+filegroup(name = "b", srcs = ["@beta//:first"])
+filegroup(name = "cycle_a", srcs = [":cycle_b", ":a"])
+filegroup(name = "cycle_b", srcs = [":cycle_a"])
+filegroup(name = "both", srcs = [":cycle_b", ":b"])
+EOF
+  local -a query=(query --experimental_generate_hashes --keep_going --noshow_progress
+    --output=streamed_proto "kind('filegroup rule', //hash_failures:*)")
+  local status=0
+  bazel "${query[@]}" > snapshot-default.pb 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  expect_log "Streamed 6 query hash records (5 unknown"
+  expect_not_log "Unknown hash impact of"
+
+  status=0
+  bazel "${query[@]}" --experimental_query_hash_failure_impact \
+    > snapshot-impact.pb 2> "$TEST_log" || status=$?
+  assert_equals 7 "$status"
+  expect_log "Streamed 6 query hash records (5 unknown"
+  expect_log "Unknown hash impact of @@.*alpha: 4 affected, 3 exclusive"
+  expect_log "Unknown hash impact of @@.*beta: 2 affected, 1 exclusive"
+  cmp snapshot-default.pb snapshot-impact.pb || fail "Failure impact changed the catalog"
+}
+
+function test_generate_hashes_source_directory_children() {
+  mkdir -p directory_hashes/tree
+  cat > directory_hashes/BUILD.bazel <<'EOF'
+filegroup(name = "directory", srcs = ["tree"])
+filegroup(name = "files", srcs = glob(["tree/*.txt"]))
+EOF
+  local command
+  local stage
+  local target
+  local expression='//directory_hashes:directory + //directory_hashes:files'
+  for command in query cquery; do
+    rm -f directory_hashes/tree/b.txt
+    echo original > directory_hashes/tree/a.txt
+    for stage in before same edited added; do
+      case "$stage" in
+        edited) echo edited > directory_hashes/tree/a.txt ;;
+        added) echo added > directory_hashes/tree/b.txt ;;
+      esac
+      bazel "$command" --experimental_generate_hashes "$expression" > "$stage" \
+        2> "$TEST_log" || fail "Expected $command to hash the source directory"
+      assert_equals 2 "$(awk 'END { print NR }' "$stage")"
+    done
+    diff <(sort before) <(sort same) || fail "Expected stable $command hashes"
+    for target in directory files; do
+      local pattern="^//directory_hashes:$target[[:space:]]"
+      [[ "$(grep "$pattern" before)" != "$(grep "$pattern" edited)" ]] \
+        || fail "Expected $command hash of $target to change after editing a child"
+      [[ "$(grep "$pattern" edited)" != "$(grep "$pattern" added)" ]] \
+        || fail "Expected $command hash of $target to change after adding a child"
+    done
+  done
+}
+
+function test_generate_hashes_line_terminator_null() {
+  write_generate_hashes_workspace
+
+  bazel query --experimental_generate_hashes --line_terminator_null '//hashes:a + //hashes:b' \
+    > output 2> $TEST_log || fail "Expected success"
+  assert_equals 2 "$(tr -cd '\0' < output | wc -c | tr -d '[:space:]')"
+  assert_equals 0 "$(tr -cd '\n' < output | wc -c | tr -d '[:space:]')"
+}
+
+function test_generate_hashes_rejects_dependency_filters() {
+  write_generate_hashes_workspace
+
+  bazel query --experimental_generate_hashes --noimplicit_deps '//hashes:a' \
+    > output 2> $TEST_log && fail "Expected failure"
+  expect_log "can't be combined with --noimplicit_deps"
+}
+
+function test_generate_hashes_independent_of_output_base() {
+  write_generate_hashes_workspace
+
+  bazel --output_base="$TEST_TMPDIR/hashes_ob1" query --experimental_generate_hashes \
+    '//hashes:ext' > output1 2> $TEST_log || fail "Expected success"
+  bazel --output_base="$TEST_TMPDIR/hashes_ob1" shutdown
+  bazel --output_base="$TEST_TMPDIR/other/hashes_ob2" query --experimental_generate_hashes \
+    '//hashes:ext' > output2 2> $TEST_log || fail "Expected success"
+  bazel --output_base="$TEST_TMPDIR/other/hashes_ob2" shutdown
+  find "$TEST_TMPDIR/hashes_ob1/external" -type l -lname "$TEST_TMPDIR/hashes_ob1/*" \
+    | grep -q link.txt || fail "Expected an absolute symlink in @symlink_repo"
+  diff output1 output2 || fail "Expected the same hashes in different output bases"
+}
+
 run_suite "${PRODUCT_NAME} query tests"

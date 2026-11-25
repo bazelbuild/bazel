@@ -183,12 +183,15 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                     : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
                 getKeepGoingPredicate(evaluationContext));
-        result = evaluator.eval(roots);
+        // A caller that supplies an executor may leave parallelism unset. In that case
+        // keep ordered result collection on the caller thread.
+        int orderedResultThreads =
+            evaluationContext.orderedRootResults()
+                ? Math.max(1, evaluationContext.getParallelism())
+                : 0;
+        result = evaluator.eval(roots, orderedResultThreads);
       }
-      return EvaluationResult.<T>builder()
-          .mergeFrom(result)
-          .setWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()))
-          .build();
+      return result.withWalkableGraph(new DelegatingWalkableGraph(getInMemoryGraph()));
     } finally {
       if (keepEdges) {
         lastGraphVersion = (IntVersion) graphVersion;
@@ -226,6 +229,11 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
               });
       valuesToDelete.addAll(toDelete);
     }
+  }
+
+  @Override
+  public final void deleteKeys(Iterable<SkyKey> keys) {
+    Iterables.addAll(valuesToDelete, keys);
   }
 
   private void setAndCheckEvaluateState(boolean newValue, Iterable<? extends SkyKey> roots) {

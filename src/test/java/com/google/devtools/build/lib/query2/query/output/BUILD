@@ -15,6 +15,7 @@ java_test(
     name = "StreamedProtoOutputFormatterTest",
     srcs = ["StreamedProtoOutputFormatterTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
@@ -26,7 +27,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
         "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
     ],

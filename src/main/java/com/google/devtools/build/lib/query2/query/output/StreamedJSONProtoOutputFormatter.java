@@ -13,25 +13,77 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
+import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * An output formatter that prints a list of targets according to ndjson spec to the output print
  * stream.
  */
-public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
+public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter
+    implements HashOutputFormatter {
+  private static final HexFormat HEX_FORMAT = HexFormat.of();
+
   @Override
   public String getName() {
     return "streamed_jsonproto";
   }
 
-  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
+  private final JsonFormat.Printer jsonPrinter =
+      JsonFormat.printer().omittingInsignificantWhitespace();
+
+  /** Writes one unconfigured target as a single JSON line. */
+  public void writeTarget(Target target, LabelPrinter labelPrinter, OutputStream out)
+      throws IOException, InterruptedException {
+    writeTargetJson(target, labelPrinter, out);
+    out.write('\n');
+  }
+
+  /** Writes a snapshot row even if the target's transitive hash is unknown. */
+  @Override
+  public void writeHashedTargets(
+      Iterable<Target> targets,
+      LabelPrinter labelPrinter,
+      Map<Label, ByteString> hashes,
+      OutputStream out)
+      throws IOException, InterruptedException {
+    for (Target target : targets) {
+      writeHashedTarget(target, labelPrinter, hashes.get(target.getLabel()), out);
+    }
+  }
+
+  private void writeHashedTarget(
+      Target target, LabelPrinter labelPrinter, @Nullable ByteString digest, OutputStream out)
+      throws IOException, InterruptedException {
+    // Hashes contain only hex digits. Target labels and attributes use the normal JSON printer.
+    String hash =
+        digest == null ? "null" : "\"" + HEX_FORMAT.formatHex(digest.toByteArray()) + "\"";
+    out.write(("{\"hash\":" + hash + ",\"target\":").getBytes(StandardCharsets.UTF_8));
+    writeTargetJson(target, labelPrinter, out);
+    out.write('}');
+    out.write('\n');
+  }
+
+  private void writeTargetJson(Target target, LabelPrinter labelPrinter, OutputStream out)
+      throws IOException, InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
+    out.write(
+        jsonPrinter
+            .print(toTargetProtoBuffer(target, labelPrinter))
+            .getBytes(StandardCharsets.UTF_8));
+  }
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
@@ -41,15 +93,7 @@ public class StreamedJSONProtoOutputFormatter extends ProtoOutputFormatter {
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
         for (Target target : partialResult) {
-          if (Thread.interrupted()) {
-            throw new InterruptedException();
-          }
-          out.write(
-              jsonPrinter
-                  .omittingInsignificantWhitespace()
-                  .print(toTargetProtoBuffer(target, labelPrinter))
-                  .getBytes(StandardCharsets.UTF_8));
-          out.write('\n');
+          writeTarget(target, labelPrinter, out);
         }
       }
     };

@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -2158,11 +2159,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // resolve strings as if it were bar.bzl. It also would prevent sharing the same builtins
     // environment across .bzl files. Hence, we opt for stack inspection.
     BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrFail(thread, "Label()");
+    var recorder = thread.getThreadLocal(Label.RepoMappingRecorder.class);
+    if (recorder == null
+        && thread.getThreadLocal(StarlarkThreadContext.class)
+            instanceof BazelRuleAnalysisThreadContext analysisContext) {
+      recorder = analysisContext.getRuleContext();
+    }
     try {
-      return Label.parseWithPackageContext(
-          (String) input,
-          moduleContext.packageContext(),
-          thread.getThreadLocal(Label.RepoMappingRecorder.class));
+      return Label.parseWithPackageContext((String) input, moduleContext.packageContext(), recorder);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in Label(): %s", e.getMessage());
     }

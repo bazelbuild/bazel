@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -27,6 +29,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +61,6 @@ public abstract class CqueryThreadsafeCallback
   private final List<String> result = new ArrayList<>();
   private final boolean uniquifyResults;
 
-  @SuppressWarnings("DefaultCharset")
   CqueryThreadsafeCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
@@ -70,8 +72,10 @@ public abstract class CqueryThreadsafeCallback
     this.options = options;
     if (out != null) {
       this.outputStream = out;
-      // This code intentionally uses the platform default encoding.
-      this.printStream = new BufferedWriter(new OutputStreamWriter(out));
+      this.printStream =
+          new BufferedWriter(
+              new OutputStreamWriter(
+                  out, options.getHashStreamReceipt() ? UTF_8 : Charset.defaultCharset()));
     }
     this.skyframeExecutor = skyframeExecutor;
     this.accessor = (ConfiguredTargetAccessor) accessor;
