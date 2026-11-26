@@ -169,10 +169,10 @@ final class PathCanonicalizer {
           if (targetPath.isAbsolute()) {
             resolvedPrefix = targetPath;
           } else {
+            // Drop the separator before `segment`, unless the parent is the root itself.
+            int parentEnd = Math.max(segmentStart - 1, path.getDriveStrLength());
             resolvedPrefix =
-                PathFragment.createAlreadyNormalized(
-                        pathString.substring(
-                            0, Math.max(segmentStart - 1, path.getDriveStrLength())))
+                PathFragment.createAlreadyNormalized(pathString.substring(0, parentEnd))
                     .getRelative(targetPath);
           }
           PathFragment newPath =
