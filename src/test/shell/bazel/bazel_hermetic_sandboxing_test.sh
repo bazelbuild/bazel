@@ -407,6 +407,86 @@ EOF
   expect_not_log "FETCHING_EXT_REPO"
 }
 
+# Test that an input that has been rematerialized with identical contents (and thus has a new
+# inode) is not reported as modified during execution.
+# Regression test for https://github.com/bazelbuild/bazel/issues/29832.
+function test_rematerialized_input_with_identical_contents() {
+  mkdir -p examples/hermetic/cogen
+  cat > examples/hermetic/cogen/rules.bzl <<'EOF'
+def _tool_impl(ctx):
+    exe = ctx.actions.declare_file(ctx.label.name + "_exe")
+    ctx.actions.write(exe, "")
+    link = ctx.actions.declare_file(ctx.label.name + "_link")
+    ctx.actions.symlink(output = link, target_file = ctx.file.stable)
+    return DefaultInfo(
+        executable = exe,
+        runfiles = ctx.runfiles(
+            files = [ctx.file.varying, ctx.file.stable],
+            symlinks = {"stable": link},
+        ),
+    )
+
+tool = rule(
+    implementation = _tool_impl,
+    executable = True,
+    attrs = {
+        "varying": attr.label(allow_single_file = True),
+        "stable": attr.label(allow_single_file = True),
+    },
+)
+
+def _repo_impl(rctx):
+    rctx.file("BUILD", """\
+genrule(
+    name = "gen",
+    outs = ["varying.txt", "stable.txt"],
+    cmd = "echo {v} > $(location varying.txt) && touch $(location stable.txt)",
+    visibility = ["//visibility:public"],
+)
+""".format(v = rctx.getenv("V")))
+
+repo = repository_rule(implementation = _repo_impl)
+EOF
+  cat > examples/hermetic/cogen/BUILD <<'EOF'
+load(":rules.bzl", "tool")
+
+tool(
+    name = "tool",
+    varying = "@cogen_ext//:varying.txt",
+    stable = "@cogen_ext//:stable.txt",
+)
+
+[
+    genrule(
+        name = "use_tool_{}".format(i),
+        outs = ["use_tool_{}.txt".format(i)],
+        tools = [":tool"],
+        cmd = "touch $@",
+    )
+    for i in (0, 1)
+]
+EOF
+  cat >> MODULE.bazel <<'EOF'
+use_repo_rule("//examples/hermetic/cogen:rules.bzl", "repo")(name = "cogen_ext")
+EOF
+
+  # Without the bytes, the outputs of @cogen_ext//:gen are only downloaded when they are needed as
+  # inputs of a local action. Every time @cogen_ext is refetched, :gen is rerun (as a disk cache
+  # hit after the first two builds), which deletes stable.txt. It is then downloaded again with
+  # the same contents but a new inode. In the last build, the metadata of the symlink to it is
+  # retained from the previous build and thus still describes the previous download.
+  local -r flags="--disk_cache=$TEST_TMPDIR/disk_cache --remote_download_toplevel"
+  V=0 bazel build $flags //examples/hermetic/cogen:use_tool_0 &> $TEST_log \
+    || fail "Expected build to succeed"
+  V=1 bazel build $flags //examples/hermetic/cogen:use_tool_0 &> $TEST_log \
+    || fail "Expected build to succeed"
+  V=0 bazel build $flags //examples/hermetic/cogen:use_tool_1 &> $TEST_log \
+    || fail "Expected build to succeed"
+  V=1 bazel build $flags //examples/hermetic/cogen:use_tool_1 &> $TEST_log \
+    || fail "Expected build to succeed"
+  expect_not_log "was modified during execution"
+}
+
 # Test that the build fails instead of falling back to processwrapper-sandbox when linux-sandbox
 # is not supported.
 # Regression test for https://github.com/bazelbuild/bazel/issues/32161.

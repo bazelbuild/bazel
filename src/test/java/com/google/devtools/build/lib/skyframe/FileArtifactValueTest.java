@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
@@ -469,6 +470,230 @@ public final class FileArtifactValueTest {
 
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
+  }
+
+  /** A real file system that counts how often digests are computed. */
+  private static final class DigestCountingUnixFileSystem extends UnixFileSystem {
+    private int digestCount = 0;
+
+    DigestCountingUnixFileSystem() {
+      super(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
+    }
+
+    @Override
+    public byte[] getDigest(PathFragment path) throws IOException {
+      digestCount++;
+      return super.getDigest(path);
+    }
+  }
+
+  @Test
+  public void contentsDifferFromDigest_unchanged() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = createForTesting(path);
+    clock.advanceMillis(1);
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isFalse();
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+  }
+
+  @Test
+  public void contentsDifferFromDigest_changeContent() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = createForTesting(path);
+    clock.advanceMillis(1);
+    FileSystemUtils.writeContentAsLatin1(path, "new content");
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isTrue();
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isTrue();
+  }
+
+  @Test
+  public void contentsDifferFromDigest_changeContentAndResetMtime() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = createForTesting(path);
+    clock.advanceMillis(1);
+    FileSystemUtils.writeContentAsLatin1(path, "cOntent");
+    path.setLastModifiedTimeNanos(0);
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isTrue();
+    // Only the ctime reveals this modification.
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+  }
+
+  @Test
+  public void contentsDifferFromDigest_rewriteWithIdenticalContent() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = createForTesting(path);
+    clock.advanceMillis(1);
+    FileSystemUtils.writeContentAsLatin1(path, "content");
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isFalse();
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+    // In contrast, the file was modified since the digest was computed.
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
+  }
+
+  @Test
+  public void contentsDifferFromDigest_replaceWithMove() throws Exception {
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
+
+    // Use the real file system as the semantics of moves are subtle and not necessarily fully
+    // captured by the in-memory file system.
+    var realFs = new DigestCountingUnixFileSystem();
+    var tempDirJvm = Files.createTempDirectory(null);
+    tempDirJvm.toFile().deleteOnExit();
+
+    Path path = scratchFile(tempDirJvm + "/dir/artifact1", 0L, "content", realFs);
+    Path identicalPath = scratchFile(tempDirJvm + "/dir/artifact2", 0L, "content", realFs);
+    Path differentPath = scratchFile(tempDirJvm + "/dir/artifact3", 0L, "new content", realFs);
+    FileArtifactValue value = createForTesting(path);
+
+    identicalPath.renameTo(path);
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isFalse();
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+    // In contrast, the file was modified since the digest was computed.
+    assertThat(value.wasModifiedSinceDigest(path.asFragment(), path)).isTrue();
+
+    differentPath.renameTo(path);
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isTrue();
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isTrue();
+  }
+
+  @Test
+  public void contentsDifferFromDigest_createHardlink() throws Exception {
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
+
+    // Use the real file system as the semantics of hard links are subtle and not necessarily
+    // fully captured by the in-memory file system.
+    var realFs = new DigestCountingUnixFileSystem();
+    var tempDirJvm = Files.createTempDirectory(null);
+    tempDirJvm.toFile().deleteOnExit();
+
+    Path path = scratchFile(tempDirJvm + "/dir/artifact1", 0L, "content", realFs);
+    FileArtifactValue value = createForTesting(path);
+    long ctimeBefore = path.stat().getLastChangeTimeNanos();
+    // File timestamps may be based on a coarse clock.
+    Thread.sleep(20);
+    path.createHardLink(realFs.getPath(tempDirJvm + "/dir/artifact1_link"));
+    assertThat(path.stat().getLastChangeTimeNanos()).isNotEqualTo(ctimeBefore);
+
+    int digestCountBefore = realFs.digestCount;
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+    // The ctime change caused by the hard link doesn't require recomputing the digest.
+    assertThat(realFs.digestCount).isEqualTo(digestCountBefore);
+
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isFalse();
+    assertThat(realFs.digestCount).isEqualTo(digestCountBefore + 1);
+  }
+
+  @Test
+  public void contentsDifferFromDigest_deleteFile() throws Exception {
+    Path path = scratchFile("/dir/artifact1", 0L, "content");
+    FileArtifactValue value = createForTesting(path);
+    path.delete();
+    assertThat(
+            value.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ false))
+        .isTrue();
+    assertThat(
+            value.contentsDifferFromDigest(path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isTrue();
+  }
+
+  @Test
+  public void contentsDifferFromDigest_remoteFile() throws Exception {
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
+
+    var realFs = new DigestCountingUnixFileSystem();
+    var tempDirJvm = Files.createTempDirectory(null);
+    tempDirJvm.toFile().deleteOnExit();
+
+    Path path = scratchFile(tempDirJvm + "/dir/artifact1", 0L, "content", realFs);
+    Path identicalPath = scratchFile(tempDirJvm + "/dir/artifact2", 0L, "content", realFs);
+    FileArtifactValue remoteValue =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            path.getDigest(),
+            path.getFileSize(),
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    FileArtifactValue resolvedSymlinkValue =
+        FileArtifactValue.createFromExistingWithResolvedPath(remoteValue, path.asFragment());
+
+    // A remote file that hasn't been materialized can't have been modified locally.
+    FileSystemUtils.writeContentAsLatin1(path, "new content");
+    assertThat(
+            remoteValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+    assertThat(
+            resolvedSymlinkValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+
+    FileSystemUtils.writeContentAsLatin1(path, "content");
+    remoteValue.setContentsProxy(FileContentsProxy.create(path.stat()));
+    assertThat(
+            remoteValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+    assertThat(
+            resolvedSymlinkValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+
+    // Rematerialize the file with identical contents.
+    identicalPath.renameTo(path);
+    assertThat(
+            remoteValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+    assertThat(
+            resolvedSymlinkValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isFalse();
+
+    FileSystemUtils.writeContentAsLatin1(path, "new content");
+    assertThat(
+            remoteValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isTrue();
+    assertThat(
+            resolvedSymlinkValue.contentsDifferFromDigest(
+                path.asFragment(), path, /* ignoreCtimeChanges= */ true))
+        .isTrue();
   }
 
   @Test
