@@ -142,6 +142,9 @@ vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
   // access private fields in java.lang.String. The Bazel server requires Java
   // 11, so this option is known to be supported.
   result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
+  // Avoid JDK 24+ restricted-method warnings (JEP 454 / JEP 472) for JNI and
+  // java.lang.foreign calls when running on a non-embedded JDK.
+  result.push_back("--enable-native-access=ALL-UNNAMED");
 
   result.push_back("-XX:+UnlockDiagnosticVMOptions");
   result.push_back("-XX:-BytecodeVerificationLocal");

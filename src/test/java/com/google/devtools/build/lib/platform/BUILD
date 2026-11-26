@@ -17,6 +17,9 @@ java_test(
     name = "SleepPreventionModuleTest",
     timeout = "short",
     srcs = ["SleepPreventionModuleTest.java"],
+    # Avoid JDK 24+ restricted-method warnings (JEP 454 / JEP 472) for
+    # java.lang.foreign downcalls in SleepPreventionModule.
+    jvm_flags = ["--enable-native-access=ALL-UNNAMED"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/platform:sleep_prevention_module",
         "//src/main/java/com/google/devtools/build/lib/util:os",

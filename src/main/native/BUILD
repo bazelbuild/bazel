@@ -30,7 +30,6 @@ filegroup(
         "//src/conditions:darwin": [
             "darwin/file_jni.cc",
             "darwin/fsevents.cc",
-            "darwin/sleep_prevention_jni.cc",
             "darwin/system_cpu_speed_monitor_jni.cc",
             "darwin/system_disk_space_monitor_jni.cc",
             "darwin/system_load_advisory_monitor_jni.cc",
@@ -93,6 +92,7 @@ cc_binary(
     includes = ["."],  # For jni headers.
     linkopts = select({
         "//src/conditions:darwin": [
+            "-Wl,-framework,CoreFoundation",
             "-Wl,-framework,CoreServices",
             "-Wl,-framework,IOKit",
         ],
@@ -102,6 +102,8 @@ cc_binary(
             # the JNI functions and the BAZEL_EXPORT functions. Without this,
             # the linker keeps most of the runtime in the library.
             "-Wl,--exclude-libs,libc++.a:libc++abi.a:libunwind.a",
+            "-ldl",
+            "-lpthread",
         ],
         "//conditions:default": [],
     }),
@@ -111,6 +113,7 @@ cc_binary(
         ":blake3_jni",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
+        "//src/rust/platform:sleep_prevention_ffi",
     ],
 )
 

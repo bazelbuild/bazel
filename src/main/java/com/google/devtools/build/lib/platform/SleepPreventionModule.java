@@ -14,21 +14,17 @@
 
 package com.google.devtools.build.lib.platform;
 
-import com.google.devtools.build.lib.jni.JniLoader;
+import static java.lang.foreign.ValueLayout.JAVA_INT;
+
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.skymetal.SkymetalBridge;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.invoke.MethodHandle;
 
 /** Prevents the computer from going to sleep while a Bazel command is running. */
 public final class SleepPreventionModule extends BlazeModule {
-  private static final boolean SUPPORTS_SLEEP_PREVENTION =
-      OS.getCurrent() == OS.DARWIN || OS.getCurrent() == OS.WINDOWS;
-
-  static {
-    JniLoader.loadJni();
-  }
-
   /**
    * Push a request to disable automatic sleep for hardware. Useful for making sure computers don't
    * go to sleep during long builds. Must be matched with a {@link #popDisableSleep} call.
@@ -37,23 +33,20 @@ public final class SleepPreventionModule extends BlazeModule {
    */
   @CanIgnoreReturnValue
   static int pushDisableSleep() {
-    return SUPPORTS_SLEEP_PREVENTION ? pushDisableSleepNative() : -1;
+    return Native.pushDisableSleep();
   }
-
-  private static native int pushDisableSleepNative();
 
   /**
    * Pop a request to disable automatic sleep for hardware. Useful for making sure computers don't
    * go to sleep during long builds. Must be matched with a previous {@link #pushDisableSleep} call.
    *
    * @return 0 on success, -1 if sleep is not supported.
+   * @throws IllegalStateException if called without a matching {@link #pushDisableSleep} call.
    */
   @CanIgnoreReturnValue
   static int popDisableSleep() {
-    return SUPPORTS_SLEEP_PREVENTION ? popDisableSleepNative() : -1;
+    return Native.popDisableSleep();
   }
-
-  private static native int popDisableSleepNative();
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -63,5 +56,41 @@ public final class SleepPreventionModule extends BlazeModule {
   @Override
   public void afterCommand() {
     popDisableSleep();
+  }
+
+  private static final class Native {
+    private static final int STATUS_UNDERFLOW = -2;
+
+    private static final FunctionDescriptor INT_NO_ARGS = FunctionDescriptor.of(JAVA_INT);
+
+    private static final MethodHandle PUSH_DISABLE_SLEEP =
+        SkymetalBridge.downcallHandle("bazel_sleep_prevention_push", INT_NO_ARGS);
+
+    private static final MethodHandle POP_DISABLE_SLEEP =
+        SkymetalBridge.downcallHandle("bazel_sleep_prevention_pop", INT_NO_ARGS);
+
+    static int pushDisableSleep() {
+      try {
+        return (int) PUSH_DISABLE_SLEEP.invokeExact();
+      } catch (Throwable t) {
+        throw new AssertionError(t);
+      }
+    }
+
+    static int popDisableSleep() {
+      int status;
+      try {
+        status = (int) POP_DISABLE_SLEEP.invokeExact();
+      } catch (Throwable t) {
+        throw new AssertionError(t);
+      }
+      if (status == STATUS_UNDERFLOW) {
+        throw new IllegalStateException(
+            "popDisableSleep() called without matching pushDisableSleep()");
+      }
+      return status;
+    }
+
+    private Native() {}
   }
 }
