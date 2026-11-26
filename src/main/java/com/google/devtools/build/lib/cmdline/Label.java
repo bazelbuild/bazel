@@ -29,6 +29,8 @@ import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -50,8 +53,10 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import javax.annotation.Nullable;
@@ -258,12 +263,18 @@ public final class Label
     }
   }
 
+  /** A repo mapping entry recorded by a {@link RepoMappingRecorder}. */
+  @AutoCodec
+  public record RepoMappingEntry(
+      RepositoryName fromRepo, String apparentRepoName, RepositoryName canonicalRepoName) {}
+
   /**
    * A {@link RepoMappingRecorder} backed by a {@link Table} that is used for BUILD and .bzl load
    * threads.
    */
   public static final class SimpleRepoMappingRecorder implements RepoMappingRecorder {
     Table<RepositoryName, String, RepositoryName> entries = HashBasedTable.create();
+    private final List<NestedSet<RepoMappingEntry>> transitiveEntries = new ArrayList<>();
 
     @Override
     public void record(
@@ -271,12 +282,32 @@ public final class Label
       entries.put(fromRepo, apparentRepoName, canonicalRepoName);
     }
 
+    /** Records the given entries without copying them into {@link #recordedEntrySet}. */
+    public void recordTransitive(NestedSet<RepoMappingEntry> recordedEntries) {
+      transitiveEntries.add(recordedEntries);
+    }
+
     public ImmutableTable<RepositoryName, String, RepositoryName> recordedEntries() {
-      return ImmutableTable.<RepositoryName, String, RepositoryName>builder()
-          .orderRowsBy(Comparator.comparing(RepositoryName::getName))
-          .orderColumnsBy(naturalOrder())
-          .putAll(entries)
-          .buildOrThrow();
+      var table =
+          ImmutableTable.<RepositoryName, String, RepositoryName>builder()
+              .orderRowsBy(Comparator.comparing(RepositoryName::getName))
+              .orderColumnsBy(naturalOrder());
+      for (RepoMappingEntry entry : recordedEntrySet().toList()) {
+        table.put(entry.fromRepo(), entry.apparentRepoName(), entry.canonicalRepoName());
+      }
+      return table.buildOrThrow();
+    }
+
+    /** Returns the recorded entries as a set that shares those recorded transitively. */
+    public NestedSet<RepoMappingEntry> recordedEntrySet() {
+      var builder = NestedSetBuilder.<RepoMappingEntry>stableOrder();
+      transitiveEntries.forEach(builder::addTransitive);
+      for (var cell : entries.cellSet()) {
+        builder.add(new RepoMappingEntry(cell.getRowKey(), cell.getColumnKey(), cell.getValue()));
+      }
+      // Unowned so that the snapshots taken by repository_rule() don't use up the indices of the
+      // depsets of the .bzl file.
+      return builder.buildUnowned();
     }
   }
 

@@ -17,10 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Tables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.Label.RepoMappingEntry;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -531,6 +534,60 @@ public class LabelTest {
             Tables.immutableCell(bar, "foo", quux),
             Tables.immutableCell(bar, "quux", foo),
             Tables.immutableCell(foo, "bar", quux))
+        .inOrder();
+  }
+
+  @Test
+  public void simpleRepoMappingRecorder_sharesTransitiveEntries() {
+    var a = RepositoryName.createUnvalidated("a");
+    var b = RepositoryName.createUnvalidated("b");
+    var c = RepositoryName.createUnvalidated("c");
+
+    var common = new Label.SimpleRepoMappingRecorder();
+    common.record(c, "z", a);
+    NestedSet<RepoMappingEntry> commonEntries = common.recordedEntrySet();
+    var left = new Label.SimpleRepoMappingRecorder();
+    left.recordTransitive(commonEntries);
+    left.record(b, "y", c);
+    var right = new Label.SimpleRepoMappingRecorder();
+    right.recordTransitive(commonEntries);
+    right.record(b, "y", c);
+    right.record(a, "x", b);
+
+    var recorder = new Label.SimpleRepoMappingRecorder();
+    recorder.recordTransitive(left.recordedEntrySet());
+    recorder.recordTransitive(right.recordedEntrySet());
+    recorder.record(c, "z", a);
+    recorder.record(c, "z", a);
+
+    assertThat(recorder.recordedEntrySet().toList())
+        .containsExactly(
+            new RepoMappingEntry(a, "x", b),
+            new RepoMappingEntry(b, "y", c),
+            new RepoMappingEntry(c, "z", a));
+    assertThat(recorder.recordedEntries().cellSet())
+        .containsExactly(
+            Tables.immutableCell(a, "x", b),
+            Tables.immutableCell(b, "y", c),
+            Tables.immutableCell(c, "z", a))
+        .inOrder();
+  }
+
+  @Test
+  public void simpleRepoMappingRecorder_earlierSnapshotsDontChange() {
+    var a = RepositoryName.createUnvalidated("a");
+    var b = RepositoryName.createUnvalidated("b");
+
+    var recorder = new Label.SimpleRepoMappingRecorder();
+    recorder.record(b, "y", a);
+    NestedSet<RepoMappingEntry> entrySet = recorder.recordedEntrySet();
+    ImmutableTable<RepositoryName, String, RepositoryName> entries = recorder.recordedEntries();
+    recorder.record(a, "x", b);
+
+    assertThat(entrySet.toList()).containsExactly(new RepoMappingEntry(b, "y", a));
+    assertThat(entries.cellSet()).containsExactly(Tables.immutableCell(b, "y", a));
+    assertThat(recorder.recordedEntries().cellSet())
+        .containsExactly(Tables.immutableCell(a, "x", b), Tables.immutableCell(b, "y", a))
         .inOrder();
   }
 

@@ -852,7 +852,7 @@ public class BzlLoadFunction implements SkyFunction {
       BzlLoadValue v = loadValues.get(i++);
       loadMap.put(load.first, v.getModule()); // dups ok
       fp.addBytes(v.getTransitiveDigest());
-      repoMappingRecorder.record(v.getRecordedRepoMappings());
+      repoMappingRecorder.recordTransitive(v.getRecordedRepoMappings());
     }
 
     // Retrieve predeclared symbols and complete the digest computation.
@@ -926,7 +926,7 @@ public class BzlLoadFunction implements SkyFunction {
     // visibility doesn't need to be introspected by any Starlark builtin methods, and because the
     // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
     return new BzlLoadValue(
-        module, transitiveDigest, bzlVisibility, repoMappingRecorder.recordedEntries());
+        module, transitiveDigest, bzlVisibility, repoMappingRecorder.recordedEntrySet());
   }
 
   @Nullable

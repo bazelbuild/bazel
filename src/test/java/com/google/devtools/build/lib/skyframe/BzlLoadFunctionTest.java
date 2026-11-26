@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Tables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -1078,11 +1077,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(result).hasNoError();
     var bzlLoadValue = result.get(skyKey);
     assertThat(bzlLoadValue.getModule().getGlobals()).containsEntry("hoho", StarlarkInt.of(5));
-    assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
+    assertThat(bzlLoadValue.getRecordedRepoMappings().toList())
         .containsExactly(
-            Tables.immutableCell(
+            new Label.RepoMappingEntry(
                 RepositoryName.create("foo+"), "bar_alias", RepositoryName.create("bar+")),
-            Tables.immutableCell(
+            new Label.RepoMappingEntry(
                 RepositoryName.create("foo+"), "foo", RepositoryName.create("foo+")))
         .inOrder();
     // Note that we're not testing the case of a non-registry override using @bazel_tools here, but

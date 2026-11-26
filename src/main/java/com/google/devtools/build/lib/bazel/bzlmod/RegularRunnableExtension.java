@@ -320,7 +320,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       BzlLoadValue bzlLoadValue)
       throws ExternalDepsException {
     var staticRepoMappingRecorder = new Label.SimpleRepoMappingRecorder();
-    staticRepoMappingRecorder.record(bzlLoadValue.getRecordedRepoMappings());
+    staticRepoMappingRecorder.recordTransitive(bzlLoadValue.getRecordedRepoMappings());
     Path workingDirectory =
         directories
             .getOutputBase()
