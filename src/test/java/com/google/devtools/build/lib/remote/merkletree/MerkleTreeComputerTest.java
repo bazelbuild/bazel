@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,10 +53,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.ChunkLocationMap;
+import com.google.devtools.build.lib.remote.RemoteExecutionCache;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -444,6 +448,51 @@ public class MerkleTreeComputerTest {
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void sourceDirectoryOutsideExecRoot_uploadsMissingChild() throws Exception {
+    var sourceRoot =
+        ArtifactRoot.asSourceRoot(Root.fromPath(execRoot.getFileSystem().getPath("/repo-cache")));
+    var sourceDirectory =
+        ActionsTestUtil.createArtifactWithExecPath(sourceRoot, PathFragment.create("sysroot"));
+    var child = sourceDirectory.getPath().getRelative("include/header.h");
+    child.getParentDirectory().createDirectoryAndParents();
+    byte[] contents = {1, 2, 3};
+    FileSystemUtils.writeContent(child, contents);
+    assertThat(execRoot.getRelative(sourceDirectory.getExecPath()).exists()).isFalse();
+
+    var metadata = new FakeActionInputFileCache();
+    metadata.put(sourceDirectory, FileArtifactValue.createForTesting(sourceDirectory));
+    var spawn = new SpawnBuilder().withInputs(sourceDirectory).build();
+    var digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+    var digest = digestUtil.compute(contents);
+    var cacheClient = new InMemoryCacheClient();
+    var cache =
+        new RemoteExecutionCache(
+            cacheClient,
+            /* diskCacheClient= */ null,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    try {
+      var tree =
+          createMerkleTreeComputer(cache)
+              .buildForSpawn(
+                  spawn,
+                  ImmutableSet.of(),
+                  /* scrubber= */ null,
+                  createSpawnExecutionContext(spawn, metadata),
+                  MerkleTreeComputer.BlobPolicy.KEEP);
+
+      assertThat(tree.inputFiles()).isEqualTo(1);
+      assertThat(cacheClient.getNumFindMissingDigests()).containsEntry(digest, 1);
+      var context = RemoteActionExecutionContext.create(RequestMetadata.getDefaultInstance());
+      assertThat(cache.downloadBlob(context, digest).get()).isEqualTo(contents);
+    } finally {
+      cache.release();
+    }
   }
 
   @Test
