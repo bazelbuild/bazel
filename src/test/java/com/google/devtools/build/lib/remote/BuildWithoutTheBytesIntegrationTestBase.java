@@ -1777,8 +1777,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOutputsDoNotExist("//:foo");
     assertOutputsDoNotExist("//:foobar");
 
-    // Install a previous checker with download-all, without running a build or materializing any
-    // outputs.
+    // Run a non-building command with download-all in between, without materializing any outputs.
+    // It neither replaces the previous build's checker nor is compared against it.
     setDownloadAll();
     addOptions("workspace");
     runtimeWrapper.newCommand(InfoCommand.class);
@@ -2492,6 +2492,31 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Since nothing was invalidated, returning to the build command leaves no completion work.
     assertThat(completionStats.recomputed()).isEqualTo(0);
+  }
+
+  @Test
+  public void infoAfterBuild_keepsCompletionsOfPreviousBuild() throws Exception {
+    writeFooAndBar();
+    var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
+    getRuntimeWrapper().registerSubscriber(completionStats);
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    assertThat(completionStats.recomputed()).isEqualTo(2);
+
+    // The info command neither completes targets nor downloads outputs, so it must not be treated
+    // as a change of command mode that discards the completions of the preceding build. See
+    // https://github.com/bazelbuild/bazel/issues/32363.
+    addOptions("workspace");
+    runtimeWrapper.newCommand(InfoCommand.class);
+    runtimeWrapper.executeCustomCommand();
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    assertThat(completionStats.recomputed()).isEqualTo(0);
+    assertThat(targetCompletions()).containsExactly("//:foo (build)", "//:bar (build)");
   }
 
   @Test
