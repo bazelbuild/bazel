@@ -27,7 +27,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Function;
+import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
@@ -81,7 +81,8 @@ public class HttpConnectorMultiplexerTest {
 
   @Before
   public void before() throws Exception {
-    when(connector.connect(eq(TEST_URL), any(Function.class))).thenReturn(connection);
+    when(connector.connect(eq(TEST_URL), any(HttpConnector.RequestHeadersProvider.class)))
+        .thenReturn(connection);
     when(streamFactory.create(
             same(connection),
             any(URI.class),
@@ -127,7 +128,7 @@ public class HttpConnectorMultiplexerTest {
   @Test
   public void success() throws Exception {
     assertThat(toByteArray(multiplexer.connect(TEST_URL, DUMMY_CHECKSUM))).isEqualTo(TEST_DATA);
-    verify(connector).connect(eq(TEST_URL), any(Function.class));
+    verify(connector).connect(eq(TEST_URL), any(HttpConnector.RequestHeadersProvider.class));
     verify(streamFactory)
         .create(
             any(URLConnection.class),
@@ -140,12 +141,28 @@ public class HttpConnectorMultiplexerTest {
 
   @Test
   public void failure() throws Exception {
-    when(connector.connect(any(URI.class), any(Function.class))).thenThrow(new IOException("oops"));
+    when(connector.connect(any(URI.class), any(HttpConnector.RequestHeadersProvider.class)))
+        .thenThrow(new IOException("oops"));
     IOException e =
         assertThrows(IOException.class, () -> multiplexer.connect(TEST_URL, Optional.empty()));
     assertThat(e).hasMessageThat().contains("oops");
-    verify(connector).connect(any(URI.class), any(Function.class));
+    verify(connector).connect(any(URI.class), any(HttpConnector.RequestHeadersProvider.class));
     verifyNoMoreInteractions(connector, streamFactory);
+  }
+
+  @Test
+  public void credentialFailureIsPropagated() throws Exception {
+    IOException credentialFailure = new IOException("credential helper failed");
+    Credentials credentials = mock(Credentials.class);
+    when(credentials.getRequestMetadata(TEST_URL)).thenThrow(credentialFailure);
+
+    HttpConnector.RequestHeadersProvider headerFunction =
+        HttpConnectorMultiplexer.getHeaderFunction(ImmutableMap.of(), credentials);
+
+    IOException thrown = assertThrows(IOException.class, () -> headerFunction.get(TEST_URL));
+
+    assertThat(thrown).isSameInstanceAs(credentialFailure);
+    verifyNoInteractions(eventHandler);
   }
 
   @Test
@@ -161,12 +178,12 @@ public class HttpConnectorMultiplexerTest {
             new URI("http://hosting.example.com/user/foo/file.txt"),
             ImmutableMap.of("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA==")));
 
-    Function<URI, ImmutableMap<String, List<String>>> headerFunction =
+    HttpConnector.RequestHeadersProvider headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(
-            baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
+            baseHeaders, new StaticCredentials(additionalHeaders));
 
     // Unrelated URL
-    assertThat(headerFunction.apply(URI.create("http://example.org/some/path/file.txt")))
+    assertThat(headerFunction.get(URI.create("http://example.org/some/path/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
@@ -174,7 +191,7 @@ public class HttpConnectorMultiplexerTest {
             ImmutableList.of("Bazel/testing"));
 
     // With auth headers
-    assertThat(headerFunction.apply(URI.create("http://hosting.example.com/user/foo/file.txt")))
+    assertThat(headerFunction.get(URI.create("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
@@ -184,26 +201,26 @@ public class HttpConnectorMultiplexerTest {
             ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
 
     // Other hosts
-    assertThat(headerFunction.apply(URI.create("http://hosting2.example.com/user/foo/file.txt")))
+    assertThat(headerFunction.get(URI.create("http://hosting2.example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
             "User-Agent",
             ImmutableList.of("Bazel/testing"));
-    assertThat(headerFunction.apply(URI.create("http://sub.hosting.example.com/user/foo/file.txt")))
+    assertThat(headerFunction.get(URI.create("http://sub.hosting.example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
             "User-Agent",
             ImmutableList.of("Bazel/testing"));
-    assertThat(headerFunction.apply(URI.create("http://example.com/user/foo/file.txt")))
+    assertThat(headerFunction.get(URI.create("http://example.com/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
             ImmutableList.of("gzip"),
             "User-Agent",
             ImmutableList.of("Bazel/testing"));
     assertThat(
-            headerFunction.apply(
+            headerFunction.get(
                 URI.create("http://hosting.example.com.evil.example/user/foo/file.txt")))
         .containsExactly(
             "Accept-Encoding",
@@ -214,12 +231,12 @@ public class HttpConnectorMultiplexerTest {
     // Verify that URL-specific headers overwrite
     ImmutableMap<String, List<String>> annonAuth =
         ImmutableMap.of("Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
-    Function<URI, ImmutableMap<String, List<String>>> combinedHeaders =
+    HttpConnector.RequestHeadersProvider combinedHeaders =
         HttpConnectorMultiplexer.getHeaderFunction(
-            annonAuth, new StaticCredentials(additionalHeaders), eventHandler);
-    assertThat(combinedHeaders.apply(URI.create("http://hosting.example.com/user/foo/file.txt")))
+            annonAuth, new StaticCredentials(additionalHeaders));
+    assertThat(combinedHeaders.get(URI.create("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
-    assertThat(combinedHeaders.apply(URI.create("http://unreleated.example.org/user/foo/file.txt")))
+    assertThat(combinedHeaders.get(URI.create("http://unreleated.example.org/user/foo/file.txt")))
         .containsExactly(
             "Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
   }

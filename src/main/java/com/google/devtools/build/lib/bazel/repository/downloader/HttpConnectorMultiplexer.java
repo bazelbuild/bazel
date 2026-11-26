@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -109,8 +108,8 @@ final class HttpConnectorMultiplexer {
     // REQUEST_HEADERS should not be overridable by user provided headers
     baseHeaders.putAll(REQUEST_HEADERS);
 
-    Function<URI, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials, eventHandler);
+    HttpConnector.RequestHeadersProvider headerFunction =
+        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
@@ -123,7 +122,7 @@ final class HttpConnectorMultiplexer {
               HttpUtils.toUri(connection),
               newUrl ->
                   new ImmutableMap.Builder<String, List<String>>()
-                      .putAll(headerFunction.apply(newUrl))
+                      .putAll(headerFunction.get(newUrl))
                       .putAll(extraHeaders)
                       .buildOrThrow());
         },
@@ -131,22 +130,15 @@ final class HttpConnectorMultiplexer {
   }
 
   @VisibleForTesting
-  static Function<URI, ImmutableMap<String, List<String>>> getHeaderFunction(
-      Map<String, List<String>> baseHeaders, Credentials credentials, EventHandler eventHandler) {
+  static HttpConnector.RequestHeadersProvider getHeaderFunction(
+      Map<String, List<String>> baseHeaders, Credentials credentials) {
     Preconditions.checkNotNull(baseHeaders);
     Preconditions.checkNotNull(credentials);
 
     return url -> {
       ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
       headers.putAll(baseHeaders);
-      try {
-        headers.putAll(credentials.getRequestMetadata(url));
-      } catch (IOException e) {
-        // If fetching credentials fails for any reason, still try to do the connection, not adding
-        // authentication information as we cannot look it up.
-        eventHandler.handle(
-            Event.warn("Error retrieving auth headers, continuing without: " + e.getMessage()));
-      }
+      headers.putAll(credentials.getRequestMetadata(url));
       return headers.buildKeepingLast();
     };
   }
