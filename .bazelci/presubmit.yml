@@ -168,9 +168,11 @@ tasks:
     test_targets:
       - "//:verify_module_bazel_lock"
       - "//src:embedded_tools_size_test"
+      - "//src/rust/..."
       - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
       - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
       - "//src/test/java/com/google/devtools/build/lib/skyframe:MacOSXFsEventsDiffAwarenessTest"
+      - "//src/test/java/com/google/devtools/build/lib/skymetal/..."
       - "//src/test/py/bazel:bazel_module_test"
       - "//src/test/py/bazel:mod_command_test"
       - "//src/test/shell/bazel:bazel_example_test"
@@ -207,6 +209,7 @@ tasks:
       - "--test_tag_filters=-no_presubmit,-no_windows,-slow"
     test_targets:
       - "//src:embedded_tools_size_test"
+      - "//src/rust/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."

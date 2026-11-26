@@ -210,6 +210,7 @@ tasks:
       - "--config=ci-windows"
     test_targets:
       - "//src:embedded_tools_size_test"
+      - "//src/rust/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."
@@ -271,6 +272,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/rust/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/one_version/..."
