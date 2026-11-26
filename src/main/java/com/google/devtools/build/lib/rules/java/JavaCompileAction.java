@@ -885,40 +885,71 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return executorJdeps;
     }
 
-    // For each of the action's generated inputs, revert its mapped or root-relative path back to
-    // its original path.
-    HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
-    HashMap<PathFragment, PathFragment> rootRelativeToOriginalPath = new HashMap<>();
-    for (Artifact actionInput :
-        Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
-      if (actionInput.isSourceArtifact()) {
+    // Dependencies are usually listed with the exec paths of inputs of the action, which don't
+    // need to be rewritten, or with their paths relative to the output root of the action, such as
+    // the paths that Turbine records with --output_root_relative_path. Resolve these with the
+    // action's input metadata and only index all inputs by their mapped and root-relative paths
+    // if that fails.
+    InputMetadataProvider inputMetadataProvider = actionExecutionContext.getInputMetadataProvider();
+    PathFragment outputRootExecPath = outputDepsProto.getRoot().getExecPath();
+    PathFragment[] pathsOnExecutor = new PathFragment[executorJdeps.getDependencyCount()];
+    PathFragment[] originalPaths = new PathFragment[pathsOnExecutor.length];
+    boolean resolved = true;
+    for (int i = 0; i < pathsOnExecutor.length; i++) {
+      PathFragment pathOnExecutor = PathFragment.create(executorJdeps.getDependency(i).getPath());
+      pathsOnExecutor[i] = pathOnExecutor;
+      if (!resolved || inputMetadataProvider.getInput(pathOnExecutor) != null) {
         continue;
       }
-      rootRelativeToOriginalPath.put(actionInput.getRootRelativePath(), actionInput.getExecPath());
-      if (pathMapper.isNoop()) {
-        continue;
+      PathFragment underOutputRoot = outputRootExecPath.getRelative(pathOnExecutor);
+      if (inputMetadataProvider.getInput(underOutputRoot) != null) {
+        originalPaths[i] = underOutputRoot;
+      } else {
+        resolved = false;
       }
-      String mappedPath = pathMapper.getMappedExecPathString(actionInput);
-      PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
-      if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
-        // Multiple inputs from different configs map to the same path. This is allowed when they
-        // have identical content (checked by StrippingPathMapper.isPathStrippable). Pick any
-        // original path for jdeps rewriting.
-        mappedToOriginalPath.put(mappedPath, previousPath);
+    }
+
+    if (!resolved) {
+      // For each of the action's generated inputs, revert its mapped or root-relative path back to
+      // its original path.
+      HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
+      HashMap<PathFragment, PathFragment> rootRelativeToOriginalPath = new HashMap<>();
+      for (Artifact actionInput :
+          Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
+        if (actionInput.isSourceArtifact()) {
+          continue;
+        }
+        rootRelativeToOriginalPath.put(
+            actionInput.getRootRelativePath(), actionInput.getExecPath());
+        if (pathMapper.isNoop()) {
+          continue;
+        }
+        String mappedPath = pathMapper.getMappedExecPathString(actionInput);
+        PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
+        if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
+          // Multiple inputs from different configs map to the same path. This is allowed when they
+          // have identical content (checked by StrippingPathMapper.isPathStrippable). Pick any
+          // original path for jdeps rewriting.
+          mappedToOriginalPath.put(mappedPath, previousPath);
+        }
+      }
+      for (int i = 0; i < pathsOnExecutor.length; i++) {
+        PathFragment pathOnExecutor = pathsOnExecutor[i];
+        PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
+        if (originalPath == null && !pathMapper.isNoop()) {
+          originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
+        }
+        originalPaths[i] = originalPath;
       }
     }
 
     // Rewrite the .jdeps proto with full paths.
     boolean modified = false;
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
-    for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
-      PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
-      PathFragment originalPath = rootRelativeToOriginalPath.get(pathOnExecutor);
-      if (originalPath == null && !pathMapper.isNoop()) {
-        originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
-      }
-      if (originalPath != null && !originalPath.equals(pathOnExecutor)) {
-        dep.setPath(originalPath.getPathString());
+    for (int i = 0; i < pathsOnExecutor.length; i++) {
+      PathFragment originalPath = originalPaths[i];
+      if (originalPath != null && !originalPath.equals(pathsOnExecutor[i])) {
+        fullDepsBuilder.getDependencyBuilder(i).setPath(originalPath.getPathString());
         modified = true;
       }
     }
