@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
@@ -33,6 +35,18 @@ import javax.annotation.Nullable;
  * the {@link #configureCache(long)} function, but note that enabling this cache might have an
  * impact on correctness because not all changes to files can be purely detected from their
  * metadata.
+ *
+ * <p>The cache identifies a file by a {@link PathFragment}, which is either the exec path of an
+ * action input (see {@code ActionInput#getExecPath}) or the absolute path of a file that is only
+ * known by its {@link Path}. The two kinds cannot collide since one is relative and the other
+ * absolute. Every consumer that digests the file of an action input must key it by its exec path
+ * for their lookups to share an entry, and should do so even when the file is read through another
+ * path, such as on an action filesystem. The exec path is retained by the artifact for as long as
+ * the build refers to it, so such a key costs the cache nothing, whereas an absolute path has to be
+ * built and retained for the entry alone.
+ *
+ * <p>The methods taking a key verify that it identifies the path, which holds for every exec path
+ * since a path is always its root followed by its exec path.
  */
 public class DigestUtils {
   // Typical size for a digest byte array.
@@ -94,9 +108,8 @@ public class DigestUtils {
    * <p>This is null when the cache is disabled.
    *
    * <p>Note that we do not use a {@link com.github.benmanes.caffeine.cache.LoadingCache} because
-   * our keys represent the paths as path fragments, not as {@link Path} instances. As a result, the
-   * loading function cannot actually compute the digests of the files so we have to handle this
-   * externally.
+   * our keys only identify the files and are not {@link Path} instances. As a result, the loading
+   * function cannot actually compute the digests of the files so we have to handle this externally.
    */
   @Nullable private static DigestCache globalCache = null;
 
@@ -146,34 +159,71 @@ public class DigestUtils {
    * <p>If {@link Path#getFastDigest} has already been attempted and was not available, call {@link
    * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
    *
-   * @param path the file path
+   * <p>Prefer {@link #getDigestWithManualFallback(PathFragment, Path, XattrProvider, FileStatus)}
+   * for the file of an action input.
+   *
+   * @param path the file path, which is also the key under which the file is cached
    * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] getDigestWithManualFallback(
       Path path, XattrProvider xattrProvider, @Nullable FileStatus status) throws IOException {
+    return getDigestWithManualFallback(path.asFragment(), path, xattrProvider, status);
+  }
+
+  /**
+   * Same as {@link #getDigestWithManualFallback(Path, XattrProvider, FileStatus)}, with the file
+   * cached under {@code cacheKey} rather than under its path.
+   *
+   * @param cacheKey the key under which the file is cached, see the class documentation
+   * @param path the file path to stat and read
+   */
+  public static byte[] getDigestWithManualFallback(
+      PathFragment cacheKey, Path path, XattrProvider xattrProvider, @Nullable FileStatus status)
+      throws IOException {
     byte[] digest = xattrProvider.getFastDigest(path);
-    return digest != null ? digest : manuallyComputeDigest(path, status);
+    return digest != null ? digest : manuallyComputeDigest(cacheKey, path, status);
   }
 
   /**
    * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
    *
-   * @param path the file path
+   * <p>Prefer {@link #manuallyComputeDigest(PathFragment, Path, FileStatus)} for the file of an
+   * action input.
+   *
+   * @param path the file path, which is also the key under which the file is cached
    * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
       throws IOException {
+    return manuallyComputeDigest(path.asFragment(), path, status);
+  }
+
+  /**
+   * Same as {@link #manuallyComputeDigest(Path, FileStatus)}, with the file cached under {@code
+   * cacheKey} rather than under its path.
+   *
+   * @param cacheKey the key under which the file is cached, see the class documentation
+   * @param path the file path to stat and read
+   * @param status a recently obtained file status, if available. Used to skip a stat.
+   */
+  public static byte[] manuallyComputeDigest(
+      PathFragment cacheKey, Path path, @Nullable FileStatus status) throws IOException {
+    checkArgument(
+        cacheKey.isAbsolute()
+            ? cacheKey.equals(path.asFragment())
+            : !cacheKey.isEmpty() && path.asFragment().endsWith(cacheKey),
+        "digest cache key %s does not identify %s",
+        cacheKey,
+        path);
     // Attempt a cache lookup if the cache is enabled.
     DigestCache cache = globalCache;
-    PathFragment key = null;
     if (cache != null) {
       if (status == null) {
         status = path.stat();
       }
-      key = path.asFragment();
       // Look up through the map view, which informs the eviction policy but does not record
       // statistics, so that only a usable digest counts as a hit.
-      CachedDigest cached = cache.cache().asMap().get(key);
+      CachedDigest cached = cache.cache().asMap().get(cacheKey);
       if (cached != null && cached.matches(status)) {
         cache.stats().recordHits(1);
         return cached.digest;
@@ -185,7 +235,7 @@ public class DigestUtils {
 
     Preconditions.checkNotNull(digest, "Missing digest for %s", path);
     if (cache != null) {
-      cache.cache().put(key, new CachedDigest(status, digest));
+      cache.cache().put(cacheKey, new CachedDigest(status, digest));
     }
     return digest;
   }

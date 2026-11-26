@@ -219,9 +219,14 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    * avoid storing bad cache entries in an action cache. It should return true if there is a chance
    * that the file was modified since the digest was computed. Better not upload if we are not sure
    * that the cache entry is reliable.
+   *
+   * @param digestCacheKey the key under which {@link DigestUtils} caches the file's digest, see
+   *     {@link DigestUtils#manuallyComputeDigest(PathFragment, Path, FileStatus)}
+   * @param path the path to stat and, if necessary, read
    */
   // TODO(lberki): This is very similar to couldBeModifiedSince(). Check if we can unify these.
-  public abstract boolean wasModifiedSinceDigest(Path path) throws IOException;
+  public abstract boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path)
+      throws IOException;
 
   /**
    * Returns whether the two {@link FileArtifactValue} instances could be considered the same for
@@ -322,6 +327,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       return createForDirectory(artifact.getPath().stat());
     }
     return create(
+        artifact.getExecPath(),
         artifact.getPath(),
         fileValue.getSize(),
         fileValue.realFileStateValue().getContentsProxy(),
@@ -347,12 +353,31 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     return createFromStat(path, path.stat(Symlinks.FOLLOW), SyscallCache.NO_CACHE);
   }
 
+  /**
+   * Creates the metadata of a file from its stat.
+   *
+   * <p>Prefer {@link #createFromStat(PathFragment, Path, FileStatus, XattrProvider)} for the file
+   * of an action input.
+   */
   public static FileArtifactValue createFromStat(
       Path path, FileStatus stat, XattrProvider xattrProvider) throws IOException {
+    return createFromStat(path.asFragment(), path, stat, xattrProvider);
+  }
+
+  /**
+   * Creates the metadata of a file from its stat.
+   *
+   * @param digestCacheKey the key under which {@link DigestUtils} caches the file's digest, see
+   *     {@link DigestUtils#manuallyComputeDigest(PathFragment, Path, FileStatus)}
+   */
+  public static FileArtifactValue createFromStat(
+      PathFragment digestCacheKey, Path path, FileStatus stat, XattrProvider xattrProvider)
+      throws IOException {
     if (!stat.isFile()) {
       return createForDirectory(stat);
     }
     return create(
+        digestCacheKey,
         path,
         stat.getSize(),
         FileContentsProxy.create(stat),
@@ -368,6 +393,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   private static FileArtifactValue create(
+      PathFragment digestCacheKey,
       Path path,
       long size,
       FileContentsProxy proxy,
@@ -377,7 +403,10 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     if (digest == null) {
       digest =
           DigestUtils.getDigestWithManualFallback(
-              path, xattrProvider, proxy != null ? proxy.toMetadataOnlyFileStatus(size) : null);
+              digestCacheKey,
+              path,
+              xattrProvider,
+              proxy != null ? proxy.toMetadataOnlyFileStatus(size) : null);
     }
     checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);
@@ -515,7 +544,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       return false;
     }
 
@@ -569,7 +598,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       // TODO(ulfjack): Ideally, we'd attempt to detect intra-build modifications here. I'm
       // consciously deferring work here as this code will most likely change again, and we're
       // already doing better than before by detecting inter-build modifications.
@@ -633,7 +662,8 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path)
+        throws IOException {
       if (proxy == null) {
         return false;
       }
@@ -664,7 +694,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       // Note that this path is always taken when using the hermetic Linux sandbox, but the
       // associated cost should amortize over the next build as the digest will be cached under the
       // new stat.
-      byte[] newDigest = DigestUtils.getDigestWithManualFallback(path, SyscallCache.NO_CACHE, stat);
+      byte[] newDigest =
+          DigestUtils.getDigestWithManualFallback(
+              digestCacheKey, path, SyscallCache.NO_CACHE, stat);
       return !Arrays.equals(digest, newDigest);
     }
 
@@ -708,7 +740,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       return false;
     }
 
@@ -805,7 +837,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public final boolean wasModifiedSinceDigest(Path path) {
+    public final boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       return false;
     }
 
@@ -1009,8 +1041,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
-      return delegate.wasModifiedSinceDigest(path);
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path)
+        throws IOException {
+      return delegate.wasModifiedSinceDigest(digestCacheKey, path);
     }
 
     @Override
@@ -1224,7 +1257,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       try {
         var newMetadata = FileArtifactValue.createForUnresolvedSymlink(path);
         return !Arrays.equals(digest, newMetadata.getDigest());
@@ -1277,7 +1310,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       throw new UnsupportedOperationException();
     }
 
@@ -1388,8 +1421,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
-      return delegate.wasModifiedSinceDigest(path);
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path)
+        throws IOException {
+      return delegate.wasModifiedSinceDigest(digestCacheKey, path);
     }
 
     @Override
@@ -1426,7 +1460,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       return false;
     }
 
@@ -1472,7 +1506,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
+    public boolean wasModifiedSinceDigest(PathFragment digestCacheKey, Path path) {
       throw new UnsupportedOperationException(
           "ConstantMetadataValue doesn't support wasModifiedSinceDigest " + path);
     }
