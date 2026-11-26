@@ -58,7 +58,7 @@ openbsd)
   SOURCES+=(src/main/native/unix_jni_bsd.cc)
   FLAGS+=("-I${JAVA_HOME}/include/openbsd")
   ;;
-freebsd)
+freebsd|midnightbsd)
   SOURCES+=(src/main/native/unix_jni_bsd.cc)
   FLAGS+=("-I${JAVA_HOME}/include/freebsd")
   ;;
