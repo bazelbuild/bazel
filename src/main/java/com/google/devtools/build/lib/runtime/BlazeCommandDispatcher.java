@@ -900,6 +900,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       systemOutErrPatcher.close();
 
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
+      reporter.clear();
     }
   }
 

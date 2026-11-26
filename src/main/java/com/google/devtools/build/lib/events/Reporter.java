@@ -145,6 +145,14 @@ public final class Reporter implements ExtendedEventHandler {
     }
   }
 
+  /** Removes event and ANSI handlers after the command's final diagnostics. */
+  public synchronized void clear() {
+    eventHandlers.clear();
+    ansiAllowingHandler = null;
+    ansiStrippingHandler = null;
+    ansiAllowingHandlerRegistered = false;
+  }
+
   /**
    * Reports the start of a particular task. Is a wrapper around report() with event kind START.
    * Should always be matched by a corresponding call to finishTask() with the same message, except
