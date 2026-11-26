@@ -1310,6 +1310,29 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
+  public Predicate<Artifact> getSchedulingDependencyClassifierAfterExecution() {
+    if (!needsIncludeValidation
+        || (!shouldScanIncludes && getDotdFile() == null && !shouldParseShowIncludes())) {
+      return unused -> false;
+    }
+    Iterable<PathFragment> ignoreDirs =
+        cppConfiguration().isStrictSystemIncludes()
+            ? getBuiltInIncludeDirectories()
+            : getValidationIgnoredDirs();
+    ImmutableSet<Artifact> prunableHeaders =
+        additionalPrunableHeaders.isEmpty() ? ImmutableSet.of() : additionalPrunableHeaders.toSet();
+    // validateInclusions() already proved that every discovered input in getInputs() is in
+    // mandatoryInputs U declaredIncludeSrcs U additionalPrunableHeaders U ignoreDirs U
+    // {CPP_MODULE, OBJC_MODULE_MAP}. Anything not in the latter buckets must be in
+    // declaredIncludeSrcs (getSchedulingDependencies()), which is fingerprinted in computeKey().
+    return input ->
+        !input.isFileType(CppFileTypes.CPP_MODULE)
+            && !input.isFileType(CppFileTypes.OBJC_MODULE_MAP)
+            && !prunableHeaders.contains(input)
+            && !FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs);
+  }
+
+  @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
     return allowedDerivedInputs;
   }

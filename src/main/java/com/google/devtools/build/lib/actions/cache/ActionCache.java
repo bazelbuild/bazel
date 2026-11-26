@@ -84,7 +84,8 @@ public interface ActionCache {
   final class Entry {
     /** Unique instance standing for a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new Entry(null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        new Entry(
+            null, null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
 
     private static final byte[] EMPTY_DIGEST = new byte[1];
 
@@ -92,9 +93,13 @@ public interface ActionCache {
     // Null if the entry is corrupted.
     @Nullable private final byte[] digest;
 
-    // List of input paths discovered by the action.
+    // List of direct (non-scheduling-dependency) input paths discovered by the action.
     // Null if the action does not discover inputs.
     @Nullable private final ImmutableList<String> discoveredInputPaths;
+
+    // List of discovered input paths that are beneath the action's scheduling dependencies.
+    // Null if the action does not discover inputs.
+    @Nullable private final ImmutableList<String> schedulingDepDiscoveredInputPaths;
 
     private final boolean prunedInputs;
 
@@ -107,6 +112,7 @@ public interface ActionCache {
     Entry(
         @Nullable byte[] digest,
         @Nullable ImmutableList<String> discoveredInputPaths,
+        @Nullable ImmutableList<String> schedulingDepDiscoveredInputPaths,
         boolean prunedInputs,
         ImmutableMap<String, FileArtifactValue> outputFileMetadata,
         ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata,
@@ -114,8 +120,13 @@ public interface ActionCache {
       checkArgument(
           !prunedInputs || discoveredInputPaths != null,
           "Action had unused inputs but no discovered inputs");
+      checkArgument(
+          (discoveredInputPaths == null) == (schedulingDepDiscoveredInputPaths == null),
+          "discoveredInputPaths and schedulingDepDiscoveredInputPaths must both be null or both"
+              + " non-null");
       this.digest = digest;
       this.discoveredInputPaths = discoveredInputPaths;
+      this.schedulingDepDiscoveredInputPaths = schedulingDepDiscoveredInputPaths;
       this.prunedInputs = prunedInputs;
       this.outputFileMetadata = outputFileMetadata;
       this.outputTreeMetadata = outputTreeMetadata;
@@ -154,12 +165,43 @@ public interface ActionCache {
     }
 
     /**
-     * Returns the list of discovered input paths, or null if the action does not discover inputs.
+     * Returns the list of all discovered input paths, or null if the action does not discover
+     * inputs.
      */
     @Nullable
     public ImmutableList<String> getDiscoveredInputPaths() {
       checkState(!isCorrupted());
+      if (discoveredInputPaths == null || schedulingDepDiscoveredInputPaths.isEmpty()) {
+        return discoveredInputPaths;
+      }
+      if (discoveredInputPaths.isEmpty()) {
+        return schedulingDepDiscoveredInputPaths;
+      }
+      return ImmutableList.<String>builderWithExpectedSize(
+              discoveredInputPaths.size() + schedulingDepDiscoveredInputPaths.size())
+          .addAll(discoveredInputPaths)
+          .addAll(schedulingDepDiscoveredInputPaths)
+          .build();
+    }
+
+    /**
+     * Returns the list of discovered input paths that are not tagged as scheduling dependencies, or
+     * null if the action does not discover inputs.
+     */
+    @Nullable
+    public ImmutableList<String> getDirectDiscoveredInputPaths() {
+      checkState(!isCorrupted());
       return discoveredInputPaths;
+    }
+
+    /**
+     * Returns the list of discovered input paths tagged as beneath the action's scheduling
+     * dependencies, or null if the action does not discover inputs.
+     */
+    @Nullable
+    public ImmutableList<String> getSchedulingDepDiscoveredInputPaths() {
+      checkState(!isCorrupted());
+      return schedulingDepDiscoveredInputPaths;
     }
 
     /** Gets the metadata of an output file. */
@@ -307,6 +349,7 @@ public interface ActionCache {
       // Discovered inputs.
       // Null if the action does not discover inputs.
       @Nullable private final ImmutableList.Builder<String> discoveredInputPaths;
+      @Nullable private final ImmutableList.Builder<String> schedulingDepDiscoveredInputPaths;
       private boolean prunedInputs = false;
 
       private final ImmutableMap.Builder<String, FileArtifactValue> outputFileMetadata =
@@ -338,6 +381,7 @@ public interface ActionCache {
         this.clientEnv = clientEnv;
         this.actionExecutionSalt = actionExecutionSalt;
         this.discoveredInputPaths = discoversInputs ? ImmutableList.builder() : null;
+        this.schedulingDepDiscoveredInputPaths = discoversInputs ? ImmutableList.builder() : null;
         this.outputPermissions = outputPermissions;
         this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
       }
@@ -353,6 +397,16 @@ public interface ActionCache {
       @CanIgnoreReturnValue
       public Builder addInputFile(
           Artifact artifact, FileArtifactValue metadata, boolean saveExecPath) {
+        return addInputFile(artifact, metadata, saveExecPath, /* isSchedulingDep= */ false);
+      }
+
+      /** Adds metadata of an input file, optionally tagging it as a scheduling dependency. */
+      @CanIgnoreReturnValue
+      public Builder addInputFile(
+          Artifact artifact,
+          FileArtifactValue metadata,
+          boolean saveExecPath,
+          boolean isSchedulingDep) {
         checkState(
             inputDigest == null,
             "Cannot add input files when input digest is already set or computed");
@@ -361,7 +415,11 @@ public interface ActionCache {
         }
         String execPath = artifact.getExecPathString();
         if (discoveredInputPaths != null && saveExecPath) {
-          discoveredInputPaths.add(execPath);
+          if (isSchedulingDep) {
+            schedulingDepDiscoveredInputPaths.add(execPath);
+          } else {
+            discoveredInputPaths.add(execPath);
+          }
         }
         inputMetadataMap.put(execPath, metadata);
         return this;
@@ -496,6 +554,9 @@ public interface ActionCache {
                 outputPermissions,
                 useArchivedTreeArtifacts),
             discoveredInputPaths != null ? discoveredInputPaths.build() : null,
+            schedulingDepDiscoveredInputPaths != null
+                ? schedulingDepDiscoveredInputPaths.build()
+                : null,
             prunedInputs,
             outputFileMetadata.buildOrThrow(),
             outputTreeMetadata.buildOrThrow(),

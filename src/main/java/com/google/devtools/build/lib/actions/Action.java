@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -204,6 +205,19 @@ public interface Action extends ActionExecutionMetadata {
    * in the action cache referring to source artifacts are always resolved.
    */
   NestedSet<Artifact> getAllowedDerivedInputs();
+
+  /**
+   * Returns a predicate that identifies discovered inputs of this action (after successful
+   * execution) that are guaranteed to be beneath {@link #getSchedulingDependencies()}, provided
+   * {@link #getSchedulingDependencies()} is fingerprinted in {@link #getKey}.
+   *
+   * <p>Used when writing discovered inputs to the action cache so that subsequent fresh-server
+   * builds can avoid adding redundant per-artifact Skyframe edges without flattening {@link
+   * #getSchedulingDependencies()}.
+   */
+  default Predicate<Artifact> getSchedulingDependencyClassifierAfterExecution() {
+    return unused -> false;
+  }
 
   /**
    * Called on {@linkplain #discoversInputs input-discovering} actions when the inputs of the action

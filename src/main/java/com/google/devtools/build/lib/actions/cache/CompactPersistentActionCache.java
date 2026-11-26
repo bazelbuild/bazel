@@ -79,7 +79,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 27;
+  private static final int VERSION = 28;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -873,9 +873,12 @@ public class CompactPersistentActionCache implements ActionCache {
     if (entry.discoversInputs()) {
       maxDiscoveredInputsSize +=
           1 // pruned inputs presence marker
-              + VarInt.MAX_VARINT_SIZE // length
+              + VarInt.MAX_VARINT_SIZE // direct length
               + (VarInt.MAX_VARINT_SIZE // execPath
-                  * entry.getDiscoveredInputPaths().size());
+                  * entry.getDirectDiscoveredInputPaths().size())
+              + VarInt.MAX_VARINT_SIZE // scheduling dep length
+              + (VarInt.MAX_VARINT_SIZE // execPath
+                  * entry.getSchedulingDepDiscoveredInputPaths().size());
     }
 
     int estimatedOutputMetadataSize = 1; // presence marker
@@ -927,23 +930,8 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
     if (entry.discoversInputs()) {
       VarInt.putVarInt(entry.prunedInputs() ? 1 : 0, sink);
-      ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
-      // The order of discovered inputs is irrelevant (the input digest is order-independent), so
-      // store the indices sorted and delta-encoded. Since the indexer hands out indices in
-      // insertion order, inputs that are commonly discovered together (e.g. the headers of a
-      // library) tend to have nearby indices, so most deltas fit into a single byte instead of the
-      // 3-4 bytes needed for an absolute index in a large build.
-      int[] indices = new int[discoveredInputPaths.size()];
-      for (int i = 0; i < indices.length; i++) {
-        indices[i] = indexer.getOrCreateIndex(discoveredInputPaths.get(i));
-      }
-      Arrays.sort(indices);
-      VarInt.putVarInt(indices.length, sink);
-      int previous = 0;
-      for (int index : indices) {
-        VarInt.putVarInt(index - previous, sink);
-        previous = index;
-      }
+      encodeDiscoveredInputPaths(entry.getDirectDiscoveredInputPaths(), indexer, sink);
+      encodeDiscoveredInputPaths(entry.getSchedulingDepDiscoveredInputPaths(), indexer, sink);
     }
 
     VarInt.putVarInt(entry.hasOutputMetadata() ? 1 : 0, sink);
@@ -997,6 +985,48 @@ public class CompactPersistentActionCache implements ActionCache {
     return sink.toByteArray();
   }
 
+  private static void encodeDiscoveredInputPaths(
+      ImmutableList<String> paths, StringIndexer indexer, UnsynchronizedByteArrayOutputStream sink)
+      throws IOException {
+    // The order of discovered inputs is irrelevant (the input digest is order-independent), so
+    // store the indices sorted and delta-encoded. Since the indexer hands out indices in
+    // insertion order, inputs that are commonly discovered together (e.g. the headers of a
+    // library) tend to have nearby indices, so most deltas fit into a single byte instead of the
+    // 3-4 bytes needed for an absolute index in a large build.
+    int[] indices = new int[paths.size()];
+    for (int i = 0; i < indices.length; i++) {
+      indices[i] = indexer.getOrCreateIndex(paths.get(i));
+    }
+    Arrays.sort(indices);
+    VarInt.putVarInt(indices.length, sink);
+    int previous = 0;
+    for (int index : indices) {
+      VarInt.putVarInt(index - previous, sink);
+      previous = index;
+    }
+  }
+
+  private static ImmutableList<String> decodeDiscoveredInputPaths(
+      ByteBuffer source, StringIndexer indexer) throws IOException {
+    int numDiscoveredInputs = VarInt.getVarInt(source);
+    if (numDiscoveredInputs < 0) {
+      throw new IOException("Invalid discovered input count: " + numDiscoveredInputs);
+    }
+    ImmutableList.Builder<String> builder =
+        ImmutableList.builderWithExpectedSize(numDiscoveredInputs);
+    int id = 0;
+    for (int i = 0; i < numDiscoveredInputs; i++) {
+      int delta = VarInt.getVarInt(source);
+      if (delta < 0) {
+        throw new IOException("Invalid discovered input index delta: " + delta);
+      }
+      // An overflow results in a negative index, which getStringForIndex rejects.
+      id += delta;
+      builder.add(getStringForIndex(indexer, id));
+    }
+    return builder.build();
+  }
+
   private static String getStringForIndex(StringIndexer indexer, int index) throws IOException {
     String path = index >= 0 ? indexer.getStringForIndex(index) : null;
     if (path == null) {
@@ -1017,6 +1047,7 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] digest = MetadataDigestUtils.read(source);
 
       ImmutableList<String> discoveredInputPaths = null;
+      ImmutableList<String> schedulingDepDiscoveredInputPaths = null;
       boolean prunedInputs = false;
       int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
       if (discoveredInputsPresenceMarker != 0) {
@@ -1031,23 +1062,8 @@ public class CompactPersistentActionCache implements ActionCache {
           }
           prunedInputs = true;
         }
-        int numDiscoveredInputs = VarInt.getVarInt(source);
-        if (numDiscoveredInputs < 0) {
-          throw new IOException("Invalid discovered input count: " + numDiscoveredInputs);
-        }
-        ImmutableList.Builder<String> builder =
-            ImmutableList.builderWithExpectedSize(numDiscoveredInputs);
-        int id = 0;
-        for (int i = 0; i < numDiscoveredInputs; i++) {
-          int delta = VarInt.getVarInt(source);
-          if (delta < 0) {
-            throw new IOException("Invalid discovered input index delta: " + delta);
-          }
-          // An overflow results in a negative index, which getStringForIndex rejects.
-          id += delta;
-          builder.add(getStringForIndex(indexer, id));
-        }
-        discoveredInputPaths = builder.build();
+        discoveredInputPaths = decodeDiscoveredInputPaths(source, indexer);
+        schedulingDepDiscoveredInputPaths = decodeDiscoveredInputPaths(source, indexer);
       }
 
       int outputMetadataPresenceMarker = VarInt.getVarInt(source);
@@ -1058,6 +1074,7 @@ public class CompactPersistentActionCache implements ActionCache {
         return new ActionCache.Entry(
             digest,
             discoveredInputPaths,
+            schedulingDepDiscoveredInputPaths,
             prunedInputs,
             /* outputFileMetadata= */ ImmutableMap.of(),
             /* outputTreeMetadata= */ ImmutableMap.of(),
@@ -1140,6 +1157,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return new ActionCache.Entry(
           digest,
           discoveredInputPaths,
+          schedulingDepDiscoveredInputPaths,
           prunedInputs,
           outputFiles.buildOrThrow(),
           outputTrees.buildOrThrow(),

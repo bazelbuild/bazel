@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -362,17 +361,15 @@ public class ActionCacheChecker {
         // Load remote child file metadata from cache.
         cachedTreeMetadata
             .childValues()
-            .forEach(
-                (key, value) ->
-                    childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
+            .forEach((key, value) ->
+                childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
 
         Optional<ArchivedRepresentation> archivedRepresentation =
             cachedTreeMetadata
                 .archivedFileValue()
-                .map(
-                    fileArtifactValue ->
-                        ArchivedRepresentation.create(
-                            ArchivedTreeArtifact.createForTree(parent), fileArtifactValue));
+                .map(fileArtifactValue ->
+                    ArchivedRepresentation.create(
+                        ArchivedTreeArtifact.createForTree(parent), fileArtifactValue));
 
         TreeArtifactValue filesystemTreeMetadata;
         try {
@@ -470,7 +467,7 @@ public class ActionCacheChecker {
   @Nullable
   public Token getTokenIfNeedToExecute(
       Action action,
-      List<Artifact> resolvedCacheArtifacts,
+      @Nullable CachedInputs resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -502,15 +499,15 @@ public class ActionCacheChecker {
           action);
       // When inputs are pruned, the action cache stores all used inputs. Otherwise, it only stores
       // discovered inputs.
-      if (entry != null && !entry.isCorrupted() && entry.prunedInputs()) {
-        actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
-      } else {
-        actionInputs =
-            NestedSetBuilder.<Artifact>stableOrder()
-                .addTransitive(action.getMandatoryInputs())
-                .addAll(resolvedCacheArtifacts)
-                .build();
+      NestedSetBuilder<Artifact> actionInputsBuilder = NestedSetBuilder.stableOrder();
+      if (entry == null || entry.isCorrupted() || !entry.prunedInputs()) {
+        actionInputsBuilder.addTransitive(action.getMandatoryInputs());
       }
+      actionInputs =
+          actionInputsBuilder
+              .addAll(resolvedCacheArtifacts.directInputs())
+              .addAll(resolvedCacheArtifacts.schedulingDepInputs())
+              .build();
     }
 
     CachedOutputMetadata cachedOutputMetadata = null;
@@ -661,6 +658,16 @@ public class ActionCacheChecker {
     }
   }
 
+  /**
+   * Cached discovered inputs partitioned into direct inputs (which need direct Skyframe edges) and
+   * inputs tagged as beneath {@link Action#getSchedulingDependencies()}.
+   */
+  public record CachedInputs(
+      ImmutableList<Artifact> directInputs, ImmutableList<Artifact> schedulingDepInputs) {
+    public static final CachedInputs EMPTY =
+        new CachedInputs(ImmutableList.of(), ImmutableList.of());
+  }
+
   public void updateActionCache(
       Action action,
       Token token,
@@ -730,12 +737,24 @@ public class ActionCacheChecker {
           action.discoversInputs() && !action.prunedInputs()
               ? action.getMandatoryInputs().toSet()
               : ImmutableSet.of();
+      NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
+      boolean canTagSchedulingDeps =
+          action.discoversInputs()
+              && !schedulingDependencies.isEmpty()
+              && !schedulingDependencies.isSingleton();
+      java.util.function.Predicate<Artifact> actionClassifier =
+          canTagSchedulingDeps
+              ? action.getSchedulingDependencyClassifierAfterExecution()
+              : unused -> false;
 
       for (Artifact input : action.getInputs().toList()) {
+        boolean saveExecPath = !excludePathsFromActionCache.contains(input);
+        boolean isSchedulingDep = saveExecPath && actionClassifier.test(input);
         builder.addInputFile(
             input,
             getInputMetadataMaybe(inputMetadataProvider, input),
-            /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+            saveExecPath,
+            isSchedulingDep);
       }
     }
 
@@ -743,25 +762,32 @@ public class ActionCacheChecker {
   }
 
   @Nullable
-  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
+  public CachedInputs getCachedInputs(Action action, PackageRootResolver resolver)
       throws PackageRootResolver.PackageRootException, InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
     if (entry == null || entry.isCorrupted()) {
-      return ImmutableList.of();
+      return CachedInputs.EMPTY;
     }
 
     List<PathFragment> outputs = new ArrayList<>();
     for (Artifact output : action.getOutputs()) {
       outputs.add(output.getExecPath());
     }
-    List<PathFragment> inputExecPaths = new ArrayList<>();
+    List<PathFragment> directExecPaths = new ArrayList<>();
+    List<PathFragment> schedulingDepExecPaths = new ArrayList<>();
     if (entry.discoversInputs()) {
-      for (String path : entry.getDiscoveredInputPaths()) {
+      for (String path : entry.getDirectDiscoveredInputPaths()) {
         PathFragment execPath = PathFragment.create(path);
         // Code assumes that action has only 1-2 outputs and ArrayList.contains() will be most
         // efficient.
         if (!outputs.contains(execPath)) {
-          inputExecPaths.add(execPath);
+          directExecPaths.add(execPath);
+        }
+      }
+      for (String path : entry.getSchedulingDepDiscoveredInputPaths()) {
+        PathFragment execPath = PathFragment.create(path);
+        if (!outputs.contains(execPath)) {
+          schedulingDepExecPaths.add(execPath);
         }
       }
     }
@@ -776,14 +802,25 @@ public class ActionCacheChecker {
       }
     }
 
-    ImmutableList.Builder<Artifact> inputArtifactsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> directArtifactsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> schedulingDepArtifactsBuilder = ImmutableList.builder();
     List<PathFragment> unresolvedPaths = new ArrayList<>();
-    for (PathFragment execPath : inputExecPaths) {
+    int directUnresolvedCount = 0;
+    for (PathFragment execPath : directExecPaths) {
       Artifact artifact = allowedDerivedInputsMap.get(execPath);
       if (artifact != null) {
-        inputArtifactsBuilder.add(artifact);
+        directArtifactsBuilder.add(artifact);
       } else {
         // Remember this execPath, we will try to resolve it as a source artifact.
+        unresolvedPaths.add(execPath);
+        directUnresolvedCount++;
+      }
+    }
+    for (PathFragment execPath : schedulingDepExecPaths) {
+      Artifact artifact = allowedDerivedInputsMap.get(execPath);
+      if (artifact != null) {
+        schedulingDepArtifactsBuilder.add(artifact);
+      } else {
         unresolvedPaths.add(execPath);
       }
     }
@@ -795,7 +832,8 @@ public class ActionCacheChecker {
       return null;
     }
 
-    for (PathFragment execPath : unresolvedPaths) {
+    for (int i = 0; i < unresolvedPaths.size(); i++) {
+      PathFragment execPath = unresolvedPaths.get(i);
       Artifact artifact = resolvedArtifacts.get(execPath);
       // If PathFragment cannot be resolved into the artifact, ignore it. This could happen if the
       // rule has changed and the action no longer depends on, e.g., an additional source file in a
@@ -803,10 +841,14 @@ public class ActionCacheChecker {
       // ignore such paths because dependency checker would identify changes in inputs (ignored path
       // was used before) and will force action execution.
       if (artifact != null) {
-        inputArtifactsBuilder.add(artifact);
+        if (i < directUnresolvedCount) {
+          directArtifactsBuilder.add(artifact);
+        } else {
+          schedulingDepArtifactsBuilder.add(artifact);
+        }
       }
     }
-    return inputArtifactsBuilder.build();
+    return new CachedInputs(directArtifactsBuilder.build(), schedulingDepArtifactsBuilder.build());
   }
 
   /**
@@ -814,7 +856,7 @@ public class ActionCacheChecker {
    */
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
-      List<Artifact> resolvedCacheArtifacts,
+      @Nullable CachedInputs resolvedCacheArtifacts,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -915,5 +957,4 @@ public class ActionCacheChecker {
       this.inputDigest = inputDigest;
     }
   }
-
 }
