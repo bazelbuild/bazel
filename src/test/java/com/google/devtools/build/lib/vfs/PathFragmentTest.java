@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
@@ -34,6 +36,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -200,6 +203,43 @@ public final class PathFragmentTest {
     assertThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
     assertThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
     assertThrows(IllegalArgumentException.class, () -> pf.getChild(""));
+  }
+
+  @Test
+  public void testCompareToIgnoringCase() {
+    ImmutableList<PathFragment> fragments =
+        Stream.of(
+                "",
+                "a",
+                "A",
+                "ab",
+                "aB",
+                "a/b",
+                "A/b",
+                "a/bc",
+                "a/b-c",
+                "a/B-c",
+                "a-c",
+                "/a/b",
+                "/A/B/c.txt",
+                unicodeToInternal("ä"),
+                unicodeToInternal("Ä"),
+                unicodeToInternal("a/ä/😀"),
+                unicodeToInternal("a/Ä/😀"),
+                unicodeToInternal("a/äb"))
+            .map(PathFragment::create)
+            .collect(toImmutableList());
+    for (PathFragment a : fragments) {
+      for (PathFragment b : fragments) {
+        assertWithMessage("%s vs. %s", a, b)
+            .that(Integer.signum(a.compareToIgnoringCase(b)))
+            .isEqualTo(
+                Integer.signum(
+                    String.CASE_INSENSITIVE_ORDER.compare(
+                        internalToUnicode(a.getPathString()),
+                        internalToUnicode(b.getPathString()))));
+      }
+    }
   }
 
   @Test
