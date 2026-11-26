@@ -622,6 +622,12 @@ public class BuildTool {
           TestExecException,
           ExitException,
           PostExecutionDumpException {
+    if (needsExecutionPhase(request.getBuildOptions())
+        && request.getBuildOptions().getUseActionCache()) {
+      // Load the action cache before analysis so that artifacts can share their exec paths with
+      // it. With Skymeld, ExecutionTool#prepareForExecution already does this before analysis.
+      ExecutionTool.getOrLoadActionCache(env);
+    }
     AnalysisResult analysisResult =
         AnalysisPhaseRunner.execute(
             env,

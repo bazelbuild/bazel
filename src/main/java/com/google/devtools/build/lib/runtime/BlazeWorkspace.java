@@ -57,6 +57,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
@@ -150,7 +151,7 @@ public final class BlazeWorkspace {
           return;
         }
         // Note that this reads and writes to the field in the outer class.
-        actionCache = actionCache.trim(threshold, maxAge);
+        setActionCache(actionCache.trim(threshold, maxAge));
       } catch (IOException e) {
         throw new IdleTaskException(e);
       }
@@ -351,7 +352,7 @@ public final class BlazeWorkspace {
     if (buildRequestOptions != null && !buildRequestOptions.getUseActionCache()) {
       // Drop the action cache reference to save memory since we don't need it for this build. If a
       // subsequent build needs it, getOrLoadPersistentActionCache will reload it from disk.
-      actionCache = null;
+      setActionCache(null);
     }
     return env;
   }
@@ -366,7 +367,7 @@ public final class BlazeWorkspace {
     if (actionCache != null) {
       actionCache.clear();
     }
-    actionCache = null;
+    setActionCache(null);
     getActionCacheDirectory().deleteTree();
     getCorruptedActionCacheDirectory().deleteTree();
     getActionCacheTmpDirectory().deleteTree();
@@ -381,16 +382,25 @@ public final class BlazeWorkspace {
   public ActionCache getOrLoadPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
-        actionCache =
+        setActionCache(
             CompactPersistentActionCache.create(
                 getActionCacheDirectory(),
                 getCorruptedActionCacheDirectory(),
                 getActionCacheTmpDirectory(),
                 runtime.getClock(),
-                reporter);
+                reporter));
       }
     }
     return actionCache;
+  }
+
+  private void setActionCache(@Nullable ActionCache actionCache) {
+    this.actionCache = actionCache;
+    skyframeExecutor
+        .getSkyframeBuildView()
+        .getArtifactFactory()
+        .setExecPathCanonicalizer(
+            actionCache != null ? actionCache::canonicalizeExecPath : UnaryOperator.identity());
   }
 
   /**

@@ -148,6 +148,17 @@ final class PersistentPathFragmentIndexer {
     return pathToInt.get(path);
   }
 
+  /** Returns the indexed path fragment equal to {@code path}, or {@code path} if there is none. */
+  public PathFragment canonicalize(PathFragment path) {
+    Integer i = pathToInt.get(path);
+    if (i == null) {
+      return path;
+    }
+    // Null if a concurrent getOrCreateIndex hasn't set it yet.
+    PathFragment indexed = getPathForIndex(i);
+    return indexed != null ? indexed : path;
+  }
+
   /**
    * Returns the path fragment associated with the given index or {@code null} if it is not in the
    * index.

@@ -153,6 +153,19 @@ public final class PersistentPathFragmentIndexerTest {
   }
 
   @Test
+  public void canonicalizeReturnsIndexedInstance() throws Exception {
+    PathFragment indexed = PathFragment.create("a/b");
+    indexer.getOrCreateIndex(indexed);
+    indexer.save();
+    indexer = PersistentPathFragmentIndexer.create(dataPath, journalPath, clock);
+    PathFragment loaded = indexer.getPathForIndex(0);
+
+    assertThat(indexer.canonicalize(PathFragment.create("a/b"))).isSameInstanceAs(loaded);
+    PathFragment unindexed = PathFragment.create("a/c");
+    assertThat(indexer.canonicalize(unindexed)).isSameInstanceAs(unindexed);
+  }
+
+  @Test
   public void unindexedPathReturnsNull() {
     assertThat(indexer.getIndex(PathFragment.create("absent"))).isNull();
   }

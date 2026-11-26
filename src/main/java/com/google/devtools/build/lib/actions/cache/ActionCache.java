@@ -80,6 +80,17 @@ public interface ActionCache {
   /** Removes entry from cache that matches the predicate. */
   void removeIf(Predicate<ActionCache.Entry> predicate);
 
+  /**
+   * Returns a path fragment equal to {@code execPath} that this cache retains anyway, or {@code
+   * execPath} itself if there is none.
+   *
+   * <p>Artifacts created after the cache has been loaded from disk use this to share their exec
+   * paths with it.
+   */
+  default PathFragment canonicalizeExecPath(PathFragment execPath) {
+    return execPath;
+  }
+
   /** An action cache entry. */
   final class Entry {
     /** Unique instance standing for a corrupted cache entry. */

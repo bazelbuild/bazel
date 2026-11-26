@@ -619,6 +619,11 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
+  public PathFragment canonicalizeExecPath(PathFragment execPath) {
+    return indexer.canonicalize(execPath);
+  }
+
+  @Override
   public void remove(PathFragment key) {
     Integer index = indexer.getIndex(key);
     if (index != null) {
