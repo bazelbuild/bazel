@@ -115,6 +115,25 @@ public interface FileApi extends StarlarkValue {
   String getRunfilesPathString();
 
   @StarlarkMethod(
+      name = "rlocation_path",
+      structField = true,
+      doc =
+          "The path of this file relative to the root of a runfiles tree, which is the path that"
+              + " the <code>Rlocation</code> function of runfiles libraries accepts. This is the"
+              + " path that <a"
+              + " href=\"/reference/be/make-variables#predefined_label_variables\"><code>$(rlocationpath)</code></a>"
+              + " expands to. It begins with the canonical name of the file's repository, or with"
+              + " <code>_main</code> for files in the main repository.<p>The path only refers to"
+              + " the file if the file is in the runfiles at its default location, not only via the"
+              + " <code>symlinks</code> or <code>root_symlinks</code> parameters of <a"
+              + " href=\"../builtins/ctx.html#runfiles\"><code>ctx.runfiles</code></a>.<p>To pass"
+              + " the rlocation paths of many files to an action, prefer <code>args.add_all(files,"
+              + " map_each = _rlocation_path)</code> with a top-level function"
+              + " <code>_rlocation_path</code> that returns <code>f.rlocation_path</code> over"
+              + " building a list of strings during analysis.")
+  String getRlocationPathString();
+
+  @StarlarkMethod(
       name = "path",
       structField = true,
       useStarlarkSemantics = true,
