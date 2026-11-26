@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -166,9 +168,22 @@ public final class SymlinkTreeHelper {
    * subdirectory. This is the expected state with --noenable_runfiles or --nobuild_runfile_links.
    */
   public void createMinimalRunfilesDirectory() throws ExecException {
+    deleteOutputManifest();
     clearRunfilesDirectory();
     linkManifest();
     createWorkspaceSubdirectory();
+  }
+
+  /**
+   * Like {@link #createMinimalRunfilesDirectory()}, but writes {@code manifest} as the output
+   * manifest instead of linking it to an input manifest.
+   */
+  public void createMinimalRunfilesDirectory(DeterministicWriter manifest) throws ExecException {
+    // An interrupted clear must not leave behind a manifest that vouches for a partial tree.
+    deleteOutputManifest();
+    clearRunfilesDirectory();
+    createWorkspaceSubdirectory();
+    writeManifest(manifest);
   }
 
   /** Deletes the contents of the runfiles directory. */
@@ -186,6 +201,33 @@ public final class SymlinkTreeHelper {
     try {
       outputManifest.delete();
       outputManifest.createSymbolicLink(inputManifest);
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
+    }
+  }
+
+  public void deleteOutputManifest() throws ExecException {
+    try {
+      outputManifest.delete();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
+    }
+  }
+
+  /**
+   * Replaces the output manifest with a regular file holding {@code manifest}. The rename keeps
+   * readers of the manifest from seeing a partially written file.
+   */
+  public void writeManifest(DeterministicWriter manifest) throws ExecException {
+    Path tmpManifest =
+        outputManifest.getParentDirectory().getChild(outputManifest.getBaseName() + ".tmp");
+    try {
+      // A runfile may occupy this path, and writing through a symlink would truncate its target.
+      tmpManifest.delete();
+      try (OutputStream out = tmpManifest.getOutputStream()) {
+        manifest.writeTo(out);
+      }
+      tmpManifest.renameTo(outputManifest);
     } catch (IOException e) {
       throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
     }

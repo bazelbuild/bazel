@@ -89,6 +89,11 @@ public final class FakeRunfilesTree implements RunfilesTree {
   }
 
   @Override
+  public boolean isBuildRunfileManifests() {
+    return true;
+  }
+
+  @Override
   public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
     return runfiles.getArtifacts();
   }

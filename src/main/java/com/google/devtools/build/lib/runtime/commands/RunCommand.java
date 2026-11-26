@@ -507,18 +507,6 @@ public class RunCommand implements BlazeCommand {
       configuration = result.getBuildConfiguration();
     }
 
-    // When --nobuild_runfile_manifests is enabled, the output service is responsible for staging
-    // runfiles.
-    if (!configuration.buildRunfileManifests()
-        && !env.getOutputService().stagesTopLevelRunfiles()) {
-      throw new RunCommandException(
-          reportAndCreateFailureResult(
-              env,
-              "--nobuild_runfile_manifests is incompatible with the \"run\" command",
-              Code.RUN_PREREQ_UNMET),
-          result.getStopTime());
-    }
-
     // Ensure runfiles directories are constructed, both for the target to run
     // and the --run_under target. The path of the runfiles directory of the
     // target to run needs to be preserved, as it acts as the working directory.

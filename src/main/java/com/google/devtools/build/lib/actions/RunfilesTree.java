@@ -48,6 +48,12 @@ public interface RunfilesTree {
   boolean isBuildRunfileLinks();
 
   /**
+   * Returns whether an action writes the input manifest of this runfiles tree. If not, code that
+   * materializes the tree outside of an action has to write the manifest itself first.
+   */
+  boolean isBuildRunfileManifests();
+
+  /**
    * Returns artifacts the runfiles tree contain symlinks to at their canonical locations.
    *
    * <p>This does <b>not</b> include artifacts that only the symlinks and root symlinks point to.
