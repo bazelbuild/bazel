@@ -190,12 +190,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public static final class ThreadDumpIntervalConverter extends DurationConverter {
     @Override
     public Duration convert(String input) throws OptionsParsingException {
-      Duration duration;
-      try {
-        duration = super.convert(input);
-      } catch (NumberFormatException | ArithmeticException e) {
-        throw new OptionsParsingException("Illegal duration '" + input + "'.", e);
-      }
+      Duration duration = super.convert(input);
       if (!duration.isZero() && duration.compareTo(Duration.ofSeconds(1)) < 0) {
         throw new OptionsParsingException("Duration '" + input + "' must be zero or at least 1s.");
       }
