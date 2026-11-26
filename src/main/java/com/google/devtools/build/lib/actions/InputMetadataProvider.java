@@ -80,6 +80,18 @@ public interface InputMetadataProvider {
   }
 
   /**
+   * Returns already-collected metadata for an artifact at an exec path supplied as an action input,
+   * or {@code null} if unavailable. This includes files under a tree artifact supplied as an action
+   * input. This lookup does not read the filesystem or request dependencies from Skyframe.
+   *
+   * @throws IOException if the action is prohibited from reading declared input metadata
+   */
+  @Nullable
+  default FileArtifactValue getDeclaredInputMetadata(Artifact input) throws IOException {
+    return null;
+  }
+
+  /**
    * Returns the contents of a given Fileset on the inputs of the action.
    *
    * <p>Works both for Filesets that are directly on the inputs and those that are included in a

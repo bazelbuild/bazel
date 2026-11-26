@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.UnmodifiableIterator;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,7 +35,9 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException.InputMetadataRequiredException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -57,6 +62,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -172,6 +178,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         UUID.fromString("528af376-4233-4c27-be4d-b0ff24ed68db");
     private static final UUID TERMINATE_WITH_UUID =
         UUID.fromString("a4e5e090-0dbd-4d41-899a-77cfbba58655");
+    private static final UUID FILE_DIGESTS_UUID =
+        UUID.fromString("e3a26535-4e45-43ca-a527-32bf741c780e");
 
     private final boolean isNestedSet;
     private final boolean expandDirectories;
@@ -399,7 +407,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           }
         }
       } else {
-        List<Object> expandedValues =
+        List<?> expandedValues =
             maybeExpandDirectories(inputMetadataProvider, originalValues, pathMapper);
         if (mapEach != null) {
           values = new ArrayList<>(expandedValues.size());
@@ -411,7 +419,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
               inputMetadataProvider,
               pathMapper,
               starlarkSemantics,
-              expandDirectories);
+              expandDirectories,
+              MapEachMode.DEFAULT);
         } else {
           int count = expandedValues.size();
           values = new ArrayList<>(expandedValues.size());
@@ -467,9 +476,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
      * <p>Technically, we should always expand the directories if the feature is requested, however
      * we cannot do that in the absence of the {@link InputMetadataProvider}.
      */
-    private List<Object> maybeExpandDirectories(
+    private List<?> maybeExpandDirectories(
         @Nullable InputMetadataProvider inputMetadataProvider,
-        List<Object> originalValues,
+        List<?> originalValues,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
       if (!expandDirectories || inputMetadataProvider == null || !hasDirectory(originalValues)) {
@@ -479,7 +488,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return expandDirectories(inputMetadataProvider, originalValues, pathMapper);
     }
 
-    private static boolean hasDirectory(List<Object> originalValues) {
+    private static boolean hasDirectory(List<?> originalValues) {
       int n = originalValues.size();
       for (int i = 0; i < n; ++i) {
         Object object = originalValues.get(i);
@@ -540,9 +549,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static List<Object> expandDirectories(
-        InputMetadataProvider inputMetadataProvider,
-        List<Object> originalValues,
-        PathMapper pathMapper)
+        InputMetadataProvider inputMetadataProvider, List<?> originalValues, PathMapper pathMapper)
         throws CommandLineExpansionException {
       List<Object> expandedValues = new ArrayList<>(originalValues.size());
       for (Object object : originalValues) {
@@ -625,6 +632,21 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // stringification behavior (which excludes custom mapEach functions).
       StarlarkCallable mapEach =
           hasNonGlobalMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
+      boolean wantsExpander = wantsDirectoryExpander(mapEach);
+      MapEachMode mode = MapEachMode.DEFAULT;
+      if (wantsExpander) {
+        if (actionKeyContext.isForActionSharing()) {
+          if (outputPathsMode != CoreOptions.OutputPathsMode.OFF) {
+            // PathMapper.forActionKey can make map_each skip a digest lookup that execution
+            // reaches.
+            throw inputMetadataRequired();
+          }
+          mode = MapEachMode.ACTION_SHARING;
+        } else if (isNestedSet && inputMetadataProvider != null) {
+          mode = MapEachMode.NESTED_SET_FINGERPRINT;
+        }
+      }
+      List<?> uncachedValues = null;
       if (isNestedSet) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
@@ -635,22 +657,22 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  expandDirectories || wantsDirectoryExpander(mapEach)
-                      ? inputMetadataProvider
-                      : null,
+                  expandDirectories || wantsExpander ? inputMetadataProvider : null,
                   outputPathsMode,
-                  expandDirectories);
+                  expandDirectories,
+                  mode);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
+          } catch (CommandLineExpansionException e) {
+            if (mode != MapEachMode.NESTED_SET_FINGERPRINT
+                || !(e.getCause() instanceof InputMetadataRequiredException)) {
+              throw e;
+            }
+            uncachedValues = values.toList();
+            mode = MapEachMode.DEFAULT;
           } finally {
-            // The cache holds an entry for a NestedSet for every (map_fn, hasInputMetadataProvider
-            // bit, pathMapperCacheKey).
-            // Clearing the input metadata provider itself saves us from storing the contents of it
-            // in the cache keys (it is no longer needed after we evaluate the value).
-            // NestedSet cache is cleared after every build, which means that the input metadata
-            // provider for a given action, if present, cannot change within the lifetime of the
-            // fingerprintcache (we call getKey with inputMetadataProvider to check action key, when
-            // we are ready to execute the action in case of a cache miss).
+            // NestedSetFingerprintCache retains the adaptor as a key. Release the provider after
+            // fingerprinting.
             commandLineItemMapFn.clearInputMetadataProvider();
           }
         } else {
@@ -663,30 +685,32 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       } else {
         int count = hasSingleArg ? 1 : (Integer) arguments.get(argi++);
-        List<Object> maybeExpandedValues =
-            maybeExpandDirectories(
-                inputMetadataProvider,
-                arguments.subList(argi, argi + count),
-                PathMapper.forActionKey(outputPathsMode));
+        uncachedValues = arguments.subList(argi, argi + count);
         argi += count;
+      }
+      if (uncachedValues != null) {
+        PathMapper pathMapper = PathMapper.forActionKey(outputPathsMode);
+        List<?> expandedValues =
+            maybeExpandDirectories(inputMetadataProvider, uncachedValues, pathMapper);
         if (mapEach != null) {
-          // TODO(b/160181927): If inputMetadataProvider == null (happens in the analysis phase)
-          // but expandDirectories is true, we emit the directory path without running map_each.
-          // This differs from the real evaluation behavior. This means that we can erroneously
-          // produce the same digest for two command lines that differ only in their directory
-          // expansion. Fortunately, this is only a problem for shared action conflict checking/
-          // aquery result, since at execution time we have an input metadata provider.
+          // If the cached attempt stopped at a digest lookup, append a separately tagged list
+          // containing all mapped values, including duplicates from distinct nested sets.
+          List<String> mappedValues = isNestedSet ? new ArrayList<>() : null;
           applyMapEach(
               mapEach,
-              maybeExpandedValues,
-              fingerprint::addString,
+              expandedValues,
+              mappedValues != null ? mappedValues::add : fingerprint::addString,
               location,
               inputMetadataProvider,
-              PathMapper.forActionKey(outputPathsMode),
+              pathMapper,
               starlarkSemantics,
-              expandDirectories);
+              expandDirectories,
+              mode);
+          if (mappedValues != null) {
+            fingerprint.addUUID(FILE_DIGESTS_UUID).addStrings(mappedValues);
+          }
         } else {
-          for (Object value : maybeExpandedValues) {
+          for (Object value : expandedValues) {
             addSingleObjectToFingerprint(fingerprint, value, mainRepoMapping);
           }
         }
@@ -1256,51 +1280,108 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
-  /** Used during action key evaluation when we don't have an input metadata provider. */
-  private static class NoopExpander implements DirectoryExpander {
-    @Override
-    public ImmutableList<FileApi> list(FileApi file) {
-      return ImmutableList.of(file);
-    }
-
-    static final DirectoryExpander INSTANCE = new NoopExpander();
+  private enum MapEachMode {
+    DEFAULT,
+    NESTED_SET_FINGERPRINT,
+    ACTION_SHARING
   }
 
-  private static final class FullExpander implements DirectoryExpander {
-    private final InputMetadataProvider inputMetadataProvider;
+  private static CommandLineExpansionException inputMetadataRequired() {
+    var cause = new InputMetadataRequiredException();
+    return new CommandLineExpansionException(cause.getMessage(), cause);
+  }
 
-    FullExpander(InputMetadataProvider inputMetadataProvider) {
+  private static final class MapEachDirectoryExpander implements DirectoryExpander {
+    static final DirectoryExpander WITHOUT_METADATA =
+        new MapEachDirectoryExpander(/* inputMetadataProvider= */ null, MapEachMode.DEFAULT);
+    static final DirectoryExpander FOR_ACTION_SHARING =
+        new MapEachDirectoryExpander(/* inputMetadataProvider= */ null, MapEachMode.ACTION_SHARING);
+
+    // Rehash the internal digest to keep its format out of the Starlark API.
+    private static final HashFunction FILE_DIGEST_HASH =
+        Hashing.hmacSha256("Bazel DirectoryExpander.digest v1".getBytes(UTF_8));
+    private static final HashFunction SOURCE_DIRECTORY_DIGEST_HASH =
+        Hashing.hmacSha256("Bazel DirectoryExpander.source_directory.digest v1".getBytes(UTF_8));
+
+    @Nullable private final InputMetadataProvider inputMetadataProvider;
+    private final MapEachMode mode;
+
+    MapEachDirectoryExpander(
+        @Nullable InputMetadataProvider inputMetadataProvider, MapEachMode mode) {
       this.inputMetadataProvider = inputMetadataProvider;
+      this.mode = mode;
+    }
+
+    @Override
+    @Nullable
+    public String digest(FileApi file, boolean allowMissing) throws EvalException {
+      if (mode != MapEachMode.DEFAULT) {
+        throw new EvalException(new InputMetadataRequiredException());
+      }
+      if (inputMetadataProvider == null) {
+        return allowMissing ? null : "<DIGEST>";
+      }
+      if (file instanceof Artifact artifact && !artifact.isConstantMetadata()) {
+        FileArtifactValue metadata;
+        try {
+          metadata = inputMetadataProvider.getDeclaredInputMetadata(artifact);
+        } catch (IOException e) {
+          throw new EvalException(
+              "Could not read digest for " + artifact.getExecPathString() + ": " + e.getMessage(),
+              e);
+        }
+        if (metadata != null) {
+          byte[] digest = metadata.getDigest();
+          if (digest != null) {
+            if (metadata.getType().isFile()) {
+              return FILE_DIGEST_HASH.hashBytes(digest).toString();
+            }
+            if (artifact.isSourceArtifact() && metadata.getType().isDirectory()) {
+              return SOURCE_DIRECTORY_DIGEST_HASH.hashBytes(digest).toString();
+            }
+          }
+        }
+      }
+      if (allowMissing) {
+        return null;
+      }
+      throw Starlark.errorf(
+          "Only declared regular files and tracked source directories have a digest: %s",
+          Starlark.repr(file, StarlarkSemantics.DEFAULT));
     }
 
     @Override
     public ImmutableList<FileApi> list(FileApi file) throws EvalException {
-      Artifact artifact = (Artifact) file;
-      if (artifact.isTreeArtifact()) {
-        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
-        if (treeArtifactValue == null) {
-          throw Starlark.errorf(
-              "Failed to expand directory %s. Only directories that are action inputs can be"
-                  + " expanded.",
-              Starlark.repr(artifact, StarlarkSemantics.DEFAULT));
-        }
-
-        return ImmutableList.copyOf(treeArtifactValue.getChildren());
-      } else {
+      if (!(file instanceof Artifact artifact) || !artifact.isTreeArtifact()) {
         return ImmutableList.of(file);
       }
+      if (inputMetadataProvider == null) {
+        if (mode == MapEachMode.ACTION_SHARING) {
+          throw new EvalException(new InputMetadataRequiredException());
+        }
+        return ImmutableList.of(file);
+      }
+      TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+      if (treeArtifactValue == null) {
+        throw Starlark.errorf(
+            "Failed to expand directory %s. Only directories that are action inputs can be"
+                + " expanded.",
+            Starlark.repr(artifact, StarlarkSemantics.DEFAULT));
+      }
+      return ImmutableList.copyOf(treeArtifactValue.getChildren());
     }
   }
 
   private static void applyMapEach(
       StarlarkCallable mapFn,
-      List<Object> originalValues,
+      List<?> originalValues,
       Consumer<String> consumer,
       Location loc,
       @Nullable InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       StarlarkSemantics starlarkSemantics,
-      boolean expandDirectories)
+      boolean expandDirectories,
+      MapEachMode mode)
       throws CommandLineExpansionException, InterruptedException {
     try (Mutability mu = Mutability.create("map_each")) {
       // This computation produces only a String list, which doesn't require reference semantics,
@@ -1317,9 +1398,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (wantsDirectoryExpander(mapFn)) {
         DirectoryExpander expander;
         if (inputMetadataProvider != null) {
-          expander = new FullExpander(inputMetadataProvider);
+          expander = new MapEachDirectoryExpander(inputMetadataProvider, mode);
         } else {
-          expander = NoopExpander.INSTANCE;
+          expander =
+              mode == MapEachMode.ACTION_SHARING
+                  ? MapEachDirectoryExpander.FOR_ACTION_SHARING
+                  : MapEachDirectoryExpander.WITHOUT_METADATA;
         }
         args.add(expander); // This will remain constant each iteration
       }
@@ -1327,6 +1411,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
       for (int i = 0; i < count; ++i) {
         Object item = originalValues.get(i);
         if (bypassDirectoryArtifacts && VectorArg.isDirectory(item)) {
+          if (mode == MapEachMode.ACTION_SHARING) {
+            // The skipped map_each callback can read digests from the expanded directory.
+            throw inputMetadataRequired();
+          }
           // If inputMetadataProvider == null (e.g. during aquery or analysis-phase fingerprinting)
           // but expandDirectories is true, directory contents cannot be expanded yet. Avoid
           // calling map_each on the unexpanded directory artifact (which expects child files) and
@@ -1355,6 +1443,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       }
     } catch (EvalException e) {
+      if (e.getCause() instanceof InputMetadataRequiredException cause) {
+        throw new CommandLineExpansionException(cause.getMessage(), cause);
+      }
       // TODO(adonovan): consider calling a wrapper function to interpose a fake stack
       // frame that establishes the args.add_all call at loc. Or manipulating the stack
       // before printing it.
@@ -1363,7 +1454,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
-  private static boolean wantsDirectoryExpander(StarlarkCallable mapFn) {
+  private static boolean wantsDirectoryExpander(@Nullable StarlarkCallable mapFn) {
     return mapFn instanceof StarlarkFunction starlarkFunction
         && starlarkFunction.getParameterNames().size() >= 2;
   }
@@ -1383,6 +1474,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     private final CoreOptions.OutputPathsMode outputPathsMode;
     private final boolean expandDirectories;
+    private final MapEachMode mode;
 
     @Nullable private InputMetadataProvider inputMetadataProvider;
 
@@ -1392,7 +1484,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         StarlarkSemantics starlarkSemantics,
         @Nullable InputMetadataProvider inputMetadataProvider,
         CoreOptions.OutputPathsMode outputPathsMode,
-        boolean expandDirectories) {
+        boolean expandDirectories,
+        MapEachMode mode) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
@@ -1400,6 +1493,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.inputMetadataProvider = inputMetadataProvider;
       this.outputPathsMode = outputPathsMode;
       this.expandDirectories = expandDirectories;
+      this.mode = mode;
     }
 
     @Override
@@ -1414,7 +1508,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
           inputMetadataProvider,
           PathMapper.forActionKey(outputPathsMode),
           starlarkSemantics,
-          expandDirectories);
+          expandDirectories,
+          mode);
     }
 
     private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
@@ -1445,7 +1540,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return mapFn == other.mapFn
           && hasInputMetadataProvider == other.hasInputMetadataProvider
           && outputPathsMode == other.outputPathsMode
-          && expandDirectories == other.expandDirectories;
+          && expandDirectories == other.expandDirectories
+          && mode == other.mode;
     }
 
     @Override
@@ -1453,12 +1549,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // Force use of identityHashCode, in case the callable uses a custom hash function. (As of
       // this writing, only providers seem to have a custom hashCode, and those shouldn't be used
       // as map_each functions, but doesn't hurt to be safe...).
-      return outputPathsMode.hashCode()
-          + 31
-              * (Boolean.hashCode(hasInputMetadataProvider)
-                  + 31
-                      * (Boolean.hashCode(expandDirectories)
-                          + 31 * (System.identityHashCode(mapFn) + 1)));
+      int hash = System.identityHashCode(mapFn);
+      hash = 31 * hash + Boolean.hashCode(expandDirectories);
+      hash = 31 * hash + Boolean.hashCode(hasInputMetadataProvider);
+      hash = 31 * hash + outputPathsMode.hashCode();
+      return 31 * hash + mode.hashCode();
     }
 
     @Override

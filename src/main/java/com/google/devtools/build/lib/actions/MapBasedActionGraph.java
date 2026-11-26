@@ -50,7 +50,7 @@ public final class MapBasedActionGraph implements MutableActionGraph {
           generatingActionMap.putIfAbsent(new OwnerlessArtifactWrapper(artifact), action);
       if (previousAction != null && previousAction != action) {
         if (Actions.canBeSharedLogForPotentialFalsePositives(
-            actionKeyContext, action, previousAction)) {
+            actionKeyContext, action, previousAction, /* allowInputMetadataAliases= */ true)) {
           return; // All outputs can be shared. No need to register the remaining outputs.
         }
         // TODO(blaze-configurability-team): May be possible to do some inspection here and provide
