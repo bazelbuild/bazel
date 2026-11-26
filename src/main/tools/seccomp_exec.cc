@@ -139,7 +139,9 @@ void FillRandomBytes(void* buf, size_t len) {
 // - Timing/caches: the filter compares all four 32-bit words in constant time
 //   with immediate constants (no secret-dependent branches or memory accesses).
 void ExecWithSeccompProcessBlocker(const char* exe, char* const* argv) {
-  uint64_t cookie[2];
+  // Zero-initialize so MemorySanitizer treats `cookie` as initialized even
+  // though FillRandomBytes() populates it via raw syscall(__NR_getrandom, ...).
+  uint64_t cookie[2] = {};
   FillRandomBytes(cookie, sizeof(cookie));
 
   // The four 32-bit halves of the 128-bit cookie, in seccomp_data order.
