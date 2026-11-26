@@ -117,6 +117,24 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
   }
 
   /**
+   * Returns the repository of the package identifier that {@link #discoverFromExecPath} returns for
+   * a file with the given exec path, or {@link Optional#empty()} if the path corresponds to an
+   * invalid label.
+   */
+  public static Optional<RepositoryName> discoverRepositoryFromExecPath(PathFragment execPath) {
+    Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
+    if (!execPath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      return Optional.of(RepositoryName.MAIN);
+    }
+    try {
+      return Optional.of(RepositoryName.create(execPath.getSegment(1)));
+    } catch (LabelSyntaxException e) {
+      // The path corresponds to an invalid label.
+      return Optional.empty();
+    }
+  }
+
+  /**
    * The identifier for this repository. This is either "" or prefixed with an "@", e.g., "@myrepo".
    */
   private final RepositoryName repository;
