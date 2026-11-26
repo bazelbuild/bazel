@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -217,5 +218,28 @@ public class FingerprintTest {
         .addString("baz")
         .addUUID(UUID.fromString("12345678-1234-1234-1234-1234567890ab"))
         .hexDigestAndReset();
+  }
+
+  @Test
+  public void addPath_matchesAddString() {
+    for (String path :
+        ImmutableList.of(
+            "", "a", "a/b", "a/b/c.txt", "/", "/a", "/a/b/c", unicodeToInternal("a/ä/😀"))) {
+      PathFragment fragment = PathFragment.create(path);
+      PathFragment child = PathFragment.create("x").getRelative(fragment);
+
+      assertThat(new Fingerprint().addPath(fragment).hexDigestAndReset())
+          .isEqualTo(new Fingerprint().addString(fragment.getPathString()).hexDigestAndReset());
+      assertThat(new Fingerprint().addPath(child).hexDigestAndReset())
+          .isEqualTo(new Fingerprint().addString(child.getPathString()).hexDigestAndReset());
+      assertThat(new Fingerprint().addCommandLineItem(fragment).hexDigestAndReset())
+          .isEqualTo(new Fingerprint().addString(fragment.getPathString()).hexDigestAndReset());
+    }
+  }
+
+  @Test
+  public void addCommandLineItem_nonPath_matchesAddString() {
+    assertThat(new Fingerprint().addCommandLineItem(42).hexDigestAndReset())
+        .isEqualTo(new Fingerprint().addString("42").hexDigestAndReset());
   }
 }

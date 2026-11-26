@@ -167,7 +167,11 @@ public class NestedSetFingerprintCache {
   <T> void addToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, T object)
       throws CommandLineExpansionException, InterruptedException {
-    mapFn.expandToCommandLine(object, fingerprint::addString);
+    if (mapFn == CommandLineItem.MapFn.DEFAULT) {
+      fingerprint.addCommandLineItem(object);
+    } else {
+      mapFn.expandToCommandLine(object, fingerprint::addString);
+    }
   }
 
   private static Map<CommandLineItem.MapFn<?>, DigestMap> createMap() {

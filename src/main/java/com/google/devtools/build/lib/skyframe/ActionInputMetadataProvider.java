@@ -52,7 +52,7 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
    * <p>Initialized lazily because it can consume significant memory and may never be needed, for
    * example if there is an action cache hit.
    */
-  private final Supplier<ImmutableMap<String, FilesetOutputSymlink>> filesetMapping;
+  private final Supplier<ImmutableMap<PathFragment, FilesetOutputSymlink>> filesetMapping;
 
   public ActionInputMetadataProvider(ActionInputMap inputArtifactData) {
     this.inputArtifactData = inputArtifactData;
@@ -60,12 +60,12 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
         Suppliers.memoize(() -> createFilesetMapping(inputArtifactData.getFilesets()));
   }
 
-  private static ImmutableMap<String, FilesetOutputSymlink> createFilesetMapping(
+  private static ImmutableMap<PathFragment, FilesetOutputSymlink> createFilesetMapping(
       Map<Artifact, FilesetOutputTree> filesets) {
-    Map<String, FilesetOutputSymlink> filesetMap = new HashMap<>();
+    Map<PathFragment, FilesetOutputSymlink> filesetMap = new HashMap<>();
     for (FilesetOutputTree filesetOutput : filesets.values()) {
       for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-        filesetMap.put(link.target().getExecPathString(), link);
+        filesetMap.put(link.target().getExecPath(), link);
       }
     }
     return ImmutableMap.copyOf(filesetMap);
@@ -81,7 +81,7 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
     if (value != null) {
       return checkExists(value, artifact);
     }
-    FilesetOutputSymlink filesetLink = filesetMapping.get().get(artifact.getExecPathString());
+    FilesetOutputSymlink filesetLink = filesetMapping.get().get(artifact.getExecPath());
     if (filesetLink != null) {
       return filesetLink.metadata();
     }
@@ -129,7 +129,7 @@ public final class ActionInputMetadataProvider implements InputMetadataProvider 
     if (input != null) {
       return input;
     }
-    FilesetOutputSymlink filesetLink = filesetMapping.get().get(execPath.getPathString());
+    FilesetOutputSymlink filesetLink = filesetMapping.get().get(execPath);
     if (filesetLink != null) {
       return filesetLink.target();
     }

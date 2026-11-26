@@ -442,10 +442,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.setExecutable(provider);
       }
     } else if (executableUnchecked instanceof String) {
-      // Normalise if needed and then pass as a String; this keeps the reference when PathFragment
-      // is passed from native to Starlark
+      // Normalise if needed and then pass as a String, keeping the original reference if it is
+      // already normalized (e.g. when a PathFragment is passed from native to Starlark).
+      String executable = (String) executableUnchecked;
+      String normalizedExecutable = PathFragment.create(executable).getPathString();
       builder.setExecutableAsString(
-          PathFragment.create((String) executableUnchecked).getPathString());
+          normalizedExecutable.equals(executable) ? executable : normalizedExecutable);
     } else if (executableUnchecked instanceof FilesToRunProvider) {
       if (useAutoExecGroups
           && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)

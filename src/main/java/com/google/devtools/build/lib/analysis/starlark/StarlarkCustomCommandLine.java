@@ -1135,7 +1135,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     StringificationType stringificationType =
         object instanceof FileApi ? StringificationType.FILE : StringificationType.DEFAULT;
     fingerprint.addInt(stringificationType.ordinal());
-    fingerprint.addString(CommandLineItem.expandToCommandLine(object));
+    fingerprint.addCommandLineItem(object);
   }
 
   private static class StarlarkCustomCommandLineWithIndexes extends StarlarkCustomCommandLine {
@@ -1722,7 +1722,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public int totalArgLength(PathMapper pathMapper) {
-      return artifact.getExecPathString().length()
+      return artifact.getExecPath().getPathStringLength()
           - pathMapper.computeExecPathLengthDiff(artifact)
           + 1;
     }
@@ -1778,7 +1778,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public int totalArgLength(PathMapper pathMapper) {
       return SingleStringArgFormatter.formattedLength(format)
-          + artifact.getExecPathString().length()
+          + artifact.getExecPath().getPathStringLength()
           - pathMapper.computeExecPathLengthDiff(artifact)
           + 1;
     }
@@ -1944,7 +1944,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     return switch (arg) {
       case String string -> string.length();
       case DerivedArtifact artifact ->
-          artifact.getExecPathString().length() - pathMapper.computeExecPathLengthDiff(artifact);
+          artifact.getExecPath().getPathStringLength()
+              - pathMapper.computeExecPathLengthDiff(artifact);
       default -> throw new AssertionError("Unexpected arg type: " + arg);
     };
   }

@@ -56,7 +56,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public abstract sealed class PathFragment
-    implements Comparable<PathFragment>, FileType.HasFileType, PathStrippable {
+    implements Comparable<PathFragment>, FileType.HasFileType, PathStrippable, PathCommandLineItem {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant
@@ -156,6 +156,33 @@ public abstract sealed class PathFragment
 
   public String getPathString() {
     return normalizedPath;
+  }
+
+  /**
+   * Returns the length of {@link #getPathString()} without allocating it.
+   *
+   * <p>The length is measured in Bazel's internal string encoding (see {@link
+   * com.google.devtools.build.lib.util.StringEncoding}).
+   */
+  public int getPathStringLength() {
+    return normalizedPath.length();
+  }
+
+  /**
+   * Calls {@code consumer} with byte ranges whose concatenation is {@link #getPathString()} in
+   * Bazel's internal string encoding.
+   *
+   * <p>The consumer must not modify or retain the arrays.
+   */
+  public void forEachPathStringChunk(ByteChunkConsumer consumer) {
+    byte[] bytes = StringUnsafe.getInternalStringBytes(normalizedPath);
+    consumer.accept(bytes, 0, bytes.length);
+  }
+
+  /** Consumes a range of a byte array. */
+  @FunctionalInterface
+  public interface ByteChunkConsumer {
+    void accept(byte[] bytes, int offset, int length);
   }
 
   /**
@@ -961,6 +988,11 @@ public abstract sealed class PathFragment
   @Override
   public String expand(UnaryOperator<PathFragment> stripPaths) {
     return stripPaths.apply(this).normalizedPath;
+  }
+
+  @Override
+  public PathFragment getCommandLinePath() {
+    return this;
   }
 
   private static void checkBaseName(String baseName) {

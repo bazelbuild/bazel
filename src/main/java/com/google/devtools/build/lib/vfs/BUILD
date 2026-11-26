@@ -18,6 +18,7 @@ OS_PATH_POLICY_SOURCES = [
 ]
 
 PATH_FRAGMENT_SOURCES = [
+    "PathCommandLineItem.java",
     "PathFragment.java",
     "PathSegmentIterator.java",
     "PathStrippable.java",

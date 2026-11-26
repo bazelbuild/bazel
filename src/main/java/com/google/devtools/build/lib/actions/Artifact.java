@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathCommandLineItem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.PathStrippable;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -123,7 +124,7 @@ public abstract sealed class Artifact
         ActionInput,
         FileApi,
         Comparable<Artifact>,
-        CommandLineItem,
+        PathCommandLineItem,
         ExecutionPhaseSkyKey,
         StarlarkEncodable
     permits SourceArtifact, DerivedArtifact {
@@ -447,6 +448,11 @@ public abstract sealed class Artifact
   @Override
   public final String expandToCommandLine() {
     return getExecPathString();
+  }
+
+  @Override
+  public final PathFragment getCommandLinePath() {
+    return getExecPath();
   }
 
   /** Returns the artifact's owning label. May be null. */
@@ -1181,7 +1187,7 @@ public abstract sealed class Artifact
     public String getTreeRelativePathString() {
       // The constructor concatenates the parent's exec path and the parent-relative path, so we can
       // skip the checks in PathFragment#relativeTo and just take a substring.
-      return getExecPathString().substring(parent.getExecPathString().length() + 1);
+      return getExecPathString().substring(parent.getExecPath().getPathStringLength() + 1);
     }
 
     @Override
