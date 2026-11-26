@@ -771,19 +771,27 @@ public class ActionCacheChecker {
     // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
     // error message and the integration test test_crosstool_change_and_failure().
     //
-    // The allowed derived inputs can be far more than the cached inputs, so rather than indexing
-    // all of them, only look for the cached ones: map each cached input path to null and fill in
-    // the matching artifacts.
+    // Index whichever of the cached inputs and the allowed derived inputs is smaller: the allowed
+    // derived inputs can be far more than the cached inputs, but also far fewer. In the former
+    // case, map each cached input path to null and fill in the matching artifacts.
+    ImmutableList<Artifact> allowedDerivedInputs =
+        inputExecPaths.isEmpty() ? ImmutableList.of() : action.getAllowedDerivedInputs().toList();
+    boolean indexCachedInputs = inputExecPaths.size() <= allowedDerivedInputs.size();
     Map<PathFragment, Artifact> allowedDerivedInputsMap =
-        Maps.newHashMapWithExpectedSize(inputExecPaths.size());
-    for (PathFragment execPath : inputExecPaths) {
-      allowedDerivedInputsMap.put(execPath, null);
+        Maps.newHashMapWithExpectedSize(
+            indexCachedInputs ? inputExecPaths.size() : allowedDerivedInputs.size());
+    if (indexCachedInputs) {
+      for (PathFragment execPath : inputExecPaths) {
+        allowedDerivedInputsMap.put(execPath, null);
+      }
     }
-    if (!allowedDerivedInputsMap.isEmpty()) {
-      for (Artifact derivedInput : action.getAllowedDerivedInputs().toList()) {
-        if (!derivedInput.isSourceArtifact()) {
-          // Only sets the artifact for a cached input path. The last matching artifact wins.
+    for (Artifact derivedInput : allowedDerivedInputs) {
+      if (!derivedInput.isSourceArtifact()) {
+        // The last matching artifact wins.
+        if (indexCachedInputs) {
           allowedDerivedInputsMap.replace(derivedInput.getExecPath(), derivedInput);
+        } else {
+          allowedDerivedInputsMap.put(derivedInput.getExecPath(), derivedInput);
         }
       }
     }

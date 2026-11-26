@@ -93,15 +93,20 @@ final class HeaderDiscovery {
             absolutePathProblems);
 
     // The allowed derived inputs contain all transitively declared generated headers, which can be
-    // far more than the ones actually used. Rather than indexing all of them, only look for the
-    // used ones: map each used path to null and fill in the matching artifacts below.
+    // far more than the ones actually used, but also far fewer. Index whichever is smaller: if the
+    // used paths are, map each of them to null and fill in the matching artifacts below.
+    ImmutableList<Artifact> allowedDerivedInputsList = allowedDerivedInputs.toList();
+    boolean indexUsedPaths = execPaths.size() <= allowedDerivedInputsList.size();
     Map<PathFragment, Artifact> regularDerivedArtifacts =
-        Maps.newHashMapWithExpectedSize(execPaths.size());
-    for (PathFragment execPath : execPaths) {
-      regularDerivedArtifacts.put(execPath, null);
+        Maps.newHashMapWithExpectedSize(
+            indexUsedPaths ? execPaths.size() : allowedDerivedInputsList.size());
+    if (indexUsedPaths) {
+      for (PathFragment execPath : execPaths) {
+        regularDerivedArtifacts.put(execPath, null);
+      }
     }
     Map<PathFragment, TreeArtifact> treeArtifacts = new HashMap<>();
-    for (Artifact a : allowedDerivedInputs.toList()) {
+    for (Artifact a : allowedDerivedInputsList) {
       if (a.isSourceArtifact()) {
         continue;
       }
@@ -118,9 +123,11 @@ final class HeaderDiscovery {
       // files, not just a single representative.
       if (a instanceof TreeArtifact treeArtifact) {
         treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), treeArtifact);
-      } else {
+      } else if (indexUsedPaths) {
         // Only sets the artifact for a used path that hasn't been matched yet.
         regularDerivedArtifacts.replace(pathMapper.map(a.getExecPath()), null, a);
+      } else {
+        regularDerivedArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), a);
       }
     }
 
