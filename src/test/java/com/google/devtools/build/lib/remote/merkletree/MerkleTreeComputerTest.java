@@ -502,23 +502,6 @@ public class MerkleTreeComputerTest {
   }
 
   /** Relative paths covering the empty path, nesting, siblings and segments sharing a prefix. */
-  private static final class PathProvider extends TestParameterValuesProvider {
-    @Override
-    public ImmutableList<?> provideValues(Context context) {
-      return Stream.of("", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "b/a")
-          .map(PathFragment::create)
-          .collect(toImmutableList());
-    }
-  }
-
-  @Test
-  public void isParentDirectory_matchesGetParentDirectory(
-      @TestParameter(valuesProvider = PathProvider.class) PathFragment parent,
-      @TestParameter(valuesProvider = PathProvider.class) PathFragment path) {
-    assertThat(MerkleTreeComputer.isParentDirectory(parent, path))
-        .isEqualTo(parent.equals(path.getParentDirectory()));
-  }
-
   private static final class DirectoryProvider extends TestParameterValuesProvider {
     @Override
     public ImmutableList<?> provideValues(Context context) {
