@@ -53,7 +53,12 @@ using bazel::tools::test_wrapper::testing::TestOnly_ToZipEntryPaths;
 
 class TestWrapperWindowsTest : public ::testing::Test {
  public:
+  void SetUp() override {
+    SetEnvironmentVariableW(L"BAZEL_TEST_STATUS", nullptr);
+  }
+
   void TearDown() override {
+    SetEnvironmentVariableW(L"BAZEL_TEST_STATUS", nullptr);
     blaze_util::DeleteAllUnder(blaze_util::GetTestTmpDirW());
   }
 };
@@ -549,6 +554,112 @@ TEST_F(TestWrapperWindowsTest, TestXmlWriterTestcaseHasClassname) {
   const auto testcase = xml.find("<testcase ");
   ASSERT_NE(testcase, std::string::npos);
   EXPECT_LT(xml.find(" classname=\"\"", testcase), xml.find('>', testcase));
+}
+
+void RunXmlWriterAndRead(const wchar_t* duration_str,
+                         const wchar_t* exit_code_str,
+                         const wchar_t* status_env, std::string* xml_out) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring test_log = tmpdir + L"\\test.log";
+  std::wstring test_xml = tmpdir + L"\\test.xml";
+  ASSERT_TRUE(blaze_util::CreateDummyFile(test_log, ""));
+  if (status_env != nullptr) {
+    ASSERT_NE(SetEnvironmentVariableW(L"BAZEL_TEST_STATUS", status_env), 0);
+  } else {
+    SetEnvironmentVariableW(L"BAZEL_TEST_STATUS", nullptr);
+  }
+
+  wchar_t program[] = L"xml_writer";
+  std::wstring duration(duration_str);
+  std::wstring exit_code(exit_code_str);
+  wchar_t* argv[] = {program, &test_log[0], &test_xml[0], &duration[0],
+                     &exit_code[0]};
+  ASSERT_EQ(bazel::tools::test_wrapper::XmlWriterMain(5, argv), 0);
+
+  HANDLE h = FopenRead(test_xml);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[4096];
+  DWORD read;
+  ASSERT_TRUE(ReadFile(h, content, sizeof(content), &read, nullptr));
+  CloseHandle(h);
+  *xml_out = std::string(content, read);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterFallbackDefaultPassed) {
+  std::string xml;
+  ASSERT_NO_FATAL_FAILURE(RunXmlWriterAndRead(L"1", L"0", nullptr, &xml));
+  const auto properties = xml.find("<properties>");
+  const auto testcase = xml.find("<testcase ");
+  ASSERT_NE(properties, std::string::npos);
+  ASSERT_NE(testcase, std::string::npos);
+  EXPECT_LT(properties, testcase);
+  EXPECT_NE(xml.find("errors=\"0\""), std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.xml.generator\""
+                     " value=\"fallback\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.test.status\" value=\"PASSED\"/>"),
+            std::string::npos);
+  EXPECT_EQ(xml.find("<error "), std::string::npos);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterFallbackDefaultFailed) {
+  std::string xml;
+  ASSERT_NO_FATAL_FAILURE(RunXmlWriterAndRead(L"1", L"1", nullptr, &xml));
+  EXPECT_NE(xml.find("errors=\"1\""), std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.xml.generator\""
+                     " value=\"fallback\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.test.status\" value=\"FAILED\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<error message=\"exited with error code 1\"></error>"),
+            std::string::npos);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterFallbackTimeoutMetadata) {
+  std::string xml;
+  ASSERT_NO_FATAL_FAILURE(RunXmlWriterAndRead(L"60", L"142", L"TIMEOUT", &xml));
+  EXPECT_NE(xml.find("errors=\"1\""), std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.xml.generator\""
+                     " value=\"fallback\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.test.status\""
+                     " value=\"TIMEOUT\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<error message=\"exited with error code 142\""
+                     " type=\"timeout\"></error>"),
+            std::string::npos);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterFallbackTimeoutZeroExitCode) {
+  std::string xml;
+  ASSERT_NO_FATAL_FAILURE(RunXmlWriterAndRead(L"60", L"0", L"TIMEOUT", &xml));
+  EXPECT_NE(xml.find("errors=\"1\""), std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.test.status\""
+                     " value=\"TIMEOUT\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<error message=\"timed out\" type=\"timeout\"></error>"),
+            std::string::npos);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterFallbackFailedZeroExitCode) {
+  std::string xml;
+  ASSERT_NO_FATAL_FAILURE(RunXmlWriterAndRead(L"1", L"0", L"FAILED", &xml));
+  EXPECT_NE(xml.find("errors=\"1\""), std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.test.status\" value=\"FAILED\"/>"),
+            std::string::npos);
+  EXPECT_NE(xml.find("<error message=\"test failed (FAILED)\"></error>"),
+            std::string::npos);
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterInvalidStatusFallsBackToExitCode) {
+  std::string xml;
+  ASSERT_NO_FATAL_FAILURE(
+      RunXmlWriterAndRead(L"1", L"2", L"bad\"status", &xml));
+  EXPECT_NE(xml.find("errors=\"1\""), std::string::npos);
+  EXPECT_NE(xml.find("<property name=\"bazel.test.status\" value=\"FAILED\"/>"),
+            std::string::npos);
+  EXPECT_EQ(xml.find("bad\"status"), std::string::npos);
 }
 
 void AssertCdataEncodeBuffer(const wchar_t* wline, const char* input,

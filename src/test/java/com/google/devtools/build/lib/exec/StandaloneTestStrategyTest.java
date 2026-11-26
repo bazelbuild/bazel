@@ -1296,4 +1296,195 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     verify(spawnStrategy, times(2)).exec(any(), any()); // Only test + XML, no coverage merger.
     assertThat(testRunnerAction.getCoverageData().getPath().exists()).isTrue();
   }
+
+  @Test
+  public void xmlGeneratingSpawnReceivesPassedStatus() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    scratch.file("standalone/pass_xml_status.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "pass_xml_status",
+            size = "small",
+            srcs = ["pass_xml_status.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:pass_xml_status");
+
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              spawns.add(invocation.getArgument(0));
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, context, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(2);
+    assertThat(spawns.get(1).getEnvironment()).containsEntry("BAZEL_TEST_STATUS", "PASSED");
+  }
+
+  @Test
+  public void xmlGeneratingSpawnReceivesFailedStatus() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    scratch.file("standalone/fail_xml_status.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "fail_xml_status",
+            size = "small",
+            srcs = ["fail_xml_status.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:fail_xml_status");
+
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Spawn spawn = invocation.getArgument(0);
+              spawns.add(spawn);
+              if (spawns.size() == 1) {
+                throw new SpawnExecException("failed", FAILED_TEST_SPAWN, false);
+              }
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, context, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(2);
+    assertThat(spawns.get(1).getEnvironment()).containsEntry("BAZEL_TEST_STATUS", "FAILED");
+  }
+
+  @Test
+  public void xmlGeneratingSpawnReceivesTimeoutStatusAndOverridesTestEnv() throws Exception {
+    useConfiguration("--test_env=BAZEL_TEST_STATUS=PASSED");
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    scratch.file("standalone/timeout_xml_status.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "timeout_xml_status",
+            size = "small",
+            srcs = ["timeout_xml_status.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:timeout_xml_status");
+
+    SpawnResult timeoutSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.TIMEOUT)
+            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+            .setFailureDetail(
+                FailureDetail.newBuilder()
+                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.TIMEOUT))
+                    .build())
+            .setRunnerName("test")
+            .build();
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Spawn spawn = invocation.getArgument(0);
+              spawns.add(spawn);
+              if (spawns.size() == 1) {
+                throw new SpawnExecException("timed out", timeoutSpawnResult, false);
+              }
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, context, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(2);
+    assertThat(spawns.get(1).getEnvironment()).containsEntry("BAZEL_TEST_STATUS", "TIMEOUT");
+  }
+
+  @Test
+  public void xmlGeneratingSpawnReceivesPerAttemptStatusOnFlakyRetry() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    scratch.file("standalone/flaky_timeout_xml_status.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "flaky_timeout_xml_status",
+            size = "small",
+            srcs = ["flaky_timeout_xml_status.sh"],
+            flaky = True,
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:flaky_timeout_xml_status");
+
+    SpawnResult timeoutSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.TIMEOUT)
+            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+            .setFailureDetail(
+                FailureDetail.newBuilder()
+                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.TIMEOUT))
+                    .build())
+            .setRunnerName("test")
+            .build();
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Spawn spawn = invocation.getArgument(0);
+              spawns.add(spawn);
+              if (spawns.size() == 1) {
+                throw new SpawnExecException("timed out", timeoutSpawnResult, false);
+              }
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, context, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(4);
+    assertThat(spawns.get(1).getEnvironment()).containsEntry("BAZEL_TEST_STATUS", "TIMEOUT");
+    assertThat(spawns.get(3).getEnvironment()).containsEntry("BAZEL_TEST_STATUS", "PASSED");
+  }
 }

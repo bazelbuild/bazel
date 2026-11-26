@@ -67,6 +67,32 @@ public class TestXmlOutputParserTest {
   }
 
   @Test
+  public void testCanParseFallbackXmlWithPropertiesAndTimeout() throws Exception {
+    TestCase result =
+        parseXml(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+            "<testsuites>",
+            "  <testsuite name=\"example/suite\" tests=\"1\" failures=\"0\" errors=\"1\">",
+            "    <properties>",
+            "      <property name=\"bazel.xml.generator\" value=\"fallback\"/>",
+            "      <property name=\"bazel.test.status\" value=\"TIMEOUT\"/>",
+            "    </properties>",
+            "    <testcase name=\"example/suite\" classname=\"\" status=\"run\" duration=\"60\""
+                + " time=\"60\"><error message=\"exited with error code 142\""
+                + " type=\"timeout\"></error></testcase>",
+            "    <system-out><![CDATA[timed out]]></system-out>",
+            "  </testsuite>",
+            "</testsuites>");
+
+    TestCase testSuite = result.getChild(0);
+    TestCase testCase = testSuite.getChild(0);
+
+    assertThat(testSuite.getStatus()).isEqualTo(TestCase.Status.ERROR);
+    assertThat(testCase.getName()).isEqualTo("example/suite");
+    assertThat(testCase.getStatus()).isEqualTo(TestCase.Status.ERROR);
+  }
+
+  @Test
   public void testCanParseTestSuites() throws Exception {
     TestCase result =
         parseXml(

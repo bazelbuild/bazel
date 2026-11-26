@@ -79,6 +79,7 @@ import java.util.TreeMap;
 // TODO(bazel-team): add tests for this strategy.
 public class StandaloneTestStrategy extends TestStrategy {
   private static final String TEST_NAME_ENV = "TEST_NAME";
+  private static final String TEST_STATUS_ENV = "BAZEL_TEST_STATUS";
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -459,7 +460,10 @@ public class StandaloneTestStrategy extends TestStrategy {
    * generate a test.xml file itself.
    */
   private static Spawn createXmlGeneratingSpawn(
-      TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
+      TestRunnerAction action,
+      ImmutableMap<String, String> testEnv,
+      SpawnResult result,
+      BlazeTestStatus testStatus) {
     ImmutableList<String> args =
         ImmutableList.of(
             action
@@ -474,7 +478,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
     Preconditions.checkArgument(testEnv.containsKey("TEST_BINARY"));
-    envBuilder.putAll(testEnv).put(TEST_NAME_ENV, action.getTestName());
+    envBuilder
+        .putAll(testEnv)
+        .put(TEST_NAME_ENV, action.getTestName())
+        .put(TEST_STATUS_ENV, testStatus.name());
     // testEnv only contains TEST_SHARD_INDEX and TEST_TOTAL_SHARDS if the test action is sharded,
     // we need to set the default value when the action isn't sharded.
     if (!action.isSharded()) {
@@ -484,7 +491,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new SimpleSpawn(
         action,
         args,
-        envBuilder.buildOrThrow(),
+        envBuilder.buildKeepingLast(),
         // Pass the execution info of the action which is identical to the supported tags set on
         // the test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
@@ -891,7 +898,11 @@ public class StandaloneTestStrategy extends TestStrategy {
     // to download it.
     if (fileOutErr.getOutputPath().exists() && !xmlOutputPath.exists()) {
       Spawn xmlGeneratingSpawn =
-          createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
+          createXmlGeneratingSpawn(
+              testAction,
+              spawn.getEnvironment(),
+              spawnResults.get(0),
+              testResultDataBuilder.getStatus());
       SpawnStrategyResolver spawnStrategyResolver =
           actionExecutionContext.getContext(SpawnStrategyResolver.class);
       // We treat all failures to generate the test.xml here as catastrophic, and won't rerun

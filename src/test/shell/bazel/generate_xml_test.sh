@@ -103,4 +103,86 @@ function test_generated_log_trims_only_trailing_newlines() {
           "$TEST_TMPDIR/test.xml" | sed '$d')"
 }
 
+function test_generated_fallback_properties_default_passed() {
+  env -u BAZEL_TEST_STATUS TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 1 0
+
+  assert_contains 'errors="0"' "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.xml.generator" value="fallback"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.test.status" value="PASSED"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_not_contains '<error ' "$TEST_TMPDIR/test.xml"
+  local properties_line testcase_line
+  properties_line="$(grep -n '<properties>' "$TEST_TMPDIR/test.xml" | cut -d: -f1)"
+  testcase_line="$(grep -n '<testcase ' "$TEST_TMPDIR/test.xml" | cut -d: -f1)"
+  (( properties_line < testcase_line )) \
+      || fail "expected <properties> before <testcase>"
+}
+
+function test_generated_fallback_properties_default_failed() {
+  env -u BAZEL_TEST_STATUS TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 1 1
+
+  assert_contains 'errors="1"' "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.xml.generator" value="fallback"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.test.status" value="FAILED"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains '<error message="exited with error code 1"></error>' \
+      "$TEST_TMPDIR/test.xml"
+}
+
+function test_generated_fallback_properties_timeout() {
+  BAZEL_TEST_STATUS="TIMEOUT" TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 60 142
+
+  assert_contains 'errors="1"' "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.xml.generator" value="fallback"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.test.status" value="TIMEOUT"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains \
+      '<error message="exited with error code 142" type="timeout"></error>' \
+      "$TEST_TMPDIR/test.xml"
+}
+
+function test_generated_fallback_properties_timeout_zero_exit_code() {
+  BAZEL_TEST_STATUS="TIMEOUT" TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 60 0
+
+  assert_contains 'errors="1"' "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.test.status" value="TIMEOUT"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains '<error message="timed out" type="timeout"></error>' \
+      "$TEST_TMPDIR/test.xml"
+}
+
+function test_generated_fallback_properties_failed_zero_exit_code() {
+  BAZEL_TEST_STATUS="FAILED" TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 1 0
+
+  assert_contains 'errors="1"' "$TEST_TMPDIR/test.xml"
+  assert_contains '<property name="bazel.test.status" value="FAILED"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_contains '<error message="test failed (FAILED)"></error>' \
+      "$TEST_TMPDIR/test.xml"
+}
+
+function test_generated_fallback_properties_invalid_status_falls_back() {
+  BAZEL_TEST_STATUS='bad"status' TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 1 2
+
+  assert_contains '<property name="bazel.test.status" value="FAILED"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_not_contains 'bad"status' "$TEST_TMPDIR/test.xml"
+
+  BAZEL_TEST_STATUS="UNKNOWN_STATUS" TEST_BINARY="some/test" "$GENERATE_XML" \
+      "$TEST_TMPDIR/missing-test.log" "$TEST_TMPDIR/test.xml" 1 0
+
+  assert_contains '<property name="bazel.test.status" value="PASSED"/>' \
+      "$TEST_TMPDIR/test.xml"
+  assert_not_contains 'UNKNOWN_STATUS' "$TEST_TMPDIR/test.xml"
+}
+
 run_suite "generate-xml.sh tests"
