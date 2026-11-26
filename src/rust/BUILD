@@ -11,6 +11,7 @@ exports_files([
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/rust/common:srcs",
         "//src/rust/platform:srcs",
         "//src/rust/util:srcs",
     ],
