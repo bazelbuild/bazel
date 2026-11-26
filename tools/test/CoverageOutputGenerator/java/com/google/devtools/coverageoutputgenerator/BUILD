@@ -90,6 +90,23 @@ java_library(
 )
 
 java_library(
+    name = "McdcCoverage",
+    srcs = ["McdcCoverage.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "McdcCoverageData",
+    srcs = ["McdcCoverageData.java"],
+    deps = [
+        ":McdcCoverage",
+    ],
+)
+
+java_library(
     name = "SourceFileCoverage",
     srcs = ["SourceFileCoverage.java"],
     deps = [
@@ -97,6 +114,8 @@ java_library(
         ":BranchCoverageItem",
         ":BranchCoverageKey",
         ":LineCoverage",
+        ":McdcCoverage",
+        ":McdcCoverageData",
         "//third_party:guava",
     ],
 )
@@ -108,6 +127,7 @@ java_library(
         ":BranchCoverageItem",
         ":Constants",
         ":Coverage",
+        ":McdcCoverage",
         ":SourceFileCoverage",
         "//third_party:guava",
     ],
@@ -156,6 +176,7 @@ java_library(
     deps = [
         ":BranchCoverageItem",
         ":Constants",
+        ":McdcCoverage",
         ":SourceFileCoverage",
     ],
 )
