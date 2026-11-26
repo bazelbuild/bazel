@@ -214,9 +214,7 @@ final class PersistentPathFragmentIndexer {
           }
           byte[] content = new byte[length];
           in.readFully(content);
-          // Only normalized path fragments are written.
-          return PathFragment.createAlreadyNormalized(
-              StringUnsafe.newInstance(content, StringUnsafe.LATIN1));
+          return PathFragment.create(StringUnsafe.newInstance(content, StringUnsafe.LATIN1));
         }
 
         @Override

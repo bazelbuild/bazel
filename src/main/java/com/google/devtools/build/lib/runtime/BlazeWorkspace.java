@@ -353,6 +353,9 @@ public final class BlazeWorkspace {
       // Drop the action cache reference to save memory since we don't need it for this build. If a
       // subsequent build needs it, getOrLoadPersistentActionCache will reload it from disk.
       setActionCache(null);
+    } else if (actionCache != null) {
+      // Discard the load time if the command that loaded the action cache didn't report it.
+      var unused = actionCache.getLoadTime();
     }
     return env;
   }
