@@ -475,7 +475,7 @@ public abstract class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "cache_computed_file_digests",
-      defaultValue = "50000",
+      defaultValue = "250000",
       converter = Converters.NonNegativeIntegerConverter.class,
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.UNKNOWN},
