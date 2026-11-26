@@ -79,6 +79,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * gRPC server class.
@@ -108,7 +109,8 @@ import javax.annotation.Nullable;
  *
  * <p>Each running RPC has a UUID associated with it that is used to identify it when a client wants
  * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
- * which results in the main thread of the command being interrupted.
+ * which results in the main thread of the command being interrupted. A client going away without
+ * sending one has the same effect, see {@link BlockingStreamObserver}.
  */
 public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -155,16 +157,34 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
    * <p>It does not react to the interrupt flag in order to allow Bazel to complete the current
    * command while printing output as well as sending the final exit code to the client. However, it
    * maintains the interrupt flag if it is already set.
+   *
+   * <p>When the client connection closes prematurely, the command thread is interrupted exactly
+   * once, allowing it to terminate even if it produces no further output. Interrupting the thread
+   * calling {@link #onNext} instead may lose the signal when {@code cli-update-thread} writes first
+   * because that thread ignores interrupts. Also, interrupting on every write may repeatedly re-arm
+   * the interrupt and prevent a retry of an interruptible step from ever converging, see
+   * https://github.com/bazelbuild/bazel/issues/30435.
    */
   // TODO(ulfjack): Move FlowControl and its tests to top-level classes.
   @VisibleForTesting
   static class BlockingStreamObserver<T> {
     private final ServerCallStreamObserver<T> observer;
 
+    /**
+     * Taken from the first {@link #onNext} call, which {@link GrpcServerImpl} performs before any
+     * output can reach this observer.
+     */
+    @GuardedBy("this")
+    @Nullable
+    private Thread commandThread;
+
+    @GuardedBy("this")
+    private boolean commandInterruptible = true;
+
     BlockingStreamObserver(ServerCallStreamObserver<T> observer) {
       this.observer = observer;
       this.observer.setOnReadyHandler(this::notifyWaiters);
-      this.observer.setOnCancelHandler(this::notifyWaiters);
+      this.observer.setOnCancelHandler(this::notifyWaitersAndInterruptCommand);
     }
 
     private synchronized void notifyWaiters() {
@@ -174,7 +194,18 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
       notifyAll();
     }
 
+    private synchronized void notifyWaitersAndInterruptCommand() {
+      notifyAll(); // for the reason given in notifyWaiters
+      if (commandInterruptible && commandThread != null) {
+        commandThread.interrupt(); // the client went away after the first write
+        commandInterruptible = false;
+      }
+    }
+
     public synchronized void onNext(T response) {
+      if (commandThread == null) {
+        commandThread = Thread.currentThread();
+      }
       boolean interrupted = false;
       while (!observer.isReady() && !observer.isCancelled()) {
         try {
@@ -194,13 +225,18 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
       } finally {
         // onNext does not specify whether it can throw unchecked exceptions. We use a finally block
         // here to make sure that the interrupt bit is not lost even if it does.
-        if (interrupted || observer.isCancelled()) {
+        if (interrupted) {
           Thread.currentThread().interrupt();
+        }
+        if (commandInterruptible && observer.isCancelled()) {
+          commandThread.interrupt(); // the client was already gone at the first write
+          commandInterruptible = false;
         }
       }
     }
 
-    public void onCompleted() {
+    public synchronized void onCompleted() {
+      commandInterruptible = false; // a late event may otherwise interrupt the pooled commandThread
       observer.onCompleted();
     }
   }
@@ -584,7 +620,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
       commandId = command.getId();
 
       try {
-        // Send the client the command id as soon as we know it.
+        // Send the client the command id as soon as we know it, letting the observer capture the
+        // current thread as the one to interrupt if the client goes away.
         observer.onNext(
             RunResponse.newBuilder().setCookie(responseCookie).setCommandId(commandId).build());
       } catch (StatusRuntimeException e) {
