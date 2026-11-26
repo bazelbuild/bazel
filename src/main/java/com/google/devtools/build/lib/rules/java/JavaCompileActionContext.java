@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,7 +40,8 @@ import java.util.concurrent.Executors;
 public class JavaCompileActionContext implements ActionContext {
 
   // TODO(djasper): Investigate caching across builds.
-  private final ConcurrentHashMap<Artifact, Deps.Dependencies> cache = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Artifact, ImmutableList<PathFragment>> cache =
+      new ConcurrentHashMap<>();
 
   private final ListeningExecutorService executor =
       MoreExecutors.listeningDecorator(
@@ -48,22 +51,20 @@ public class JavaCompileActionContext implements ActionContext {
   void addDependencies(
       ImmutableList<Artifact> jdepsFiles,
       ActionExecutionContext actionExecutionContext,
-      Set<String> deps)
+      Set<PathFragment> deps)
       throws IOException, InterruptedException {
-    List<ListenableFuture<Deps.Dependencies>> uncached = new ArrayList<>();
+    List<ListenableFuture<ImmutableList<PathFragment>>> uncached = new ArrayList<>();
     for (Artifact jdepsFile : jdepsFiles) {
       // Reading a jdeps file is potentially expensive, e.g. when we have to download an input with
       // actionFS, so we use an ExecutorService instead of computeIfAbsent here. The downside is
       // that potentially we parse the same jdeps file twice, but at least we are not blocking all
       // other threads on the lock for the cache.
-      Deps.Dependencies cachedDeps = cache.get(jdepsFile);
+      ImmutableList<PathFragment> cachedDeps = cache.get(jdepsFile);
       if (cachedDeps == null) {
         uncached.add(
             executor.submit(() -> readAndCacheJdepsFile(jdepsFile, actionExecutionContext)));
       } else {
-        for (Deps.Dependency dep : cachedDeps.getDependencyList()) {
-          deps.add(dep.getPath());
-        }
+        deps.addAll(cachedDeps);
       }
     }
 
@@ -77,8 +78,8 @@ public class JavaCompileActionContext implements ActionContext {
     }
 
     IOException ioException = null;
-    for (ListenableFuture<Deps.Dependencies> future : uncached) {
-      Deps.Dependencies result;
+    for (ListenableFuture<ImmutableList<PathFragment>> future : uncached) {
+      ImmutableList<PathFragment> result;
       try {
         result = Futures.getDone(future);
       } catch (ExecutionException e) {
@@ -93,26 +94,31 @@ public class JavaCompileActionContext implements ActionContext {
         throw new IllegalStateException(e);
       }
 
-      for (Deps.Dependency dep : result.getDependencyList()) {
-        deps.add(dep.getPath());
-      }
+      deps.addAll(result);
     }
     if (ioException != null) {
       throw ioException;
     }
   }
 
-  private Deps.Dependencies readAndCacheJdepsFile(
+  private ImmutableList<PathFragment> readAndCacheJdepsFile(
       Artifact jdepsFile, ActionExecutionContext actionExecutionContext) throws IOException {
     Deps.Dependencies deps;
     try (InputStream input = actionExecutionContext.getInputPath(jdepsFile).getInputStream()) {
       deps = Deps.Dependencies.parseFrom(input);
     }
-    cache.putIfAbsent(jdepsFile, deps);
-    return deps;
+    ImmutableList<PathFragment> paths = toPaths(deps);
+    cache.putIfAbsent(jdepsFile, paths);
+    return paths;
   }
 
   void insertDependencies(Artifact jdepsFile, Deps.Dependencies dependencies) {
-    cache.put(jdepsFile, dependencies);
+    cache.put(jdepsFile, toPaths(dependencies));
+  }
+
+  private static ImmutableList<PathFragment> toPaths(Deps.Dependencies dependencies) {
+    return dependencies.getDependencyList().stream()
+        .map(dep -> PathFragment.create(dep.getPath()))
+        .collect(toImmutableList());
   }
 }

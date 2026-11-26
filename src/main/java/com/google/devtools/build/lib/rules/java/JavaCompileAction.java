@@ -338,16 +338,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   NestedSet<Artifact> getReducedClasspath(
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
       throws IOException, InterruptedException {
-    HashSet<String> direct = new HashSet<>();
+    HashSet<PathFragment> direct = new HashSet<>();
     for (Artifact directJar : directJars.toList()) {
-      direct.add(directJar.getExecPathString());
+      direct.add(directJar.getExecPath());
     }
     context.addDependencies(dependencyArtifacts.toList(), actionExecutionContext, direct);
     ImmutableList<Artifact> transitiveCollection = transitiveInputs.toList();
     ImmutableList<Artifact> reducedJars =
         ImmutableList.copyOf(
             Iterables.filter(
-                transitiveCollection, input -> direct.contains(input.getExecPathString())));
+                transitiveCollection, input -> direct.contains(input.getExecPath())));
     return NestedSetBuilder.wrap(Order.STABLE_ORDER, reducedJars);
   }
 
