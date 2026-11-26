@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -33,7 +33,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 
 /**
- * Persistent implementation of {@link StringIndexer}.
+ * Provides persistent bidirectional {@link PathFragment} ⇔ unique {@link Integer} mapping.
+ *
+ * <p>{@link Integer} is used in place of primitive {@code int} as it is assumed that indices will
+ * be stored in maps. Passing {@link Integer} across API boundaries makes it less likely to store
+ * duplicate instances and create garbage due to autoboxing.
  *
  * <p>This class is backed by a {@link PersistentMap} that holds one direction of the
  * canonicalization mapping. The other direction is handled purely in memory and reconstituted at
@@ -43,110 +47,117 @@ import javax.annotation.Nullable;
  * locked.
  */
 @ConditionallyThreadSafe // Each instance must be instantiated with a different dataPath.
-final class PersistentStringIndexer implements StringIndexer {
+final class PersistentPathFragmentIndexer {
 
   private static final int INITIAL_CAPACITY = 8192;
 
-  /** Instantiates and loads instance of the persistent string indexer. */
-  static PersistentStringIndexer create(Path dataPath, Path journalPath, Clock clock)
+  /** Instantiates and loads instance of the persistent path fragment indexer. */
+  static PersistentPathFragmentIndexer create(Path dataPath, Path journalPath, Clock clock)
       throws IOException {
-    PersistentIndexMap stringToInt = new PersistentIndexMap(dataPath, journalPath, clock);
+    PersistentIndexMap pathToInt = new PersistentIndexMap(dataPath, journalPath, clock);
 
     // INITIAL_CAPACITY or the next power of two greater than the size.
-    int capacity = max(INITIAL_CAPACITY, Integer.highestOneBit(stringToInt.size()) << 1);
+    int capacity = max(INITIAL_CAPACITY, Integer.highestOneBit(pathToInt.size()) << 1);
 
-    var intToString = new AtomicReferenceArray<String>(capacity);
-    for (Map.Entry<String, Integer> entry : stringToInt.entrySet()) {
+    var intToPath = new AtomicReferenceArray<PathFragment>(capacity);
+    for (Map.Entry<PathFragment, Integer> entry : pathToInt.entrySet()) {
       int index = entry.getValue();
       if (index < 0 || index >= capacity) {
         throw new IOException(
             String.format(
                 "Corrupted filename index %d out of bounds for length %d (map size %d)",
-                index, capacity, stringToInt.size()));
+                index, capacity, pathToInt.size()));
       }
-      if (intToString.getAndSet(index, entry.getKey()) != null) {
+      if (intToPath.getAndSet(index, entry.getKey()) != null) {
         throw new IOException("Corrupted filename index has duplicate entry: " + entry.getKey());
       }
     }
-    return new PersistentStringIndexer(stringToInt, intToString);
+    return new PersistentPathFragmentIndexer(pathToInt, intToPath);
   }
 
   private final ReentrantLock lock = new ReentrantLock();
 
   // These two fields act similarly to a (synchronized) BiMap. Mutating operations are performed in
   // synchronized blocks. Reads are done lock-free.
-  private final PersistentIndexMap stringToInt;
-  private volatile AtomicReferenceArray<String> intToString;
+  private final PersistentIndexMap pathToInt;
+  private volatile AtomicReferenceArray<PathFragment> intToPath;
 
-  private PersistentStringIndexer(
-      PersistentIndexMap stringToInt, AtomicReferenceArray<String> intToString) {
-    this.stringToInt = stringToInt;
-    this.intToString = intToString;
+  private PersistentPathFragmentIndexer(
+      PersistentIndexMap pathToInt, AtomicReferenceArray<PathFragment> intToPath) {
+    this.pathToInt = pathToInt;
+    this.intToPath = intToPath;
   }
 
-  @Override
+  /** Removes all mappings. */
   public void clear() {
     lock.lock();
     try {
-      stringToInt.clear();
-      intToString = new AtomicReferenceArray<>(INITIAL_CAPACITY);
+      pathToInt.clear();
+      intToPath = new AtomicReferenceArray<>(INITIAL_CAPACITY);
     } finally {
       lock.unlock();
     }
   }
 
-  @Override
+  /** Returns the number of path fragments in the index. */
   public int size() {
-    return stringToInt.size();
+    return pathToInt.size();
   }
 
-  @Override
-  public Integer getOrCreateIndex(String s) {
-    Integer i = stringToInt.get(s);
+  /**
+   * Creates new mapping for the given path fragment if necessary and returns path fragment index.
+   */
+  public Integer getOrCreateIndex(PathFragment path) {
+    Integer i = pathToInt.get(path);
     if (i != null) {
       return i;
     }
-    s = s.intern();
     lock.lock();
     try {
-      i = stringToInt.size();
-      Integer existing = stringToInt.putIfAbsent(s, i);
+      i = pathToInt.size();
+      Integer existing = pathToInt.putIfAbsent(path, i);
       if (existing != null) {
         return existing; // Another thread won the race.
       }
-      int capacity = intToString.length();
+      int capacity = intToPath.length();
       if (i == capacity) {
-        intToString = copyOf(intToString, capacity * 2);
+        intToPath = copyOf(intToPath, capacity * 2);
       }
-      intToString.set(i, s);
+      intToPath.set(i, path);
       return i;
     } finally {
       lock.unlock();
     }
   }
 
-  private static AtomicReferenceArray<String> copyOf(
-      AtomicReferenceArray<String> oldArray, int newCapacity) {
-    var newArray = new AtomicReferenceArray<String>(newCapacity);
+  private static AtomicReferenceArray<PathFragment> copyOf(
+      AtomicReferenceArray<PathFragment> oldArray, int newCapacity) {
+    var newArray = new AtomicReferenceArray<PathFragment>(newCapacity);
     for (int j = 0; j < oldArray.length(); j++) {
       newArray.setPlain(j, oldArray.getPlain(j));
     }
     return newArray;
   }
 
-  @Override
+  /**
+   * Returns the unique index for the given path fragment if one was created via {@link
+   * #getOrCreateIndex}, or else {@code null}.
+   */
   @Nullable
-  public Integer getIndex(String s) {
-    return stringToInt.get(s);
+  public Integer getIndex(PathFragment path) {
+    return pathToInt.get(path);
   }
 
-  @Override
+  /**
+   * Returns the path fragment associated with the given index or {@code null} if it is not in the
+   * index.
+   */
   @Nullable
-  public String getStringForIndex(Integer i) {
+  public PathFragment getPathForIndex(int i) {
     if (i < 0) {
       return null;
     }
-    var snapshot = intToString;
+    var snapshot = intToPath;
     return i < snapshot.length() ? snapshot.get(i) : null;
   }
 
@@ -154,7 +165,7 @@ final class PersistentStringIndexer implements StringIndexer {
   long save() throws IOException {
     lock.lock();
     try {
-      return stringToInt.save();
+      return pathToInt.save();
     } finally {
       lock.unlock();
     }
@@ -164,7 +175,7 @@ final class PersistentStringIndexer implements StringIndexer {
   void flush() {
     lock.lock();
     try {
-      stringToInt.flush();
+      pathToInt.flush();
     } finally {
       lock.unlock();
     }
@@ -173,26 +184,28 @@ final class PersistentStringIndexer implements StringIndexer {
   public void dump(PrintStream out) {
     lock.lock();
     try {
-      out.format("String indexer (%d records):\n", size());
+      out.format("Path indexer (%d records):\n", size());
       for (int i = 0; i < size(); i++) {
-        out.format("  %s <=> %s\n", i, getStringForIndex(i));
+        out.format("  %s <=> %s\n", i, getPathForIndex(i));
       }
     } finally {
       lock.unlock();
     }
   }
 
-  private static final MapCodec<String, Integer> CODEC =
+  private static final MapCodec<PathFragment, Integer> CODEC =
       new MapCodec<>() {
         @Override
-        protected String readKey(DataInput in) throws IOException {
+        protected PathFragment readKey(DataInput in) throws IOException {
           int length = in.readInt();
           if (length < 0) {
             throw new IOException("corrupt key length: " + length);
           }
           byte[] content = new byte[length];
           in.readFully(content);
-          return StringUnsafe.newInstance(content, StringUnsafe.LATIN1);
+          // Only normalized path fragments are written.
+          return PathFragment.createAlreadyNormalized(
+              StringUnsafe.newInstance(content, StringUnsafe.LATIN1));
         }
 
         @Override
@@ -201,8 +214,8 @@ final class PersistentStringIndexer implements StringIndexer {
         }
 
         @Override
-        protected void writeKey(String key, DataOutput out) throws IOException {
-          byte[] content = StringUnsafe.getInternalStringBytes(key);
+        protected void writeKey(PathFragment key, DataOutput out) throws IOException {
+          byte[] content = StringUnsafe.getInternalStringBytes(key.getPathString());
           out.writeInt(content.length);
           out.write(content);
         }
@@ -217,7 +230,7 @@ final class PersistentStringIndexer implements StringIndexer {
    * Persistent metadata map. Used as a backing map to provide a persistent implementation of the
    * metadata cache.
    */
-  private static final class PersistentIndexMap extends PersistentMap<String, Integer> {
+  private static final class PersistentIndexMap extends PersistentMap<PathFragment, Integer> {
     private static final int VERSION = 0x02;
     private static final long SAVE_INTERVAL_NS = 3L * 1000 * 1000 * 1000;
 

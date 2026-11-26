@@ -652,7 +652,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -668,7 +668,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isTrue();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isNull();
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -693,7 +693,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isTrue();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(""));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -708,7 +708,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isNull();
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -738,7 +738,7 @@ public final class ActionCacheCheckerTest {
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNull();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
     assertThat(metadataHandler.getOutputMetadata(output)).isEqualTo(createRemoteMetadata(content));
@@ -772,7 +772,7 @@ public final class ActionCacheCheckerTest {
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNull();
   }
 
@@ -801,7 +801,7 @@ public final class ActionCacheCheckerTest {
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNull();
   }
 
@@ -823,7 +823,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content, resolvedPath));
   }
@@ -877,7 +877,7 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.NOT_CACHED, 1)
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content2));
   }
@@ -902,7 +902,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, metadata);
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
   }
@@ -936,7 +936,7 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
   }
@@ -962,7 +962,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -990,7 +990,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -1018,7 +1018,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -1059,7 +1059,7 @@ public final class ActionCacheCheckerTest {
 
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -1093,7 +1093,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -1123,7 +1123,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
 
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output).archivedFileValue()).isEmpty();
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -1170,7 +1170,7 @@ public final class ActionCacheCheckerTest {
             /* resolvedPath= */ Optional.empty());
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.create(expectedMetadata));
@@ -1251,7 +1251,7 @@ public final class ActionCacheCheckerTest {
                 "file2", createRemoteMetadata("modified_remote")),
             /* archivedArtifactValue= */ Optional.empty(),
             /* resolvedPath= */ Optional.empty());
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.create(expectedMetadata));
@@ -1318,7 +1318,7 @@ public final class ActionCacheCheckerTest {
             ImmutableMap.of(),
             Optional.of(createRemoteMetadata("modified")),
             /* resolvedPath= */ Optional.empty());
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.create(expectedMetadata));
@@ -1364,7 +1364,7 @@ public final class ActionCacheCheckerTest {
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNull();
   }
 
@@ -1408,7 +1408,7 @@ public final class ActionCacheCheckerTest {
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNull();
   }
 
@@ -1443,7 +1443,7 @@ public final class ActionCacheCheckerTest {
         OutputChecker.TRUST_ALL,
         initiallyEnabled);
 
-    assertThat(cache.get(output.getExecPathString())).isNotNull();
+    assertThat(cache.get(output.getExecPath())).isNotNull();
 
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
@@ -1459,7 +1459,7 @@ public final class ActionCacheCheckerTest {
             !initiallyEnabled);
 
     assertThat(token).isNotNull();
-    assertThat(cache.get(output.getExecPathString())).isNull();
+    assertThat(cache.get(output.getExecPath())).isNull();
   }
 
   private static void writeContentAsLatin1(Path path, String content) throws IOException {
@@ -1505,7 +1505,7 @@ public final class ActionCacheCheckerTest {
     assertThat(token).isNull();
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(output.getPath().exists()).isTrue();
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -1549,7 +1549,7 @@ public final class ActionCacheCheckerTest {
     runAction(action, metadataHandler, metadataHandler);
 
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
@@ -1595,7 +1595,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(fakeOutputMetadataStore.treeMetadata).containsExactly(tree, treeMetadata);
 
-    ActionCache.Entry entry = cache.get(tree.getExecPathString());
+    ActionCache.Entry entry = cache.get(tree.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(tree))
         .isEqualTo(
@@ -1631,7 +1631,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(fakeOutputMetadataStore.treeMetadata).containsExactly(tree, treeMetadata);
 
-    ActionCache.Entry entry = cache.get(tree.getExecPathString());
+    ActionCache.Entry entry = cache.get(tree.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(tree))
         .isEqualTo(
@@ -1677,7 +1677,7 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
-    ActionCache.Entry entry = cache.get(tree.getExecPathString());
+    ActionCache.Entry entry = cache.get(tree.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(tree))
         .isEqualTo(
@@ -1713,9 +1713,9 @@ public final class ActionCacheCheckerTest {
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, metadata);
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
-    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPath());
   }
 
   @Test
@@ -1749,9 +1749,9 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
-    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPath());
   }
 
   @Test
@@ -1784,9 +1784,9 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
-    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPath());
   }
 
   @Test
@@ -1819,9 +1819,9 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
-    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPath());
   }
 
   @Test
@@ -1835,7 +1835,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
 
@@ -1900,9 +1900,9 @@ public final class ActionCacheCheckerTest {
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
-    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPath());
 
     // Modified content on disk should still be an action cache hit for constant metadata, with the
     // updated proxy metadata injected.
@@ -1965,15 +1965,15 @@ public final class ActionCacheCheckerTest {
    */
   @Test
   public void metadataDigest_splitIntoInputsAndOutputs_matchesSingleCombinedMap() {
-    ImmutableMap<String, FileArtifactValue> outputs =
+    ImmutableMap<PathFragment, FileArtifactValue> outputs =
         ImmutableMap.of(
-            "bin/out1", createRemoteMetadata("out1_content"),
-            "bin/out2", createRemoteMetadata("out2_content"));
-    ImmutableMap<String, FileArtifactValue> inputs =
+            PathFragment.create("bin/out1"), createRemoteMetadata("out1_content"),
+            PathFragment.create("bin/out2"), createRemoteMetadata("out2_content"));
+    ImmutableMap<PathFragment, FileArtifactValue> inputs =
         ImmutableMap.of(
-            "bin/in1", createRemoteMetadata("in1_content"),
-            "bin/in2", createRemoteMetadata("in2_content"));
-    ImmutableMap<String, FileArtifactValue> noneAtAll = ImmutableMap.of();
+            PathFragment.create("bin/in1"), createRemoteMetadata("in1_content"),
+            PathFragment.create("bin/in2"), createRemoteMetadata("in2_content"));
+    ImmutableMap<PathFragment, FileArtifactValue> noneAtAll = ImmutableMap.of();
 
     // All four emptiness permutations: an empty map digests to a single zero byte rather than a
     // full-length digest, so the combination has to absorb it as an identity.
@@ -1985,7 +1985,7 @@ public final class ActionCacheCheckerTest {
 
   /** Digests outputs and inputs separately and combines them, as {@code Entry.Builder} does. */
   private static byte[] splitDigest(
-      Map<String, FileArtifactValue> outputs, Map<String, FileArtifactValue> inputs) {
+      Map<PathFragment, FileArtifactValue> outputs, Map<PathFragment, FileArtifactValue> inputs) {
     byte[] outputDigest = MetadataDigestUtils.fromMetadata(outputs);
     byte[] inputDigest = MetadataDigestUtils.fromMetadata(inputs);
     return outputDigest.length >= inputDigest.length
@@ -1995,8 +1995,8 @@ public final class ActionCacheCheckerTest {
 
   /** Digests outputs and inputs as one map, the way the action cache did before they were split. */
   private static byte[] combinedDigest(
-      Map<String, FileArtifactValue> outputs, Map<String, FileArtifactValue> inputs) {
-    Map<String, FileArtifactValue> combined = new HashMap<>();
+      Map<PathFragment, FileArtifactValue> outputs, Map<PathFragment, FileArtifactValue> inputs) {
+    Map<PathFragment, FileArtifactValue> combined = new HashMap<>();
     combined.putAll(outputs);
     combined.putAll(inputs);
     return MetadataDigestUtils.fromMetadata(combined);
@@ -2127,7 +2127,7 @@ public final class ActionCacheCheckerTest {
     // Initial execution: miss (not cached) -> cached via clean-build fallback
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
-    ActionCache.Entry entryV1 = cache.get(output.getExecPathString());
+    ActionCache.Entry entryV1 = cache.get(output.getExecPath());
     assertThat(entryV1).isNotNull();
 
     // Immediate rerun: hit
@@ -2143,7 +2143,7 @@ public final class ActionCacheCheckerTest {
             .set(MissReason.NOT_CACHED, 1)
             .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
-    ActionCache.Entry entryV2 = cache.get(output.getExecPathString());
+    ActionCache.Entry entryV2 = cache.get(output.getExecPath());
     assertThat(entryV2).isNotNull();
     assertThat(entryV2.getDigest()).isNotEqualTo(entryV1.getDigest());
 
@@ -2193,12 +2193,12 @@ public final class ActionCacheCheckerTest {
 
     runAction(action);
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    ActionCache.Entry entry = cache.get(output.getExecPath());
     assertThat(entry).isNotNull();
     assertThat(entry.discoversInputs()).isTrue();
     // Mandatory inputs are derivable from the action itself and are deliberately not stored.
     assertThat(entry.getDiscoveredInputPaths())
-        .containsExactly(discoveredInput.getExecPathString());
+        .containsExactly(discoveredInput.getExecPath());
   }
 
   // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take
@@ -2222,17 +2222,17 @@ public final class ActionCacheCheckerTest {
     }
 
     @Override
-    public Entry get(String key) {
+    public Entry get(PathFragment key) {
       return corrupted ? ActionCache.Entry.CORRUPTED : delegate.get(key);
     }
 
     @Override
-    public void put(String key, Entry entry) {
+    public void put(PathFragment key, Entry entry) {
       delegate.put(key, entry);
     }
 
     @Override
-    public void remove(String key) {
+    public void remove(PathFragment key) {
       delegate.remove(key);
     }
 

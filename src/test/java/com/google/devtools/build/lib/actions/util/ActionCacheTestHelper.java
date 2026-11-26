@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions.util;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.function.Predicate;
@@ -30,15 +31,15 @@ public class ActionCacheTestHelper {
   public static final ActionCache AMNESIAC_CACHE =
       new ActionCache() {
         @Override
-        public void put(String fingerprint, Entry entry) {}
+        public void put(PathFragment key, Entry entry) {}
 
         @Override
-        public Entry get(String fingerprint) {
+        public Entry get(PathFragment key) {
           return null;
         }
 
         @Override
-        public void remove(String key) {}
+        public void remove(PathFragment key) {}
 
         @Override
         public void removeIf(Predicate<Entry> predicate) {}

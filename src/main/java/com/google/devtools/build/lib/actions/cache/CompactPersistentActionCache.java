@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.util.io.UnsynchronizedByteArrayOutputStream;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -65,8 +64,8 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
- * footprint and saves cached actions using the {@link PersistentMap}.
+ * An implementation of the ActionCache interface that uses a {@link PersistentPathFragmentIndexer}
+ * to reduce memory footprint and saves cached actions using the {@link PersistentMap}.
  */
 @ConditionallyThreadSafe // condition: each instance must be instantiated with different cache root
 public class CompactPersistentActionCache implements ActionCache {
@@ -75,7 +74,7 @@ public class CompactPersistentActionCache implements ActionCache {
   private static final Duration SAVE_INTERVAL = Duration.ofSeconds(3);
 
   // Key of the action cache record that holds information used to verify referential integrity
-  // between action cache and string indexer. Must be < 0 to avoid conflict with real action
+  // between action cache and path indexer. Must be < 0 to avoid conflict with real action
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
@@ -158,8 +157,8 @@ public class CompactPersistentActionCache implements ActionCache {
       };
 
   /**
-   * A {@link PersistentMap} mapping the string index of the action's primary output path to that
-   * entry's last access time.
+   * A {@link PersistentMap} mapping the index of the action's primary output path to that entry's
+   * last access time.
    */
   private static final class TimestampMap extends PersistentMap<Integer, Timestamp> {
     private final Clock clock;
@@ -231,17 +230,17 @@ public class CompactPersistentActionCache implements ActionCache {
       };
 
   /**
-   * A {@link PersistentMap} mapping the string index of the action's primary output path to the
+   * A {@link PersistentMap} mapping the index of the action's primary output path to the
    * serialized {@link ActionCache.Entry}.
    */
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
-    private final PersistentStringIndexer indexer;
+    private final PersistentPathFragmentIndexer indexer;
     private final TimestampMap timestampMap;
     private long nextUpdateNanos;
 
     ActionMap(
-        PersistentStringIndexer indexer,
+        PersistentPathFragmentIndexer indexer,
         TimestampMap timestampMap,
         Clock clock,
         Path mapFile,
@@ -262,8 +261,8 @@ public class CompactPersistentActionCache implements ActionCache {
       long currentTimeNanos = clock.nanoTime();
       if (currentTimeNanos > nextUpdateNanos) {
         nextUpdateNanos = currentTimeNanos + SAVE_INTERVAL.toNanos();
-        // Flush the PersistentStringIndexer and TimestampMap.
-        // This ensures an action isn't saved to disk before its timestamp or referenced strings.
+        // Flush the PersistentPathFragmentIndexer and TimestampMap.
+        // This ensures an action isn't saved to disk before its timestamp or referenced paths.
         indexer.flush();
         timestampMap.flush();
         return true;
@@ -287,7 +286,7 @@ public class CompactPersistentActionCache implements ActionCache {
   private final Path corruptedCacheRoot;
   private final Path tmpDir;
   private final Clock clock;
-  private final PersistentStringIndexer indexer;
+  private final PersistentPathFragmentIndexer indexer;
   private final ActionMap actionMap;
   private final TimestampMap timestampMap;
   private final ImmutableMap<MissReason, AtomicInteger> misses;
@@ -299,7 +298,7 @@ public class CompactPersistentActionCache implements ActionCache {
       Path corruptedCacheRoot,
       Path tmpDir,
       Clock clock,
-      PersistentStringIndexer indexer,
+      PersistentPathFragmentIndexer indexer,
       ActionMap actionMap,
       TimestampMap timestampMap,
       ImmutableMap<MissReason, AtomicInteger> misses) {
@@ -352,9 +351,9 @@ public class CompactPersistentActionCache implements ActionCache {
     Path timestampFile = timestampFile(cacheRoot);
     Path timestampJournalFile = timestampJournalFile(cacheRoot);
 
-    PersistentStringIndexer indexer;
+    PersistentPathFragmentIndexer indexer;
     try {
-      indexer = PersistentStringIndexer.create(indexFile, indexJournalFile, clock);
+      indexer = PersistentPathFragmentIndexer.create(indexFile, indexJournalFile, clock);
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,
@@ -570,7 +569,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   @Nullable
-  public ActionCache.Entry get(String key) {
+  public ActionCache.Entry get(PathFragment key) {
     Integer index = indexer.getIndex(key);
     if (index == null) {
       return null;
@@ -587,11 +586,11 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
-  public void put(String key, ActionCache.Entry entry) {
+  public void put(PathFragment key, ActionCache.Entry entry) {
     put(key, entry, clock.now());
   }
 
-  private void put(String key, ActionCache.Entry entry, Instant timestamp) {
+  private void put(PathFragment key, ActionCache.Entry entry, Instant timestamp) {
     // Encode record. Note that both methods may create new mappings in the indexer.
     Integer index = indexer.getOrCreateIndex(key);
     byte[] content;
@@ -620,7 +619,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
-  public void remove(String key) {
+  public void remove(PathFragment key) {
     Integer index = indexer.getIndex(key);
     if (index != null) {
       actionMap.remove(index);
@@ -676,14 +675,14 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   /** Returns a map from action key to last access time. */
-  ImmutableMap<String, Instant> getActionTimestampMap() {
+  ImmutableMap<PathFragment, Instant> getActionTimestampMap() {
     // Iterate the timestamp map, not the action map, so that the result may be used for testing
     // that an entry is removed from the timestamp map when removed from the action map. Note that
     // the indexer does not support removing entries.
-    ImmutableMap.Builder<String, Instant> builder =
+    ImmutableMap.Builder<PathFragment, Instant> builder =
         ImmutableMap.builderWithExpectedSize(timestampMap.size());
     for (Map.Entry<Integer, Timestamp> entry : timestampMap.entrySet()) {
-      String actionKey = indexer.getStringForIndex(entry.getKey());
+      PathFragment actionKey = indexer.getPathForIndex(entry.getKey());
       if (actionKey != null) {
         builder.put(actionKey, entry.getValue().toInstant());
       }
@@ -697,11 +696,11 @@ public class CompactPersistentActionCache implements ActionCache {
       throws IOException, InterruptedException {
     Instant cutoffTime = clock.now().minus(maxAge);
 
-    ImmutableMap<String, Instant> accessTimeMap = getActionTimestampMap();
+    ImmutableMap<PathFragment, Instant> accessTimeMap = getActionTimestampMap();
 
     // Count the number of stale entries.
     int numStale = 0;
-    for (Map.Entry<String, Instant> entry : accessTimeMap.entrySet()) {
+    for (Map.Entry<PathFragment, Instant> entry : accessTimeMap.entrySet()) {
       if (Thread.interrupted()) {
         // If interrupted, return promptly.
         throw new InterruptedException();
@@ -738,14 +737,14 @@ public class CompactPersistentActionCache implements ActionCache {
         // Skip the validation record.
         continue;
       }
-      String actionKey = checkNotNull(indexer.getStringForIndex(entry.getKey()), entry.getKey());
+      PathFragment actionKey = checkNotNull(indexer.getPathForIndex(entry.getKey()), entry.getKey());
       // If the timestamp is missing, assume the entry was recently added but its timestamp update
       // was lost.
       Instant timestamp = accessTimeMap.getOrDefault(actionKey, clock.now());
       if (timestamp.isBefore(cutoffTime)) {
         continue;
       }
-      // The entry must be reencoded so that strings it references are inserted into the indexer.
+      // The entry must be reencoded so that paths it references are inserted into the indexer.
       newCache.put(actionKey, decode(entry.getValue()), timestamp);
     }
 
@@ -777,7 +776,7 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] encodedEntry = actionMap.get(key);
       ActionCache.Entry decodedEntry = decode(encodedEntry);
       Timestamp timestamp = timestampMap.get(key);
-      out.format("  %s -> %s\n", key, indexer.getStringForIndex(key));
+      out.format("  %s -> %s\n", key, indexer.getPathForIndex(key));
       out.format("  packed_len = %s\n", encodedEntry.length);
       out.format("  timestamp = %s\n", timestamp != null ? timestamp.toString() : "unknown");
       decodedEntry.dump(out);
@@ -811,7 +810,7 @@ public class CompactPersistentActionCache implements ActionCache {
     PathFragment resolvedPath = value.getResolvedPath();
     if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
-      VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.toString()), sink);
+      VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath), sink);
     } else {
       VarInt.putVarInt(0, sink);
     }
@@ -842,7 +841,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (numResolvedPath != 1) {
         throw new IOException("Invalid presence marker for resolved path");
       }
-      resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
+      resolvedPath = getPathForIndex(VarInt.getVarInt(source));
     }
 
     FileArtifactValue metadata;
@@ -887,7 +886,7 @@ public class CompactPersistentActionCache implements ActionCache {
                   * entry.getOutputFiles().size();
 
       int estimatedOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
-      for (Map.Entry<String, SerializableTreeArtifactValue> tree :
+      for (Map.Entry<PathFragment, SerializableTreeArtifactValue> tree :
           entry.getOutputTrees().entrySet()) {
         estimatedOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
 
@@ -927,7 +926,7 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
     if (entry.discoversInputs()) {
       VarInt.putVarInt(entry.prunedInputs() ? 1 : 0, sink);
-      ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
+      ImmutableList<PathFragment> discoveredInputPaths = entry.getDiscoveredInputPaths();
       // The order of discovered inputs is irrelevant (the input digest is order-independent), so
       // store the indices sorted and delta-encoded. Since the indexer hands out indices in
       // insertion order, inputs that are commonly discovered together (e.g. the headers of a
@@ -949,13 +948,13 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarInt(entry.hasOutputMetadata() ? 1 : 0, sink);
     if (entry.hasOutputMetadata()) {
       VarInt.putVarInt(entry.getOutputFiles().size(), sink);
-      for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
+      for (Map.Entry<PathFragment, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
         VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
         encodeRemoteMetadata(file.getValue(), sink);
       }
 
       VarInt.putVarInt(entry.getOutputTrees().size(), sink);
-      for (Map.Entry<String, SerializableTreeArtifactValue> tree :
+      for (Map.Entry<PathFragment, SerializableTreeArtifactValue> tree :
           entry.getOutputTrees().entrySet()) {
         VarInt.putVarInt(indexer.getOrCreateIndex(tree.getKey()), sink);
 
@@ -964,7 +963,7 @@ public class CompactPersistentActionCache implements ActionCache {
         VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
         for (Map.Entry<String, FileArtifactValue> child :
             serializableTreeArtifactValue.childValues().entrySet()) {
-          // Don't put tree-relative paths in the string indexer. They are unlikely to be reused.
+          // Don't put tree-relative paths in the indexer. They are unlikely to be reused.
           // Instead, write them directly into the encoding.
           MetadataDigestUtils.write(StringUnsafe.getInternalStringBytes(child.getKey()), sink);
           encodeRemoteMetadata(child.getValue(), sink);
@@ -982,14 +981,14 @@ public class CompactPersistentActionCache implements ActionCache {
         Optional<PathFragment> resolvedPath = serializableTreeArtifactValue.resolvedPath();
         if (resolvedPath.isPresent()) {
           VarInt.putVarInt(1, sink);
-          VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.get().toString()), sink);
+          VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.get()), sink);
         } else {
           VarInt.putVarInt(0, sink);
         }
       }
 
       VarInt.putVarInt(entry.getProxyOutputs().size(), sink);
-      for (String execPath : entry.getProxyOutputs()) {
+      for (PathFragment execPath : entry.getProxyOutputs()) {
         VarInt.putVarInt(indexer.getOrCreateIndex(execPath), sink);
       }
     }
@@ -997,10 +996,10 @@ public class CompactPersistentActionCache implements ActionCache {
     return sink.toByteArray();
   }
 
-  private static String getStringForIndex(StringIndexer indexer, int index) throws IOException {
-    String path = index >= 0 ? indexer.getStringForIndex(index) : null;
+  private PathFragment getPathForIndex(int index) throws IOException {
+    PathFragment path = indexer.getPathForIndex(index);
     if (path == null) {
-      throw new IOException("Corrupted string index");
+      throw new IOException("Corrupted path index");
     }
     return path;
   }
@@ -1016,7 +1015,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
       byte[] digest = MetadataDigestUtils.read(source);
 
-      ImmutableList<String> discoveredInputPaths = null;
+      ImmutableList<PathFragment> discoveredInputPaths = null;
       boolean prunedInputs = false;
       int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
       if (discoveredInputsPresenceMarker != 0) {
@@ -1035,7 +1034,7 @@ public class CompactPersistentActionCache implements ActionCache {
         if (numDiscoveredInputs < 0) {
           throw new IOException("Invalid discovered input count: " + numDiscoveredInputs);
         }
-        ImmutableList.Builder<String> builder =
+        ImmutableList.Builder<PathFragment> builder =
             ImmutableList.builderWithExpectedSize(numDiscoveredInputs);
         int id = 0;
         for (int i = 0; i < numDiscoveredInputs; i++) {
@@ -1043,9 +1042,9 @@ public class CompactPersistentActionCache implements ActionCache {
           if (delta < 0) {
             throw new IOException("Invalid discovered input index delta: " + delta);
           }
-          // An overflow results in a negative index, which getStringForIndex rejects.
+          // An overflow results in a negative index, which getPathForIndex rejects.
           id += delta;
-          builder.add(getStringForIndex(indexer, id));
+          builder.add(getPathForIndex(id));
         }
         discoveredInputPaths = builder.build();
       }
@@ -1068,10 +1067,10 @@ public class CompactPersistentActionCache implements ActionCache {
       if (numOutputFiles < 0) {
         throw new IOException("Invalid output file count: " + numOutputFiles);
       }
-      ImmutableMap.Builder<String, FileArtifactValue> outputFiles =
+      ImmutableMap.Builder<PathFragment, FileArtifactValue> outputFiles =
           ImmutableMap.builderWithExpectedSize(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
-        String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
+        PathFragment execPath = getPathForIndex(VarInt.getVarInt(source));
         FileArtifactValue value = decodeRemoteMetadata(source);
         outputFiles.put(execPath, value);
       }
@@ -1080,10 +1079,10 @@ public class CompactPersistentActionCache implements ActionCache {
       if (numOutputTrees < 0) {
         throw new IOException("invalid output tree count: " + numOutputTrees);
       }
-      ImmutableMap.Builder<String, SerializableTreeArtifactValue> outputTrees =
+      ImmutableMap.Builder<PathFragment, SerializableTreeArtifactValue> outputTrees =
           ImmutableMap.builderWithExpectedSize(numOutputTrees);
       for (int i = 0; i < numOutputTrees; i++) {
-        String treeKey = getStringForIndex(indexer, VarInt.getVarInt(source));
+        PathFragment treeKey = getPathForIndex(VarInt.getVarInt(source));
 
         ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
         int numChildValues = VarInt.getVarInt(source);
@@ -1112,9 +1111,7 @@ public class CompactPersistentActionCache implements ActionCache {
             throw new IOException(
                 "Invalid presence marker for resolved path: " + resolvedPathPresenceMarker);
           }
-          resolvedPath =
-              Optional.of(
-                  PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source))));
+          resolvedPath = Optional.of(getPathForIndex(VarInt.getVarInt(source)));
         }
 
         SerializableTreeArtifactValue value =
@@ -1127,11 +1124,10 @@ public class CompactPersistentActionCache implements ActionCache {
       if (numProxyArtifacts < 0) {
         throw new IOException("Invalid proxy artifact count: " + numProxyArtifacts);
       }
-      ImmutableList.Builder<String> proxyArtifacts =
+      ImmutableList.Builder<PathFragment> proxyArtifacts =
           ImmutableList.builderWithExpectedSize(numProxyArtifacts);
       for (int i = 0; i < numProxyArtifacts; i++) {
-        String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
-        proxyArtifacts.add(execPath);
+        proxyArtifacts.add(getPathForIndex(VarInt.getVarInt(source)));
       }
 
       if (source.remaining() > 0) {

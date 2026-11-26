@@ -239,7 +239,7 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
     assertThat(button.pressed).isTrue(); // built
 
     // action1 is cached using the cache key /goodbye.
-    assertThat(cache.get(goodbye.getExecPathString())).isNotNull();
+    assertThat(cache.get(goodbye.getExecPath())).isNotNull();
 
     // [action2] -> (/hello,/goodbye), cache key will be /hello
     clearActions();
@@ -252,10 +252,10 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
     assertThat(button2.pressed).isTrue(); // rebuilt
 
     // action2 is cached using the cache key /hello.
-    assertThat(cache.get(hello.getExecPathString())).isNotNull();
+    assertThat(cache.get(hello.getExecPath())).isNotNull();
 
     // Now, action1 should no longer be in the cache.
-    assertThat(cache.get(goodbye.getExecPathString())).isNull();
+    assertThat(cache.get(goodbye.getExecPath())).isNull();
   }
 
   @Test

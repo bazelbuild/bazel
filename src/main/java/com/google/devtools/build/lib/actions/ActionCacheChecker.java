@@ -338,12 +338,12 @@ public class ActionCacheChecker {
     ImmutableMap.Builder<Artifact, FileArtifactValue> mergedFileMetadata = ImmutableMap.builder();
     ImmutableMap.Builder<TreeArtifact, TreeArtifactValue> mergedTreeMetadata =
         ImmutableMap.builder();
-    ImmutableSet<String> proxyOutputs = ImmutableSet.copyOf(entry.getProxyOutputs());
+    ImmutableSet<PathFragment> proxyOutputs = ImmutableSet.copyOf(entry.getProxyOutputs());
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact instanceof TreeArtifact parent) {
 
-        if (proxyOutputs.contains(parent.getExecPathString())) {
+        if (proxyOutputs.contains(parent.getExecPath())) {
           try {
             TreeArtifactValue metadata = constructProxyTreeMetadata(parent);
             mergedTreeMetadata.put(parent, metadata);
@@ -401,7 +401,7 @@ public class ActionCacheChecker {
         mergedTreeMetadata.put(parent, merged.build());
       } else {
         FileArtifactValue cachedMetadata;
-        if (proxyOutputs.contains(artifact.getExecPathString())) {
+        if (proxyOutputs.contains(artifact.getExecPath())) {
           try {
             cachedMetadata = proxyMetadataFactory.createProxyMetadata(artifact);
           } catch (IOException e) {
@@ -673,7 +673,7 @@ public class ActionCacheChecker {
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
-    String key = token.cacheKey;
+    PathFragment key = token.cacheKey;
     if (actionCache.get(key) != null) {
       // This cache entry has already been updated by a shared action. We don't need to do it again.
       return;
@@ -701,7 +701,7 @@ public class ActionCacheChecker {
 
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
-      String execPath = output.getExecPathString();
+      PathFragment execPath = output.getExecPath();
       if (!key.equals(execPath)) {
         actionCache.remove(execPath);
       }
@@ -756,8 +756,7 @@ public class ActionCacheChecker {
     }
     List<PathFragment> inputExecPaths = new ArrayList<>();
     if (entry.discoversInputs()) {
-      for (String path : entry.getDiscoveredInputPaths()) {
-        PathFragment execPath = PathFragment.create(path);
+      for (PathFragment execPath : entry.getDiscoveredInputPaths()) {
         // Code assumes that action has only 1-2 outputs and ArrayList.contains() will be most
         // efficient.
         if (!outputs.contains(execPath)) {
@@ -883,7 +882,7 @@ public class ActionCacheChecker {
   public static final class Token {
 
     /** The primary output's path, used as the key for {@link ActionCache} . */
-    private final String cacheKey;
+    private final PathFragment cacheKey;
 
     /** The result of calling {@link Action#getKey}, or {@code null} if it was not called. */
     @Nullable private String actionKey;
@@ -903,7 +902,7 @@ public class ActionCacheChecker {
     @Nullable private volatile byte[] inputDigest;
 
     private Token(Action action) {
-      this.cacheKey = action.getPrimaryOutput().getExecPathString();
+      this.cacheKey = action.getPrimaryOutput().getExecPath();
     }
 
     @Nullable

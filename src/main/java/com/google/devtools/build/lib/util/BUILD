@@ -304,7 +304,6 @@ java_library(
         "RegexFilter.java",
         "ResourceFileLoader.java",
         "Sleeper.java",
-        "StringIndexer.java",
         "ThreadUtils.java",
         "TimeUtilities.java",
         "UserUtils.java",

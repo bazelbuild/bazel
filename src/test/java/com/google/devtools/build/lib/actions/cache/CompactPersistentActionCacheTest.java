@@ -111,16 +111,16 @@ public class CompactPersistentActionCacheTest {
 
   @Test
   public void testGetInvalidKey() {
-    assertThat(cache.get("key")).isNull();
+    assertThat(cache.get(PathFragment.create("key"))).isNull();
   }
 
   @Test
   public void testPutAndGet() throws Exception {
     String key = "key";
     putKey(key);
-    ActionCache.Entry readentry = cache.get(key);
+    ActionCache.Entry readentry = cache.get(PathFragment.create(key));
     assertThat(readentry).isNotNull();
-    assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
+    assertThat(readentry.toString()).isEqualTo(cache.get(PathFragment.create(key)).toString());
     assertThat(mapFile.exists()).isFalse();
   }
 
@@ -128,8 +128,8 @@ public class CompactPersistentActionCacheTest {
   public void testPutAndRemove() throws Exception {
     String key = "key";
     putKey(key);
-    cache.remove(key);
-    assertThat(cache.get(key)).isNull();
+    cache.remove(PathFragment.create(key));
+    assertThat(cache.get(PathFragment.create(key))).isNull();
     assertThat(mapFile.exists()).isFalse();
   }
 
@@ -143,7 +143,7 @@ public class CompactPersistentActionCacheTest {
     // the inserted key, and the validation key
     assertThat(cache.size()).isEqualTo(2);
 
-    cache.remove(key);
+    cache.remove(PathFragment.create(key));
     // the validation key
     assertThat(cache.size()).isEqualTo(1);
 
@@ -172,9 +172,9 @@ public class CompactPersistentActionCacheTest {
         CompactPersistentActionCache.create(
             cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
-    ActionCache.Entry readentry = newCache.get(key);
+    ActionCache.Entry readentry = newCache.get(PathFragment.create(key));
     assertThat(readentry).isNotNull();
-    assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
+    assertThat(readentry.toString()).isEqualTo(cache.get(PathFragment.create(key)).toString());
   }
 
   @Test
@@ -188,14 +188,14 @@ public class CompactPersistentActionCacheTest {
     // Assign indices in the order a, b, c so that the next entry lists its inputs out of index
     // order and has to be sorted when encoded.
     cache.put(
-        "first",
+        PathFragment.create("first"),
         builder("first", /* discoversInputs= */ true)
             .addInputFile(a, metadata, /* saveExecPath= */ true)
             .addInputFile(b, metadata, /* saveExecPath= */ true)
             .addInputFile(c, metadata, /* saveExecPath= */ true)
             .build());
     cache.put(
-        "second",
+        PathFragment.create("second"),
         builder("second", /* discoversInputs= */ true)
             .addInputFile(d, metadata, /* saveExecPath= */ true)
             .addInputFile(c, metadata, /* saveExecPath= */ true)
@@ -203,17 +203,13 @@ public class CompactPersistentActionCacheTest {
             .addInputFile(c, metadata, /* saveExecPath= */ true)
             .build());
 
-    ImmutableList<String> expectedFirst =
-        ImmutableList.of(a.getExecPathString(), b.getExecPathString(), c.getExecPathString());
-    ImmutableList<String> expectedSecond =
-        ImmutableList.of(
-            d.getExecPathString(),
-            c.getExecPathString(),
-            a.getExecPathString(),
-            c.getExecPathString());
-    assertThat(cache.get("first").getDiscoveredInputPaths())
+    ImmutableList<PathFragment> expectedFirst =
+        ImmutableList.of(a.getExecPath(), b.getExecPath(), c.getExecPath());
+    ImmutableList<PathFragment> expectedSecond =
+        ImmutableList.of(d.getExecPath(), c.getExecPath(), a.getExecPath(), c.getExecPath());
+    assertThat(cache.get(PathFragment.create("first")).getDiscoveredInputPaths())
         .containsExactlyElementsIn(expectedFirst);
-    assertThat(cache.get("second").getDiscoveredInputPaths())
+    assertThat(cache.get(PathFragment.create("second")).getDiscoveredInputPaths())
         .containsExactlyElementsIn(expectedSecond);
 
     cache.save();
@@ -221,9 +217,9 @@ public class CompactPersistentActionCacheTest {
         CompactPersistentActionCache.create(
             cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
-    assertThat(newCache.get("first").getDiscoveredInputPaths())
+    assertThat(newCache.get(PathFragment.create("first")).getDiscoveredInputPaths())
         .containsExactlyElementsIn(expectedFirst);
-    assertThat(newCache.get("second").getDiscoveredInputPaths())
+    assertThat(newCache.get(PathFragment.create("second")).getDiscoveredInputPaths())
         .containsExactlyElementsIn(expectedSecond);
   }
 
@@ -263,8 +259,8 @@ public class CompactPersistentActionCacheTest {
     }
     assertKeyEquals(cache, newerCache, "abc");
     assertKeyEquals(cache, newerCache, "123");
-    assertThat(newerCache.get("xyz")).isNotNull();
-    assertThat(newerCache.get("not_a_key")).isNull();
+    assertThat(newerCache.get(PathFragment.create("xyz"))).isNotNull();
+    assertThat(newerCache.get(PathFragment.create("not_a_key"))).isNull();
 
     // Add another 10 entries. This should not be incremental.
     for (int i = 300; i < 310; i++) {
@@ -287,7 +283,7 @@ public class CompactPersistentActionCacheTest {
 
     // Check that the entries that discover inputs are gone, and the rest are still there.
     for (int i = 0; i < 100; i++) {
-      ActionCache.Entry entry = cache.get(Integer.toString(i));
+      ActionCache.Entry entry = cache.get(PathFragment.create(Integer.toString(i)));
       if (i % 20 == 0) {
         assertThat(entry).isNull();
       } else {
@@ -301,7 +297,7 @@ public class CompactPersistentActionCacheTest {
             cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
-      ActionCache.Entry entry = newerCache.get(Integer.toString(i));
+      ActionCache.Entry entry = newerCache.get(PathFragment.create(Integer.toString(i)));
       if (i % 20 == 0) {
         assertThat(entry).isNull();
       } else {
@@ -347,7 +343,7 @@ public class CompactPersistentActionCacheTest {
 
     // Getting an entry should update its timestamp.
     clock.advance(Duration.ofDays(100));
-    var unused = cache.get("abc");
+    var unused = cache.get(PathFragment.create("abc"));
 
     // Overwriting an entry should update its timestamp.
     clock.advance(Duration.ofDays(100));
@@ -355,7 +351,7 @@ public class CompactPersistentActionCacheTest {
 
     // Remove an entry should remove its timestamp.
     clock.advance(Duration.ofDays(100));
-    cache.remove("ghi");
+    cache.remove(PathFragment.create("ghi"));
 
     // Removing entries matching a predicate should not affect the timestamp of other entries.
     clock.advance(Duration.ofDays(100));
@@ -365,11 +361,11 @@ public class CompactPersistentActionCacheTest {
 
     assertThat(cache.getActionTimestampMap())
         .containsExactly(
-            "abc",
+            PathFragment.create("abc"),
             EPOCH.plus(Duration.ofDays(600)),
-            "def",
+            PathFragment.create("def"),
             EPOCH.plus(Duration.ofDays(700)),
-            "jkl",
+            PathFragment.create("jkl"),
             EPOCH.plus(Duration.ofDays(400)));
 
     // Make sure we get the same result after deserializing into a new cache.
@@ -379,11 +375,11 @@ public class CompactPersistentActionCacheTest {
     verify(eventHandler, never()).handle(any());
     assertThat(newerCache.getActionTimestampMap())
         .containsExactly(
-            "abc",
+            PathFragment.create("abc"),
             EPOCH.plus(Duration.ofDays(600)),
-            "def",
+            PathFragment.create("def"),
             EPOCH.plus(Duration.ofDays(700)),
-            "jkl",
+            PathFragment.create("jkl"),
             EPOCH.plus(Duration.ofDays(400)));
   }
 
@@ -403,20 +399,20 @@ public class CompactPersistentActionCacheTest {
     cache = cache.trim(0, Duration.ofDays(250));
 
     // Check that the cache was trimmed correctly.
-    assertThat(cache.get("abc")).isNull();
-    assertThat(cache.get("def")).isNull();
-    assertThat(cache.get("ghi")).isNotNull();
-    assertThat(cache.get("jkl")).isNotNull();
+    assertThat(cache.get(PathFragment.create("abc"))).isNull();
+    assertThat(cache.get(PathFragment.create("def"))).isNull();
+    assertThat(cache.get(PathFragment.create("ghi"))).isNotNull();
+    assertThat(cache.get(PathFragment.create("jkl"))).isNotNull();
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
         CompactPersistentActionCache.create(
             cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
-    assertThat(newerCache.get("abc")).isNull();
-    assertThat(newerCache.get("def")).isNull();
-    assertThat(newerCache.get("ghi")).isNotNull();
-    assertThat(newerCache.get("jkl")).isNotNull();
+    assertThat(newerCache.get(PathFragment.create("abc"))).isNull();
+    assertThat(newerCache.get(PathFragment.create("def"))).isNull();
+    assertThat(newerCache.get(PathFragment.create("ghi"))).isNotNull();
+    assertThat(newerCache.get(PathFragment.create("jkl"))).isNotNull();
   }
 
   @Test
@@ -435,10 +431,10 @@ public class CompactPersistentActionCacheTest {
     // 1 of 4 entries is stale, below 30% threshold.
     cache = cache.trim(0.3f, Duration.ofDays(350));
 
-    assertThat(cache.get("abc")).isNotNull();
-    assertThat(cache.get("def")).isNotNull();
-    assertThat(cache.get("ghi")).isNotNull();
-    assertThat(cache.get("jkl")).isNotNull();
+    assertThat(cache.get(PathFragment.create("abc"))).isNotNull();
+    assertThat(cache.get(PathFragment.create("def"))).isNotNull();
+    assertThat(cache.get(PathFragment.create("ghi"))).isNotNull();
+    assertThat(cache.get(PathFragment.create("jkl"))).isNotNull();
   }
 
   @Test
@@ -457,10 +453,10 @@ public class CompactPersistentActionCacheTest {
     // 1 of 4 entries is stale, above 20% threshold.
     cache = cache.trim(0.2f, Duration.ofDays(350));
 
-    assertThat(cache.get("abc")).isNull();
-    assertThat(cache.get("def")).isNotNull();
-    assertThat(cache.get("ghi")).isNotNull();
-    assertThat(cache.get("jkl")).isNotNull();
+    assertThat(cache.get(PathFragment.create("abc"))).isNull();
+    assertThat(cache.get(PathFragment.create("def"))).isNotNull();
+    assertThat(cache.get(PathFragment.create("ghi"))).isNotNull();
+    assertThat(cache.get(PathFragment.create("jkl"))).isNotNull();
   }
 
   enum IncompatibleFile {
@@ -605,9 +601,9 @@ public class CompactPersistentActionCacheTest {
     FileArtifactValue metadata = createRemoteMetadata(artifact, "content");
     var entry =
         builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
   }
@@ -620,9 +616,9 @@ public class CompactPersistentActionCacheTest {
         createRemoteMetadata(artifact, "content", expirationTime, /* resolvedPath= */ null);
     var entry =
         builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputFile(artifact).getExpirationTime()).isEqualTo(expirationTime);
   }
@@ -634,9 +630,9 @@ public class CompactPersistentActionCacheTest {
         createRemoteMetadata(artifact, "content", execRoot.getRelative("some/path").asFragment());
     var entry =
         builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
   }
@@ -648,11 +644,11 @@ public class CompactPersistentActionCacheTest {
         new ProxyFileArtifactValue(createLocalMetadata(artifact, "content"), artifact.getPath());
     var entry =
         builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
-    assertThat(entry.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+    assertThat(entry.getProxyOutputs()).containsExactly(artifact.getExecPath());
   }
 
   @Test
@@ -666,9 +662,9 @@ public class CompactPersistentActionCacheTest {
         builder("key").addOutputFile(artifact, metadata1, /* saveFileMetadata= */ true).build();
     var entry2 =
         builder("key").addOutputFile(artifact, metadata2, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry1);
+    cache.put(PathFragment.create("key"), entry1);
 
-    Entry cached = cache.get("key");
+    Entry cached = cache.get(PathFragment.create("key"));
 
     assertThat(cached.getOutputFile(artifact)).isEqualTo(metadata1);
     assertThat(cached.getDigest()).isEqualTo(entry2.getDigest());
@@ -687,11 +683,11 @@ public class CompactPersistentActionCacheTest {
         builder("key").addOutputFile(artifact, metadata1, /* saveFileMetadata= */ true).build();
     var entry2 =
         builder("key").addOutputFile(artifact, metadata2, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry1);
+    cache.put(PathFragment.create("key"), entry1);
 
-    Entry cached = cache.get("key");
+    Entry cached = cache.get(PathFragment.create("key"));
 
-    assertThat(cached.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+    assertThat(cached.getProxyOutputs()).containsExactly(artifact.getExecPath());
     assertThat(cached.getDigest()).isEqualTo(entry2.getDigest());
   }
 
@@ -701,9 +697,9 @@ public class CompactPersistentActionCacheTest {
     FileArtifactValue metadata = createLocalMetadata(artifact, "content");
     var entry =
         builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputFile(artifact)).isNull();
   }
@@ -731,9 +727,9 @@ public class CompactPersistentActionCacheTest {
             /* resolvedPath= */ Optional.empty());
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
@@ -759,9 +755,9 @@ public class CompactPersistentActionCacheTest {
             /* resolvedPath= */ Optional.empty());
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
@@ -786,9 +782,9 @@ public class CompactPersistentActionCacheTest {
             /* resolvedPath= */ Optional.empty());
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputTree(artifact).archivedFileValue()).isEmpty();
   }
@@ -808,9 +804,9 @@ public class CompactPersistentActionCacheTest {
     var entry =
         builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
 
-    cache.put("key", entry);
+    cache.put(PathFragment.create("key"), entry);
 
-    entry = cache.get("key");
+    entry = cache.get(PathFragment.create("key"));
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
@@ -821,9 +817,9 @@ public class CompactPersistentActionCacheTest {
   }
 
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {
-    Object entry = cache1.get(key);
+    Object entry = cache1.get(PathFragment.create(key));
     assertThat(entry).isNotNull();
-    assertThat(cache2.get(key).toString()).isEqualTo(entry.toString());
+    assertThat(cache2.get(PathFragment.create(key)).toString()).isEqualTo(entry.toString());
   }
 
   private void assertFullSave() throws IOException {
@@ -848,7 +844,7 @@ public class CompactPersistentActionCacheTest {
 
   private static void putKey(String key, ActionCache actionCache, boolean discoversInputs) {
     var entry = builder(key, discoversInputs).build();
-    actionCache.put(key, entry);
+    actionCache.put(PathFragment.create(key), entry);
   }
 
   private static ActionCache.Entry.Builder builder(String actionKey) {

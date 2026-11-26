@@ -547,20 +547,20 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   /** In-memory {@link ActionCache} backed by a HashMap */
   protected static class InMemoryActionCache implements ActionCache {
 
-    private final Map<String, Entry> actionCache = new HashMap<>();
+    private final Map<PathFragment, Entry> actionCache = new HashMap<>();
 
     @Override
-    public synchronized void put(String key, ActionCache.Entry entry) {
+    public synchronized void put(PathFragment key, ActionCache.Entry entry) {
       actionCache.put(key, entry);
     }
 
     @Override
-    public synchronized Entry get(String key) {
+    public synchronized Entry get(PathFragment key) {
       return actionCache.get(key);
     }
 
     @Override
-    public synchronized void remove(String key) {
+    public synchronized void remove(PathFragment key) {
       actionCache.remove(key);
     }
 
