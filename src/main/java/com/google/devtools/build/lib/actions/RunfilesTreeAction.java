@@ -160,6 +160,11 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
   }
 
   @Override
+  public boolean isAggregator() {
+    return true;
+  }
+
+  @Override
   public PlatformInfo getExecutionPlatform() {
     return PlatformInfo.EMPTY_PLATFORM_INFO;
   }
