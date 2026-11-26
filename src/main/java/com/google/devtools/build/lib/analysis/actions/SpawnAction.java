@@ -216,12 +216,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return commandLines.allArguments(
-        PathMappers.create(
-            this,
-            getOutputPathsMode(),
-            this instanceof StarlarkAction,
-            /* inputMetadataProvider= */ null));
+    return commandLines.allArguments(getPathMapper(/* inputMetadataProvider= */ null));
   }
 
   @Override
@@ -375,12 +370,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Map<String, String> clientEnv,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
-    PathMapper pathMapper =
-        PathMappers.create(
-            this,
-            getOutputPathsMode(),
-            this instanceof StarlarkAction,
-            actionExecutionContext.getInputMetadataProvider());
+    PathMapper pathMapper = getPathMapper(actionExecutionContext.getInputMetadataProvider());
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             actionExecutionContext.getInputMetadataProvider(),
@@ -396,6 +386,18 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         expandedCommandLines.getParamFiles(),
         reportOutputs,
         pathMapper);
+  }
+
+  /**
+   * Returns the {@link PathMapper} to use for this action's command line and spawn execution.
+   *
+   * @param inputMetadataProvider metadata provider used during execution, or {@code null} when
+   *     expanding arguments outside execution (such as {@link #getArguments()}).
+   */
+  @ForOverride
+  protected PathMapper getPathMapper(@Nullable InputMetadataProvider inputMetadataProvider) {
+    return PathMappers.create(
+        this, getOutputPathsMode(), this instanceof StarlarkAction, inputMetadataProvider);
   }
 
   @ForOverride

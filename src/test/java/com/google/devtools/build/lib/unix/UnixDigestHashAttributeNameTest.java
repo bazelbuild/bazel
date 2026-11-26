@@ -50,7 +50,7 @@ public class UnixDigestHashAttributeNameTest extends FileSystemTest {
 
   private class FakeAttributeFileSystem extends UnixFileSystem {
     FakeAttributeFileSystem(DigestHashFunction hashFunction) {
-      super(hashFunction, "user.checksum.sha256", new NativePosixFilesServiceImpl());
+      super(hashFunction, "user.checksum.sha256");
     }
 
     @Override

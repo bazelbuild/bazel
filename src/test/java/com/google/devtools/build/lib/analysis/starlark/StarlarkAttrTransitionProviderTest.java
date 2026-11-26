@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOp
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -671,7 +672,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//not_allowlisted:test");
-    assertContainsEvent("Non-allowlisted use of Starlark transition");
+    assertContainsEvent(FunctionSplitTransitionAllowlist.ERROR_MESSAGE);
   }
 
   private void testSplitTransitionCheckAttrDeps(ConfiguredTarget target) throws Exception {

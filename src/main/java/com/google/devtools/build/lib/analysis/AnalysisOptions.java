@@ -61,7 +61,8 @@ public abstract class AnalysisOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "When discarding the analysis cache due to a change in the build options, "
-              + "displays up to the given number of changed option names. "
+              + "displays up to the given number of changed option names along with their old "
+              + "and new values. "
               + "If the number given is -1, all changed options will be displayed.")
   public abstract int getMaxConfigChangesToShow();
 

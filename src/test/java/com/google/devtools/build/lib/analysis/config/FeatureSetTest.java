@@ -50,6 +50,16 @@ public class FeatureSetTest {
   }
 
   @Test
+  public void toStringList_enabledFeaturesFollowedByPrefixedDisabledFeatures() {
+    assertThat(FeatureSet.EMPTY.toStringList()).isEmpty();
+    assertThat(parse("b", "a").toStringList()).containsExactly("a", "b").inOrder();
+    assertThat(parse("-d", "-c").toStringList()).containsExactly("-c", "-d").inOrder();
+    assertThat(parse("-d", "b", "-c", "a").toStringList())
+        .containsExactly("a", "b", "-c", "-d")
+        .inOrder();
+  }
+
+  @Test
   public void merge_basic() {
     assertThat(merge(parse("foo", "-bar"), parse("kek", "-lol")))
         .isEqualTo(parse("foo", "kek", "-bar", "-lol"));

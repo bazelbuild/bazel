@@ -304,6 +304,16 @@ sh_test(
 )
 
 sh_test(
+    name = "blaze_info_response_test",
+    size = "medium",
+    srcs = ["blaze_info_response_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "blaze_nouse_action_cache_test",
     size = "medium",
     timeout = "long",
@@ -369,6 +379,19 @@ sh_test(
     ],
     shard_count = 8,
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "forbid_server_subprocesses_test",
+    size = "medium",
+    srcs = ["forbid_server_subprocesses_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = [
+        "no_macos",
+        "no_windows",
+    ],
 )
 
 sh_library(

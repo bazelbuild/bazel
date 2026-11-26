@@ -1,4 +1,4 @@
-// Copyright 2025 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,24 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.runtime.BlazeService;
 import java.io.IOException;
-import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/** Service for querying system network stats. */
-public interface SystemNetworkStatsService extends BlazeService {
+/** Tests for {@link NetworkMetricsCollector}. */
+@RunWith(JUnit4.class)
+public class NetworkMetricsCollectorTest {
 
-  /** Returns a map from network interface name to the respective I/O counters. */
-  Map<String, NetIoCounter> getNetIoCounters() throws IOException;
-
-  /** Value class for network IO counters. */
-  interface NetIoCounter {
-    long bytesSent();
-
-    long bytesRecv();
-
-    long packetsSent();
-
-    long packetsRecv();
+  @SuppressWarnings("CheckReturnValue")
+  @Test
+  public void getNetIoCounters_doesNotCrash() throws IOException {
+    NetworkMetricsCollector.getNetIoCounters();
   }
 }

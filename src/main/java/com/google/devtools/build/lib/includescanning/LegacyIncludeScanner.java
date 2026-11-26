@@ -117,6 +117,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *
      * @param inclusion the inclusion to locate
      * @param onlyCheckGenerated if true, only search for generated output files
+     * @param maxIndex maximum index in {@code paths} to search (inclusive, so any framework paths
+     *     preceding {@code paths.get(maxIndex)} are also checked)
      * @return a tuple of the found file, the position of the respective include path entry on the
      *     search path (or null if no matching file was found), and whether the scan touched illegal
      *     output files
@@ -124,8 +126,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     LocateOnPathResult locateOnPaths(
         InclusionWithContext inclusion,
         IncludeScanningHeaderData headerData,
-        boolean onlyCheckGenerated) {
+        boolean onlyCheckGenerated,
+        int maxIndex) {
       PathFragment name = inclusion.getInclusion().pathFragment;
+      boolean checkUplevel = name.containsUplevelReferences();
 
       // A framework header must begin with a framework name, followed by a path separator, followed
       // by the rest of the header path.  We do not currently support include_next of framework
@@ -133,7 +137,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       boolean searchFrameworkIncludePaths =
           !frameworkIncludePaths.isEmpty()
               && !inclusion.getInclusion().kind.isNext()
-              && !name.containsUplevelReferences()
+              && !checkUplevel
               && PathFragment.containsSeparator(name.getPathString());
 
       // For #include_next directives we start searching on the include path where
@@ -141,13 +145,15 @@ public class LegacyIncludeScanner implements IncludeScanner {
       int searchStart = inclusion.getInclusion().kind.isNext() ? inclusion.getContextPathPos() : 0;
 
       // Search the header on the remaining paths.
-      List<PathFragment> paths =
-          inclusion.getContextKind() == Kind.QUOTE ? quoteIncludePaths : includePaths;
-      int alsoSearchFrameworkAtIndex =
-          inclusion.getContextKind() == Kind.QUOTE ? quoteIncludePathsFrameworkIndex : 0;
+      boolean isQuote = inclusion.getContextKind() == Kind.QUOTE;
+      List<PathFragment> paths = isQuote ? quoteIncludePaths : includePaths;
+      boolean[] outputOrPrefixFlags =
+          isQuote ? isOutputOrPrefixQuotePath : isOutputOrPrefixIncludePath;
+      int alsoSearchFrameworkAtIndex = isQuote ? quoteIncludePathsFrameworkIndex : 0;
       alsoSearchFrameworkAtIndex = Math.max(alsoSearchFrameworkAtIndex, searchStart);
       boolean viewedIllegalOutput = false;
-      for (int i = searchStart; i < paths.size(); ++i) {
+      int searchEnd = Math.min(maxIndex, paths.size() - 1);
+      for (int i = searchStart; i <= searchEnd; ++i) {
         if (i == alsoSearchFrameworkAtIndex && searchFrameworkIncludePaths) {
           String frameworkName = name.subFragment(0, 1).getPathString() + ".framework";
           PathFragment relHeaderPath = name.subFragment(1);
@@ -162,6 +168,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
             return result;
           }
           viewedIllegalOutput = viewedIllegalOutput || result.viewedIllegalOutputFile;
+        }
+        // NOMUTANTS -- Fast path to avoid getRelative; !isOutputFile below skips the same paths.
+        if (onlyCheckGenerated && !checkUplevel && !outputOrPrefixFlags[i]) {
+          continue;
         }
         PathFragment fileFragment = paths.get(i).getRelative(name);
         if (fileFragment.containsUplevelReferences()) {
@@ -337,37 +347,90 @@ public class LegacyIncludeScanner implements IncludeScanner {
      */
     LocateOnPathResult lookup(
         InclusionWithContext inclusion, IncludeScanningHeaderData headerData) {
-      LocateOnPathResult result = cache.get(inclusion);
-      if (result == null) {
+      LocateOnPathResult cached = cache.get(inclusion);
+      if (cached == null) {
         // Do not use computeIfAbsent() as the implementation of locateOnPaths might do multiple
         // file stats and this creates substantial contention given CompactHashMap's locking.
         // Do not use futures as the few duplicate executions are cheaper than the additional memory
         // that would be required.
-        result = locateOnPaths(inclusion, headerData, false);
-        cache.put(inclusion, result);
-        return result;
+        LocateOnPathResult fresh =
+            locateOnPaths(
+                inclusion,
+                headerData,
+                /* onlyCheckGenerated= */ false,
+                /* maxIndex= */ Integer.MAX_VALUE);
+        cache.put(inclusion, fresh);
+        return fresh;
       }
-      // If the previous computation for this inclusion had a different pathToDeclaredHeader
-      // map, result may not be valid for this lookup. Only reuse the cached result when no
-      // illegal output file was viewed earlier on the search path, and either no file was found,
-      // the found file is a source artifact, or the found output artifact matches the current
-      // action's declared header.
-      if (!result.viewedIllegalOutputFile
-          && (result.path == null
-              || result.path.isSourceArtifact()
-              || result.path.equals(headerData.getHeaderArtifact(result.path.getExecPath())))) {
-        return result;
+      LocateOnPathResult reusable = lookupReusableCachedResult(inclusion, headerData, cached);
+      if (reusable != null) {
+        return reusable;
       }
 
-      // When the cached lookup found an artifact, it stopped before later search paths, so the
-      // fallback header may be a source file; only skip source paths when nothing was found.
-      result = locateOnPaths(inclusion, headerData, /* onlyCheckGenerated= */ result.path == null);
-      if (!result.viewedIllegalOutputFile) {
-        // Only update the cache when no illegal output file was viewed, so a fast-path-eligible
-        // entry isn't overwritten by one that always requires re-scanning.
-        cache.put(inclusion, result);
+      // cached is either an action-specific generated header not declared by headerData or a
+      // framework match (includePosition <= 0) that may be shadowed by a declared generated header;
+      // rescan both generated and source search paths.
+      LocateOnPathResult rescan =
+          locateOnPaths(
+              inclusion,
+              headerData,
+              /* onlyCheckGenerated= */ false,
+              /* maxIndex= */ Integer.MAX_VALUE);
+      if (shouldUpdateCacheOnRescan(rescan)) {
+        cache.put(inclusion, rescan);
       }
-      return result;
+      return rescan;
+    }
+
+    @Nullable
+    private LocateOnPathResult lookupReusableCachedResult(
+        InclusionWithContext inclusion,
+        IncludeScanningHeaderData headerData,
+        LocateOnPathResult cached) {
+      // If the previous computation for this inclusion had a different pathToDeclaredHeader
+      // map, the cached result is reusable if either no illegal output file was viewed earlier on
+      // the search path, or this action has no generated header matching the inclusion's basename
+      // (so none of those earlier output paths can match in headerData), and either no file was
+      // found, the found file is a source artifact, or the found output artifact matches the
+      // current action's declared header.
+      if (!isCachedResultReusable(cached, headerData)) {
+        return null;
+      }
+      // NOMUTANTS -- Fast path; an output-only scan below finds nothing and returns cached.
+      if (!cached.viewedIllegalOutputFile) {
+        return cached;
+      }
+      Inclusion rawInclusion = inclusion.getInclusion();
+      if (!rawInclusion.pathFragment.containsUplevelReferences()
+          && !headerData.hasPotentialGeneratedHeader(rawInclusion.getBaseName())) {
+        return cached;
+      }
+      // headerData declares a generated header with this basename. Check only output paths
+      // strictly before the cached match (or all output paths when nothing was found), skipping
+      // source include directories. When includePosition == 0 (framework match), return null to
+      // fall through because the matched framework path index is not recorded. Do not cache
+      // generatedOverride over a reusable source/not-found entry so action-specific generated
+      // headers do not poison shared scanners.
+      if (cached.includePosition == 0) {
+        return null;
+      }
+      int maxIndex = cached.path == null ? Integer.MAX_VALUE : cached.includePosition - 1;
+      LocateOnPathResult generatedOverride =
+          locateOnPaths(inclusion, headerData, /* onlyCheckGenerated= */ true, maxIndex);
+      return generatedOverride.path != null ? generatedOverride : cached;
+    }
+
+    private static boolean isCachedResultReusable(
+        LocateOnPathResult cached, IncludeScanningHeaderData headerData) {
+      return cached.path == null
+          || cached.path.isSourceArtifact()
+          || cached.path.equals(headerData.getHeaderArtifact(cached.path.getExecPath()));
+    }
+
+    private static boolean shouldUpdateCacheOnRescan(LocateOnPathResult rescan) {
+      // Promote an action-specific generated entry to a shared source or not-found entry so a
+      // single generated header cannot poison shared scanners.
+      return rescan.path == null || rescan.path.isSourceArtifact();
     }
   }
 
@@ -432,6 +495,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
   private final ImmutableList<PathFragment> frameworkIncludePaths;
 
   private final PathFragment outputPathFragment;
+  private final boolean[] isOutputOrPrefixQuotePath;
+  private final boolean[] isOutputOrPrefixIncludePath;
   private final Root absoluteRoot;
 
   /**
@@ -486,7 +551,24 @@ public class LegacyIncludeScanner implements IncludeScanner {
     this.inclusionCache = new InclusionCache();
     this.execRoot = execRoot;
     this.outputPathFragment = outputPath.relativeTo(execRoot);
+    this.isOutputOrPrefixQuotePath =
+        computeOutputOrPrefixFlags(this.quoteIncludePaths, this.outputPathFragment);
+    this.isOutputOrPrefixIncludePath =
+        computeOutputOrPrefixFlags(this.includePaths, this.outputPathFragment);
     this.absoluteRoot = Root.absoluteRoot(execRoot.getFileSystem());
+  }
+
+  private static boolean[] computeOutputOrPrefixFlags(
+      List<PathFragment> paths, PathFragment outputPathFragment) {
+    boolean[] flags = new boolean[paths.size()];
+    for (int i = 0; i < paths.size(); i++) {
+      PathFragment path = paths.get(i);
+      flags[i] =
+          path.containsUplevelReferences()
+              || path.startsWith(outputPathFragment)
+              || outputPathFragment.startsWith(path);
+    }
+    return flags;
   }
 
   /**

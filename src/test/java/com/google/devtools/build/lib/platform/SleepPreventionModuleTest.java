@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.util.OS;
 import org.junit.Test;
@@ -52,6 +53,9 @@ public final class SleepPreventionModuleTest {
       assertThat(SleepPreventionModule.pushDisableSleep()).isEqualTo(0);
       assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(0);
       assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(0);
+
+      // Assert that popping without a matching push throws IllegalStateException.
+      assertThrows(IllegalStateException.class, SleepPreventionModule::popDisableSleep);
     } else {
       assertThat(SleepPreventionModule.pushDisableSleep()).isEqualTo(-1);
       assertThat(SleepPreventionModule.popDisableSleep()).isEqualTo(-1);

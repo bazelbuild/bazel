@@ -67,8 +67,8 @@ jfieldID GetFieldId(JNIEnv* env, jclass clazz, const char* name,
 }
 
 void LogBadPath(JNIEnv* env, jstring jstr) {
-  static const jclass cls = GetClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl");
+  static const jclass cls =
+      GetClass(env, "com/google/devtools/build/lib/unix/NativePosixFiles");
   static const jmethodID method =
       GetStaticMethodId(env, cls, "logBadPath", "(Ljava/lang/String;)V");
   env->CallStaticVoidMethod(cls, method, jstr);

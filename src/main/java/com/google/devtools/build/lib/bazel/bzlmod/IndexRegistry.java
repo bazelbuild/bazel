@@ -96,7 +96,16 @@ public class IndexRegistry implements Registry {
     ENFORCE
   }
 
+  /**
+   * The registry URL as configured, which may contain {@code %workspace%}. Repo rule attributes
+   * refer to files in the registry through this URL so that they don't depend on the location of
+   * the workspace.
+   */
+  private final String url;
+
+  /** The URI registry files are fetched from, with {@code %workspace%} expanded. */
   private final URI uri;
+
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
@@ -127,6 +136,7 @@ public class IndexRegistry implements Registry {
       }.nullSafe();
 
   public IndexRegistry(
+      String url,
       URI uri,
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
@@ -134,6 +144,7 @@ public class IndexRegistry implements Registry {
       ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
       Optional<Path> vendorDir,
       ImmutableSet<URI> moduleMirrors) {
+    this.url = url;
     this.uri = uri;
     this.clientEnv = clientEnv;
     this.gson =
@@ -150,6 +161,10 @@ public class IndexRegistry implements Registry {
 
   @Override
   public String getUrl() {
+    return url;
+  }
+
+  private String getFetchUrl() {
     return unicodeToInternal(uri.toString());
   }
 
@@ -285,13 +300,14 @@ public class IndexRegistry implements Registry {
   public ModuleFile getModuleFile(
       ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException, NotFoundException {
-    String url = constructModuleFileUrl(key);
+    String url = constructModuleFileUrl(getFetchUrl(), key);
     byte[] content = grabFile(url, eventHandler, downloadManager, /* useChecksum= */ true);
     return ModuleFile.create(content, url);
   }
 
-  private String constructModuleFileUrl(ModuleKey key) {
-    return constructUrl(getUrl(), "modules", key.name(), key.version().toString(), "MODULE.bazel");
+  private String constructModuleFileUrl(String registryUrl, ModuleKey key) {
+    return constructUrl(
+        registryUrl, "modules", key.name(), key.version().toString(), "MODULE.bazel");
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
@@ -403,11 +419,10 @@ public class IndexRegistry implements Registry {
       case "archive" -> {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
-        var moduleFileUrl = constructModuleFileUrl(key);
-        var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
+        var moduleFileChecksum =
+            moduleFileHashes.get(constructModuleFileUrl(getFetchUrl(), key)).get();
         yield createArchiveRepoSpec(
             typedSourceJson,
-            moduleFileUrl,
             moduleFileChecksum,
             getBazelRegistryJson(eventHandler, downloadManager),
             key);
@@ -421,9 +436,9 @@ public class IndexRegistry implements Registry {
       case "git_repository" -> {
         GitRepoSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
-        var moduleFileUrl = constructModuleFileUrl(key);
-        var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        yield createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
+        var moduleFileChecksum =
+            moduleFileHashes.get(constructModuleFileUrl(getFetchUrl(), key)).get();
+        yield createGitRepoSpec(typedSourceJson, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
@@ -433,7 +448,7 @@ public class IndexRegistry implements Registry {
 
   private String getSourceJsonUrl(ModuleKey key) {
     return constructUrl(
-        getUrl(), "modules", key.name(), key.version().toString(), SOURCE_JSON_FILENAME);
+        getFetchUrl(), "modules", key.name(), key.version().toString(), SOURCE_JSON_FILENAME);
   }
 
   private Optional<BazelRegistryJson> getBazelRegistryJson(
@@ -446,7 +461,7 @@ public class IndexRegistry implements Registry {
           var storedEventHandler = new StoredEventHandler();
           bazelRegistryJson =
               grabJson(
-                  constructUrl(getUrl(), "bazel_registry.json"),
+                  constructUrl(getFetchUrl(), "bazel_registry.json"),
                   BazelRegistryJson.class,
                   storedEventHandler,
                   downloadManager,
@@ -510,7 +525,6 @@ public class IndexRegistry implements Registry {
 
   private RepoSpec createArchiveRepoSpec(
       ArchiveSourceJson sourceJson,
-      String moduleFileUrl,
       Checksum moduleFileChecksum,
       Optional<BazelRegistryJson> bazelRegistryJson,
       ModuleKey key)
@@ -611,18 +625,15 @@ public class IndexRegistry implements Registry {
         .setOverlay(overlay.buildOrThrow())
         .setRemoteModuleFile(
             new RemoteFile(
-                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
+                moduleFileChecksum.toSubresourceIntegrity(),
+                ImmutableList.of(constructModuleFileUrl(getUrl(), key))))
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
   }
 
   private RepoSpec createGitRepoSpec(
-      GitRepoSourceJson sourceJson,
-      String moduleFileUrl,
-      Checksum moduleFileChecksum,
-      ModuleKey key)
-      throws IOException {
+      GitRepoSourceJson sourceJson, Checksum moduleFileChecksum, ModuleKey key) throws IOException {
     if (sourceJson.remote == null) {
       throw new IOException(
           String.format("Missing remote in git_repository source for module %s", key));
@@ -676,7 +687,8 @@ public class IndexRegistry implements Registry {
         .setAddPrefix(sourceJson.addPrefix)
         .setRemoteModuleFile(
             new RemoteFile(
-                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
+                moduleFileChecksum.toSubresourceIntegrity(),
+                ImmutableList.of(constructModuleFileUrl(getUrl(), key))))
         .setRemotePatches(remotePatches.buildKeepingLast())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .build();
@@ -688,7 +700,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
-            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+            constructUrl(getFetchUrl(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
             eventHandler,
             downloadManager,

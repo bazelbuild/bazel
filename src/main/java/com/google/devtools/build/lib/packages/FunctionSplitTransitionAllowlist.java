@@ -22,6 +22,7 @@ public class FunctionSplitTransitionAllowlist {
   public static final String ATTRIBUTE_NAME = "$allowlist_function_transition";
   public static final String LABEL_STR = "//tools/allowlists/function_transition_allowlist";
   public static final Label LABEL = Label.parseCanonicalUnchecked(LABEL_STR);
+  public static final String ERROR_MESSAGE = "Non-allowlisted use of Starlark transition";
 
   private FunctionSplitTransitionAllowlist() {}
 }

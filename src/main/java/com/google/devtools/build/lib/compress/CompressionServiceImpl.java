@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.compress;
 import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdException;
-import com.github.luben.zstd.ZstdInputStream;
-import com.github.luben.zstd.ZstdOutputStream;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,12 +27,12 @@ public final class CompressionServiceImpl implements CompressionService {
 
   @Override
   public InputStream newZstdInputStream(InputStream inputStream) throws IOException {
-    return new ZstdInputStream(inputStream, RecyclingBufferPool.INSTANCE);
+    return new ZstdInputStreamNoFinalizer(inputStream, RecyclingBufferPool.INSTANCE);
   }
 
   @Override
   public OutputStream newZstdOutputStream(OutputStream outputStream) throws IOException {
-    return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
+    return new ZstdOutputStreamNoFinalizer(outputStream, RecyclingBufferPool.INSTANCE);
   }
 
   @Override

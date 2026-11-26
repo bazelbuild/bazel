@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -1391,7 +1392,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("Non-allowlisted use of Starlark transition");
+    assertContainsEvent(FunctionSplitTransitionAllowlist.ERROR_MESSAGE);
   }
 
   @Test

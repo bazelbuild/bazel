@@ -3,8 +3,8 @@ check_docs: 1
 tasks:
   rockylinux8:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
@@ -30,8 +30,8 @@ tasks:
       - test
   rockylinux8_arm64:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
@@ -52,8 +52,8 @@ tasks:
       - test
   fedora43:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
@@ -66,8 +66,8 @@ tasks:
       - test
   ubuntu2404:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
@@ -90,8 +90,8 @@ tasks:
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"
@@ -111,8 +111,8 @@ tasks:
       - test
   ubuntu2204:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
       - if [ -n "${UPDATE_BAZEL_LOCK_FILE:-}" ]; then bazel mod deps --lockfile_mode=update; fi
     build_flags:
       - "--config=ci-linux"

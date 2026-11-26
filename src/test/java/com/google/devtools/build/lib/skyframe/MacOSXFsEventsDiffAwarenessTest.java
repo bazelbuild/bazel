@@ -82,9 +82,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   @Before
   public void setUp() throws Exception {
     watchedPath = com.google.common.io.Files.createTempDir().getCanonicalFile().toPath();
-    underTest =
-        new MacOSXFsEventsDiffAwareness(
-            watchedPath, IgnoredSubdirectories.EMPTY, new FsEventsNativeDepsServiceImpl());
+    underTest = new MacOSXFsEventsDiffAwareness(watchedPath, IgnoredSubdirectories.EMPTY);
     LocalDiffAwareness.Options localDiffOptions =
         Options.getDefaults(LocalDiffAwareness.Options.class);
     localDiffOptions.setWatchFS(true);

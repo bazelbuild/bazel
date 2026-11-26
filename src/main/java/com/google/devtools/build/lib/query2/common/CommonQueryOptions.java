@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.query2.common;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -463,4 +465,34 @@ public abstract class CommonQueryOptions extends OptionsBase {
               + " printed to Bazel's standard output stream (stdout). In benchmarks, this is"
               + " generally faster than `bazel query &gt; file`.")
   public abstract String getOutputFile();
+
+  /** Converter for {@code --max_query_expression_depth} accepting -1 (unlimited) or >= 0. */
+  public static final class MaxQueryExpressionDepthConverter extends RangeConverter {
+    public MaxQueryExpressionDepthConverter() {
+      super(-1, Integer.MAX_VALUE);
+    }
+  }
+
+  @Option(
+      name = "max_query_expression_depth",
+      defaultValue = "-1",
+      converter = MaxQueryExpressionDepthConverter.class,
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Maximum allowed nesting depth of a query expression. A value of -1 (the default) means"
+              + " no limit. Unnested leaf tokens have depth 0; each enclosing parenthesized"
+              + " expression, function call, set(...) expression, let binding, or distinct"
+              + " binary-operator group adds 1 to the nesting depth.")
+  public abstract int getMaxQueryExpressionDepth();
+
+  public abstract void setMaxQueryExpressionDepth(int value);
+
+  /** Returns {@link ParserOptions} configured from these query options. */
+  public ParserOptions toParserOptions() {
+    int maxDepth = getMaxQueryExpressionDepth();
+    return maxDepth == -1
+        ? ParserOptions.DEFAULT
+        : ParserOptions.builder().setMaxQueryDepth(maxDepth).build();
+  }
 }

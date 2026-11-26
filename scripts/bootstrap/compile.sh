@@ -409,12 +409,15 @@ function run_bazel_jar() {
     fi
   done
 
+  # --enable-native-access avoids JDK 24+ restricted-method warnings (JEP 454 /
+  # JEP 472) for JNI and java.lang.foreign calls on plain system JDKs.
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       --add-opens java.base/java.lang=ALL-UNNAMED \
       --add-exports java.base/jdk.internal.misc=ALL-UNNAMED \
+      --enable-native-access=ALL-UNNAMED \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \

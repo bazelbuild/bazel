@@ -45,7 +45,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
@@ -142,10 +141,7 @@ public final class RepoDefinitionFunction implements SkyFunction {
 
     // Step 4: look for the repo from module extension evaluation results.
     Optional<ModuleExtensionId> extensionId =
-        bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
-            .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
-            .map(Entry::getKey)
-            .findFirst();
+        bazelDepGraphValue.getModuleExtensionForRepo(repositoryName);
 
     if (extensionId.isEmpty()) {
       return RepoDefinitionValue.NOT_FOUND;

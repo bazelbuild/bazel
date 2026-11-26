@@ -3,8 +3,8 @@ check_docs: 0
 tasks:
   rockylinux8:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -23,8 +23,8 @@ tasks:
       - test
   rockylinux8_arm64:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -43,8 +43,8 @@ tasks:
       - test
   fedora43:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -55,8 +55,8 @@ tasks:
   ubuntu2404:
     shards: 6
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -94,8 +94,8 @@ tasks:
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -112,8 +112,8 @@ tasks:
       - test
   ubuntu2204:
     shell_commands:
-      - rm -rf $HOME/bazeltest
-      - mkdir $HOME/bazeltest
+      - rm -rf $HOME/bazeltest/install_base*
+      - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:

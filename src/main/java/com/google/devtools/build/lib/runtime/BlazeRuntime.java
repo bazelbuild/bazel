@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.profiler.SystemNetworkStatsService;
 import com.google.devtools.build.lib.profiler.TraceProfilerService.Format;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -492,8 +491,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
                     : null,
                 workerProcessMetricsCollector,
-                env.getLocalResourceManager(),
-                getBlazeService(SystemNetworkStatsService.class));
+                env.getLocalResourceManager());
 
         localResourceUsageCollectors.addCollectors(
             /* collectWorkerDataInProfiler= */ commandOptions.getCollectWorkerDataInProfiler(),

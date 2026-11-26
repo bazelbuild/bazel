@@ -545,19 +545,6 @@ java_test(
 )
 
 java_test(
-    name = "StarlarkCcToolchainConfigureTest",
-    srcs = ["StarlarkCcToolchainConfigureTest.java"],
-    resources = ["@rules_cc//cc:srcs"],
-    deps = [
-        "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party/java/junit",
-    ],
-)
-
-java_test(
     name = "LibrariesToLinkCollectorTest",
     srcs = ["LibrariesToLinkCollectorTest.java"],
     deps = [

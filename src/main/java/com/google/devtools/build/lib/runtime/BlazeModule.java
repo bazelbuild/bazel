@@ -293,10 +293,13 @@ public abstract class BlazeModule implements OptionsSupplier {
    *
    * <p>Called once per build before analysis starts. At most one module may return a non-null
    * value; if multiple modules do, an {@link IllegalStateException} is thrown.
+   *
+   * @throws AbruptExitException if computing the salt encounters a fatal error
+   * @throws InterruptedException if interrupted while computing the salt
    */
   @Nullable
   public String getActionExecutionSalt(CommandEnvironment env, BuildRequest request)
-      throws AbruptExitException {
+      throws AbruptExitException, InterruptedException {
     return null;
   }
 
@@ -308,9 +311,11 @@ public abstract class BlazeModule implements OptionsSupplier {
    * @param env the command environment
    * @param request the build request
    * @param builder the builder to add action context providers and consumers to
+   * @throws AbruptExitException if there are fatal issues initializing the executor
+   * @throws InterruptedException if interrupted while initializing the executor
    */
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
-      throws AbruptExitException {}
+      throws AbruptExitException, InterruptedException {}
 
   /**
    * Registers any action contexts this module provides with the execution phase. They will be

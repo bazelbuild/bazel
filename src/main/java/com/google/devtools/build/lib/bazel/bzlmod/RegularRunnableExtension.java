@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -46,13 +46,10 @@ import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -227,45 +224,6 @@ final class RegularRunnableExtension implements RunnableExtension {
       Facts facts,
       RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {
-    // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
-    while (true) {
-      var state = env.getState(WorkerSkyKeyComputeState<RunModuleExtensionResult>::new);
-      try {
-        return state.startOrContinueWork(
-            env,
-            "module-extension-" + extensionId,
-            (workerEnv) ->
-                runInternal(
-                    workerEnv,
-                    usagesValue,
-                    starlarkSemantics,
-                    extensionId,
-                    mainRepositoryMapping,
-                    facts,
-                    requireRepoExtensionMetadataMode));
-      } catch (ExecutionException e) {
-        Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
-        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-        Throwables.throwIfUnchecked(e.getCause());
-        throw new IllegalStateException(
-            "unexpected exception type: " + e.getCause().getClass(), e.getCause());
-      } catch (CancellationException e) {
-        // This can only happen if the state object was invalidated due to memory pressure, in
-        // which case we can simply reattempt eval.
-      }
-    }
-  }
-
-  @Nullable
-  private RunModuleExtensionResult runInternal(
-      Environment env,
-      SingleExtensionUsagesValue usagesValue,
-      StarlarkSemantics starlarkSemantics,
-      ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping,
-      Facts facts,
-      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
-      throws InterruptedException, ExternalDepsException {
     env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
@@ -322,8 +280,10 @@ final class RegularRunnableExtension implements RunnableExtension {
       }
       moduleContext.markSuccessful();
       env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
+      var repoSpecs =
+          threadContext.createRepos(thread.getThreadLocal(Label.RepoMappingRecorder.class));
       return new RunModuleExtensionResult(
-          moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
+          moduleContext.getRecordedInputs(), repoSpecs, moduleExtensionMetadata);
     } catch (EvalException e) {
       if (!(e.getCause() instanceof ExternalDepsException)) {
         // ExternalDepsException events should already have been reported.
@@ -367,18 +327,25 @@ final class RegularRunnableExtension implements RunnableExtension {
             .getRelative(LabelConstants.MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION)
             .getRelative(usagesValue.getExtensionUniqueName());
     ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
+    @Nullable StarlarkBazelModule definingModule = null;
+    RepositoryName definingRepo = extensionId.bzlFileLabel().getRepository();
     ImmutableList<AbridgedModule> abridgedModules = usagesValue.getAbridgedModules();
     for (int i = 0; i < abridgedModules.size(); i++) {
       var abridgedModule = abridgedModules.get(i);
       var moduleKey = abridgedModule.getKey();
-      modules.add(
+      RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
+      StarlarkBazelModule module =
           StarlarkBazelModule.create(
               abridgedModule,
               extension,
-              usagesValue.getRepoMappings().get(moduleKey),
+              repoMapping,
               usagesValue.getExtensionUsages().get(moduleKey),
               staticRepoMappingRecorder,
-              i));
+              i);
+      modules.add(module);
+      if (repoMapping.contextRepo().equals(definingRepo)) {
+        definingModule = module;
+      }
     }
     ModuleExtensionUsage rootUsage = usagesValue.getExtensionUsages().get(ModuleKey.ROOT);
     boolean rootModuleHasNonDevDependency =
@@ -396,6 +363,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         repositoryRemoteExecutor,
         extensionId,
         StarlarkList.immutableCopyOf(modules),
+        definingModule,
         facts,
         rootModuleHasNonDevDependency,
         staticEnvVars,

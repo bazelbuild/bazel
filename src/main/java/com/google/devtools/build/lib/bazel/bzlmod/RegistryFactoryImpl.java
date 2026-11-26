@@ -30,9 +30,12 @@ import java.util.function.Supplier;
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
   private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
+  private final Path workspaceRoot;
 
-  public RegistryFactoryImpl(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
+  public RegistryFactoryImpl(
+      Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier, Path workspaceRoot) {
     this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
+    this.workspaceRoot = workspaceRoot;
   }
 
   @Override
@@ -44,7 +47,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
       Optional<Path> vendorDir,
       ImmutableSet<String> moduleMirrors)
       throws URISyntaxException {
-    URI uri = HttpUtils.parseUri(url);
+    URI uri = HttpUtils.parseUri(url.replace("%workspace%", workspaceRoot.getPathString()));
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
           url,
@@ -74,6 +77,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
       moduleMirrorUris.add(HttpUtils.parseUri(moduleMirror));
     }
     return new IndexRegistry(
+        url,
         uri,
         nonstrictRepoEnvSupplier.get(),
         knownFileHashes,

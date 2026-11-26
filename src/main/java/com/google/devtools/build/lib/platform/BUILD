@@ -15,9 +15,8 @@ java_library(
     name = "sleep_prevention_module",
     srcs = ["SleepPreventionModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/skymetal:skymetal_bridge",
         "//third_party/java/error_prone:annotations",
     ],
 )

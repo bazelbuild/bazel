@@ -21,10 +21,19 @@ import java.io.OutputStream;
 /** A {@link BlazeService} providing access to compression libraries. */
 public interface CompressionService extends BlazeService {
 
-  /** Returns an {@link InputStream} that decompresses the given {@link InputStream} using zstd. */
+  /**
+   * Returns an {@link InputStream} that decompresses the given {@link InputStream} using zstd.
+   *
+   * <p>Callers must close the returned stream to release native zstd resources.
+   */
   InputStream newZstdInputStream(InputStream inputStream) throws IOException;
 
-  /** Returns an {@link OutputStream} that compresses the given {@link OutputStream} using zstd. */
+  /**
+   * Returns an {@link OutputStream} that compresses the given {@link OutputStream} using zstd.
+   *
+   * <p>Callers must close the returned stream to flush the zstd frame and release native zstd
+   * resources.
+   */
   OutputStream newZstdOutputStream(OutputStream outputStream) throws IOException;
 
   /**

@@ -778,7 +778,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder = new RuleClass.Builder("", type, true, baseParent);
     }
 
-    builder.initializer(initializer, labelConverter);
+    if (initializer != null) {
+      builder.initializer(
+          initializer,
+          new LabelConverter(BazelModuleContext.ofInnermostBzlOrThrow(thread).packageContext()));
+    }
 
     builder.setDefaultExtendableAllowlist(
         ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
@@ -2078,7 +2082,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   static final AllowlistChecker FUNCTION_TRANSITION_ALLOWLIST_CHECKER =
       AllowlistChecker.builder()
           .setAllowlistAttr(FunctionSplitTransitionAllowlist.NAME)
-          .setErrorMessage("Non-allowlisted use of Starlark transition")
+          .setErrorMessage(FunctionSplitTransitionAllowlist.ERROR_MESSAGE)
           .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
           .build();
 

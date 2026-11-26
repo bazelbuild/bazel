@@ -23,7 +23,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -380,11 +379,7 @@ public final class FileArtifactValueTest {
 
     // Use the real file system as the semantics of moves are subtle and not necessarily fully
     // captured by the in-memory file system.
-    var realFs =
-        new UnixFileSystem(
-            DigestHashFunction.SHA256,
-            /* hashAttributeName= */ "",
-            new NativePosixFilesServiceImpl());
+    var realFs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
     var tempDirJvm = Files.createTempDirectory(null);
     tempDirJvm.toFile().deleteOnExit();
 
@@ -408,11 +403,7 @@ public final class FileArtifactValueTest {
 
     // Use the real file system as the semantics of hard links are subtle and not necessarily
     // fully captured by the in-memory file system.
-    var realFs =
-        new UnixFileSystem(
-            DigestHashFunction.SHA256,
-            /* hashAttributeName= */ "",
-            new NativePosixFilesServiceImpl());
+    var realFs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
     var tempDirJvm = Files.createTempDirectory(null);
     tempDirJvm.toFile().deleteOnExit();
 

@@ -83,7 +83,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       QueryRuntimeHelper queryRuntimeHelper) {
     QueryExpression expr;
     try (SilentCloseable closeable = Profiler.instance().profile("QueryExpression.parse")) {
-      expr = QueryExpression.parse(query, queryEnv);
+      expr = QueryExpression.parse(query, queryEnv, queryOptions.toParserOptions());
     } catch (QuerySyntaxException e) {
       String message =
           String.format(

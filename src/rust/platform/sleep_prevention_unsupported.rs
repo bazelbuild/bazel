@@ -1,4 +1,4 @@
-// Copyright 2022 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,20 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.profiler;
 
-import java.io.IOException;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+//! Stub sleep prevention for platforms without OS sleep-prevention support.
 
-/** Tests for {@link SystemNetworkStatsServiceImpl}. */
-@RunWith(JUnit4.class)
-public class SystemNetworkStatsServiceTest {
+use crate::SleepPreventionError;
 
-  @SuppressWarnings("CheckReturnValue")
-  @Test
-  public void getNetIoCounters_doesNotCrash() throws IOException {
-    new SystemNetworkStatsServiceImpl().getNetIoCounters();
-  }
+pub fn push_disable_sleep() -> Result<(), SleepPreventionError> {
+    Err(SleepPreventionError::Unsupported)
+}
+
+pub fn pop_disable_sleep() -> Result<(), SleepPreventionError> {
+    Err(SleepPreventionError::Unsupported)
 }

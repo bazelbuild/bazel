@@ -314,7 +314,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /* useGraphlessQuery= */ graphlessQuery,
               queryOptions.getLabelPrinterLegacy(
                   ruleContext.getAnalysisEnvironment().getStarlarkSemantics()));
-      QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
+      QueryExpression expr =
+          QueryExpression.parse(query, queryEnvironment, queryOptions.toParserOptions());
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
           graphlessQuery && !expr.isSomePathFunction()

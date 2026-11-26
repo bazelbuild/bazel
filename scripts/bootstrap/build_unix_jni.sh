@@ -49,6 +49,7 @@ darwin)
   SOURCES+=(src/main/native/darwin/*.cc)
   FLAGS+=(
     "-I${JAVA_HOME}/include/darwin"
+    "-Wl,-framework,CoreFoundation"
     "-Wl,-framework,CoreServices"
     "-Wl,-framework,IOKit"
   )

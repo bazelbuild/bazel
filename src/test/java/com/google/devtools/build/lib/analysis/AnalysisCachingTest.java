@@ -1563,7 +1563,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --platforms has changed, " + CACHE_DISCARD_WARNING);
+    assertContainsEvent(
+        String.format(
+            "Build option --platforms ('[%s]' -> '[%s]') has changed, %s",
+            Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL),
+            Label.parseCanonicalUnchecked(TestConstants.PIII_PLATFORM_LABEL),
+            CACHE_DISCARD_WARNING));
   }
 
   @Test
@@ -1582,7 +1587,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
+    assertContainsEvent(
+        "Build option --definitely_relevant ('old' -> 'new') has changed, "
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1609,7 +1616,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
+    assertContainsEvent(
+        "Build option --definitely_relevant ('old' -> 'new') has changed, "
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1630,7 +1639,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
+    assertContainsEvent(
+        "Build option --definitely_relevant ('old' -> 'new') has changed, "
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
@@ -1671,7 +1682,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
-        "Build options --also_relevant and --definitely_relevant have changed, "
+        "Build options --also_relevant ('old' -> 'new') and --definitely_relevant ('old' -> 'new')"
+            + " have changed, "
             + CACHE_DISCARD_WARNING);
   }
 
@@ -1700,7 +1712,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
-        "Build options --also_relevant, --definitely_relevant, and --host_relevant have changed, "
+        "Build options --also_relevant ('old' -> 'new'), --definitely_relevant ('old' -> 'new'),"
+            + " and --host_relevant ('old' -> 'new') have changed, "
             + CACHE_DISCARD_WARNING);
   }
 
@@ -1729,7 +1742,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
-        "Build options --also_relevant, --definitely_relevant, and 1 more have changed, "
+        "Build options --also_relevant ('old' -> 'new'), --definitely_relevant ('old' -> 'new'),"
+            + " and 1 more have changed, "
             + CACHE_DISCARD_WARNING);
   }
 
@@ -1759,7 +1773,96 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
-        "Build options --also_relevant and 2 more have changed, " + CACHE_DISCARD_WARNING);
+        "Build options --also_relevant ('old' -> 'new') and 2 more have changed, "
+            + CACHE_DISCARD_WARNING);
+  }
+
+  @Test
+  public void cacheClearMessageShowsUnsetValueOfChangedOption() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--max_config_changes_to_show=-1");
+    update("//test:top");
+    useConfiguration("--max_config_changes_to_show=-1", "--definitely_relevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent(
+        "Build option --definitely_relevant ('(unset)' -> 'new') has changed, "
+            + CACHE_DISCARD_WARNING);
+  }
+
+  @Test
+  public void cacheClearMessageTruncatesLongOptionValues() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--max_config_changes_to_show=-1", "--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--max_config_changes_to_show=-1", "--definitely_relevant=" + "x".repeat(101));
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent(
+        "Build option --definitely_relevant ('old' -> '"
+            + "x".repeat(100)
+            + "...') has changed, "
+            + CACHE_DISCARD_WARNING);
+  }
+
+  @Test
+  public void cacheClearMessageAfterStarlarkOptionChanges() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load(":build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--max_config_changes_to_show=-1");
+    update("//test:top");
+
+    useConfiguration("--max_config_changes_to_show=-1", "--//test_flags:my_flag=old");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent(
+        "Build option --//test_flags:my_flag (<default> -> 'old') has changed, "
+            + CACHE_DISCARD_WARNING);
+
+    useConfiguration("--max_config_changes_to_show=-1", "--//test_flags:my_flag=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent(
+        "Build option --//test_flags:my_flag ('old' -> 'new') has changed, "
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test

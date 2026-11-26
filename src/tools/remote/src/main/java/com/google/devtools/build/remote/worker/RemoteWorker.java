@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
@@ -124,8 +123,7 @@ public final class RemoteWorker {
     }
     return OS.getCurrent() == OS.WINDOWS
         ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
-        : new UnixFileSystem(
-            hashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
+        : new UnixFileSystem(hashFunction, /* hashAttributeName= */ "");
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */

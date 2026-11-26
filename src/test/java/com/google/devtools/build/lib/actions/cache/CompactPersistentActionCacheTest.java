@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -652,6 +653,46 @@ public class CompactPersistentActionCacheTest {
     entry = cache.get("key");
 
     assertThat(entry.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+  }
+
+  @Test
+  public void putAndGet_constantMetadata_savesRemoteFileMetadata() {
+    ConstantMetadataArtifact artifact =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata1 = createRemoteMetadata(artifact, "content1");
+    FileArtifactValue metadata2 = createRemoteMetadata(artifact, "content2");
+    var entry1 =
+        builder("key").addOutputFile(artifact, metadata1, /* saveFileMetadata= */ true).build();
+    var entry2 =
+        builder("key").addOutputFile(artifact, metadata2, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry1);
+
+    Entry cached = cache.get("key");
+
+    assertThat(cached.getOutputFile(artifact)).isEqualTo(metadata1);
+    assertThat(cached.getDigest()).isEqualTo(entry2.getDigest());
+  }
+
+  @Test
+  public void putAndGet_constantMetadata_savesProxyOutputs() throws Exception {
+    ConstantMetadataArtifact artifact =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata1 =
+        new ProxyFileArtifactValue(createLocalMetadata(artifact, "content1"), artifact.getPath());
+    FileArtifactValue metadata2 =
+        new ProxyFileArtifactValue(createLocalMetadata(artifact, "content2"), artifact.getPath());
+    var entry1 =
+        builder("key").addOutputFile(artifact, metadata1, /* saveFileMetadata= */ true).build();
+    var entry2 =
+        builder("key").addOutputFile(artifact, metadata2, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry1);
+
+    Entry cached = cache.get("key");
+
+    assertThat(cached.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+    assertThat(cached.getDigest()).isEqualTo(entry2.getDigest());
   }
 
   @Test
