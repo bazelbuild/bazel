@@ -60,6 +60,13 @@ use_repo(cc_compatibility_proxy, "cc_compatibility_proxy")
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
 rules_rust.patch(
     patches = [
+        # rules_rust advertises `supports-path-mapping` on Rust linking actions
+        # and relies on https://github.com/bazelbuild/bazel/pull/30789 for
+        # `cc_common` path mapping; without it, `@llvm`'s generated runtime
+        # linker paths stay unstripped under `--experimental_output_paths=strip`.
+        # TODO: Remove once https://github.com/bazelbuild/bazel/pull/30789 is
+        # merged and included in `.bazelversion`.
+        "//third_party:rules_rs_0.2.4_path_mapping.patch",
         # Compiles Windows Rust proc-macros for MSVC (matching MSVC-hosted
         # rustc.exe) while Windows host/exec builds use MinGW/gnullvm.
         # TODO: Remove once Windows host builds use MSVC ABI

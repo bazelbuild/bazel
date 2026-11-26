@@ -412,6 +412,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
         name = platform_name + "_platform",
         constraint_values = [
             "//:mount_capable",
+            "@llvm//constraints/libc:gnu.2.17",
         ],
         exec_properties = {
             "dockerNetwork": "standard",
