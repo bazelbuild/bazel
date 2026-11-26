@@ -52,7 +52,10 @@ public interface BuildConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "A dictionary representing the static local shell environment. It maps variables "
-              + "to their values (strings).")
+              + "to their values (strings). This environment is computed for the OS Bazel runs on, "
+              + "so with <code>--incompatible_strict_action_env</code> it may differ from the "
+              + "environment that <code>use_default_shell_env = True</code> gives an action, "
+              + "which is computed for the OS of the action's execution platform.")
   @Deprecated // Use getActionEnvironment instead.
   ImmutableMap<String, String> getLocalShellEnvironment();
 

@@ -572,7 +572,7 @@ public class BuildConfigurationValue
    * <p>Prefer {@link #getActionEnvironment(PlatformInfo)} when the action's execution platform is
    * known.
    */
-  public ActionEnvironment getActionEnvironment() {
+  public ActionEnvironment getHostActionEnvironment() {
     return actionEnv;
   }
 
