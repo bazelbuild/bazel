@@ -103,4 +103,23 @@ function test_generated_log_trims_only_trailing_newlines() {
           "$TEST_TMPDIR/test.xml" | sed '$d')"
 }
 
+function test_without_sed_on_path() {
+  local text
+  text="$(printf 'Simple ascii \346\274\242\r')"
+  assert_equals "$(encode "$text")" \
+      "$(printf '%s\n' "$text" | PATH=/does-not-exist "$BASH" "$GENERATE_XML" - - - -)"
+  assert_equals 'x?y' \
+      "$(printf 'x\0y\n' | PATH=/does-not-exist "$BASH" "$GENERATE_XML" - - - -)"
+}
+
+function test_generate_xml_without_utilities_on_path() {
+  printf '\nstart\n\nend]]>\n\n' >"$TEST_TMPDIR/test.log"
+  TEST_BINARY="some/test" PATH=/does-not-exist "$BASH" "$GENERATE_XML" \
+      "$TEST_TMPDIR/test.log" "$TEST_TMPDIR/test.xml" 1 0
+  assert_equals \
+      "$(printf '<![CDATA[\nstart\n\nend]]>]]<![CDATA[>]]>')" \
+      "$(sed -n '/^<!\[CDATA\[/,/^      <\/system-out>/p' \
+          "$TEST_TMPDIR/test.xml" | sed '$d')"
+}
+
 run_suite "generate-xml.sh tests"

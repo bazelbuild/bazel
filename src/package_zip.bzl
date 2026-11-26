@@ -14,7 +14,11 @@
 
 """Hermetic Starlark rule for building Bazel package.zip archives."""
 
+load("@rules_java//java:defs.bzl", "java_common")
+
 def _package_zip_impl(ctx):
+    package_zipper = ctx.file._package_zipper
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
     args = ctx.actions.args()
     if ctx.attr.dev_build:
         args.add("--fast")
@@ -24,10 +28,11 @@ def _package_zip_impl(ctx):
     args.add_all(ctx.files.srcs)
 
     ctx.actions.run(
-        executable = ctx.executable._package_zipper,
-        arguments = [args],
-        inputs = [ctx.file.server_jar, ctx.file.install_base_key] + ctx.files.srcs,
+        executable = java_runtime.java_executable_exec_path,
+        arguments = ["-jar", package_zipper.path, args],
+        inputs = [package_zipper, ctx.file.server_jar, ctx.file.install_base_key] + ctx.files.srcs,
         outputs = [ctx.outputs.out],
+        tools = java_runtime.files,
         mnemonic = "PackageZip",
         progress_message = "Building %{output}",
     )
@@ -44,9 +49,14 @@ package_zip = rule(
             doc = "If True, use fast compression (level 1) for developer builds.",
         ),
         "_package_zipper": attr.label(
-            default = "//src/java_tools/singlejar/java/com/google/devtools/build/zip:package_zipper",
-            executable = True,
+            default = "//src/java_tools/singlejar/java/com/google/devtools/build/zip:package_zipper_deploy.jar",
+            allow_single_file = True,
             cfg = "exec",
+        ),
+        "_java_runtime": attr.label(
+            cfg = "exec",
+            default = "@bazel_tools//tools/jdk:current_java_runtime",
+            providers = [java_common.JavaRuntimeInfo],
         ),
     },
 )

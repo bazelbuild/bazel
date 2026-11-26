@@ -15,6 +15,7 @@ module(
 
 bazel_dep(name = "abseil-cpp", version = "20250814.1")
 bazel_dep(name = "bazel_features", version = "1.56.0")
+bazel_dep(name = "bazel_lib", version = "3.2.2")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "blake3", version = "1.8.2.bcr.1")
 bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
@@ -99,7 +100,12 @@ bazel_dep(name = "rules_apple", version = "4.3.1", repo_name = None)
 bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
 bazel_dep(name = "onetbb", version = "2022.2.0", repo_name = None)
 bazel_dep(name = "protoc-gen-validate", version = "1.3.0", repo_name = None)
-bazel_dep(name = "bazel_lib", version = "3.1.0", repo_name = None)
+
+single_version_override(
+    module_name = "grpc-java",
+    patch_strip = 1,
+    patches = ["//third_party:grpc-java.patch"],
+)
 
 single_version_override(
     module_name = "grpc",
@@ -114,6 +120,7 @@ single_version_override(
         # TODO: Remove once grpc is updated to a version that includes
         # https://github.com/grpc/grpc/pull/43484.
         "//third_party:grpc-windows-env-stdlib.patch",
+        "//third_party:grpc_1.76.0.bcr.1_hermetic_plugin.patch",
     ],
     version = "1.76.0.bcr.1",
 )
@@ -142,6 +149,13 @@ single_version_override(
 )
 
 # bazel_dep overrides
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java_9.9.0_hermetic_jni.patch"],
+    version = "9.9.0",
+)
+
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
