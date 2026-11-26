@@ -89,7 +89,7 @@ public final class CommandServerTest {
     String name = InProcessServerBuilder.generateName();
 
     GrpcCommandServer grpcCommandServer =
-        new GrpcCommandServerImpl() {
+        new GrpcCommandServer() {
           @Override
           protected Server bind(int port) throws IOException {
             return InProcessServerBuilder.forName(name)

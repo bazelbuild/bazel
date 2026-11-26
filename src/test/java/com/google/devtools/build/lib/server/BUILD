@@ -23,7 +23,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server:command_manager",
         "//src/main/java/com/google/devtools/build/lib/server:command_server",
         "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server",
-        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_impl",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task_manager",
         "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",

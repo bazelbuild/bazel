@@ -24,7 +24,6 @@ public final class BazelServices {
       ImmutableList.of(
           new com.google.devtools.build.lib.compress.CompressionServiceImpl(),
           new com.google.devtools.build.lib.profiler.TraceProfilerServiceImpl(),
-          new com.google.devtools.build.lib.server.GrpcCommandServerServiceImpl(),
           new com.google.devtools.build.lib.starlarkprofiler.CpuProfilerServiceImpl());
 
   private BazelServices() {}

@@ -282,7 +282,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service_impl",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_service_impl",
         "//third_party/java/guava:collect",
     ],

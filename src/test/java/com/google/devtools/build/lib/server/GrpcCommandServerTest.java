@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
-import com.google.devtools.build.lib.server.GrpcCommandServerImpl.BlockingStreamObserver;
+import com.google.devtools.build.lib.server.GrpcCommandServer.BlockingStreamObserver;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -38,9 +38,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 
-/** Unit tests for {@link GrpcCommandServerImpl}. */
+/** Unit tests for {@link GrpcCommandServer}. */
 @RunWith(JUnit4.class)
-public final class GrpcCommandServerImplTest {
+public final class GrpcCommandServerTest {
   @Test
   public void testBlockingStreamObserver() throws Exception {
     // This test attempts to verify that BlockingStreamObserver successfully blocks after some
@@ -63,9 +63,8 @@ public final class GrpcCommandServerImplTest {
           public void run(RunRequest request, StreamObserver<RunResponse> observer) {
             ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
                 (ServerCallStreamObserver<RunResponse>) observer;
-            GrpcCommandServerImpl.BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new GrpcCommandServerImpl.BlockingStreamObserver<>(
-                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+            BlockingStreamObserver<RunResponse> blockingStreamObserver =
+                new BlockingStreamObserver<>(serverCallStreamObserver);
             Thread t =
                 new Thread(
                     () -> {
@@ -75,7 +74,7 @@ public final class GrpcCommandServerImplTest {
                                 .setStandardOutput(ByteString.copyFrom(new byte[1024]))
                                 .build();
                         for (int i = 0; i < 100; i++) {
-                          blockingStreamObserver.onNext(response.toByteArray());
+                          blockingStreamObserver.onNext(response);
                           sentCount.incrementAndGet();
                         }
                         blockingStreamObserver.onCompleted();
@@ -156,9 +155,8 @@ public final class GrpcCommandServerImplTest {
           public void run(RunRequest request, StreamObserver<RunResponse> observer) {
             ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
                 (ServerCallStreamObserver<RunResponse>) observer;
-            GrpcCommandServerImpl.BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new GrpcCommandServerImpl.BlockingStreamObserver<>(
-                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+            BlockingStreamObserver<RunResponse> blockingStreamObserver =
+                new BlockingStreamObserver<>(serverCallStreamObserver);
             Thread t =
                 new Thread(
                     () -> {
@@ -168,7 +166,7 @@ public final class GrpcCommandServerImplTest {
                                 .setStandardOutput(ByteString.copyFrom(new byte[1024]))
                                 .build();
                         for (int i = 0; i < 100; i++) {
-                          blockingStreamObserver.onNext(response.toByteArray());
+                          blockingStreamObserver.onNext(response);
                           sentCount.incrementAndGet();
                         }
                         // FlowControl should have interrupted the current thread after learning of
@@ -245,8 +243,7 @@ public final class GrpcCommandServerImplTest {
             ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
                 (ServerCallStreamObserver<RunResponse>) observer;
             BlockingStreamObserver<RunResponse> blockingStreamObserver =
-                new BlockingStreamObserver<>(
-                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+                new BlockingStreamObserver<>(serverCallStreamObserver);
             Thread t =
                 new Thread(
                     () -> {
@@ -261,7 +258,7 @@ public final class GrpcCommandServerImplTest {
                         // isReady() changes.
                         int sent = 0;
                         while (serverCallStreamObserver.isReady()) {
-                          blockingStreamObserver.onNext(response.toByteArray());
+                          blockingStreamObserver.onNext(response);
                           sent++;
                         }
                         sentCount.set(sent);
@@ -269,7 +266,7 @@ public final class GrpcCommandServerImplTest {
                         // not hang, but complete eventually (they may block on flow control).
                         Thread.currentThread().interrupt();
                         for (int i = 0; i < 10; i++) {
-                          blockingStreamObserver.onNext(response.toByteArray());
+                          blockingStreamObserver.onNext(response);
                           sentCount.incrementAndGet();
                         }
                         blockingStreamObserver.onCompleted();
@@ -339,10 +336,10 @@ public final class GrpcCommandServerImplTest {
     when(observer.isReady()).thenReturn(true);
     ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
     BlockingStreamObserver<RunResponse> blockingStreamObserver =
-        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+        new BlockingStreamObserver<>(observer);
     verify(observer).setOnCancelHandler(onCancelHandler.capture());
 
-    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    RunResponse response = RunResponse.getDefaultInstance();
     blockingStreamObserver.onNext(response); // the call this thread gets remembered by
     when(observer.isCancelled()).thenReturn(true);
     onCancelHandler.getValue().run();
@@ -361,9 +358,9 @@ public final class GrpcCommandServerImplTest {
     when(observer.isReady()).thenReturn(true);
     when(observer.isCancelled()).thenReturn(true);
     BlockingStreamObserver<RunResponse> blockingStreamObserver =
-        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+        new BlockingStreamObserver<>(observer);
 
-    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    RunResponse response = RunResponse.getDefaultInstance();
     blockingStreamObserver.onNext(response);
     assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
     blockingStreamObserver.onNext(response);
@@ -381,9 +378,9 @@ public final class GrpcCommandServerImplTest {
     when(observer.isReady()).thenReturn(false);
     when(observer.isCancelled()).thenReturn(false, true);
     BlockingStreamObserver<RunResponse> blockingStreamObserver =
-        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+        new BlockingStreamObserver<>(observer);
 
-    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    RunResponse response = RunResponse.getDefaultInstance();
     Thread.currentThread().interrupt(); // an interrupt unrelated to the client leaving
     blockingStreamObserver.onNext(response);
     assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
@@ -401,10 +398,10 @@ public final class GrpcCommandServerImplTest {
     when(observer.isReady()).thenReturn(true);
     ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
     BlockingStreamObserver<RunResponse> blockingStreamObserver =
-        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+        new BlockingStreamObserver<>(observer);
     verify(observer).setOnCancelHandler(onCancelHandler.capture());
 
-    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    RunResponse response = RunResponse.getDefaultInstance();
     blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
     blockingStreamObserver.onCompleted();
     when(observer.isCancelled()).thenReturn(true);
@@ -421,9 +418,9 @@ public final class GrpcCommandServerImplTest {
     ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
     when(observer.isReady()).thenReturn(true);
     BlockingStreamObserver<RunResponse> blockingStreamObserver =
-        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+        new BlockingStreamObserver<>(observer);
 
-    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    RunResponse response = RunResponse.getDefaultInstance();
     blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
     blockingStreamObserver.onCompleted();
     when(observer.isCancelled()).thenReturn(true);

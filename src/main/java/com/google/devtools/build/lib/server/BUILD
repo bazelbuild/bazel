@@ -74,8 +74,8 @@ java_library(
 )
 
 java_library(
-    name = "grpc_command_server_impl",
-    srcs = ["GrpcCommandServerImpl.java"],
+    name = "grpc_command_server",
+    srcs = ["GrpcCommandServer.java"],
     runtime_deps = select({
         # Makes gRPC use the epoll transport on Linux.
         "@platforms//os:linux": [
@@ -84,7 +84,6 @@ java_library(
         "//conditions:default": [],
     }),
     deps = [
-        ":grpc_command_server",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
@@ -97,32 +96,6 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
-        "//third_party/java/protobuf",
-        "//third_party/java/protobuf:protobuf_lite",
-    ],
-)
-
-java_library(
-    name = "grpc_command_server",
-    srcs = ["GrpcCommandServer.java"],
-)
-
-java_library(
-    name = "grpc_command_server_service",
-    srcs = ["GrpcCommandServerService.java"],
-    deps = [
-        ":grpc_command_server",
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-    ],
-)
-
-java_library(
-    name = "grpc_command_server_service_impl",
-    srcs = ["GrpcCommandServerServiceImpl.java"],
-    deps = [
-        ":grpc_command_server",
-        ":grpc_command_server_impl",
-        ":grpc_command_server_service",
     ],
 )
 
@@ -159,7 +132,6 @@ java_library(
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
-        "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
     ],
 )
