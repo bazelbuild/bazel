@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -117,17 +118,18 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *
      * @param inclusion the inclusion to locate
      * @param onlyCheckGenerated if true, only search for generated output files
-     * @param maxIndex maximum index in {@code paths} to search (inclusive, so any framework paths
-     *     preceding {@code paths.get(maxIndex)} are also checked)
+     * @param stopBeforePathIndex exclusive upper bound on {@code paths} indices to check (any
+     *     framework paths preceding {@code paths.get(stopBeforePathIndex)} are still checked when
+     *     {@code stopBeforePathIndex < paths.size()})
      * @return a tuple of the found file, the position of the respective include path entry on the
-     *     search path (or null if no matching file was found), and whether the scan touched illegal
-     *     output files
+     *     search path (or null if no matching file was found), and any illegal output paths viewed
+     *     during the scan
      */
     LocateOnPathResult locateOnPaths(
         InclusionWithContext inclusion,
         IncludeScanningHeaderData headerData,
         boolean onlyCheckGenerated,
-        int maxIndex) {
+        int stopBeforePathIndex) {
       PathFragment name = inclusion.getInclusion().pathFragment;
       boolean checkUplevel = name.containsUplevelReferences();
 
@@ -151,23 +153,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
           isQuote ? isOutputOrPrefixQuotePath : isOutputOrPrefixIncludePath;
       int alsoSearchFrameworkAtIndex = isQuote ? quoteIncludePathsFrameworkIndex : 0;
       alsoSearchFrameworkAtIndex = Math.max(alsoSearchFrameworkAtIndex, searchStart);
-      boolean viewedIllegalOutput = false;
-      int searchEnd = Math.min(maxIndex, paths.size() - 1);
-      for (int i = searchStart; i <= searchEnd; ++i) {
+      @Nullable Object illegalOutputPaths = null;
+      int searchEnd = Math.min(stopBeforePathIndex, paths.size());
+      for (int i = searchStart; i < searchEnd; ++i) {
         if (i == alsoSearchFrameworkAtIndex && searchFrameworkIncludePaths) {
-          String frameworkName = name.subFragment(0, 1).getPathString() + ".framework";
-          PathFragment relHeaderPath = name.subFragment(1);
           LocateOnPathResult result =
-              locateOnFrameworkPaths(
-                  frameworkName,
-                  relHeaderPath,
-                  headerData,
-                  onlyCheckGenerated,
-                  viewedIllegalOutput);
+              locateOnFrameworkPaths(name, headerData, onlyCheckGenerated, illegalOutputPaths);
           if (result.path != null) {
             return result;
           }
-          viewedIllegalOutput = viewedIllegalOutput || result.viewedIllegalOutputFile;
+          illegalOutputPaths = result.illegalOutputPaths;
         }
         // NOMUTANTS -- Fast path to avoid getRelative; !isOutputFile below skips the same paths.
         if (onlyCheckGenerated && !checkUplevel && !outputOrPrefixFlags[i]) {
@@ -193,51 +188,74 @@ public class LegacyIncludeScanner implements IncludeScanner {
             continue;
           }
         }
-        if (onlyCheckGenerated && !isOutputFile(fileFragment)) {
+        boolean isOutputDirectory = isOutputFile(fileFragment);
+        if (onlyCheckGenerated && !isOutputDirectory) {
           continue;
         }
-        viewedIllegalOutput = viewedIllegalOutput || isIllegalOutputFile(fileFragment, headerData);
-        boolean isOutputDirectory = fileFragment.startsWith(outputPathFragment);
-        if (!isFile(fileFragment, name, !isOutputDirectory, headerData)) {
+        if (isOutputDirectory && !headerData.isDeclaredHeader(fileFragment)) {
+          illegalOutputPaths =
+              recordIllegalOutputIfRecording(onlyCheckGenerated, illegalOutputPaths, fileFragment);
           continue;
         }
-        Artifact artifact;
-        if (isOutputDirectory) {
-          // May be a normal output file or an inc_library header.
-          artifact = headerData.getHeaderArtifact(fileFragment);
-          if (artifact == null) {
-            // This happens if an included file exists in a cc_inc_library's output directory,
-            // but is not an output of the cc_inc_library. This can happen if, for instance, the
-            // definition of the cc_inc_library is changed to output different files, but the
-            // source file's includes don't change.
-            // Often, such an include is conditional, and so failing to find it here will not
-            // lead to problems. If this include is actually needed for compilation, then we will
-            // emit a somewhat unhelpful error message of a missing file, rather than the more
-            // helpful one of an illegal include, but it's hard to emit the illegal include
-            // message consistently, and this is a rare occurrence in any case.
-            return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+        Artifact artifact =
+            isOutputDirectory
+                ? headerData.getHeaderArtifact(fileFragment)
+                : resolveSourceArtifact(fileFragment, name, headerData);
+        if (artifact == null) {
+          if (isOutputDirectory) {
+            // Declared output exec path with no artifact (e.g., missing inc_library output).
+            return LocateOnPathResult.createNotFound(illegalOutputPaths);
           }
-        } else if (!fileFragment.isAbsolute()) {
-          artifact = artifactFactory.resolveSourceArtifact(fileFragment, RepositoryName.MAIN);
-          if (artifact == null) {
-            // There was a real file, but we couldn't resolve it, probably because it belonged to
-            // a package that wasn't actually loaded this build, so user cannot refer to files in
-            // that package.
-            continue;
-          }
-        } else {
-          // This file is given with an absolute path. We will error out after transitive scanning
-          // of the top-level source is finished unless this corresponds to a built-in include
-          // directory, and will ignore this artifact in any case, but track it here so that its
-          // includes can be processed.
-          artifact = artifactFactory.getSourceArtifact(fileFragment, absoluteRoot);
+          continue;
         }
         // +1 to account for the virtual entry for relative includes.
-        return LocateOnPathResult.create(artifact, i + 1, viewedIllegalOutput);
+        return LocateOnPathResult.create(artifact, i + 1, illegalOutputPaths);
+      }
+      // Framework paths at alsoSearchFrameworkAtIndex are searched immediately before
+      // paths.get(alsoSearchFrameworkAtIndex), so a bounded override scan stopping before that
+      // path index must still check framework paths.
+      if (searchEnd == alsoSearchFrameworkAtIndex
+          && searchEnd < paths.size()
+          && searchFrameworkIncludePaths) {
+        LocateOnPathResult result =
+            locateOnFrameworkPaths(name, headerData, onlyCheckGenerated, illegalOutputPaths);
+        if (result.path != null) {
+          return result;
+        }
+        illegalOutputPaths = result.illegalOutputPaths;
       }
 
       // Not found.
-      return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+      return LocateOnPathResult.createNotFound(illegalOutputPaths);
+    }
+
+    @Nullable
+    private Artifact resolveSourceArtifact(
+        PathFragment fileFragment, PathFragment name, IncludeScanningHeaderData headerData) {
+      if (!isFile(fileFragment, name, /* isSource= */ true, headerData)) {
+        return null;
+      }
+      if (!fileFragment.isAbsolute()) {
+        // There was a real file, or we couldn't resolve it because it belonged to a package that
+        // wasn't actually loaded this build, so user cannot refer to files in that package.
+        return artifactFactory.resolveSourceArtifact(fileFragment, RepositoryName.MAIN);
+      }
+      // This file is given with an absolute path. We will error out after transitive scanning
+      // of the top-level source is finished unless this corresponds to a built-in include
+      // directory, and will ignore this artifact in any case, but track it here so that its
+      // includes can be processed.
+      return artifactFactory.getSourceArtifact(fileFragment, absoluteRoot);
+    }
+
+    private LocateOnPathResult locateOnFrameworkPaths(
+        PathFragment name,
+        IncludeScanningHeaderData headerData,
+        boolean onlyCheckGenerated,
+        @Nullable Object illegalOutputPaths) {
+      String frameworkName = name.subFragment(0, 1).getPathString() + ".framework";
+      PathFragment relHeaderPath = name.subFragment(1);
+      return locateOnFrameworkPaths(
+          frameworkName, relHeaderPath, headerData, onlyCheckGenerated, illegalOutputPaths);
     }
 
     /**
@@ -246,16 +264,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
      * @param frameworkName the name of the framework, including the ".framework" suffix
      * @param relHeaderPath the path of the framework header, relative to the framework
      * @param onlyCheckGenerated if true, only search for generated output files
-     * @param viewedIllegalOutput whether the scanner has viewed an illegal output file.
-     * @return a tuple of the found file, the context path position of the input inclusion, and
-     *     whether the scan touched illegal output files
+     * @param illegalOutputPaths tracked illegal output exec paths viewed so far
+     * @return a tuple of the found file, the context path position of the input inclusion, and any
+     *     illegal output paths viewed during the scan
      */
     private LocateOnPathResult locateOnFrameworkPaths(
         String frameworkName,
         PathFragment relHeaderPath,
         IncludeScanningHeaderData headerData,
         boolean onlyCheckGenerated,
-        boolean viewedIllegalOutput) {
+        @Nullable Object illegalOutputPaths) {
       for (int i = 0; i < frameworkIncludePaths.size(); ++i) {
         PathFragment includePath = frameworkIncludePaths.get(i);
 
@@ -277,66 +295,91 @@ public class LegacyIncludeScanner implements IncludeScanner {
           continue;
         }
 
-        // Look for header in path/to/foo.framework/Headers/
-        PathFragment foundHeaderPath;
+        // Look for header in path/to/foo.framework/Headers/, then PrivateHeaders/.
         PathFragment fullHeaderPath =
             fullFrameworkPath.getRelative("Headers").getRelative(relHeaderPath);
-
-        viewedIllegalOutput =
-            viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
-        if (isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)) {
-          foundHeaderPath = fullHeaderPath;
-        } else {
-          // Look for header in path/to/foo.framework/PrivateHeaders/
+        illegalOutputPaths =
+            recordIllegalOutputIfIllegal(
+                fullHeaderPath, headerData, onlyCheckGenerated, illegalOutputPaths);
+        PathFragment foundHeaderPath =
+            isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)
+                ? fullHeaderPath
+                : null;
+        if (foundHeaderPath == null) {
           fullHeaderPath =
               fullFrameworkPath.getRelative("PrivateHeaders").getRelative(relHeaderPath);
-          viewedIllegalOutput =
-              viewedIllegalOutput || isIllegalOutputFile(fullHeaderPath, headerData);
-          if (isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)) {
-            foundHeaderPath = fullHeaderPath;
-          } else {
-            continue;
-          }
+          illegalOutputPaths =
+              recordIllegalOutputIfIllegal(
+                  fullHeaderPath, headerData, onlyCheckGenerated, illegalOutputPaths);
+          foundHeaderPath =
+              isFile(fullHeaderPath, relHeaderPath, !isOutputDirectory, headerData)
+                  ? fullHeaderPath
+                  : null;
+        }
+        if (foundHeaderPath == null) {
+          continue;
         }
 
-        Artifact artifact;
-        if (isOutputDirectory) {
-          artifact = headerData.getHeaderArtifact(foundHeaderPath);
-          if (artifact == null) {
-            // This happens if an included file exists in a framework directory but is not but is
-            // not an output of the framework rule.
-            // Such an include may be conditional, and so failing to find it here will not lead to
-            // problems. If this include is actually needed for compilation, then we will emit a
-            // somewhat unhelpful error message of a missing file, rather than the more helpful one
-            // of an illegal include, but it's hard to emit the illegal include message
-            // consistently, and this is a rare occurrence in any case.
-
-            // Note that the corresponding case for non-framework paths aborts the search here, but
-            // for framdwork paths, we keep going like in other cases where we can't find a header
-            // we have access to.
-            continue;
-          }
-        } else if (!foundHeaderPath.isAbsolute()) {
-          artifact = artifactFactory.resolveSourceArtifact(foundHeaderPath, RepositoryName.MAIN);
-          if (artifact == null) {
-            // There was a real file, but we couldn't resolve it, probably because it belonged to
-            // a package that wasn't actually loaded this build, so user cannot refer to files in
-            // that package.
-            continue;
-          }
-        } else {
-          // This file is given with an absolute path. We will error out after transitive scanning
-          // of the top-level source is finished unless this corresponds to a built-in include
-          // directory, and will ignore this artifact in any case, but track it here so that its
-          // includes can be processed.
-          artifact = artifactFactory.getSourceArtifact(foundHeaderPath, absoluteRoot);
+        Artifact artifact =
+            resolveFrameworkArtifact(foundHeaderPath, isOutputDirectory, headerData);
+        if (artifact == null) {
+          continue;
         }
         // Reset contextPathPos to 0 so that include_next in a framework header searches the include
         // paths from the beginning.
-        return LocateOnPathResult.create(artifact, 0, viewedIllegalOutput);
+        return LocateOnPathResult.create(artifact, 0, illegalOutputPaths);
       }
-      // Not found.
-      return LocateOnPathResult.createNotFound(viewedIllegalOutput);
+      // Return unfinalized tracking state so locateOnPaths can continue appending in O(1).
+      return LocateOnPathResult.createNotFoundUnfinalized(illegalOutputPaths);
+    }
+
+    @Nullable
+    private Artifact resolveFrameworkArtifact(
+        PathFragment foundHeaderPath,
+        boolean isOutputDirectory,
+        IncludeScanningHeaderData headerData) {
+      if (isOutputDirectory) {
+        // This returns null if an included file exists in a framework directory but is not an
+        // output of the framework rule. Such an include may be conditional, and so failing to
+        // find it here will not lead to problems. Note that the corresponding case for
+        // non-framework paths aborts the search here, whereas framework paths keep going.
+        return headerData.getHeaderArtifact(foundHeaderPath);
+      }
+      if (!foundHeaderPath.isAbsolute()) {
+        // Null means there was a real file in a package that wasn't loaded this build, so user
+        // cannot refer to files in that package.
+        return artifactFactory.resolveSourceArtifact(foundHeaderPath, RepositoryName.MAIN);
+      }
+      // This file is given with an absolute path. We will error out after transitive scanning
+      // of the top-level source is finished unless this corresponds to a built-in include
+      // directory, and will ignore this artifact in any case, but track it here so that its
+      // includes can be processed.
+      return artifactFactory.getSourceArtifact(foundHeaderPath, absoluteRoot);
+    }
+
+    @Nullable
+    private Object recordIllegalOutputIfIllegal(
+        PathFragment path,
+        IncludeScanningHeaderData headerData,
+        boolean onlyCheckGenerated,
+        @Nullable Object illegalOutputPaths) {
+      // NOMUTANTS -- Fast path; override scans (onlyCheckGenerated=true) are never cached.
+      if (onlyCheckGenerated) {
+        return illegalOutputPaths;
+      }
+      return isIllegalOutputFile(path, headerData)
+          ? LocateOnPathResult.recordIllegalOutputPath(illegalOutputPaths, path)
+          : illegalOutputPaths;
+    }
+
+    @Nullable
+    private Object recordIllegalOutputIfRecording(
+        boolean onlyCheckGenerated, @Nullable Object illegalOutputPaths, PathFragment path) {
+      // NOMUTANTS -- Fast path; override scans (onlyCheckGenerated=true) are never cached.
+      if (onlyCheckGenerated) {
+        return illegalOutputPaths;
+      }
+      return LocateOnPathResult.recordIllegalOutputPath(illegalOutputPaths, path);
     }
 
     /**
@@ -358,7 +401,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                 inclusion,
                 headerData,
                 /* onlyCheckGenerated= */ false,
-                /* maxIndex= */ Integer.MAX_VALUE);
+                /* stopBeforePathIndex= */ Integer.MAX_VALUE);
         cache.put(inclusion, fresh);
         return fresh;
       }
@@ -375,7 +418,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
               inclusion,
               headerData,
               /* onlyCheckGenerated= */ false,
-              /* maxIndex= */ Integer.MAX_VALUE);
+              /* stopBeforePathIndex= */ Integer.MAX_VALUE);
       if (shouldUpdateCacheOnRescan(rescan)) {
         cache.put(inclusion, rescan);
       }
@@ -388,24 +431,19 @@ public class LegacyIncludeScanner implements IncludeScanner {
         IncludeScanningHeaderData headerData,
         LocateOnPathResult cached) {
       // If the previous computation for this inclusion had a different pathToDeclaredHeader
-      // map, the cached result is reusable if either no illegal output file was viewed earlier on
-      // the search path, or this action has no generated header matching the inclusion's basename
-      // (so none of those earlier output paths can match in headerData), and either no file was
-      // found, the found file is a source artifact, or the found output artifact matches the
-      // current action's declared header.
+      // map, the cached result is reusable if no illegal output file was viewed earlier on the
+      // search path, none of the exact tracked illegal output paths are declared in headerData
+      // (or on overflow, no generated header shares the inclusion's basename hash), and either no
+      // file was found, the found file is a source artifact, or the found output artifact matches
+      // the current action's declared header.
       if (!isCachedResultReusable(cached, headerData)) {
         return null;
       }
       // NOMUTANTS -- Fast path; an output-only scan below finds nothing and returns cached.
-      if (!cached.viewedIllegalOutputFile) {
+      if (!canBeShadowedByGeneratedHeader(inclusion.getInclusion(), headerData, cached)) {
         return cached;
       }
-      Inclusion rawInclusion = inclusion.getInclusion();
-      if (!rawInclusion.pathFragment.containsUplevelReferences()
-          && !headerData.hasPotentialGeneratedHeader(rawInclusion.getBaseName())) {
-        return cached;
-      }
-      // headerData declares a generated header with this basename. Check only output paths
+      // headerData declares a potentially shadowing generated header. Check only output paths
       // strictly before the cached match (or all output paths when nothing was found), skipping
       // source include directories. When includePosition == 0 (framework match), return null to
       // fall through because the matched framework path index is not recorded. Do not cache
@@ -414,10 +452,47 @@ public class LegacyIncludeScanner implements IncludeScanner {
       if (cached.includePosition == 0) {
         return null;
       }
-      int maxIndex = cached.path == null ? Integer.MAX_VALUE : cached.includePosition - 1;
+      int stopBeforePathIndex =
+          cached.path == null ? Integer.MAX_VALUE : cached.includePosition - 1;
       LocateOnPathResult generatedOverride =
-          locateOnPaths(inclusion, headerData, /* onlyCheckGenerated= */ true, maxIndex);
+          locateOnPaths(inclusion, headerData, /* onlyCheckGenerated= */ true, stopBeforePathIndex);
       return generatedOverride.path != null ? generatedOverride : cached;
+    }
+
+    private static boolean canBeShadowedByGeneratedHeader(
+        Inclusion rawInclusion, IncludeScanningHeaderData headerData, LocateOnPathResult cached) {
+      Object illegalOutputPaths = cached.illegalOutputPaths;
+      // NOMUTANTS -- Fast path; no viewed illegal outputs or no generated headers can shadow.
+      if (illegalOutputPaths == null || !headerData.hasGeneratedHeaders()) {
+        return false;
+      }
+      if (illegalOutputPaths instanceof PathFragment singlePath) {
+        return headerData.isDeclaredHeader(singlePath);
+      }
+      if (illegalOutputPaths instanceof PathFragment[] trackedPaths) {
+        return isAnyTrackedPathDeclared(trackedPaths, headerData);
+      }
+      if (rawInclusion.pathFragment.containsUplevelReferences()
+          || rawInclusion.pathFragment.isEmpty()) {
+        return true;
+      }
+      int baseNameHash = rawInclusion.getBaseNameHash();
+      if (cached.path != null && !cached.path.isSourceArtifact() && !cached.path.isTreeArtifact()) {
+        // cached.path is already verified declared in headerData; only another generated header
+        // with the same basename hash on an earlier search path can shadow it.
+        return headerData.hasMultiplePotentialGeneratedHeaders(baseNameHash);
+      }
+      return headerData.hasPotentialGeneratedHeader(baseNameHash);
+    }
+
+    private static boolean isAnyTrackedPathDeclared(
+        PathFragment[] trackedPaths, IncludeScanningHeaderData headerData) {
+      for (PathFragment trackedPath : trackedPaths) {
+        if (headerData.isDeclaredHeader(trackedPath)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     private static boolean isCachedResultReusable(
@@ -434,30 +509,90 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
+  @VisibleForTesting static final int MAX_TRACKED_ILLEGAL_OUTPUT_PATHS = 256;
+
   private static class LocateOnPathResult {
-    private static final LocateOnPathResult NOT_FOUND_VIEWED_ILLEGAL =
-        new LocateOnPathResult(null, -1, true);
-    private static final LocateOnPathResult NOT_FOUND_NO_VIEWED_ILLEGAL =
-        new LocateOnPathResult(null, -1, false);
+    private static final PathFragment[] EMPTY_PATH_ARRAY = new PathFragment[0];
+    private static final Object OVERFLOW_ILLEGAL_OUTPUTS = new Object();
+    private static final LocateOnPathResult NOT_FOUND_NO_ILLEGAL =
+        new LocateOnPathResult(null, -1, null);
+    private static final LocateOnPathResult NOT_FOUND_OVERFLOW =
+        new LocateOnPathResult(null, -1, OVERFLOW_ILLEGAL_OUTPUTS);
     private final Artifact path;
     private final int includePosition;
-    private final boolean viewedIllegalOutputFile;
+    // null = none viewed; PathFragment = 1 path; PathFragment[] = 2..MAX_TRACKED (or
+    // Set<PathFragment> while scanning before finalization); OVERFLOW_ILLEGAL_OUTPUTS = overflow.
+    @Nullable private final Object illegalOutputPaths;
 
     private LocateOnPathResult(
-        Artifact path, int includePosition, boolean viewedIllegalOutputFile) {
+        Artifact path, int includePosition, @Nullable Object illegalOutputPaths) {
       this.path = path;
       this.includePosition = includePosition;
-      this.viewedIllegalOutputFile = viewedIllegalOutputFile;
+      this.illegalOutputPaths = illegalOutputPaths;
     }
 
     static LocateOnPathResult create(
-        Artifact path, int includePosition, boolean viewedIllegalOutputFile) {
+        Artifact path, int includePosition, @Nullable Object illegalOutputPaths) {
       return new LocateOnPathResult(
-          Preconditions.checkNotNull(path), includePosition, viewedIllegalOutputFile);
+          Preconditions.checkNotNull(path),
+          includePosition,
+          finalizeIllegalOutputPaths(illegalOutputPaths));
     }
 
-    static LocateOnPathResult createNotFound(boolean viewedIllegalOutputFile) {
-      return viewedIllegalOutputFile ? NOT_FOUND_VIEWED_ILLEGAL : NOT_FOUND_NO_VIEWED_ILLEGAL;
+    static LocateOnPathResult createNotFound(@Nullable Object illegalOutputPaths) {
+      // NOMUTANTS -- Singleton reuse fast path.
+      if (illegalOutputPaths == null) {
+        return NOT_FOUND_NO_ILLEGAL;
+      }
+      // NOMUTANTS -- Singleton reuse fast path.
+      if (illegalOutputPaths == OVERFLOW_ILLEGAL_OUTPUTS) {
+        return NOT_FOUND_OVERFLOW;
+      }
+      return new LocateOnPathResult(null, -1, finalizeIllegalOutputPaths(illegalOutputPaths));
+    }
+
+    static LocateOnPathResult createNotFoundUnfinalized(@Nullable Object illegalOutputPaths) {
+      // NOMUTANTS -- Singleton reuse fast path.
+      if (illegalOutputPaths == null) {
+        return NOT_FOUND_NO_ILLEGAL;
+      }
+      return new LocateOnPathResult(null, -1, illegalOutputPaths);
+    }
+
+    static Object recordIllegalOutputPath(@Nullable Object current, PathFragment path) {
+      if (current == null) {
+        return path;
+      }
+      if (current == OVERFLOW_ILLEGAL_OUTPUTS) {
+        return current;
+      }
+      if (current instanceof PathFragment first) {
+        // NOMUTANTS -- Fast path; avoids allocating a HashSet for duplicate single path.
+        if (first.equals(path)) {
+          return current;
+        }
+        Set<PathFragment> paths = Sets.newHashSetWithExpectedSize(8);
+        paths.add(first);
+        paths.add(path);
+        return paths;
+      }
+      // All non-null, non-OVERFLOW_ILLEGAL_OUTPUTS, non-PathFragment values produced by this method
+      // are Set<PathFragment> instances created above.
+      @SuppressWarnings("unchecked")
+      Set<PathFragment> paths = (Set<PathFragment>) current;
+      if (paths.size() < MAX_TRACKED_ILLEGAL_OUTPUT_PATHS) {
+        paths.add(path);
+        return paths;
+      }
+      return paths.contains(path) ? paths : OVERFLOW_ILLEGAL_OUTPUTS;
+    }
+
+    @Nullable
+    private static Object finalizeIllegalOutputPaths(@Nullable Object illegalOutputPaths) {
+      if (illegalOutputPaths instanceof Set<?> pathSet) {
+        return pathSet.toArray(EMPTY_PATH_ARRAY);
+      }
+      return illegalOutputPaths;
     }
   }
 

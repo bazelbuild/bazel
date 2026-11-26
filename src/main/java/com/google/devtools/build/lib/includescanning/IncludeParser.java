@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobValue;
@@ -519,7 +520,8 @@ class IncludeParser {
     /** The relative path of the inclusion. */
     final PathFragment pathFragment;
 
-    @Nullable private volatile String baseName;
+    /** Cached 31-bit non-zero basename hash; 0 means uncomputed. */
+    private volatile int baseNameHash;
 
     private Inclusion(PathFragment pathFragment, Kind kind) {
       this.kind = kind;
@@ -538,11 +540,11 @@ class IncludeParser {
       return pathFragment.getPathString();
     }
 
-    String getBaseName() {
-      String cached = baseName;
-      if (cached == null) {
-        cached = pathFragment.getBaseName();
-        baseName = cached; // NOMUTANTS -- Memoization only; recomputing returns an equal String.
+    int getBaseNameHash() {
+      int cached = baseNameHash;
+      if (cached == 0) {
+        cached = IncludeScanningHeaderData.hashBaseName(pathFragment);
+        baseNameHash = cached; // NOMUTANTS -- Memoization only; recomputing returns an equal hash.
       }
       return cached;
     }

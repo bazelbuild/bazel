@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -142,6 +142,42 @@ public interface IncludeScanner {
    */
   final class IncludeScanningHeaderData {
     /**
+     * Computes a non-zero 31-bit hash of {@code path}'s basename directly from its normalized path
+     * string without allocating.
+     */
+    public static int hashBaseName(PathFragment path) {
+      String normalizedPath = path.getPathString();
+      int driveLen = path.getDriveStrLength();
+      int lastSeparator = normalizedPath.lastIndexOf(PathFragment.SEPARATOR_CHAR);
+      int start = lastSeparator < driveLen ? driveLen : lastSeparator + 1;
+      return hashRange(normalizedPath, start, normalizedPath.length());
+    }
+
+    /** Computes the non-zero 31-bit basename hash for a bare filename string. */
+    @VisibleForTesting
+    public static int hashBaseName(String baseName) {
+      return hashRange(baseName, 0, baseName.length());
+    }
+
+    private static int hashRange(String s, int start, int end) {
+      // 32-bit FNV-1a hash followed by Murmur3 fmix32 finalizer.
+      int h = 0x811c9dc5;
+      for (int i = start; i < end; i++) {
+        h ^= s.charAt(i);
+        h *= 0x01000193;
+      }
+      // Murmur3 fmix32 avalanche finalizer; omitting mixing steps preserves hash correctness.
+      h ^= h >>> 16; // NOMUTANTS -- Hash avalanche mixing only.
+      h *= 0x85ebca6b; // NOMUTANTS -- Hash avalanche mixing only.
+      h ^= h >>> 13; // NOMUTANTS -- Hash avalanche mixing only.
+      h *= 0xc2b2ae35; // NOMUTANTS -- Hash avalanche mixing only.
+      h ^= h >>> 16; // NOMUTANTS -- Hash avalanche mixing only.
+      int key = h & BaseNameHashSet.KEY_MASK;
+      // Reserve 0 as the empty/uncomputed sentinel.
+      return key == 0 ? 1 : key;
+    }
+
+    /**
      * Lookup table to find the {@link Artifact}s of generated files based on their {@link
      * Artifact#getExecPath}.
      */
@@ -174,12 +210,17 @@ public interface IncludeScanner {
      */
     @Nullable private final Predicate<Artifact> isValidUndeclaredHeader;
 
+    private static final int[] EMPTY_BASE_NAME_TABLE = new int[0];
+
     /**
-     * Basenames of non-source (generated) headers in {@code pathToDeclaredHeader}, or null when
-     * none are known to be present. Allows {@code LegacyIncludeScanner} to confirm in O(1) that no
-     * generated header can shadow a cached inclusion lookup.
+     * Open-addressed table of 31-bit basename hashes for non-source (generated) headers in {@code
+     * pathToDeclaredHeader}, built lazily only when an overflow fallback cache entry is checked.
+     * Bit 31 ({@link BaseNameHashSet#MULTIPLE_BIT}) is set when two or more distinct generated
+     * header exec paths share that key.
      */
-    @Nullable private final Set<String> generatedHeaderBaseNames;
+    @Nullable private volatile int[] generatedHeaderBaseNameTable;
+
+    private final boolean hasGeneratedHeaders;
 
     public IncludeScanningHeaderData(
         Map<PathFragment, Artifact> pathToDeclaredHeader,
@@ -193,7 +234,7 @@ public interface IncludeScanner {
           systemIncludeDirs,
           cmdlineIncludes,
           isValidUndeclaredHeader,
-          extractGeneratedHeaderBaseNames(pathToDeclaredHeader));
+          hasAnyGeneratedHeader(pathToDeclaredHeader));
     }
 
     private IncludeScanningHeaderData(
@@ -202,13 +243,13 @@ public interface IncludeScanner {
         List<PathFragment> systemIncludeDirs,
         List<String> cmdlineIncludes,
         @Nullable Predicate<Artifact> isValidUndeclaredHeader,
-        @Nullable Set<String> generatedHeaderBaseNames) {
+        boolean hasGeneratedHeaders) {
       this.pathToDeclaredHeader = pathToDeclaredHeader;
       this.modularHeaders = modularHeaders;
       this.systemIncludeDirs = systemIncludeDirs;
       this.cmdlineIncludes = cmdlineIncludes;
       this.isValidUndeclaredHeader = isValidUndeclaredHeader;
-      this.generatedHeaderBaseNames = generatedHeaderBaseNames;
+      this.hasGeneratedHeaders = hasGeneratedHeaders;
     }
 
     public boolean isDeclaredHeader(PathFragment header) {
@@ -217,12 +258,23 @@ public interface IncludeScanner {
 
     /** Returns false when this action is known to declare no generated headers. */
     public boolean hasGeneratedHeaders() {
-      return generatedHeaderBaseNames != null;
+      return hasGeneratedHeaders;
     }
 
-    /** Returns true if a declared generated header has the given basename. */
-    public boolean hasPotentialGeneratedHeader(String baseName) {
-      return generatedHeaderBaseNames != null && generatedHeaderBaseNames.contains(baseName);
+    /** Returns true if a declared generated header has the given basename hash. */
+    public boolean hasPotentialGeneratedHeader(int baseNameHash) {
+      return BaseNameHashSet.lookupEntry(getOrBuildGeneratedHeaderBaseNameTable(), baseNameHash)
+          != 0;
+    }
+
+    /**
+     * Returns true if two or more distinct declared generated header exec paths share the given
+     * basename hash.
+     */
+    public boolean hasMultiplePotentialGeneratedHeaders(int baseNameHash) {
+      return (BaseNameHashSet.lookupEntry(getOrBuildGeneratedHeaderBaseNameTable(), baseNameHash)
+              & BaseNameHashSet.MULTIPLE_BIT)
+          != 0;
     }
 
     public Artifact getHeaderArtifact(PathFragment header) {
@@ -248,27 +300,59 @@ public interface IncludeScanner {
     }
 
     @Nullable
-    private static Set<String> extractGeneratedHeaderBaseNames(
+    private int[] getOrBuildGeneratedHeaderBaseNameTable() {
+      // NOMUTANTS -- Fast path; extractGeneratedHeaderBaseNames also returns null when empty.
+      if (!hasGeneratedHeaders) {
+        return null;
+      }
+      int[] table = generatedHeaderBaseNameTable;
+      // NOMUTANTS -- Double-checked locking fast path.
+      if (table == null) {
+        synchronized (this) {
+          table = generatedHeaderBaseNameTable;
+          if (table == null) {
+            int[] built = extractGeneratedHeaderBaseNames(pathToDeclaredHeader);
+            table = built == null ? EMPTY_BASE_NAME_TABLE : built;
+            generatedHeaderBaseNameTable = table;
+          }
+        }
+      }
+      // EMPTY_BASE_NAME_TABLE has length 0, whereas valid BaseNameHashSet tables start at
+      // INITIAL_CAPACITY (16).
+      return table.length == 0 ? null : table;
+    }
+
+    private static boolean hasAnyGeneratedHeader(Map<PathFragment, Artifact> pathToDeclaredHeader) {
+      for (Artifact header : pathToDeclaredHeader.values()) {
+        if (!header.isSourceArtifact() && !header.isTreeArtifact()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    @Nullable
+    private static int[] extractGeneratedHeaderBaseNames(
         Map<PathFragment, Artifact> pathToDeclaredHeader) {
-      CompactHashSet<String> baseNames = null;
+      BaseNameHashSet baseNames = null;
       for (Artifact header : pathToDeclaredHeader.values()) {
         if (header.isSourceArtifact() || header.isTreeArtifact()) {
           continue;
         }
         if (baseNames == null) {
-          baseNames = CompactHashSet.create();
+          baseNames = new BaseNameHashSet();
         }
-        baseNames.add(header.getExecPath().getBaseName());
+        baseNames.add(hashBaseName(header.getExecPath()));
       }
-      return baseNames;
+      return baseNames == null ? null : baseNames.toTable();
     }
 
     /** A builder for {@link IncludeScanningHeaderData}. */
     public static class Builder {
       private final Map<PathFragment, Artifact> pathToDeclaredHeader;
       private final Set<Artifact> modularHeaders;
-      private final boolean precomputedGeneratedBaseNames;
-      @Nullable private Set<String> generatedHeaderBaseNames;
+      private final boolean hasGeneratedHeadersKnown;
+      private boolean hasGeneratedHeaders;
       private List<PathFragment> systemIncludeDirs = ImmutableList.of();
       private List<String> cmdlineIncludes = ImmutableList.of();
       @Nullable private Predicate<Artifact> isValidUndeclaredHeader = null;
@@ -277,23 +361,22 @@ public interface IncludeScanner {
           Map<PathFragment, Artifact> pathToDeclaredHeader, Set<Artifact> modularHeaders) {
         this.pathToDeclaredHeader = pathToDeclaredHeader;
         this.modularHeaders = modularHeaders;
-        this.precomputedGeneratedBaseNames = false;
-        this.generatedHeaderBaseNames = null;
+        this.hasGeneratedHeadersKnown = false;
+        this.hasGeneratedHeaders = false;
       }
 
       /**
-       * Creates a builder with precomputed basenames of generated headers already present in {@code
-       * pathToDeclaredHeader}. If non-null, {@code generatedHeaderBaseNames} must be mutable so
-       * {@link #addDeclaredHeaders} can append to it.
+       * Creates a builder with precomputed knowledge of whether {@code pathToDeclaredHeader}
+       * already contains any generated (non-source, non-tree) header.
        */
       Builder(
           Map<PathFragment, Artifact> pathToDeclaredHeader,
           Set<Artifact> modularHeaders,
-          @Nullable Set<String> generatedHeaderBaseNames) {
+          boolean hasGeneratedHeaders) {
         this.pathToDeclaredHeader = pathToDeclaredHeader;
         this.modularHeaders = modularHeaders;
-        this.precomputedGeneratedBaseNames = true;
-        this.generatedHeaderBaseNames = generatedHeaderBaseNames;
+        this.hasGeneratedHeadersKnown = true;
+        this.hasGeneratedHeaders = hasGeneratedHeaders;
       }
 
       @CanIgnoreReturnValue
@@ -340,27 +423,115 @@ public interface IncludeScanner {
           // Use putIfAbsent so a header the target already declared for this exec path takes
           // precedence: the target's own mapping is authoritative and must not be shadowed by
           // a toolchain/prunable header that happens to share the path.
-          pathToDeclaredHeader.putIfAbsent(header.getExecPath(), header);
-          if (generatedHeaderBaseNames == null) {
-            generatedHeaderBaseNames = CompactHashSet.create();
+          if (pathToDeclaredHeader.putIfAbsent(header.getExecPath(), header) == null) {
+            hasGeneratedHeaders = true;
           }
-          generatedHeaderBaseNames.add(header.getExecPath().getBaseName());
         }
         return this;
       }
 
       public IncludeScanningHeaderData build() {
-        Set<String> baseNames =
-            precomputedGeneratedBaseNames
-                ? generatedHeaderBaseNames
-                : extractGeneratedHeaderBaseNames(pathToDeclaredHeader);
+        // NOMUTANTS -- Fast path; skips scanning pathToDeclaredHeader when precomputed.
+        boolean resolvedHasGeneratedHeaders =
+            hasGeneratedHeadersKnown
+                ? hasGeneratedHeaders
+                : hasAnyGeneratedHeader(pathToDeclaredHeader);
         return new IncludeScanningHeaderData(
             pathToDeclaredHeader,
             modularHeaders,
             systemIncludeDirs,
             cmdlineIncludes,
             isValidUndeclaredHeader,
-            baseNames);
+            resolvedHasGeneratedHeaders);
+      }
+    }
+
+    /**
+     * Compact open-addressed table of 31-bit non-zero basename hashes for generated headers.
+     *
+     * <p>Each non-zero slot stores the 31-bit key in bits {@code 0..30} and {@link #MULTIPLE_BIT}
+     * in bit 31 when at least two distinct generated header exec paths hashed to that key. Zero
+     * represents an empty slot.
+     */
+    static final class BaseNameHashSet {
+      private static final int INITIAL_CAPACITY = 16;
+      private static final int MAX_CAPACITY = 1 << 30;
+      static final int KEY_MASK = 0x7fffffff;
+      static final int MULTIPLE_BIT = 0x80000000;
+
+      static int lookupEntry(@Nullable int[] table, int key) {
+        if (table == null) {
+          return 0;
+        }
+        int mask = table.length - 1;
+        int idx = key & mask;
+        while (true) {
+          int cur = table[idx];
+          if (cur == 0 || (cur & KEY_MASK) == key) {
+            return cur;
+          }
+          idx = (idx + 1) & mask;
+        }
+      }
+
+      private int[] table;
+      private int size;
+      private int threshold;
+
+      BaseNameHashSet() {
+        this.table = new int[INITIAL_CAPACITY];
+        this.threshold = maxFill(INITIAL_CAPACITY);
+      }
+
+      int[] toTable() {
+        return table;
+      }
+
+      void add(int key) {
+        int[] table = this.table;
+        int mask = table.length - 1;
+        int idx = key & mask;
+        while (true) {
+          int cur = table[idx];
+          if (cur == 0) {
+            table[idx] = key;
+            break;
+          }
+          if ((cur & KEY_MASK) == key) {
+            table[idx] = cur | MULTIPLE_BIT;
+            return;
+          }
+          idx = (idx + 1) & mask;
+        }
+        if (++size > threshold) {
+          rehash();
+        }
+      }
+
+      private void rehash() {
+        int[] oldTable = table;
+        if (oldTable.length >= MAX_CAPACITY) {
+          throw new IllegalStateException("BaseNameHashSet capacity exceeded");
+        }
+        int newCap = oldTable.length << 1;
+        int[] newTable = new int[newCap];
+        int mask = newCap - 1;
+        for (int entry : oldTable) {
+          if (entry == 0) {
+            continue;
+          }
+          int idx = entry & KEY_MASK & mask;
+          while (newTable[idx] != 0) {
+            idx = (idx + 1) & mask;
+          }
+          newTable[idx] = entry;
+        }
+        this.table = newTable;
+        this.threshold = maxFill(newCap);
+      }
+
+      private static int maxFill(int capacity) {
+        return (capacity >>> 1) + (capacity >>> 3);
       }
     }
   }
