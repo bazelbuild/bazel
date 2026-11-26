@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -78,7 +79,9 @@ public final class ToolchainContextUtil {
 
     if (platformConfig == null || !rule.useToolchainResolution()) {
       return UnloadedToolchainContextsInputs.create(
-          processedExecGroups, /* targetToolchainContextKey= */ null);
+          processedExecGroups,
+          /* targetToolchainContextKey= */ null,
+          /* runOnHostTestExecutionPlatform= */ null);
     }
 
     return UnloadedToolchainContextsInputs.create(
@@ -89,7 +92,8 @@ public final class ToolchainContextUtil {
             /* debugTarget= */ platformConfig.debugToolchainResolution(rule.getLabel()),
             /* useAutoExecGroups= */ useAutoExecGroups,
             toolchainTypes,
-            parentExecutionPlatformLabel));
+            parentExecutionPlatformLabel),
+        TargetUtils.isTestRule(rule) ? platformConfig.getHostPlatform() : null);
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> updateToolchainTypesFromAttribute(

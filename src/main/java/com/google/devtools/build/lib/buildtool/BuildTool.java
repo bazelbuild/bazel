@@ -381,7 +381,8 @@ public class BuildTool {
               targetPatternPhaseValue.getTargetLabels(),
               buildOptions,
               request.getUserOptions(),
-              projectEvaluationResult.buildOptions());
+              projectEvaluationResult.buildOptions(),
+              request.runOnHost());
       analysisCachingDeps = analysisDeps.deps();
       analysisCacheReaderDeps = analysisDeps.readerDeps();
       serializationDependenciesProvider = analysisDeps.serializationDeps();

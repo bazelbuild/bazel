@@ -851,7 +851,8 @@ final class AspectFunction implements SkyFunction {
             /* debugTarget= */ false,
             /* useAutoExecGroups= */ useAutoExecGroups,
             aspectDefinition.getToolchainTypes(),
-            /* parentExecutionPlatformLabel= */ null));
+            /* parentExecutionPlatformLabel= */ null),
+        /* runOnHostTestExecutionPlatform= */ null);
   }
 
   private static boolean shouldUseAutoExecGroups(
