@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,13 +45,10 @@ import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -219,45 +215,6 @@ final class RegularRunnableExtension implements RunnableExtension {
   @Nullable
   @Override
   public RunModuleExtensionResult run(
-      Environment env,
-      SingleExtensionUsagesValue usagesValue,
-      StarlarkSemantics starlarkSemantics,
-      ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping,
-      Facts facts,
-      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
-      throws InterruptedException, ExternalDepsException {
-    // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
-    while (true) {
-      var state = env.getState(WorkerSkyKeyComputeState<RunModuleExtensionResult>::new);
-      try {
-        return state.startOrContinueWork(
-            env,
-            "module-extension-" + extensionId,
-            (workerEnv) ->
-                runInternal(
-                    workerEnv,
-                    usagesValue,
-                    starlarkSemantics,
-                    extensionId,
-                    mainRepositoryMapping,
-                    facts,
-                    requireRepoExtensionMetadataMode));
-      } catch (ExecutionException e) {
-        Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
-        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-        Throwables.throwIfUnchecked(e.getCause());
-        throw new IllegalStateException(
-            "unexpected exception type: " + e.getCause().getClass(), e.getCause());
-      } catch (CancellationException e) {
-        // This can only happen if the state object was invalidated due to memory pressure, in
-        // which case we can simply reattempt eval.
-      }
-    }
-  }
-
-  @Nullable
-  private RunModuleExtensionResult runInternal(
       Environment env,
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,

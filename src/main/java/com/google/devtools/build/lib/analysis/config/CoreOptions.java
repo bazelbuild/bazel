@@ -655,6 +655,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           - `valgrind --quiet --num-callers=20`
           - `//package:target`
           - `//package:target --options`
+          Using --run_under= resets Bazel to its default behavior when --run_under has not
+          been supplied at all.
           """)
   public RunUnder runUnder;
 
