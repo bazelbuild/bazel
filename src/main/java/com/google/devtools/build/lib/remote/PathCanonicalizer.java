@@ -123,19 +123,26 @@ final class PathCanonicalizer {
 
     DirectoryNode node = getRootNode(path);
     Iterable<String> segments = path.segments();
+    String pathString = path.getPathString();
     int segmentIndex = 0;
+    int segmentStart = path.getDriveStrLength();
 
     // Loop invariants:
     // - `segmentIndex` is the index of the current `segment` relative to the start of `path`. The
     //   first segment has index 0.
+    // - `segmentStart` is the offset of the current `segment` in `pathString`.
     // - `path` is the absolute path to canonicalize. If `segmentIndex` > 0, `path` is already
     //    canonical up to and including `segmentIndex` - 1.
     // - `node` is the trie node corresponding to the `path` prefix ending with `segmentIndex` - 1,
     //   or to the root path when `segmentIndex` is 0.
     for (String segment : segments) {
+      int segmentEnd = segmentStart + segment.length();
       Node nextNode = node.get(segment);
       if (nextNode == null) {
-        PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
+        PathFragment naivePath =
+            segmentEnd == pathString.length()
+                ? path
+                : PathFragment.createAlreadyNormalized(pathString.substring(0, segmentEnd));
         FileStatus status = resolver.statIfFound(naivePath);
         if (status == null) {
           throw new FileNotFoundException(naivePath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR);
@@ -179,12 +186,14 @@ final class PathCanonicalizer {
         case DirectoryNode directoryNode -> {
           node = directoryNode;
           segmentIndex++;
+          segmentStart = segmentEnd + 1;
         }
         case NonDirectoryNode ignored -> {
-          if (segmentIndex + 1 < path.segmentCount()) {
-            throw new FileNotFoundException(path.getPathString() + ERR_NOT_A_DIRECTORY);
+          if (segmentEnd < pathString.length()) {
+            throw new FileNotFoundException(pathString + ERR_NOT_A_DIRECTORY);
           }
           segmentIndex++;
+          segmentStart = segmentEnd + 1;
         }
       }
     }
