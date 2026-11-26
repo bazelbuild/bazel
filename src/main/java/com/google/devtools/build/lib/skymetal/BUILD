@@ -15,6 +15,7 @@ java_library(
     name = "skymetal_bridge",
     srcs = ["SkymetalBridge.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",

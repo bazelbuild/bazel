@@ -21,7 +21,12 @@ import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.runfiles.Runfiles;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
@@ -30,15 +35,52 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class SkymetalBridgeTest {
+  private static final FunctionDescriptor MIXED_CALLBACK_DESC =
+      FunctionDescriptor.of(
+          JAVA_LONG, JAVA_INT, JAVA_LONG, JAVA_DOUBLE, ADDRESS.withTargetLayout(JAVA_INT));
+
+  private static final MethodHandle NO_OP;
+  private static final MethodHandle MIXED_TYPES_CALLBACK;
+  private static final MethodHandle THROWS_CHECKED_EXCEPTION;
+  private static final MethodHandle THROWS_DECLARED_RUNTIME_EXCEPTION;
+
+  static {
+    try {
+      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      NO_OP =
+          lookup.findStatic(SkymetalBridgeTest.class, "noOp", MethodType.methodType(void.class));
+      MIXED_TYPES_CALLBACK =
+          lookup.findStatic(
+              SkymetalBridgeTest.class, "mixedTypesCallback", MIXED_CALLBACK_DESC.toMethodType());
+      THROWS_CHECKED_EXCEPTION =
+          lookup.findStatic(
+              SkymetalBridgeTest.class,
+              "throwsCheckedException",
+              MethodType.methodType(void.class));
+      THROWS_DECLARED_RUNTIME_EXCEPTION =
+          lookup.findStatic(
+              SkymetalBridgeTest.class,
+              "throwsDeclaredRuntimeException",
+              MethodType.methodType(void.class));
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
+
+  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+
   @BeforeClass
   public static void loadNativeLibrary() throws IOException {
     String libPath = Runfiles.preload().unmapped().rlocation(System.getProperty("native.test.lib"));
@@ -122,5 +164,144 @@ public final class SkymetalBridgeTest {
     assertThrows(
         UnsatisfiedLinkError.class,
         () -> SkymetalBridge.downcallHandle("bazel_test_nonexistent_symbol", desc));
+  }
+
+  @Test
+  public void upcallStub_invokesTarget() throws Throwable {
+    MethodHandle invokeMixed =
+        SkymetalBridge.downcallHandle(
+            "bazel_test_invoke_mixed_types_callback",
+            FunctionDescriptor.of(JAVA_LONG, ADDRESS, JAVA_INT, JAVA_LONG, JAVA_DOUBLE, ADDRESS));
+
+    try (Arena arena = Arena.ofConfined()) {
+      MemorySegment stub =
+          SkymetalBridge.upcallStub(MIXED_TYPES_CALLBACK, MIXED_CALLBACK_DESC, arena);
+      MemorySegment cell = arena.allocateFrom(JAVA_INT, 40);
+      assertThat((long) invokeMixed.invokeExact(stub, 1, 2L, 3.0d, cell)).isEqualTo(46L);
+    }
+  }
+
+  @Test
+  public void upcallStub_uncaughtException_forwardsToBugReport() throws Exception {
+    int expectedExitCode = ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
+    assertThat(runCrashSubprocess())
+        .isEqualTo(
+            new CrashResult(
+                expectedExitCode,
+                String.valueOf(expectedExitCode),
+                Code.CRASH_UNKNOWN,
+                IllegalStateException.class.getName(),
+                "upcall failure"));
+  }
+
+  @Test
+  public void upcallStub_declaredException_throwsIllegalArgumentException() {
+    FunctionDescriptor voidDesc = FunctionDescriptor.ofVoid();
+    try (Arena arena = Arena.ofConfined()) {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> SkymetalBridge.upcallStub(THROWS_CHECKED_EXCEPTION, voidDesc, arena));
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> SkymetalBridge.upcallStub(THROWS_DECLARED_RUNTIME_EXCEPTION, voidDesc, arena));
+    }
+  }
+
+  @Test
+  public void upcallStub_nullArguments_throwsNullPointerException() {
+    FunctionDescriptor voidDesc = FunctionDescriptor.ofVoid();
+    try (Arena arena = Arena.ofConfined()) {
+      assertThrows(
+          NullPointerException.class, () -> SkymetalBridge.upcallStub(null, voidDesc, arena));
+      assertThrows(NullPointerException.class, () -> SkymetalBridge.upcallStub(NO_OP, null, arena));
+      assertThrows(
+          NullPointerException.class, () -> SkymetalBridge.upcallStub(NO_OP, voidDesc, null));
+      assertThrows(
+          NullPointerException.class,
+          () -> SkymetalBridge.upcallStub(NO_OP, voidDesc, arena, (Linker.Option[]) null));
+    }
+  }
+
+  @Test
+  public void upcallStub_signatureMismatch_throwsIllegalArgumentException() {
+    FunctionDescriptor intDesc = FunctionDescriptor.of(JAVA_INT);
+    try (Arena arena = Arena.ofConfined()) {
+      assertThrows(
+          IllegalArgumentException.class, () -> SkymetalBridge.upcallStub(NO_OP, intDesc, arena));
+    }
+  }
+
+  @Test
+  public void upcallStub_invalidOption_throwsIllegalArgumentException() {
+    FunctionDescriptor voidDesc = FunctionDescriptor.ofVoid();
+    Linker.Option criticalOption = Linker.Option.critical(false);
+    try (Arena arena = Arena.ofConfined()) {
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> SkymetalBridge.upcallStub(NO_OP, voidDesc, arena, criticalOption));
+    }
+  }
+
+  @Test
+  public void upcallStub_closedArena_throwsIllegalStateException() {
+    FunctionDescriptor voidDesc = FunctionDescriptor.ofVoid();
+    Arena closed;
+    try (Arena arena = Arena.ofConfined()) {
+      closed = arena;
+    }
+    assertThrows(
+        IllegalStateException.class, () -> SkymetalBridge.upcallStub(NO_OP, voidDesc, closed));
+  }
+
+  @Keep
+  private static void noOp() {}
+
+  @Keep
+  private static long mixedTypesCallback(int i, long j, double d, MemorySegment p) {
+    return i + j + (long) d + p.get(JAVA_INT, 0);
+  }
+
+  @Keep
+  private static void throwsCheckedException() throws IOException {}
+
+  @Keep
+  @SuppressWarnings("ThrowsUncheckedException")
+  private static void throwsDeclaredRuntimeException() throws IllegalStateException {}
+
+  private record CrashResult(
+      int exitCode,
+      String exitCodeFileText,
+      Code crashCode,
+      String causeClass,
+      String causeMessage) {}
+
+  private CrashResult runCrashSubprocess() throws Exception {
+    Path dir = tempFolder.newFolder("upcall_crash").toPath();
+    Path failureDetailFile = dir.resolve("failure_detail");
+    String helperPath =
+        Runfiles.preload().unmapped().rlocation(System.getProperty("upcall.test.helper"));
+
+    ProcessBuilder pb =
+        new ProcessBuilder(
+            Path.of(helperPath).toAbsolutePath().toString(),
+            dir.toString(),
+            failureDetailFile.toString());
+    // Set BAZEL_SHELL_TEST while keeping TEST_TMPDIR set so TestType is SHELL_INTEGRATION:
+    // BugReport actually calls Runtime.halt with the crash exit code while still skipping remote
+    // bug-report RPCs.
+    pb.environment().put("BAZEL_SHELL_TEST", "1");
+    pb.inheritIO();
+
+    int exitCode = pb.start().waitFor();
+    String exitCodeFileText = Files.readString(dir.resolve("exit_code_to_use_on_abrupt_exit"));
+    FailureDetail failureDetail =
+        FailureDetail.parseFrom(
+            Files.readAllBytes(failureDetailFile), ExtensionRegistry.getEmptyRegistry());
+    return new CrashResult(
+        exitCode,
+        exitCodeFileText,
+        failureDetail.getCrash().getCode(),
+        failureDetail.getCrash().getCauses(0).getThrowableClass(),
+        failureDetail.getCrash().getCauses(0).getMessage());
   }
 }

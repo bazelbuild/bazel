@@ -20,14 +20,19 @@ import static java.lang.classfile.ClassFile.ACC_PUBLIC;
 import static java.lang.classfile.ClassFile.ACC_STATIC;
 import static java.lang.classfile.ClassFile.ACC_SUPER;
 
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.errorprone.annotations.CompileTimeConstant;
+import com.google.errorprone.annotations.Keep;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.TypeKind;
 import java.lang.classfile.attribute.SourceFileAttribute;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
+import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
@@ -53,6 +58,19 @@ public final class SkymetalBridge {
   private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
   private static final ClassFile CLASS_FILE = ClassFile.of();
   private static final AtomicInteger NEXT_CLASS_ID = new AtomicInteger();
+  private static final MethodHandle HANDLE_UPCALL_EXCEPTION;
+
+  static {
+    try {
+      HANDLE_UPCALL_EXCEPTION =
+          LOOKUP.findStatic(
+              SkymetalBridge.class,
+              "handleUpcallException",
+              MethodType.methodType(Object.class, Throwable.class));
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
 
   /** Returns a {@link SymbolLookup} for symbols in the server's native library. */
   public static SymbolLookup symbolLookup() {
@@ -84,6 +102,39 @@ public final class SkymetalBridge {
             .orElseThrow(() -> new UnsatisfiedLinkError("undefined symbol: " + name));
     MethodHandle raw = NATIVE_LINKER.downcallHandle(address, function, options);
     return wrapInStackFrame(name, raw);
+  }
+
+  /**
+   * Creates an upcall stub for {@code target} associated with {@code arena}.
+   *
+   * <p>Unlike a regular upcall stub created by {@link Linker#upcallStub}, where an uncaught
+   * exception causes the JVM to abort immediately, the returned stub catches any {@link Throwable}
+   * thrown by {@code target} and forwards it to {@link BugReport} as a crash.
+   *
+   * <p>As with {@link Linker#upcallStub}, {@code target} must not declare any thrown exceptions.
+   *
+   * @throws IllegalArgumentException if {@link Linker#upcallStub} rejects the arguments (including
+   *     if {@code target} declares thrown exceptions)
+   * @throws IllegalStateException if {@code arena.scope().isAlive()} is {@code false}
+   * @throws WrongThreadException if {@code arena} is a confined arena and this method is called
+   *     from a thread other than the arena's owner thread
+   */
+  public static MemorySegment upcallStub(
+      MethodHandle target, FunctionDescriptor function, Arena arena, Linker.Option... options) {
+    checkNotNull(target, "target");
+    checkNotNull(function, "function");
+    checkNotNull(arena, "arena");
+    checkNotNull(options, "options");
+
+    // Validate the unwrapped target with the native linker before wrapping it with
+    // MethodHandles.catchException, which returns a BoundMethodHandle that hides declared
+    // exceptions from Linker#upcallStub's check.
+    try (Arena probe = Arena.ofConfined()) {
+      var _ = NATIVE_LINKER.upcallStub(target, function, probe, options);
+    }
+
+    MethodHandle wrapped = wrapInExceptionHandler(target);
+    return NATIVE_LINKER.upcallStub(wrapped, function, arena, options);
   }
 
   private static SymbolLookup createLookup() {
@@ -160,6 +211,25 @@ public final class SkymetalBridge {
     } catch (ReflectiveOperationException e) {
       throw new IllegalStateException("Failed to link downcall trampoline for " + methodName, e);
     }
+  }
+
+  /**
+   * Wraps {@code target} in a {@link MethodHandles#catchException} combinator that forwards any
+   * thrown {@link Throwable} to {@link BugReport}.
+   */
+  private static MethodHandle wrapInExceptionHandler(MethodHandle target) {
+    return MethodHandles.catchException(
+        target,
+        Throwable.class,
+        HANDLE_UPCALL_EXCEPTION.asType(
+            MethodType.methodType(target.type().returnType(), Throwable.class)));
+  }
+
+  /** Reports an uncaught upcall exception to {@link BugReport} as a halting crash. */
+  @Keep
+  private static Object handleUpcallException(Throwable t) {
+    BugReport.handleCrash(Crash.from(t), CrashContext.halt());
+    throw new AssertionError("Should have halted", t);
   }
 
   private SkymetalBridge() {}

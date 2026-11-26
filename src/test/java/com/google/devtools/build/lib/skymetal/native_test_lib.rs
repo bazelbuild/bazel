@@ -15,17 +15,26 @@
 //! Native C-ABI test helpers for `SkymetalBridgeTest`.
 
 /// Invokes the C-ABI callback `cb`.
-// SAFETY: `bazel_test_invoke_callback` is unique in the linked test shared library and no other
-// object defines a symbol with this name.
 #[unsafe(no_mangle)]
 pub extern "C" fn bazel_test_invoke_callback(cb: extern "C" fn()) {
     cb();
 }
 
 /// Sums arguments of mixed primitive and pointer types.
-// SAFETY: `bazel_test_mixed_types` is unique in the linked test shared library and no other
-// object defines a symbol with this name.
 #[unsafe(no_mangle)]
 pub extern "C" fn bazel_test_mixed_types(i: i32, j: i64, d: f64, p: &i32) -> i64 {
     i64::from(i) + j + (d as i64) + i64::from(*p)
+}
+
+/// Invokes the C-ABI callback `cb` with mixed primitive and pointer arguments and returns its
+/// result.
+#[unsafe(no_mangle)]
+pub extern "C" fn bazel_test_invoke_mixed_types_callback(
+    cb: extern "C" fn(i32, i64, f64, &i32) -> i64,
+    i: i32,
+    j: i64,
+    d: f64,
+    p: &i32,
+) -> i64 {
+    cb(i, j, d, p)
 }

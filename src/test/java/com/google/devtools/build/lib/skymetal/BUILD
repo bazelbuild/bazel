@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_test")
 load("@rules_rust//rust:defs.bzl", "rust_library")
 
 package(
@@ -46,18 +46,43 @@ cc_binary(
     ],
 )
 
-java_test(
-    name = "SkymetalBridgeTest",
-    srcs = ["SkymetalBridgeTest.java"],
+java_binary(
+    name = "upcall_test_helper",
+    testonly = True,
+    srcs = ["UpcallTestHelper.java"],
     data = [":native_test_lib"],
     jvm_flags = [
         "--enable-native-access=ALL-UNNAMED",
         "-Dnative.test.lib=$(rlocationpath :native_test_lib)",
     ],
-    test_class = "com.google.devtools.build.lib.skymetal.SkymetalBridgeTest",
+    main_class = "com.google.devtools.build.lib.skymetal.UpcallTestHelper",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skymetal:skymetal_bridge",
+        "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
+        "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
+        "@rules_java//java/runfiles",
+    ],
+)
+
+java_test(
+    name = "SkymetalBridgeTest",
+    srcs = ["SkymetalBridgeTest.java"],
+    data = [
+        ":native_test_lib",
+        ":upcall_test_helper",
+    ],
+    jvm_flags = [
+        "--enable-native-access=ALL-UNNAMED",
+        "-Dnative.test.lib=$(rlocationpath :native_test_lib)",
+        "-Dupcall.test.helper=$(rlocationpath :upcall_test_helper)",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skymetal:skymetal_bridge",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/junit",
+        "//third_party/java/protobuf",
         "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
