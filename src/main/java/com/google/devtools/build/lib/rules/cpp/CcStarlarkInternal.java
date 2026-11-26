@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionCo
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -925,9 +926,11 @@ public class CcStarlarkInternal implements StarlarkValue {
                     starlarkRuleContext.getRuleContext().getRule(),
                     starlarkRuleContext.getRuleContext().isAllowTagsPropagation()));
     if (additionalCompilationInputs.size() > 0) {
-      builder.addMandatoryInputs(
+      List<Artifact> inputs =
           Sequence.cast(
-              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs"));
+              additionalCompilationInputs, Artifact.class, "additional_compilation_inputs");
+      builder.addMandatoryInputs(inputs);
+      builder.addAdditionalIncludeScanningRoots(inputs);
     }
     if (additionalIncludeScanningRoots.size() > 0) {
       builder.addAdditionalIncludeScanningRoots(
