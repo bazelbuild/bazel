@@ -399,9 +399,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
 )
 
 java_library(
@@ -454,7 +451,6 @@ java_library(
     ],
     deps = [
         ":remote_analysis_cache_storage_type",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:annotations",
     ],
@@ -521,7 +517,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/jsr305_annotations",
     ],
 )
@@ -540,7 +535,6 @@ java_library(
     ],
     deps = [
         ":lookup_result",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
@@ -585,7 +579,6 @@ java_library(
         ":skycache_channel_state_advisor",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skycache_metadata_params",
         "//src/main/java/com/google/devtools/build/lib/util:serialized_abrupt_exit_exception",
@@ -604,7 +597,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
@@ -665,9 +657,6 @@ java_library(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
         "//src/main/java/com/google/devtools/build/lib/runtime:__pkg__",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
 )
 

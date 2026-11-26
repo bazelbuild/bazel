@@ -34,6 +34,7 @@ bazel_dep(name = "rules_jvm_external")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "2.2.0")
+bazel_dep(name = "rules_rs", version = "0.2.4")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
@@ -55,6 +56,19 @@ bazel_dep(name = "llvm", version = "0.8.27")
 # repo for access to the symbols
 cc_compatibility_proxy = use_extension("@rules_cc//cc:extensions.bzl", "compatibility_proxy")
 use_repo(cc_compatibility_proxy, "cc_compatibility_proxy")
+
+rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+use_repo(rules_rust, "rules_rust")
+
+rust = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+# Keep the repo name short so generated sysroot `.rlib` paths stay under Windows's
+# 260-character MAX_PATH limit (with output-dir overrides in .bazelrc).
+rust.toolchain(
+    name = "rs",
+    edition = "2024",
+    version = "1.100.0",
+)
+use_repo(rust, "rs")
 
 # TODO: wyv@ - add remoteapis to the BCR
 bazel_dep(name = "remoteapis", version = "")
@@ -85,14 +99,27 @@ single_version_override(
     version = "1.76.0.bcr.1",
 )
 
-# Makes abseil link its Windows system libraries (dbghelp, bcrypt) with -l<lib>
-# when it is built with MinGW clang.
-# TODO: Remove once abseil is updated to a release that includes
-# https://github.com/abseil/abseil-cpp/commit/583556e932.
 single_version_override(
     module_name = "abseil-cpp",
     patch_strip = 1,
-    patches = ["//third_party:abseil-cpp-mingw-clang.patch"],
+    patches = [
+        # Makes abseil link its Windows system libraries (dbghelp, bcrypt) with
+        # -l<lib> when it is built with MinGW clang.
+        # TODO: Remove once abseil is updated to a release that includes
+        # https://github.com/abseil/abseil-cpp/commit/583556e932.
+        "//third_party:abseil-cpp-mingw-clang.patch",
+        # Fixes the build with --features=use_header_modules.
+        "//third_party:abseil-cpp-randen-header-modules.patch",
+    ],
+)
+
+# Drops the -pthread copt of re2, which changes a language option and thus
+# keeps re2 from using the header modules of abseil with
+# --features=use_header_modules.
+single_version_override(
+    module_name = "re2",
+    patch_strip = 1,
+    patches = ["//third_party:re2-pthread-copts.patch"],
 )
 
 # bazel_dep overrides
@@ -114,6 +141,17 @@ single_version_override(
         "//third_party:rules_python_2.2.0_quoting.patch",
     ],
     version = "2.2.0",
+)
+
+# TODO: Remove once upstream rules_rs defers host cargo errors on non-Tier-1
+# host architectures during module extension evaluation.
+single_version_override(
+    module_name = "rules_rs",
+    patch_strip = 1,
+    patches = [
+        "//third_party:rules_rs_0.2.4_host_cargo.patch",
+    ],
+    version = "0.2.4",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -441,8 +479,9 @@ use_repo(
 # `local_config_cc` is required only by
 # `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc.
 # `local_config_cc_toolchains` is required only to build the Turbine native
-# image with MSVC on Windows, see
-# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl.
+# image and bootstrap Rust toolchain with MSVC on Windows, see
+# //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl
+# and //src/test/shell/bazel:bootstrap_rust_toolchain.bzl.
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
 
@@ -550,6 +589,10 @@ winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_con
 
 winsdk_configure(name = "local_config_winsdk")
 
+local_rust_configure = use_repo_rule("//scripts:local_rust_configure.bzl", "local_rust_configure")
+
+local_rust_configure(name = "local_config_rust")
+
 # /usr/local/kythe is setup on Bazel CI machines
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 
@@ -561,6 +604,25 @@ local_repository(
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
+crate = use_extension("@rules_rs//rs:extensions.bzl", "crate", dev_dependency = True)
+crate.from_cargo(
+    name = "crates",
+    cargo_lock = "//src/rust:Cargo.lock",
+    cargo_toml = "//src/rust:Cargo.toml",
+    incompatible_no_root_alias_targets = True,
+    incompatible_no_root_crate_data = True,
+    platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-pc-windows-msvc",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-gnullvm",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
+    ],
+)
+use_repo(crate, "crates")
+
 # =========================================
 # Register platforms & toolchains
 # =========================================
@@ -568,6 +630,8 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 register_execution_platforms("//:default_host_platform")
 
 register_toolchains("//:all")
+
+register_toolchains("@rs//...")
 
 register_toolchains("@local_config_winsdk//:all")
 

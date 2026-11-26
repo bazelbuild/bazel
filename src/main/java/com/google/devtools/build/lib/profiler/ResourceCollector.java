@@ -18,7 +18,6 @@ import static java.util.stream.Collectors.groupingBy;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.time.Duration;
@@ -30,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Monitors a number of counter series collectors and logs them in the profile as a time series. */
-@ScOnly
 public class ResourceCollector {
 
   // TODO(twerth): Make these configurable.

@@ -13,160 +13,141 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.RuleConfiguredObjectValue;
-import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.collect.ObjectToIntMap;
+import com.google.devtools.build.lib.concurrent.ForkJoinUtil;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
+import com.google.devtools.build.lib.skyframe.TransitiveClosureCounter.Counts;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.util.Arrays;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountedCompleter;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
 
 /**
  * Counts the number of analysis nodes ({@link RuleConfiguredObjectValue}s) and actions in the
- * transitive closure of each root target.
+ * transitive closure of each root target from the Skyframe graph.
  *
- * <p>Key insight: summing counts bottom-up would double-count shared diamond deps, while a separate
- * traversal per root would revisit shared subgraphs multiple times. Instead, this algorithm flips
- * the question around (from "which nodes does root r reach" to "which roots reach node n"?). This
- * is propagated top-down via a bitmask (64 roots per word), making the operation cheap bitwise ORs.
+ * <p>The discovery pass, a fork/join traversal with one small task per node, walks the Skyframe
+ * graph from {@code roots} and assigns dense IDs to the relevant {@link ActionLookupKey}s, with
+ * each node's action count, in-degree and Skyframe node entry. {@link TransitiveClosureCounter}
+ * then counts the closures, reading the dependencies of each node from its Skyframe node entry
+ * rather than from a copy, to save memory.
  *
- * <p>The algorithm has two passes, both of which are fork/join traversals with one small task per
- * node:
- *
- * <ol>
- *   <li><b>Discovery</b> (runs once) walks the Skyframe graph from {@code roots} and builds a
- *       compact DAG of the relevant {@link ActionLookupKey}s indexed by dense IDs, with each node's
- *       action count, integer-indexed dependencies and in-degree.
- *   <li><b>Propagation</b> (runs in batches of roots) computes, for every node, the set of roots it
- *       is reachable from as a bitmask. A node is processed once all of its parents have OR-ed
- *       their masks into it (Kahn's algorithm), which yields a topological order on the fly with no
- *       separate sorting pass. Processing a node adds its counts to every root in its mask.
- * </ol>
+ * <p>Only works if Skyframe keeps the edges of the graph, i.e. if it tracks incremental state.
  */
 public final class SkyframeTransitiveTargetCounter {
 
-  /** Transitive analysis node and action counts for a single root target. */
-  public record Counts(long targetCount, long actionCount) {}
-
-  /** Atomic element access on {@link Propagation#state} ({@code long[]}). */
-  private static final VarHandle LONG_ARRAY = MethodHandles.arrayElementVarHandle(long[].class);
-
-  /**
-   * Atomic operations on {@link Node#indegree} (a plain {@code int} field), avoiding a separate
-   * {@link AtomicInteger} allocation per {@link Node}.
-   */
-  private static final VarHandle INDEGREE;
-
-  static {
-    try {
-      INDEGREE = MethodHandles.lookup().findVarHandle(Node.class, "indegree", int.class);
-    } catch (ReflectiveOperationException e) {
-      throw new ExceptionInInitializerError(e);
-    }
-  }
-
-  /** Upper bound on the size of the per-pass bitmask array, to bound memory on huge inputs. */
-  private static final long MAX_MASK_BYTES = 1L << 27;
-
-  /** Parallelism threshold for {@link ConcurrentHashMap#forEachValue}. */
-  private static final long FOR_EACH_PARALLELISM_THRESHOLD = 1024;
-
-  private static final int[] NO_DEPS = new int[0];
+  /** Atomic element access on the {@code int[]} arrays of {@link Chunk}s. */
+  private static final VarHandle INT_ARRAY = MethodHandles.arrayElementVarHandle(int[].class);
 
   private SkyframeTransitiveTargetCounter() {}
 
-  /** A node of the compact subgraph. */
-  private static final class Node {
-    final int id;
+  private static final int CHUNK_BITS = 14;
+  private static final int CHUNK_SIZE = 1 << CHUNK_BITS;
+  private static final int CHUNK_MASK = CHUNK_SIZE - 1;
 
-    /** Number of actions, or -1 if this node is not a {@link RuleConfiguredObjectValue}. */
-    int actions = -1;
+  /** The data of {@link #CHUNK_SIZE} consecutive discovered nodes. */
+  private static final class Chunk {
+    /** Number of actions + 1 per node; 0 if the node is not a {@link RuleConfiguredObjectValue}. */
+    final int[] actionsPlusOne = new int[CHUNK_SIZE];
 
-    /** IDs of the relevant direct dependencies. */
-    int[] deps = NO_DEPS;
+    /** Number of incoming edges from other nodes per node; updated via {@link #INT_ARRAY}. */
+    final int[] indegrees = new int[CHUNK_SIZE];
 
-    /** Number of incoming edges from other nodes; updated via {@link #INDEGREE}. */
-    int indegree;
-
-    Node(int id) {
-      this.id = id;
-    }
+    /** The Skyframe node entry whose direct deps are followed, or null if there are none. */
+    final InMemoryNodeEntry[] entries = new InMemoryNodeEntry[CHUNK_SIZE];
   }
 
   /**
-   * Returns {@code obj} as an {@link ActionLookupKey} if it can be or transitively reach a {@link
-   * RuleConfiguredObjectValue}, or {@code null} otherwise.
+   * The per-node data of the discovered nodes, by ID, in {@link Chunk}s that are created on demand.
    *
-   * <p>Non-configurable {@link ConfiguredTargetKey}s ({@code configurationKey == null}, i.e. {@code
-   * InputFile}, {@code PackageGroup}, {@code EnvironmentGroup}) always produce {@code
-   * NonRuleConfiguredTargetValue} and only depend on visibility {@code PackageGroup}s, so they can
-   * never be or reach a {@link RuleConfiguredObjectValue}.
+   * <p>Chunks are needed because the number of nodes is only known once discovery is done, while
+   * discovery threads write the data of the nodes they visit concurrently. A single array would
+   * have to be reallocated and copied when it grows, which would mean either locking every access
+   * or losing writes that race with the copy. Chunks are created lock-free and never move.
    */
+  private static final class Nodes {
+    // IDs are non-negative ints, so there are at most 2^(31 - CHUNK_BITS) chunks.
+    final AtomicReferenceArray<Chunk> chunks = new AtomicReferenceArray<>(1 << (31 - CHUNK_BITS));
+
+    /** Returns the chunk of node {@code id}, creating it if needed. */
+    Chunk chunk(int id) {
+      int index = id >>> CHUNK_BITS;
+      Chunk chunk = chunks.get(index);
+      if (chunk == null) {
+        Chunk fresh = new Chunk();
+        chunk = chunks.compareAndExchange(index, null, fresh);
+        if (chunk == null) {
+          chunk = fresh;
+        }
+      }
+      return chunk;
+    }
+
+    void incrementIndegree(int id) {
+      INT_ARRAY.getAndAdd(chunk(id).indegrees, id & CHUNK_MASK, 1);
+    }
+  }
+
+  /** Returns {@code obj} as an {@link ActionLookupKey} if it is relevant, or {@code null}. */
   @Nullable
   private static ActionLookupKey asRelevantKey(@Nullable Object obj) {
-    if (obj instanceof ConfiguredTargetKey ctk) {
-      return ctk.getConfigurationKey() != null ? ctk : null;
-    }
-    if (obj instanceof AspectBaseKey aspectKey) {
-      return aspectKey;
-    }
-    return null;
+    return TransitiveClosureCounter.isRelevant(obj) ? (ActionLookupKey) obj : null;
   }
 
   /** Shared state and traversal logic of the discovery pass. */
   private static final class Discovery {
     private final InMemoryGraph graph;
-    final ConcurrentHashMap<ActionLookupKey, Node> nodes;
+    final ObjectToIntMap<ActionLookupKey> ids = new ObjectToIntMap<>();
+    final Nodes nodes = new Nodes();
     final AtomicInteger nextId = new AtomicInteger();
 
     Discovery(InMemoryGraph graph) {
       this.graph = graph;
-      this.nodes = new ConcurrentHashMap<>(Math.max(1024, graph.valuesSize() / 2));
     }
 
     /**
-     * Returns the node of {@code key}, creating it and forking a {@link VisitTask} under {@code
-     * parent} if this is the first time the key is seen.
+     * Returns the ID of {@code key}. If this is the first time the key is seen, assigns it a new ID
+     * and forks a {@link VisitTask} under {@code parent} that visits the node and in turn does the
+     * same for its direct deps.
      */
-    Node nodeFor(ActionLookupKey key, CountedCompleter<?> parent) {
-      return nodes.computeIfAbsent(
-          key,
-          k -> {
-            Node fresh = new Node(nextId.getAndIncrement());
-            parent.addToPendingCount(1);
-            new VisitTask(parent, this, k, fresh).fork();
-            return fresh;
-          });
+    int generateIdAndEnqueueDirectDeps(ActionLookupKey key, CountedCompleter<?> parent) {
+      int id = ids.getOrPut(key, nextId::getAndIncrement);
+      if (id >= 0) {
+        // Seen before, so it is already visited or about to be.
+        return id;
+      }
+      // getOrPut() returns the bitwise complement of the ID if it added the key, i.e. if this is
+      // the first time the key is seen; only then is the node visited.
+      id = ~id;
+      parent.addToPendingCount(1);
+      new VisitTask(parent, this, key, id).fork();
+      return id;
     }
 
-    /** Visits one node: records its actions and dependencies and forks tasks for new deps. */
-    void visit(CountedCompleter<?> parent, ActionLookupKey key, Node node) {
+    /** Visits one node: records its actions and Skyframe entry and forks tasks for new deps. */
+    void visit(CountedCompleter<?> parent, ActionLookupKey key, int id) {
       InMemoryNodeEntry entry = graph.getIfPresent(key);
       if (entry != null && entry.isDone()) {
+        Chunk chunk = nodes.chunk(id);
         SkyValue value = entry.getValue();
         if (value instanceof RuleConfiguredObjectValue ruleConfiguredObject
             && !ActionLookupValuesTraversal.isDelegatedConfiguredTargetValue(key, value)) {
-          node.actions = ruleConfiguredObject.getActions().size();
+          chunk.actionsPlusOne[id & CHUNK_MASK] = ruleConfiguredObject.getActions().size() + 1;
         }
         // `value` is null when a done node completed with an error under --keep_going
         // (entry.getValue() unwraps ErrorInfoValue to null), including cycle nodes whose retained
@@ -174,7 +155,8 @@ public final class SkyframeTransitiveTargetCounter {
         // under --notrack_incremental_state (NonIncrementalInMemoryNodeEntry), where direct deps
         // are discarded on completion and getCompressedDirectDepsForDoneEntry() throws.
         if (value != null && entry.keepsEdges()) {
-          node.deps = visitCompressedDeps(parent, entry.getCompressedDirectDepsForDoneEntry());
+          chunk.entries[id & CHUNK_MASK] = entry;
+          visitCompressedDeps(parent, entry.getCompressedDirectDepsForDoneEntry());
         }
       }
     }
@@ -184,38 +166,29 @@ public final class SkyframeTransitiveTargetCounter {
      * SkyKey}s and {@code Integer} group markers, a single bare {@link SkyKey}, or an opaque empty
      * marker.
      */
-    private int[] visitCompressedDeps(CountedCompleter<?> parent, Object compressed) {
+    private void visitCompressedDeps(CountedCompleter<?> parent, Object compressed) {
       if (!(compressed instanceof Object[] depArray)) {
         ActionLookupKey depKey = asRelevantKey(compressed);
-        if (depKey == null) {
-          return NO_DEPS;
+        if (depKey != null) {
+          nodes.incrementIndegree(generateIdAndEnqueueDirectDeps(depKey, parent));
         }
-        Node dep = nodeFor(depKey, parent);
-        INDEGREE.getAndAdd(dep, 1);
-        return new int[] {dep.id};
+        return;
       }
-      // Look all dependencies up and read their IDs first, and only then bump their in-degrees:
-      // reading dep.id faults the Node's cache line in alongside the hash-table lookup while the
-      // out-of-order engine can overlap misses across iterations, whereas the atomic increments in
-      // the second loop are full fences that would otherwise serialize them.
-      int maxDeps = depArray.length;
-      Node[] depNodes = new Node[maxDeps];
-      int[] deps = new int[maxDeps];
+      // Look all dependencies up first, and only then bump their in-degrees: the out-of-order
+      // engine can overlap the cache misses of the hash-table lookups across iterations, whereas
+      // the atomic increments in the second loop are full fences that would otherwise serialize
+      // them.
+      int[] depIds = new int[depArray.length];
       int n = 0;
       for (Object elem : depArray) {
         ActionLookupKey depKey = asRelevantKey(elem);
-        if (depKey == null) {
-          continue;
+        if (depKey != null) {
+          depIds[n++] = generateIdAndEnqueueDirectDeps(depKey, parent);
         }
-        Node dep = nodeFor(depKey, parent);
-        depNodes[n] = dep;
-        deps[n] = dep.id;
-        n++;
       }
       for (int i = 0; i < n; i++) {
-        INDEGREE.getAndAdd(depNodes[i], 1);
+        nodes.incrementIndegree(depIds[i]);
       }
-      return n == 0 ? NO_DEPS : (n == maxDeps ? deps : Arrays.copyOf(deps, n));
     }
   }
 
@@ -223,178 +196,28 @@ public final class SkyframeTransitiveTargetCounter {
   private static final class VisitTask extends CountedCompleter<Void> {
     private final Discovery discovery;
     private final ActionLookupKey key;
-    private final Node node;
+    private final int id;
 
-    VisitTask(CountedCompleter<?> parent, Discovery discovery, ActionLookupKey key, Node node) {
+    VisitTask(CountedCompleter<?> parent, Discovery discovery, ActionLookupKey key, int id) {
       super(parent);
       this.discovery = discovery;
       this.key = key;
-      this.node = node;
+      this.id = id;
     }
 
     @Override
     public void compute() {
-      discovery.visit(this, key, node);
+      discovery.visit(this, key, id);
       tryComplete();
     }
   }
 
   /**
-   * Shared state and traversal logic of one propagation pass over the root range {@code
-   * [iFirstRoot, iLastRoot)}.
+   * Runs the discovery pass from {@code rootKeys}, filling {@code rootIds} with their IDs, and
+   * returns the discovered nodes as a graph.
    */
-  private static final class Propagation {
-    private final Node[] byId;
-    private final int iFirstRoot;
-    private final int iLastRoot;
-    private final int words;
-
-    /**
-     * Number of {@code long} slots per node in {@link #state}: {@link #words} bitmask words plus 1
-     * slot for the remaining in-degree.
-     */
-    private final int stride;
-
-    /** Per node: {@code words} mask words followed by the remaining in-degree. */
-    private final long[] state;
-
-    /**
-     * Thread-local {@code [targets..., actions...]} accumulators, one pair of slots per root of
-     * this pass (index {@code i - iFirstRoot}).
-     */
-    private final ThreadLocal<long[]> accumulator;
-
-    final ConcurrentLinkedQueue<long[]> accumulators = new ConcurrentLinkedQueue<>();
-
-    Propagation(Node[] byId, int iFirstRoot, int iLastRoot) {
-      this.byId = byId;
-      this.iFirstRoot = iFirstRoot;
-      this.iLastRoot = iLastRoot;
-      this.words = (iLastRoot - iFirstRoot + 63) / 64;
-      // + 1 for the remaining in-degree stored after each node's bitmask words.
-      this.stride = words + 1;
-      this.state = new long[byId.length * stride];
-      this.accumulator =
-          ThreadLocal.withInitial(
-              () -> {
-                long[] acc = new long[2 * (iLastRoot - iFirstRoot)];
-                accumulators.add(acc);
-                return acc;
-              });
-    }
-
-    CountedCompleter<Void> createTask(Node[] rootNodes) {
-      return new CountedCompleter<Void>() {
-        @Override
-        public void compute() {
-          start(this, rootNodes);
-          tryComplete();
-        }
-      };
-    }
-
-    /** Initializes {@link #state} and forks {@link PropagateTask}s for all in-degree-0 roots. */
-    private void start(CountedCompleter<?> parent, Node[] rootNodes) {
-      // Runs on a pool worker, so the parallel stream is executed by this pool too.
-      IntStream.range(0, byId.length)
-          .parallel()
-          .forEach(id -> state[id * stride + words] = byId[id].indegree);
-      for (int i = iFirstRoot; i < iLastRoot; i++) {
-        int bit = i - iFirstRoot;
-        state[rootNodes[i].id * stride + bit / 64] |= 1L << (bit % 64);
-      }
-      // Only roots can have no parents; start every in-degree-0 root across all roots (not just
-      // [iFirstRoot, iLastRoot)) so Kahn's algorithm reaches roots in [iFirstRoot, iLastRoot)
-      // whose parents are roots from other passes. Because `roots` is a Set, rootNodes are
-      // distinct and each is started once.
-      for (Node root : rootNodes) {
-        if (root.indegree == 0) {
-          parent.addToPendingCount(1);
-          new PropagateTask(parent, this, root).fork();
-        }
-      }
-    }
-
-    /** Processes one node whose parents have all been processed and forks its ready children. */
-    void propagate(CountedCompleter<?> parent, Node node) {
-      int base = node.id * stride;
-
-      if (node.actions >= 0) {
-        long[] acc = accumulator.get();
-        int passRoots = acc.length / 2;
-        for (int w = 0; w < words; w++) {
-          long mask = state[base + w];
-          int rootBase = w * 64;
-          // Iterate over the set bits in `mask`; where a bit is set, update the accumulator
-          // accordingly.
-          while (mask != 0) {
-            int root = rootBase + Long.numberOfTrailingZeros(mask);
-            acc[root]++;
-            acc[passRoots + root] += node.actions;
-            // Unset the lowest set bit.
-            mask &= mask - 1;
-          }
-        }
-      }
-
-      // Iterate over every dep: OR the mask of this node into the mask of the dep and decrement the
-      // remaining in-degree of the dep by one. If the dep has no more parents remaining, enqueue
-      // it.
-      for (int dep : node.deps) {
-        int depBase = dep * stride;
-        for (int w = 0; w < words; w++) {
-          long mask = state[base + w];
-          // Skip the (fenced) atomic OR if the child already has all of our bits, which is common
-          // when parents share roots. Bits are only ever set, so a stale read is harmless.
-          if (mask != 0) {
-            long current = state[depBase + w];
-            if ((current | mask) != current) {
-              LONG_ARRAY.getAndBitwiseOr(state, depBase + w, mask);
-            }
-          }
-        }
-        if ((long) LONG_ARRAY.getAndAdd(state, depBase + words, -1L) == 1L) {
-          parent.addToPendingCount(1);
-          new PropagateTask(parent, this, byId[dep]).fork();
-        }
-      }
-    }
-  }
-
-  /** Fork/join task that processes one ready node during {@link Propagation}. */
-  private static final class PropagateTask extends CountedCompleter<Void> {
-    private final Propagation propagation;
-    private final Node node;
-
-    PropagateTask(CountedCompleter<?> parent, Propagation propagation, Node node) {
-      super(parent);
-      this.propagation = propagation;
-      this.node = node;
-    }
-
-    @Override
-    public void compute() {
-      propagation.propagate(this, node);
-      tryComplete();
-    }
-  }
-
-  /** Runs {@code task} in {@code pool}, propagating failures and interrupts. */
-  private static void run(ForkJoinPool pool, ForkJoinTask<?> task) throws InterruptedException {
-    try {
-      pool.submit(task).get();
-    } catch (ExecutionException e) {
-      Throwables.throwIfUnchecked(e.getCause());
-      throw new IllegalStateException(e.getCause());
-    }
-  }
-
-  /**
-   * Runs the discovery pass from {@code rootKeys}, filling {@code rootNodes} with their nodes, and
-   * returns all discovered nodes indexed by ID.
-   */
-  private static Node[] discover(
-      InMemoryGraph graph, ConfiguredTargetKey[] rootKeys, Node[] rootNodes, ForkJoinPool pool)
+  private static NodeGraph discover(
+      InMemoryGraph graph, ConfiguredTargetKey[] rootKeys, int[] rootIds, ForkJoinPool pool)
       throws InterruptedException {
     Discovery discovery = new Discovery(graph);
     CountedCompleter<Void> discoveryRoot =
@@ -402,32 +225,97 @@ public final class SkyframeTransitiveTargetCounter {
           @Override
           public void compute() {
             for (int i = 0; i < rootKeys.length; i++) {
-              rootNodes[i] = discovery.nodeFor(rootKeys[i], this);
+              rootIds[i] = discovery.generateIdAndEnqueueDirectDeps(rootKeys[i], this);
             }
             tryComplete();
           }
         };
-    run(pool, discoveryRoot);
+    ForkJoinUtil.run(pool, discoveryRoot);
+    return new NodeGraph(discovery.ids, discovery.nodes, discovery.nextId.get());
+  }
 
-    // Populate `byId` in a separate pass once `nextId` gives the exact reachable node count:
-    // during discovery that count is unknown (it can be much smaller than `graph.valuesSize()`,
-    // or larger if roots or deps are absent from `graph`), so building `byId` on the fly would
-    // require concurrent resizing or chunked arrays. Wrapping `forEachValue` in
-    // `ForkJoinTask.adapt` runs it in `pool` so its subtasks fork onto `pool` instead of
-    // `ForkJoinPool.commonPool()`.
-    Node[] byId = new Node[discovery.nextId.get()];
-    run(
-        pool,
-        ForkJoinTask.adapt(
-            () ->
-                discovery.nodes.forEachValue(
-                    FOR_EACH_PARALLELISM_THRESHOLD, node -> byId[node.id] = node)));
-    return byId;
+  /**
+   * The discovered nodes as a {@link TransitiveClosureCounter.Graph}. Dependencies are read from
+   * the Skyframe node entries and mapped to IDs with the key to ID map of the discovery pass.
+   */
+  private static final class NodeGraph implements TransitiveClosureCounter.Graph {
+    private final ObjectToIntMap<ActionLookupKey> ids;
+    private final Nodes nodes;
+    private final int nodeCount;
+
+    NodeGraph(ObjectToIntMap<ActionLookupKey> ids, Nodes nodes, int nodeCount) {
+      this.ids = ids;
+      this.nodes = nodes;
+      this.nodeCount = nodeCount;
+    }
+
+    @Override
+    public int nodeCount() {
+      return nodeCount;
+    }
+
+    @Override
+    public int indegree(int id) {
+      return nodes.chunk(id).indegrees[id & CHUNK_MASK];
+    }
+
+    @Override
+    public void read(int id, TransitiveClosureCounter.NodeView out) {
+      Chunk chunk = nodes.chunk(id);
+      int index = id & CHUNK_MASK;
+      out.actions = chunk.actionsPlusOne[index] - 1;
+      out.size = 0;
+      InMemoryNodeEntry entry = chunk.entries[index];
+      if (entry == null) {
+        return;
+      }
+      // The same deps, in the same order, as visited by Discovery.visitCompressedDeps(), so that
+      // they match the in-degrees.
+      Object compressed = entry.getCompressedDirectDepsForDoneEntry();
+      if (!(compressed instanceof Object[] depArray)) {
+        ActionLookupKey depKey = asRelevantKey(compressed);
+        if (depKey != null) {
+          out.deps = ensureCapacity(out, 1);
+          out.deps[out.size++] = idOf(depKey);
+        }
+        return;
+      }
+      int[] deps = ensureCapacity(out, depArray.length);
+      int n = 0;
+      for (Object elem : depArray) {
+        ActionLookupKey depKey = asRelevantKey(elem);
+        if (depKey != null) {
+          deps[n++] = idOf(depKey);
+        }
+      }
+      out.deps = deps;
+      out.size = n;
+    }
+
+    private int idOf(ActionLookupKey key) {
+      // No lock needed: the map is complete and no longer modified once discovery is done, which
+      // happens-before propagation starts (discover() waits for the discovery tasks to complete,
+      // and the propagation tasks are forked afterwards). This is called once per edge per pass,
+      // from all propagation threads, so taking the lock would only add contention.
+      int id = ids.getUnsynchronized(key);
+      checkState(id >= 0, "%s was not discovered", key);
+      return id;
+    }
+
+    /** Returns a per-thread scratch array of at least {@code size} ints, kept in {@code out}. */
+    private static int[] ensureCapacity(TransitiveClosureCounter.NodeView out, int size) {
+      int[] scratch = out.scratch instanceof int[] array ? array : new int[0];
+      if (scratch.length < size) {
+        scratch = new int[Math.max(size, 2 * scratch.length)];
+        out.scratch = scratch;
+      }
+      return scratch;
+    }
   }
 
   public static ImmutableMap<ConfiguredTargetKey, Counts> count(
       InMemoryGraph graph, Set<ConfiguredTargetKey> roots) throws InterruptedException {
-    return count(graph, roots, MAX_MASK_BYTES);
+    return count(graph, roots, TransitiveClosureCounter.MAX_MASK_BYTES);
   }
 
   @VisibleForTesting
@@ -437,22 +325,8 @@ public final class SkyframeTransitiveTargetCounter {
     if (roots.isEmpty()) {
       return ImmutableMap.of();
     }
-
-    ForkJoinPool pool =
-        NamedForkJoinPool.newNamedPool(
-            "transitive-target-counter", Runtime.getRuntime().availableProcessors());
-    boolean completedNormally = false;
-    try {
-      ImmutableMap<ConfiguredTargetKey, Counts> result = count(graph, roots, pool, maxMaskBytes);
-      completedNormally = true;
-      return result;
-    } finally {
-      if (completedNormally
-          ? ExecutorUtil.interruptibleShutdown(pool)
-          : ExecutorUtil.uninterruptibleShutdownNow(pool)) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    return ForkJoinUtil.withPool(
+        "transitive-target-counter", pool -> count(graph, roots, pool, maxMaskBytes));
   }
 
   private static ImmutableMap<ConfiguredTargetKey, Counts> count(
@@ -460,46 +334,20 @@ public final class SkyframeTransitiveTargetCounter {
       throws InterruptedException {
     ConfiguredTargetKey[] rootKeys = roots.toArray(new ConfiguredTargetKey[0]);
     int numRoots = rootKeys.length;
-    long[] totals = new long[2 * numRoots];
 
-    // 1. Discovery, builds up a compact DAG indexed by dense integer IDs. Done in a separate method
-    // so that the key -> Node map is unreachable (and collectable) during propagation.
-    Node[] rootNodes = new Node[numRoots];
-    Node[] byId;
+    // 1. Discovery, assigns dense integer IDs to the nodes of the closures.
+    int[] rootIds = new int[numRoots];
+    NodeGraph nodeGraph;
     try (SilentCloseable c =
         Profiler.instance().profile("SkyframeTransitiveTargetCounter.discovery")) {
-      byId = discover(graph, rootKeys, rootNodes, pool);
+      nodeGraph = discover(graph, rootKeys, rootIds, pool);
     }
 
-    // 2. Propagation, in passes over ranges of roots if the bitmasks would be too large.
-    //
-    //   roots:  [0 ................. iFirstRoot .... iLastRoot ................. numRoots)
-    //                                |<-- <= 64*words roots -->|
-    //                                  bit b = i - iFirstRoot -> word b/64, bit b%64
-    //
-    //   state:  |<- node 0 (stride = words + 1) ->|<- node 1 (stride = words + 1) ->| ...
-    //           +---------+-----+-----------+-----+---------+-----+-----------+-----+
-    //           | mask[0] | ... | mask[w-1] |indeg| mask[0] | ... | mask[w-1] |indeg| ...
-    //           +---------+-----+-----------+-----+---------+-----+-----------+-----+
-    //
-    //   totals: |<--- targetCount[0..numRoots) --->|<--- actionCount[0..numRoots) --->|
+    // 2. Propagation.
+    long[] totals;
     try (SilentCloseable c =
         Profiler.instance().profile("SkyframeTransitiveTargetCounter.propagation")) {
-      int nodeCount = byId.length;
-      int maxWordsPerPass =
-          (int) Math.max(1, Math.min(1 << 20, maxMaskBytes / (8L * Math.max(1, nodeCount))));
-      for (int iFirstRoot = 0; iFirstRoot < numRoots; iFirstRoot += 64 * maxWordsPerPass) {
-        int iLastRoot = Math.min(numRoots, iFirstRoot + 64 * maxWordsPerPass);
-        int passRoots = iLastRoot - iFirstRoot;
-        Propagation propagation = new Propagation(byId, iFirstRoot, iLastRoot);
-        run(pool, propagation.createTask(rootNodes));
-        for (long[] acc : propagation.accumulators) {
-          for (int i = 0; i < passRoots; i++) {
-            totals[iFirstRoot + i] += acc[i];
-            totals[numRoots + iFirstRoot + i] += acc[passRoots + i];
-          }
-        }
-      }
+      totals = TransitiveClosureCounter.count(nodeGraph, rootIds, pool, maxMaskBytes);
     }
 
     ImmutableMap.Builder<ConfiguredTargetKey, Counts> result =

@@ -26,6 +26,7 @@ java_test(
     srcs = ["CommonQueryOptionsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/query2/common:options",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/junit",
         "//third_party/java/truth",

@@ -755,6 +755,22 @@ public final class QueryParserTest {
     assertThat(resolved.toString()).contains("//b499");
   }
 
+  @Test
+  public void testQueryExpressionParseWithParserOptionsEnforcesMaxDepth() throws Exception {
+    QueryEnvironment<?> env = mockEnvironment();
+    ParserOptions maxDepth1 = ParserOptions.builder().setMaxQueryDepth(1).build();
+    ParserOptions maxDepth2 = ParserOptions.builder().setMaxQueryDepth(2).build();
+
+    QueryExpression parsed = QueryExpression.parse("deps(deps(//foo))", env, maxDepth2);
+    assertThat(parsed.toString()).isEqualTo("deps(deps(//foo))");
+
+    QuerySyntaxException e =
+        assertThrows(
+            QuerySyntaxException.class,
+            () -> QueryExpression.parse("deps(deps(//foo))", env, maxDepth1));
+    assertThat(e).hasMessageThat().isEqualTo("query exceeds maximum nesting depth of 1");
+  }
+
   private static void assertExactDepthBoundary(String query, int exactDepth) throws Exception {
     ParserOptions atLimit = ParserOptions.builder().setMaxQueryDepth(exactDepth).build();
     assertThat(QueryParser.parse(query, atLimit))

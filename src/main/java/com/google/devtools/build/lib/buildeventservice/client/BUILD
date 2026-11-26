@@ -15,7 +15,6 @@ java_library(
     name = "command_context",
     srcs = ["CommandContext.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/jsr305_annotations",
     ],
 )
@@ -23,17 +22,11 @@ java_library(
 java_library(
     name = "lifecycle_event",
     srcs = ["LifecycleEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
 )
 
 java_library(
     name = "stream_event",
     srcs = ["StreamEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
 )
 
 java_library(
@@ -43,7 +36,6 @@ java_library(
         ":command_context",
         ":lifecycle_event",
         ":stream_event",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/jsr305_annotations",
     ],
 )
@@ -58,7 +50,6 @@ java_library(
         ":lifecycle_event",
         ":stream_event",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//third_party/google/devtools/build/v1:publish_build_event_java_proto",
         "//third_party/google/devtools/build/v1:publish_build_event_proto_grpc",
         "//third_party/java/grpc:core",

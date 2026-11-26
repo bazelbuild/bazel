@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.remote.downloader;
 
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
@@ -36,6 +38,8 @@ import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -189,13 +193,14 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             credentials);
     String eventUri = urls.getFirst().toString();
     try {
-      FetchBlobResponse response =
-          retrier.execute(
-              () ->
-                  channel.withChannelBlocking(
-                      channel ->
-                          fetchBlockingStub(remoteActionExecutionContext, channel)
-                              .fetchBlob(request)));
+      FetchBlobResponse response;
+      try (var span =
+          Profiler.instance().profile(ProfilerTask.REMOTE_NETWORK, "Remote Asset FetchBlob")) {
+        response =
+            retrier.execute(() ->
+                channel.withChannelBlocking(channel ->
+                    fetchBlockingStub(remoteActionExecutionContext, channel).fetchBlob(request)));
+      }
       if (!response.getUri().isEmpty()) {
         eventUri = response.getUri();
       }
@@ -206,24 +211,26 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       }
       final Digest blobDigest = response.getBlobDigest();
 
-      var unused =
-          retrier.execute(
-              () -> {
-                try (OutputStream out = newOutputStream(destination, checksum)) {
-                  getFromFuture(
-                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
-                } catch (OutputDigestMismatchException e) {
-                  e.setOutputPath(destination.getPathString());
-                  throw e;
-                }
-                return null;
-              });
+      try (var span =
+          Profiler.instance().profile(ProfilerTask.REMOTE_NETWORK, "Remote Asset CAS read")) {
+        var unused =
+            retrier.execute(() -> {
+              try (OutputStream out = newOutputStream(destination, checksum)) {
+                getFromFuture(
+                    cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+              } catch (OutputDigestMismatchException e) {
+                e.setOutputPath(destination.getPathString());
+                throw e;
+              }
+              return null;
+            });
+      }
 
     } catch (StatusRuntimeException | IOException e) {
       eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       if (!remoteDownloaderLocalFallback) {
         if (e instanceof StatusRuntimeException) {
-          throw new IOException(e);
+          throw new IOException(unicodeToInternal(e.toString()), e);
         }
         throw e;
       }
@@ -271,8 +278,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         for (var value : entry.getValue()) {
           requestBuilder.addQualifiers(
               Qualifier.newBuilder()
-                  .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
-                  .setValue(value)
+                  .setName(
+                      QUALIFIER_HTTP_HEADER_URL_PREFIX
+                          + i
+                          + ":"
+                          + internalToUnicode(entry.getKey()))
+                  .setValue(internalToUnicode(value))
                   .build());
         }
       }
@@ -294,7 +305,10 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
-          Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
+          Qualifier.newBuilder()
+              .setName(QUALIFIER_CANONICAL_ID)
+              .setValue(internalToUnicode(canonicalId))
+              .build());
     }
 
     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
@@ -308,8 +322,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       // merging the field-values with a comma.
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
-              .setName(QUALIFIER_HTTP_HEADER_PREFIX + entry.getKey())
-              .setValue(String.join(",", entry.getValue()))
+              .setName(QUALIFIER_HTTP_HEADER_PREFIX + internalToUnicode(entry.getKey()))
+              .setValue(internalToUnicode(String.join(",", entry.getValue())))
               .build());
     }
 

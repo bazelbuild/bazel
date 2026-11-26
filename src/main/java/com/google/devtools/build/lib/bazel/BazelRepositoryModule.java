@@ -167,8 +167,6 @@ public class BazelRepositoryModule extends BlazeModule {
   private YankedVersionsFunction yankedVersionsFunction;
 
   private final VendorCommand vendorCommand = new VendorCommand(nonstrictRepoEnvSupplier);
-  private final RegistryFactoryImpl registryFactory =
-      new RegistryFactoryImpl(nonstrictRepoEnvSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
@@ -256,7 +254,9 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .addSkyFunction(
             SkyFunctions.REGISTRY,
-            new RegistryFunction(registryFactory, directories.getWorkspace()))
+            new RegistryFunction(
+                new RegistryFactoryImpl(nonstrictRepoEnvSupplier, directories.getWorkspace()),
+                directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.REPO_SPEC, repoSpecFunction)
         .addSkyFunction(SkyFunctions.YANKED_VERSIONS, yankedVersionsFunction)
         .addSkyFunction(

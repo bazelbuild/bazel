@@ -305,22 +305,25 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>LOGNAME</code></td>
-    <td>value of <code>$USER</code></td>
-    <td>required</td>
+    <td>value of <code>$USER</code> or <em>unset</em></td>
+    <td>recommended</td>
   </tr>
   <tr>
     <td><code>PATH</code></td>
-    <td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td>
+    <td>
+      <code>.:/bin:/usr/bin:/sbin:/usr/sbin</code> or similar,
+      depending on the operating system
+    </td>
     <td>recommended</td>
   </tr>
   <tr>
     <td><code>PWD</code></td>
-    <td><code>$TEST_SRCDIR/workspace-name</code></td>
+    <td><code>$TEST_SRCDIR/workspace-name</code> or <em>unset</em></td>
     <td>recommended</td>
   </tr>
   <tr>
     <td><code>SHLVL</code></td>
-    <td><code>2</code></td>
+    <td><code>0</code> or <code>1</code> or <code>2</code> or <em>unset</em></td>
     <td>recommended</td>
   </tr>
   <tr>

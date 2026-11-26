@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.devtools.build.lib.profiler.ProfilerTask.CREDENTIAL_HELPER;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -88,8 +89,11 @@ public final class CredentialHelper {
                 e.getMessage()));
       }
 
+      // stdin and stdout carry UTF-8 JSON handled by Gson (GetCredentialsResponse converts parsed
+      // strings via StringEncoding.unicodeToInternal), whereas stderr is included directly in
+      // CredentialHelperException messages using Bazel's internal (ISO-8859-1 raw byte) encoding.
       try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
-          Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
+          Reader stderr = new InputStreamReader(process.getErrorStream(), ISO_8859_1)) {
         try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
           GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
         } catch (IOException e) {

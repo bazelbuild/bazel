@@ -220,7 +220,7 @@ public final class CcCompilationContext {
     public static void handleArtifact(
         Artifact artifact,
         Map<PathFragment, Artifact> pathToLegalArtifact,
-        ArrayList<Artifact> treeArtifacts) {
+        List<Artifact> treeArtifacts) {
       if (artifact.isTreeArtifact()) {
         treeArtifacts.add(artifact);
         return;
@@ -229,16 +229,18 @@ public final class CcCompilationContext {
     }
 
     /**
-     * Enter the TreeArtifactValues in each TreeArtifact into pathToLegalArtifact. Returns true on
-     * success.
+     * Enters the {@link TreeArtifactValue}s in each {@code TreeArtifact} into {@code
+     * pathToLegalArtifact} and records child basenames in {@code generatedHeaderBaseNames}. Returns
+     * true on success.
      *
-     * <p>If a TreeArtifact's value is missing, returns false, and leave pathToLegalArtifact
-     * unmodified.
+     * <p>If a {@code TreeArtifact}'s value is missing, returns false and leaves {@code
+     * pathToLegalArtifact} and {@code generatedHeaderBaseNames} unmodified.
      */
-    public static boolean handleTreeArtifacts(
+    static boolean handleTreeArtifacts(
         Environment env,
         Map<PathFragment, Artifact> pathToLegalArtifact,
-        ArrayList<Artifact> treeArtifacts)
+        List<Artifact> treeArtifacts,
+        Set<String> generatedHeaderBaseNames)
         throws InterruptedException {
       if (treeArtifacts.isEmpty()) {
         return true;
@@ -257,12 +259,20 @@ public final class CcCompilationContext {
         }
         checkState(
             value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
-        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
-          pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
-        }
+        registerTreeArtifactChildren(
+            (TreeArtifactValue) value, pathToLegalArtifact, generatedHeaderBaseNames);
       }
       return true;
+    }
+
+    private static void registerTreeArtifactChildren(
+        TreeArtifactValue treeArtifactValue,
+        Map<PathFragment, Artifact> pathToLegalArtifact,
+        Set<String> generatedHeaderBaseNames) {
+      for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+        pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
+        generatedHeaderBaseNames.add(treeFileArtifact.getExecPath().getBaseName());
+      }
     }
   }
 
@@ -276,7 +286,7 @@ public final class CcCompilationContext {
   private static void handleHeadersForIncludeScanning(
       ImmutableList<Artifact> headers,
       Map<PathFragment, Artifact> pathToLegalArtifact,
-      ArrayList<Artifact> treeArtifacts,
+      List<Artifact> treeArtifacts,
       boolean isModule,
       Set<Artifact> modularHeaders) {
     // Not using range-based for loops here and below as the additional overhead of the
@@ -299,7 +309,7 @@ public final class CcCompilationContext {
       Environment env, boolean usePic, boolean createModularHeaders) throws InterruptedException {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
-    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    List<Artifact> treeArtifacts = new ArrayList<>();
     // Summing transitive header lists over-allocates due to duplicate exported deps, and large
     // maps prematurely promote to Old Gen (b/569269228). Estimate capacity from the deduplicated
     // library count and cap it.
@@ -316,6 +326,7 @@ public final class CcCompilationContext {
         createModularHeaders
             ? CompactHashSet.createWithExpectedSize(Math.min(transitiveInfoCount * 2, 2048))
             : CompactHashSet.create();
+    Set<String> generatedHeaderBaseNames = null;
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
@@ -344,16 +355,45 @@ public final class CcCompilationContext {
           treeArtifacts,
           /* isModule= */ false,
           null);
+      generatedHeaderBaseNames =
+          mergeGeneratedBaseNames(
+              transitiveHeaderInfo.generatedHeaderBaseNames,
+              generatedHeaderBaseNames,
+              transitiveInfoCount);
     }
-    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
-        env, pathToLegalArtifact, treeArtifacts)) {
-      return null;
+    if (!treeArtifacts.isEmpty()) {
+      if (generatedHeaderBaseNames == null) {
+        generatedHeaderBaseNames = CompactHashSet.create();
+      }
+      if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+          env, pathToLegalArtifact, treeArtifacts, generatedHeaderBaseNames)) {
+        return null;
+      }
     }
     removeArtifactsFromSet(modularHeaders, headerInfo.modularPublicHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.modularPrivateHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.separateModuleHeaders);
-    return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
+    return new IncludeScanningHeaderData.Builder(
+        pathToLegalArtifact, modularHeaders, generatedHeaderBaseNames);
+  }
+
+  @Nullable
+  private static Set<String> mergeGeneratedBaseNames(
+      ImmutableList<String> baseNames,
+      @Nullable Set<String> generatedHeaderBaseNames,
+      int transitiveInfoCount) {
+    if (baseNames.isEmpty()) {
+      return generatedHeaderBaseNames;
+    }
+    if (generatedHeaderBaseNames == null) {
+      generatedHeaderBaseNames =
+          CompactHashSet.createWithExpectedSize(Math.min(transitiveInfoCount, 1024));
+    }
+    for (int i = 0; i < baseNames.size(); i++) {
+      generatedHeaderBaseNames.add(baseNames.get(i));
+    }
+    return generatedHeaderBaseNames;
   }
 
   /**
@@ -636,6 +676,13 @@ public final class CcCompilationContext {
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
     final ImmutableList<HeaderInfo> deps;
 
+    /**
+     * Basenames of non-source, non-tree headers declared directly on this {@link HeaderInfo}.
+     * Precomputed once at construction/deserialization so {@link #createIncludeScanningHeaderData}
+     * avoids extracting basenames per action.
+     */
+    final ImmutableList<String> generatedHeaderBaseNames;
+
     public static final HeaderInfo EMPTY =
         HeaderInfo.create(
             SymbolGenerator.CONSTANT_SYMBOL,
@@ -674,6 +721,37 @@ public final class CcCompilationContext {
       this.separateModule = separateModule;
       this.separatePicModule = separatePicModule;
       this.deps = deps;
+      this.generatedHeaderBaseNames =
+          extractGeneratedHeaderBaseNames(
+              modularPublicHeaders, modularPrivateHeaders, textualHeaders, separateModuleHeaders);
+    }
+
+    private static ImmutableList<String> extractGeneratedHeaderBaseNames(
+        ImmutableList<Artifact> modularPublicHeaders,
+        ImmutableList<Artifact> modularPrivateHeaders,
+        ImmutableList<Artifact> textualHeaders,
+        ImmutableList<Artifact> separateModuleHeaders) {
+      Set<String> baseNames = collectGeneratedBaseNames(modularPublicHeaders, null);
+      baseNames = collectGeneratedBaseNames(modularPrivateHeaders, baseNames);
+      baseNames = collectGeneratedBaseNames(textualHeaders, baseNames);
+      baseNames = collectGeneratedBaseNames(separateModuleHeaders, baseNames);
+      return baseNames == null ? ImmutableList.of() : ImmutableList.copyOf(baseNames);
+    }
+
+    @Nullable
+    private static Set<String> collectGeneratedBaseNames(
+        ImmutableList<Artifact> headers, @Nullable Set<String> baseNames) {
+      for (int i = 0; i < headers.size(); i++) {
+        Artifact header = headers.get(i);
+        if (header.isSourceArtifact() || header.isTreeArtifact()) {
+          continue;
+        }
+        if (baseNames == null) {
+          baseNames = CompactHashSet.create();
+        }
+        baseNames.add(header.getExecPath().getBaseName());
+      }
+      return baseNames;
     }
 
     DerivedArtifact getModule(boolean pic) {

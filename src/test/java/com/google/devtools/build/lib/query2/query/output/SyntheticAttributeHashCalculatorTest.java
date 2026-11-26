@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Disc
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -59,6 +61,26 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
             /* includeStarlarkRuleEnv= */ true);
 
     assertThat(hashBefore).isNotEqualTo(hashAfter);
+  }
+
+  @Test
+  public void testComputeAfterFailedSerialization() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name='x', cmd='touch $@', outs=['y'])");
+    Rule rule = (Rule) getTarget("//pkg:x");
+    Function<Object, String> computeHash =
+        extraData ->
+            SyntheticAttributeHashCalculator.compute(
+                rule,
+                /* serializedAttributes= */ ImmutableMap.of(),
+                extraData,
+                DigestHashFunction.SHA256.getHashFunction(),
+                /* includeAttributeSourceAspects= */ false,
+                /* includeStarlarkRuleEnv= */ true);
+
+    String expected = computeHash.apply("");
+    assertThrows(ClassCastException.class, () -> computeHash.apply(new Object()));
+
+    assertThat(computeHash.apply("")).isEqualTo(expected);
   }
 
   @Test

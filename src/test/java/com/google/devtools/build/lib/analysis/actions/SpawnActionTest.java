@@ -24,15 +24,19 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
@@ -579,6 +583,45 @@ public final class SpawnActionTest extends BuildViewTestCase {
             ImmutableMap.of("worker-key-mnemonic", "../../../ToolPoolMnemonic"));
     Spawn spawn = customMnemonicSpawn.getSpawnForTesting();
     assertThrows(IllegalArgumentException.class, () -> Spawns.getWorkerKeyMnemonic(spawn));
+  }
+
+  @Test
+  public void testGetPathMapperOverrideUsedByGetArgumentsAndGetSpawn() throws Exception {
+    PathMapper customMapper = execPath -> PathFragment.create("mapped").getRelative(execPath);
+    SpawnAction action =
+        new SpawnAction(
+            nullOwnerWithTargetConfig(),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.create(Order.STABLE_ORDER, welcomeArtifact),
+            ImmutableSet.of(destinationArtifact),
+            AbstractAction.DEFAULT_RESOURCE_SET,
+            CommandLines.builder()
+                .addSingleArgument(PathFragment.create("/bin/tool"))
+                .addCommandLine(CommandLine.of(ImmutableList.of()))
+                .addSingleArgument(destinationArtifact)
+                .build(),
+            ActionEnvironment.EMPTY,
+            ImmutableMap.of(),
+            "Testing custom PathMapper",
+            "Dummy") {
+          @Override
+          protected PathMapper getPathMapper(InputMetadataProvider inputMetadataProvider) {
+            return customMapper;
+          }
+        };
+
+    String expectedMappedOutput = "mapped/" + destinationArtifact.getExecPathString();
+    assertThat(action.getArguments()).containsExactly("/bin/tool", expectedMappedOutput).inOrder();
+
+    ActionExecutionContext actionExecutionContext =
+        new ActionExecutionContextBuilder()
+            .setMetadataProvider(new FakeActionInputFileCache())
+            .build();
+    Spawn spawn =
+        action.getSpawn(
+            actionExecutionContext, /* clientEnv= */ ImmutableMap.of(), /* reportOutputs= */ true);
+    assertThat(spawn.getPathMapper()).isSameInstanceAs(customMapper);
+    assertThat(spawn.getArguments()).containsExactly("/bin/tool", expectedMappedOutput).inOrder();
   }
 
   private ActionOwner nullOwnerWithTargetConfig() {

@@ -40,8 +40,36 @@ public final class SimpleSpawn implements Spawn {
   // If null, all outputs are mandatory.
   @Nullable private final Set<? extends ActionInput> mandatoryOutputs;
   private final PathMapper pathMapper;
+  private final String mnemonic;
   private final ResourceSetOrBuilder localResources;
   @Nullable private ResourceSet localResourcesCached;
+
+  @SuppressWarnings("TooManyParameters")
+  private SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      SpawnInputs inputs,
+      NestedSet<? extends ActionInput> tools,
+      Collection<? extends ActionInput> outputs,
+      @Nullable Set<? extends ActionInput> mandatoryOutputs,
+      ResourceSetOrBuilder localResources,
+      PathMapper pathMapper,
+      String mnemonic) {
+    this.mnemonic = Preconditions.checkNotNull(mnemonic);
+    this.owner = Preconditions.checkNotNull(owner);
+    this.arguments = Preconditions.checkNotNull(arguments);
+    this.environment = Preconditions.checkNotNull(environment);
+    this.executionInfo = Preconditions.checkNotNull(executionInfo);
+    this.inputs = Preconditions.checkNotNull(inputs);
+    this.tools = Preconditions.checkNotNull(tools);
+    this.outputs = ImmutableList.copyOf(outputs);
+    this.mandatoryOutputs = mandatoryOutputs;
+    this.localResources = Preconditions.checkNotNull(localResources);
+    this.localResourcesCached = null;
+    this.pathMapper = pathMapper;
+  }
 
   @SuppressWarnings("TooManyParameters")
   public SimpleSpawn(
@@ -55,17 +83,44 @@ public final class SimpleSpawn implements Spawn {
       @Nullable Set<? extends ActionInput> mandatoryOutputs,
       ResourceSetOrBuilder localResources,
       PathMapper pathMapper) {
-    this.owner = Preconditions.checkNotNull(owner);
-    this.arguments = Preconditions.checkNotNull(arguments);
-    this.environment = Preconditions.checkNotNull(environment);
-    this.executionInfo = Preconditions.checkNotNull(executionInfo);
-    this.inputs = Preconditions.checkNotNull(inputs);
-    this.tools = Preconditions.checkNotNull(tools);
-    this.outputs = ImmutableList.copyOf(outputs);
-    this.mandatoryOutputs = mandatoryOutputs;
-    this.localResources = Preconditions.checkNotNull(localResources);
-    this.localResourcesCached = null;
-    this.pathMapper = pathMapper;
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        inputs,
+        tools,
+        outputs,
+        mandatoryOutputs,
+        localResources,
+        pathMapper,
+        owner.getMnemonic());
+  }
+
+  @SuppressWarnings("TooManyParameters")
+  public SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      SpawnInputs inputs,
+      NestedSet<? extends ActionInput> tools,
+      Collection<? extends ActionInput> outputs,
+      @Nullable Set<? extends ActionInput> mandatoryOutputs,
+      ResourceSetOrBuilder localResources,
+      String mnemonic) {
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        inputs,
+        tools,
+        outputs,
+        mandatoryOutputs,
+        localResources,
+        PathMapper.NOOP,
+        mnemonic);
   }
 
   public SimpleSpawn(
@@ -174,7 +229,7 @@ public final class SimpleSpawn implements Spawn {
 
   @Override
   public String getMnemonic() {
-    return owner.getMnemonic();
+    return mnemonic;
   }
 
   @Override

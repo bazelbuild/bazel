@@ -1,0 +1,90 @@
+diff --git a/rs/private/toolchains_repository.bzl b/rs/private/toolchains_repository.bzl
+--- a/rs/private/toolchains_repository.bzl
++++ b/rs/private/toolchains_repository.bzl
+@@ -8,7 +8,7 @@
+     tags = ["manual"],
+     visibility = ["//visibility:public"],
+ )
+-""".format(library_notice = rctx.attr.library_notice),
++""".format(library_notice = rctx.attr.library_notice) if rctx.attr.library_notice else "",
+     )
+ 
+     rctx.file(
+@@ -71,7 +71,7 @@
+     implementation = _toolchains_repository_impl,
+     attrs = {
+         "version": attr.string(mandatory = True),
+-        "library_notice": attr.label(allow_single_file = True, mandatory = True),
++        "library_notice": attr.label(allow_single_file = True),
+         "rustfmt_version": attr.string(mandatory = True),
+         "rust_analyzer_version": attr.string(mandatory = True),
+         "edition": attr.string(mandatory = True),
+diff --git a/rs/toolchains/module_extension.bzl b/rs/toolchains/module_extension.bzl
+--- a/rs/toolchains/module_extension.bzl
++++ b/rs/toolchains/module_extension.bzl
+@@ -484,35 +484,36 @@
+                 urls = urls,
+             )
+ 
+-    if len(host_repos) != len(rust_versions):
+-        fail("Could not find host Cargo repository for {}-{}".format(host_os, host_arch))
+     host_exe_suffix = ".exe" if host_os == "windows" else ""
+ 
+     for version in rust_versions:
+         version_key = sanitize_version(version)
+         base_version, iso_date = parsed_versions[version]
+         urls = _urls_for_version(base_version, iso_date, rust_redist_archives)
+-        host_repo = host_repos[version]
+-        rustc_src_repository(
+-            name = "rustc_src_{}".format(version_key),
+-            version = base_version,
+-            iso_date = iso_date,
+-            sha256 = new_facts[_archive_path(_rustc_src_tool_suburl(base_version, iso_date), urls)],
+-            cargo = "@{}//:bin/cargo{}".format(host_repo.cargo, host_exe_suffix),
+-            rustc = "@{}//:bin/rustc{}".format(host_repo.rustc, host_exe_suffix),
+-            urls = urls,
+-        )
++        host_repo = host_repos.get(version)
++        if host_repo:
++            rustc_src_repository(
++                name = "rustc_src_{}".format(version_key),
++                version = base_version,
++                iso_date = iso_date,
++                sha256 = new_facts[_archive_path(_rustc_src_tool_suburl(base_version, iso_date), urls)],
++                cargo = "@{}//:bin/cargo{}".format(host_repo.cargo, host_exe_suffix),
++                rustc = "@{}//:bin/rustc{}".format(host_repo.rustc, host_exe_suffix),
++                urls = urls,
++            )
+ 
++    host_cargo = None
+     if host_cargo_config:
+         host_cargo = getattr(host_cargo_config, host_platform, None)
+         if not host_cargo:
+             fail("Set toolchains.host_cargo(%s = ...) to provide Cargo for this Bazel host" % host_platform)
+-    else:
++    elif version_tags and version_tags[0].version in host_repos:
+         host_cargo = "@%s//:bin/cargo%s" % (host_repos[version_tags[0].version].cargo, host_exe_suffix)
+-    host_cargo_repository(
+-        name = "host_cargo",
+-        cargo = host_cargo,
+-    )
++    if host_cargo:
++        host_cargo_repository(
++            name = "host_cargo",
++            cargo = host_cargo,
++        )
+ 
+     toolchain_labels_repository(name = "rust_toolchain_labels")
+ 
+@@ -522,9 +523,10 @@
+     direct_deps = ["host_cargo", "rust_toolchain_labels"] if root_module_name == "rules_rs" else []
+     direct_dev_deps = []
+     for tag in version_tags:
++        host_repo = host_repos.get(tag.version)
+         toolchains_repository(
+             name = tag.name,
+-            library_notice = "@%s//:share/doc/rust/COPYRIGHT-library.html" % host_repos[tag.version].rustc,
++            library_notice = "@%s//:share/doc/rust/COPYRIGHT-library.html" % host_repo.rustc if host_repo else None,
+             version = tag.version,
+             rustfmt_version = tag.rustfmt_version,
+             rust_analyzer_version = tag.rust_analyzer_version,

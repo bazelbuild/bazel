@@ -27,7 +27,7 @@ import java.util.function.IntSupplier;
  * restricted to powers of two (slots are picked by multiplying the hash with the capacity), so
  * growing never doubles the size of a shard and only one shard is copied at a time.
  *
- * <p>Every operation takes the lock of its shard.
+ * <p>Every operation takes the lock of its shard, except for {@link #getUnsynchronized}.
  *
  * <p>There are many small shards because insertions into a shard wait while it grows: the total
  * waiting time shrinks quadratically with the number of shards (each growth copies fewer slots and
@@ -148,6 +148,18 @@ public final class ObjectToIntMap<K> {
       int i = probe(shard, key, h);
       return i >= 0 ? shard.values[i] : -1;
     }
+  }
+
+  /**
+   * Like {@link #get}, but without taking the lock of the shard, which avoids contention when many
+   * threads look keys up. Only safe once the map is not modified anymore, and only if all
+   * modifications happen-before the call.
+   */
+  public int getUnsynchronized(K key) {
+    long h = hash(key);
+    Shard<K> shard = shards[shard(h)];
+    int i = probe(shard, key, h);
+    return i >= 0 ? shard.values[i] : -1;
   }
 
   /**

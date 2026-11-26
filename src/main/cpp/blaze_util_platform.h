@@ -175,7 +175,8 @@ std::string GetJavaBinaryUnderJavabase();
 ATTRIBUTE_NORETURN void ExecuteServerJvm(
     const blaze_util::Path& exe,
     const std::vector<std::string>& server_jvm_args,
-    const blaze_util::Path& argfile, bool run_in_user_cgroup);
+    const blaze_util::Path& binaries_dir, const blaze_util::Path& argfile,
+    bool run_in_user_cgroup, bool allow_server_subprocesses);
 
 // Execute the "bazel run" request in the current directory.
 //

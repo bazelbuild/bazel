@@ -1824,6 +1824,136 @@ public final class ActionCacheCheckerTest {
     assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
   }
 
+  @Test
+  public void saveOutputMetadata_constantMetadataRemoteOutput_cachedAndInjected() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata = createRemoteMetadata("content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
+
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, metadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataRemoteOutput_untrusted_notCached()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata = createRemoteMetadata("content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    OutputChecker outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustCachedMetadata(output, metadata)).thenReturn(false);
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore,
+        outputChecker);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+    verify(outputChecker).shouldTrustCachedMetadata(output, metadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataProxyOutput_modifiedContent_cachedAndInjected()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    ProxyFileArtifactValue originalMetadata = createProxyMetadata(output, "content");
+    Action action = new InjectOutputFileMetadataAction(output, originalMetadata, originalMetadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+
+    // Modified content on disk should still be an action cache hit for constant metadata, with the
+    // updated proxy metadata injected.
+    ProxyFileArtifactValue updatedMetadata = createProxyMetadata(output, "changed");
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenReturn(updatedMetadata);
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, updatedMetadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataProxyOutput_missing_notCached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    ProxyFileArtifactValue metadata = createProxyMetadata(output, "content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenThrow(new IOException("missing"));
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+    verify(proxyMetadataFactory).createProxyMetadata(output);
+  }
+
   /**
    * {@code ActionCache.Entry.Builder} digests input and output metadata into separate maps and
    * combines the two results, rather than digesting one combined map. That rewrite is only

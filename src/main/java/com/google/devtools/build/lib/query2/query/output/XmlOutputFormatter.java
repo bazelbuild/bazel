@@ -320,7 +320,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     final Element elem;
     final boolean hasMultipleValues = Iterables.size(values) > 1;
     Type<?> elemType = type.getListElementType();
-    if (elemType != null) { // it's a list (includes "distribs")
+    if (elemType != null) { // it's a list
       elem = doc.createElement("list");
       for (Object value : values) {
         for (Object elemValue : (Collection<?>) value) {

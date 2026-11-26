@@ -66,6 +66,12 @@ filegroup(
     visibility = ["//src/test:__subpackages__"],
 )
 
+py_binary(
+    name = "merge_dist_lockfile",
+    srcs = ["merge_dist_lockfile.py"],
+    visibility = ["//:__pkg__"],
+)
+
 sh_test(
     name = "bazel_lockfile_merge_test",
     size = "small",

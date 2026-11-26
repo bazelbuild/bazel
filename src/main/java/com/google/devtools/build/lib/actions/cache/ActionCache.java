@@ -26,6 +26,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ConstantMetadataValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
@@ -434,7 +435,10 @@ public interface ActionCache {
             proxyOutputs.add(execPath);
           }
         }
-        outputMetadataMap.put(execPath, metadata);
+        // Hash constant-metadata outputs with the constant sentinel so content changes do not
+        // invalidate the entry, while preserving any real remote/proxy metadata saved above.
+        outputMetadataMap.put(
+            execPath, output.isConstantMetadata() ? ConstantMetadataValue.INSTANCE : metadata);
         return this;
       }
 

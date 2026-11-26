@@ -1,0 +1,3 @@
+EXPORTS
+    bazel_test_invoke_callback
+    bazel_test_mixed_types

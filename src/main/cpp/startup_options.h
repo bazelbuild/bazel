@@ -296,6 +296,10 @@ class StartupOptions {
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
 
+  // If false, the C++ launcher installs a seccomp-bpf filter forbidding the
+  // Bazel server from spawning child processes or executing other binaries.
+  bool allow_server_subprocesses;
+
 #ifdef __linux__
   std::string cgroup_parent;
 

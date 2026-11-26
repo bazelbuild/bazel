@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.runtime.AsyncDirectoryCleaner;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
@@ -130,8 +131,17 @@ public final class CleanCommand implements BlazeCommand {
 
     env.getEventBus().post(new NoBuildEvent());
     Options cleanOptions = options.getOptions(Options.class);
+    BlazeServerStartupOptions startupOptions =
+        env.getRuntime().getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
+    boolean allowServerSubprocesses =
+        startupOptions == null || startupOptions.getAllowServerSubprocesses();
     boolean async =
-        canUseAsync(cleanOptions.getAsync(), cleanOptions.getExpunge(), os, env.getReporter());
+        canUseAsync(
+            cleanOptions.getAsync(),
+            cleanOptions.getExpunge(),
+            os,
+            allowServerSubprocesses,
+            env.getReporter());
     env.getEventBus().post(new CleanStartingEvent(options));
 
     try {
@@ -153,16 +163,21 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   @VisibleForTesting
-  public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
+  public static boolean canUseAsync(
+      boolean async, boolean expunge, OS os, boolean allowServerSubprocesses, Reporter reporter) {
     // TODO(bazel-team): Deactivate expunge_async on Windows or Unknown platforms as support for
     // daemonizing is done in daemonize.c and does not support those platforms.
-    boolean asyncSupportMissing = os == OS.WINDOWS || os == OS.UNKNOWN;
+    boolean asyncSupportMissing = os == OS.WINDOWS || os == OS.UNKNOWN || !allowServerSubprocesses;
     if (async && asyncSupportMissing) {
       String fallbackName = expunge ? "--expunge" : "synchronous clean";
+      String reason =
+          !allowServerSubprocesses
+              ? "when --noallow_server_subprocesses is set"
+              : "on non-Linux platforms";
       reporter.handle(
           Event.info(
               null /*location*/,
-              "--async cannot be used on non-Linux platforms, falling back to " + fallbackName));
+              "--async cannot be used " + reason + ", falling back to " + fallbackName));
       async = false;
     }
 

@@ -789,7 +789,6 @@ public class BazelServer implements TestRule, AutoCloseable {
         "--default_visibility=public",
         "--noshow_progress",
         "--nouse_ijars",
-        "--noexperimental_collect_system_network_usage",
         "--experimental_extended_sanity_checks");
     defaults.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     defaults.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);

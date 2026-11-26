@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -23,7 +23,11 @@ java_library(
             "commands/*.java",
         ],
         exclude = [
+            "AggregatingTestListenerTest.java",
+            "ExecutionGraphProtoToTextMain.java",
+            "TargetSummaryPublisherIntegrationTest.java",
             "commands/ConfigCommandTest.java",
+            "commands/CqueryCommandTest.java",
             "commands/DumpCommandTest.java",
             "commands/RunCommandLineTest.java",
         ],
@@ -157,6 +161,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -228,6 +233,22 @@ java_test(
 )
 
 java_test(
+    name = "CqueryCommandTest",
+    srcs = ["commands/CqueryCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "DumpCommandTest",
     srcs = ["commands/DumpCommandTest.java"],
     deps = [
@@ -249,6 +270,84 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_binary(
+    name = "execution_graph_proto_to_text",
+    srcs = ["ExecutionGraphProtoToTextMain.java"],
+    main_class = "com.google.devtools.build.lib.runtime.ExecutionGraphProtoToTextMain",
+    visibility = ["//src/test/shell/integration:__pkg__"],
+    deps = [
+        "//src/main/protobuf:execution_graph_java_proto",
+        "//third_party/java/protobuf",
+        "//third_party/java/zstd_jni",
+    ],
+)
+
+java_test(
+    name = "AggregatingTestListenerTest",
+    srcs = ["AggregatingTestListenerTest.java"],
+    # runTest() hardcodes POSIX PATH and skips BuildIntegrationTestCase's --shell_executable setup.
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:alias_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:aggregating_test_listener",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:test_summary",
+        "//src/main/java/com/google/devtools/build/lib/runtime:test_summary_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:test_completion_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:test_status_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "TargetSummaryPublisherIntegrationTest",
+    srcs = ["TargetSummaryPublisherIntegrationTest.java"],
+    # runTest() hardcodes POSIX PATH / skips --shell_executable setup, and TargetSummary tests
+    # are flaky on Windows (see TargetSummaryEventTest in buildtool/BUILD).
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_complete_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_complete_event",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:target_summary_event",
+        "//src/main/java/com/google/devtools/build/lib/runtime:target_summary_publisher",
+        "//src/main/java/com/google/devtools/build/lib/runtime:test_summary",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_identified_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:test_status_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/testparameterinjector",
         "//third_party/java/truth",
     ],
 )

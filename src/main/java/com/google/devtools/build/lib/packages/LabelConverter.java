@@ -36,16 +36,18 @@ public class LabelConverter {
    * Returns a label converter for the given thread, which MUST be currently evaluating Starlark
    * code in a .bzl file (top-level, macro, rule implementation function, etc.). It uses the package
    * containing the .bzl file as the base package, and the repo mapping of the repo containing the
-   * .bzl file.
+   * .bzl file. Repo mapping lookups are recorded in the thread's {@link Label.RepoMappingRecorder},
+   * if any.
    */
   public static LabelConverter forBzlEvaluatingThread(StarlarkThread thread) {
     BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
-    return new LabelConverter(moduleContext.packageContext());
+    return new LabelConverter(
+        moduleContext.packageContext(), thread.getThreadLocal(Label.RepoMappingRecorder.class));
   }
 
   private final Label.PackageContext packageContext;
   private final Map<String, Label> labelCache = new HashMap<>();
-  @Nullable private final Label.RepoMappingRecorder repoMappingRecorder;
+  @Nullable private final transient Label.RepoMappingRecorder repoMappingRecorder;
 
   private LabelConverter(
       Label.PackageContext packageContext,

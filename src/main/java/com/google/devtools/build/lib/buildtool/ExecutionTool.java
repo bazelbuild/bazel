@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -151,11 +152,12 @@ public class ExecutionTool {
   private boolean informedOutputServiceToStartTheBuild = false;
   private IncrementalPackageRoots incrementalPackageRoots;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request)
+  ExecutionTool(CommandEnvironment env, BuildRequest request, String actionExecutionSalt)
       throws AbruptExitException, InterruptedException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
+    this.actionExecutionSalt = Preconditions.checkNotNull(actionExecutionSalt);
 
     try {
       env.getExecRoot().createDirectoryAndParents();
@@ -196,7 +198,6 @@ public class ExecutionTool {
 
     this.prefetcher = executorBuilder.getActionInputPrefetcher();
     this.executorLifecycleListeners = executorBuilder.getExecutorLifecycleListeners();
-    this.actionExecutionSalt = executorBuilder.getActionExecutionSalt();
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -334,7 +335,6 @@ public class ExecutionTool {
           actionExecutionSalt,
           env.getOptions().getOptions(UiOptions.class).getMaxStdoutErrBytes());
     }
-    skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(

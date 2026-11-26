@@ -31,11 +31,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.SkyframeTransitiveTargetCounter.Counts;
+import com.google.devtools.build.lib.skyframe.TransitiveClosureCounter.Counts;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -47,8 +48,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
 import com.google.devtools.build.skyframe.Version;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
@@ -74,6 +79,8 @@ public final class SkyframeTransitiveTargetCounterTest {
 
   private static final SkyFunctionName OTHER_FUNCTION =
       SkyFunctionName.createHermetic("OTHER_TEST_FUNCTION");
+
+  private static final AspectClass TEST_ASPECT_CLASS = () -> "test_aspect";
 
   private InMemoryGraph graph;
 
@@ -345,6 +352,83 @@ public final class SkyframeTransitiveTargetCounterTest {
   }
 
   @Test
+  public void count_largeRandomDagWithDepGroups_matchesNaiveTraversal() throws Exception {
+    // Large enough for discovery to run on many threads at once, with keys that are looked up
+    // and inserted concurrently, and with several propagation passes. Repeated to catch races.
+    int n = 20_000;
+    Random random = new Random(42);
+    List<ConfiguredTargetKey> keys = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      keys.add(configuredTargetKey("//pkg:r" + i));
+    }
+    int[] actions = new int[n];
+    List<List<Integer>> deps = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      actions[i] = random.nextInt(5) == 0 ? -1 : random.nextInt(4);
+      // Deps have higher indices, so the graph is a DAG. Mostly nearby, sometimes far away.
+      LinkedHashSet<Integer> depSet = new LinkedHashSet<>();
+      int degree = i == n - 1 ? 0 : random.nextInt(Math.min(n - 1 - i, 10) + 1);
+      for (int d = 0; d < degree; d++) {
+        int range = random.nextInt(4) == 0 ? n - 1 - i : Math.min(n - 1 - i, 50);
+        depSet.add(i + 1 + random.nextInt(range));
+      }
+      deps.add(new ArrayList<>(depSet));
+      // Split the deps into groups of random sizes, like Skyframe's dep groups.
+      ImmutableList.Builder<ImmutableList<SkyKey>> groups = ImmutableList.builder();
+      List<Integer> nodeDeps = deps.get(i);
+      for (int start = 0; start < nodeDeps.size(); ) {
+        int end = Math.min(nodeDeps.size(), start + 1 + random.nextInt(3));
+        ImmutableList.Builder<SkyKey> group = ImmutableList.builder();
+        for (int d = start; d < end; d++) {
+          group.add(keys.get(nodeDeps.get(d)));
+        }
+        groups.add(group.build());
+        start = end;
+      }
+      addDoneNodeWithDepGroups(
+          graph,
+          keys.get(i),
+          actions[i] >= 0 ? ruleValue(actions[i]) : NON_RULE_VALUE,
+          groups.build());
+    }
+    List<ConfiguredTargetKey> roots = new ArrayList<>();
+    for (int i = 0; i < n; i += 61) {
+      roots.add(keys.get(i));
+    }
+
+    for (int attempt = 0; attempt < 5; attempt++) {
+      ImmutableMap<ConfiguredTargetKey, Counts> counts =
+          SkyframeTransitiveTargetCounter.count(
+              graph, ImmutableSet.copyOf(roots), /* maxMaskBytes= */ 8L * n * 2);
+
+      assertThat(counts).hasSize(roots.size());
+      for (ConfiguredTargetKey root : roots) {
+        int start = keys.indexOf(root);
+        long nodes = 0;
+        long actionCount = 0;
+        boolean[] seen = new boolean[n];
+        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(start);
+        seen[start] = true;
+        while (!stack.isEmpty()) {
+          int id = stack.pop();
+          if (actions[id] >= 0) {
+            nodes++;
+            actionCount += actions[id];
+          }
+          for (int dep : deps.get(id)) {
+            if (!seen[dep]) {
+              seen[dep] = true;
+              stack.push(dep);
+            }
+          }
+        }
+        assertThat(counts.get(root)).isEqualTo(new Counts(nodes, actionCount));
+      }
+    }
+  }
+
+  @Test
   public void count_executesOnDedicatedPoolAndNotCommonPool() throws Exception {
     Set<Thread> observedThreads = ConcurrentHashMap.newKeySet();
     // Build > 1024 nodes (> FOR_EACH_PARALLELISM_THRESHOLD) so ConcurrentHashMap.forEachValue
@@ -395,7 +479,7 @@ public final class SkyframeTransitiveTargetCounterTest {
 
   private static AspectKey aspectKey(ConfiguredTargetKey baseKey) {
     return AspectKeyCreator.createAspectKey(
-        AspectDescriptor.of(() -> "test_aspect", AspectParameters.EMPTY), baseKey);
+        AspectDescriptor.of(TEST_ASPECT_CLASS, AspectParameters.EMPTY), baseKey);
   }
 
   private static RuleConfiguredObjectValue ruleValue(int actionCount) {

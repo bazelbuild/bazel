@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Builder class to create an {@link com.google.devtools.build.lib.actions.Executor} instance. This
@@ -31,7 +29,6 @@ import javax.annotation.Nullable;
 public class ExecutorBuilder {
   private final Set<ExecutorLifecycleListener> executorLifecycleListeners = new LinkedHashSet<>();
   private ActionInputPrefetcher prefetcher;
-  @Nullable private String actionExecutionSalt;
 
   /** Returns all executor lifecycle listeners registered with this builder so far. */
   public ImmutableSet<ExecutorLifecycleListener> getExecutorLifecycleListeners() {
@@ -62,32 +59,6 @@ public class ExecutorBuilder {
   @CanIgnoreReturnValue
   public ExecutorBuilder addExecutorLifecycleListener(ExecutorLifecycleListener listener) {
     executorLifecycleListeners.add(listener);
-    return this;
-  }
-
-  /**
-   * Returns the action execution salt previously set by {@link #setActionExecutionSalt}, or the
-   * empty string if it was never set.
-   */
-  public String getActionExecutionSalt() {
-    return Strings.nullToEmpty(actionExecutionSalt);
-  }
-
-  /**
-   * Sets the action execution salt.
-   *
-   * <p>The salt is an opaque value (typically a digest) used by Skyframe and the persistent action
-   * cache to invalidate prior action executions against a different value. It may be suitable for
-   * communicating information about the action execution environment that is not already
-   * incorporated in the action key.
-   *
-   * <p>At most one module may set the salt. If no module sets it, it defaults to the empty string.
-   * If multiple modules set it, an {@link IllegalStateException} is thrown.
-   */
-  @CanIgnoreReturnValue
-  public ExecutorBuilder setActionExecutionSalt(String actionExecutionSalt) {
-    checkState(this.actionExecutionSalt == null, "salt already set");
-    this.actionExecutionSalt = checkNotNull(actionExecutionSalt, "cannot set salt to null");
     return this;
   }
 }

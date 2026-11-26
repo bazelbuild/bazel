@@ -379,6 +379,10 @@ vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
 
   result.push_back("--product_name=" + startup_options.product_name);
 
+  if (!startup_options.allow_server_subprocesses) {
+    result.push_back("--noallow_server_subprocesses");
+  }
+
 #ifdef __linux__
   if (!startup_options.cgroup_parent.empty()) {
     result.push_back("--experimental_cgroup_parent=" +
@@ -711,9 +715,10 @@ void RunServerMode(const string& install_md5,
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, server_exe_args,
+    ExecuteServerJvm(server_exe, server_exe_args, startup_options.install_base,
                      GetServerJvmArgFilePath(startup_options.output_base),
-                     run_in_user_cgroup);
+                     run_in_user_cgroup,
+                     startup_options.allow_server_subprocesses);
   }
 }
 

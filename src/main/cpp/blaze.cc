@@ -392,9 +392,10 @@ static void RunBatchMode(
 #else
     bool run_in_user_cgroup = false;
 #endif
-    ExecuteServerJvm(server_exe, jvm_args_vector,
+    ExecuteServerJvm(server_exe, jvm_args_vector, startup_options.install_base,
                      GetServerJvmArgFilePath(startup_options.output_base),
-                     run_in_user_cgroup);
+                     run_in_user_cgroup,
+                     startup_options.allow_server_subprocesses);
   }
 }
 

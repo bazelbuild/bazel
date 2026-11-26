@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.query2.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.query2.engine.QueryParser.ParserOptions;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -49,5 +52,68 @@ public class CommonQueryOptionsTest {
     CommonQueryOptions options = parser.getOptions(CommonQueryOptions.class);
     assertThat(options.getLineTerminatorNull()).isFalse();
     assertThat(options.getLineTerminator()).isEqualTo("\n");
+  }
+
+  @Test
+  public void defaultMaxQueryExpressionDepthIsUnlimited() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    parser.parse();
+    CommonQueryOptions options = parser.getOptions(CommonQueryOptions.class);
+    assertThat(options.getMaxQueryExpressionDepth()).isEqualTo(-1);
+    assertThat(options.toParserOptions()).isEqualTo(ParserOptions.DEFAULT);
+  }
+
+  @Test
+  public void maxQueryExpressionDepthSetsParserOptions() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    parser.parse("--max_query_expression_depth=5");
+    CommonQueryOptions options = parser.getOptions(CommonQueryOptions.class);
+    assertThat(options.getMaxQueryExpressionDepth()).isEqualTo(5);
+    assertThat(options.toParserOptions())
+        .isEqualTo(ParserOptions.builder().setMaxQueryDepth(5).build());
+  }
+
+  @Test
+  public void maxQueryExpressionDepthZeroIsAllowed() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    parser.parse("--max_query_expression_depth=0");
+    CommonQueryOptions options = parser.getOptions(CommonQueryOptions.class);
+    assertThat(options.getMaxQueryExpressionDepth()).isEqualTo(0);
+    assertThat(options.toParserOptions())
+        .isEqualTo(ParserOptions.builder().setMaxQueryDepth(0).build());
+  }
+
+  @Test
+  public void maxQueryExpressionDepthNegativeOneResetsToUnlimited() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    parser.parse("--max_query_expression_depth=5", "--max_query_expression_depth=-1");
+    CommonQueryOptions options = parser.getOptions(CommonQueryOptions.class);
+    assertThat(options.getMaxQueryExpressionDepth()).isEqualTo(-1);
+    assertThat(options.toParserOptions()).isEqualTo(ParserOptions.DEFAULT);
+  }
+
+  @Test
+  public void maxQueryExpressionDepthBelowNegativeOneThrows() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parser.parse("--max_query_expression_depth=-2"));
+    assertThat(e).hasMessageThat().contains("'-2' should be >= -1");
+  }
+
+  @Test
+  public void maxQueryExpressionDepthNonIntegerThrows() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    assertThrows(
+        OptionsParsingException.class, () -> parser.parse("--max_query_expression_depth=abc"));
+  }
+
+  @Test
+  public void toParserOptionsRejectsInvalidProgrammaticDepth() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(CommonQueryOptions.class).build();
+    parser.parse();
+    CommonQueryOptions options = parser.getOptions(CommonQueryOptions.class);
+    options.setMaxQueryExpressionDepth(-2);
+    assertThrows(IllegalArgumentException.class, options::toParserOptions);
   }
 }

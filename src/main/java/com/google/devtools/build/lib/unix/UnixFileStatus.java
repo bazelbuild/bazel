@@ -30,8 +30,8 @@ public final class UnixFileStatus implements FileStatus {
   private final long size;
   private final long ino;
 
-  /** Constructs a {@link UnixFileStatus} from a {@link NativePosixFilesService.Stat}. */
-  UnixFileStatus(NativePosixFilesService.Stat stat) {
+  /** Constructs a {@link UnixFileStatus} from a {@link NativePosixFiles.Stat}. */
+  UnixFileStatus(NativePosixFiles.Stat stat) {
     this.mode = stat.mode();
     this.mtimeNanos = stat.mtimeNanos();
     this.ctimeNanos = stat.ctimeNanos();

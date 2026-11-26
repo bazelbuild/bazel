@@ -179,7 +179,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_core",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_counter",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -188,6 +188,21 @@ java_test(
         "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/mockito",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "TransitiveClosureCounterTest",
+    srcs = ["TransitiveClosureCounterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_counter",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//third_party/java/junit",
         "//third_party/java/truth",
     ],
 )
@@ -235,7 +250,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -287,7 +301,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -2172,7 +2185,6 @@ java_test(
     srcs = ["FileArtifactValueTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -2370,7 +2382,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/testing/common:fake-options",

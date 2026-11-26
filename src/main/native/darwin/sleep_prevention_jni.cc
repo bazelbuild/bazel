@@ -34,8 +34,8 @@ static int g_sleep_state_stack = 0;
 static IOPMAssertionID g_sleep_state_assertion = kIOPMNullAssertionID;
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_pushDisableSleepNative(
-    JNIEnv*, jobject) {
+Java_com_google_devtools_build_lib_platform_SleepPreventionModule_pushDisableSleepNative(
+    JNIEnv*, jclass) {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   BAZEL_CHECK_GE(g_sleep_state_stack, 0);
   if (g_sleep_state_stack == 0) {
@@ -55,8 +55,8 @@ Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_pushDi
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_popDisableSleepNative(
-    JNIEnv*, jobject) {
+Java_com_google_devtools_build_lib_platform_SleepPreventionModule_popDisableSleepNative(
+    JNIEnv*, jclass) {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   BAZEL_CHECK_GT(g_sleep_state_stack, 0);
   g_sleep_state_stack -= 1;

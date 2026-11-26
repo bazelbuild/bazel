@@ -540,6 +540,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -1471,9 +1472,9 @@ java_library(
     deps = [
         ":broken_diff_awareness_exception",
         ":diff_awareness",
-        ":fs_events_native_deps_service",
         ":incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -2553,20 +2554,6 @@ java_library(
 )
 
 java_library(
-    name = "target_patterns_result_builder",
-    srcs = ["TargetPatternsResultBuilder.java"],
-    deps = [
-        ":package_value",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
     name = "test_completion_value",
     srcs = ["TestCompletionValue.java"],
     deps = [
@@ -3025,25 +3012,6 @@ java_library(
 )
 
 java_library(
-    name = "fs_events_native_deps_service",
-    srcs = ["FsEventsNativeDepsService.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
-)
-
-java_library(
-    name = "fs_events_native_deps_service_impl",
-    srcs = ["FsEventsNativeDepsServiceImpl.java"],
-    deps = [
-        ":fs_events_native_deps_service",
-        "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
-    ],
-)
-
-java_library(
     name = "repo_environment_function",
     srcs = ["RepoEnvironmentFunction.java"],
     deps = [
@@ -3385,6 +3353,30 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "transitive_target_counter",
+    srcs = [
+        "SkyframeTransitiveTargetCounter.java",
+        "TransitiveClosureCounter.java",
+    ],
+    deps = [
+        ":action_lookup_values_traversal",
+        ":aspect_key_creator",
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/collect:object_to_int_map",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],
@@ -3867,7 +3859,6 @@ java_library(
         ":recursive_package_provider_backed_target_pattern_resolver",
         ":skyframe_core",
         ":target_pattern_value",
-        ":target_patterns_result_builder",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
@@ -3904,7 +3895,6 @@ java_library(
         "LoadAspectsFunction.java",
         "SkyframeBuildView.java",
         "SkyframeExecutor.java",
-        "SkyframeTransitiveTargetCounter.java",
     ],
     deps = [
         ":about_to_clear_analysis_cache_event",
@@ -4081,7 +4071,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_attribute_transition_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",

@@ -33,10 +33,10 @@ java_library(
     srcs = OS_PATH_POLICY_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
     ],
 )
 

@@ -42,6 +42,8 @@
 #include "absl/log/initialize.h"
 #include "absl/strings/match.h"
 
+extern "C" bool bazel_util_is_running_within_test();
+
 namespace blaze {
 
 using std::map;
@@ -273,7 +275,7 @@ void SetDebugLog(blaze_util::LoggingDetail detail) {
   }
 }
 
-bool IsRunningWithinTest() { return ExistsEnv("TEST_TMPDIR"); }
+bool IsRunningWithinTest() { return bazel_util_is_running_within_test(); }
 
 blaze_util::Path GetOOMFilePath(const blaze_util::Path& output_base) {
   return output_base.GetRelative("blaze_oomed");

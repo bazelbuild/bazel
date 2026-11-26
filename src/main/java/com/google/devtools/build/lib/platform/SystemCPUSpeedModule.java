@@ -14,39 +14,56 @@
 
 package com.google.devtools.build.lib.platform;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.util.OS;
+import java.util.function.IntConsumer;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Detects cpu speed events. */
 public final class SystemCPUSpeedModule extends BlazeModule {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final boolean IS_DARWIN = OS.getCurrent() == OS.DARWIN;
+
+  static {
+    JniLoader.loadJni();
+  }
 
   @GuardedBy("this")
   @Nullable
   private Reporter reporter;
 
-  private PlatformNativeDepsService service;
+  static void registerCPUSpeedJni(IntConsumer callback) {
+    if (IS_DARWIN) {
+      registerCPUSpeedNative(callback);
+    }
+  }
+
+  private static native void registerCPUSpeedNative(IntConsumer callback);
+
+  static int cpuSpeed() {
+    return IS_DARWIN ? cpuSpeedNative() : -1;
+  }
+
+  private static native int cpuSpeedNative();
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    service = checkNotNull(runtime.getBlazeService(PlatformNativeDepsService.class));
-    service.registerCPUSpeedJni(this::cpuSpeedCallback);
+    registerCPUSpeedJni(this::cpuSpeedCallback);
   }
 
   @Override
   public synchronized void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
-    int startingSpeed = service.cpuSpeed();
+    int startingSpeed = cpuSpeed();
     if (startingSpeed < 100) {
       cpuSpeedCallback(startingSpeed);
     }

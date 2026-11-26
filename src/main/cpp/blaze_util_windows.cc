@@ -629,6 +629,11 @@ int ExecuteDaemon(
     const blaze_util::Path& daemon_output, const bool daemon_out_append,
     const blaze_util::Path& binaries_dir, const blaze_util::Path& server_dir,
     const StartupOptions& options, BlazeServerStartup** server_startup) {
+  if (!options.allow_server_subprocesses) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "--noallow_server_subprocesses is not supported on Windows.";
+  }
+
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
                                                nullptr, TRUE};
 
@@ -806,8 +811,14 @@ static void AppendQuotedForJavaArgFile(const string& arg, string* out) {
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
-                      const blaze_util::Path& argfile,
-                      bool run_in_user_cgroup) {
+                      const blaze_util::Path& binaries_dir,
+                      const blaze_util::Path& argfile, bool run_in_user_cgroup,
+                      bool allow_server_subprocesses) {
+  if (!allow_server_subprocesses) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "--noallow_server_subprocesses is not supported on Windows.";
+  }
+
   // The arguments can exceed the command line length limit of CreateProcessW,
   // for example in batch mode with a large client environment passed via
   // --client_env. Let the Java launcher read them from a file instead. The

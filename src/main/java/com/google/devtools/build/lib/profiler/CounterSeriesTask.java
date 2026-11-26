@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 
 /** Describes counter series to be logged into profile. */
-@SkybridgeInterface
 public interface CounterSeriesTask {
   /**
    * The lane name for the counter series. Series with the same lane name should be stacked when

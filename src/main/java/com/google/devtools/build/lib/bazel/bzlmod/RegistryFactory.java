@@ -27,7 +27,8 @@ import java.util.Optional;
 public interface RegistryFactory {
 
   /**
-   * Creates a registry associated with the given URL.
+   * Creates a registry associated with the given URL, in which {@code %workspace%} refers to the
+   * workspace root.
    *
    * <p>Outside of tests, only {@link RegistryFunction} should call this method.
    */

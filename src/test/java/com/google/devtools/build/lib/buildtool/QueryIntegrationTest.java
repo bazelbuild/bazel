@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -114,10 +113,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     final Map<PathFragment, Runnable> watchedPaths = new ConcurrentHashMap<>();
 
     CustomFileSystem() {
-      super(
-          DigestHashFunction.SHA256,
-          /* hashAttributeName= */ "",
-          new NativePosixFilesServiceImpl());
+      super(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {
@@ -419,6 +415,30 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             Iterables.getOnlyElement(
                 xpathSelect(resultNode, "package-group[@name='//fruit:coconut']")))
         .isNotNull();
+  }
+
+  @Test
+  public void testMaxQueryExpressionDepth() throws Exception {
+    write(
+        "foo/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'a')
+        """);
+
+    QueryOutput exceeded = getQueryResult("deps(deps(//foo:a))", "--max_query_expression_depth=1");
+    assertThat(exceeded.getBlazeCommandResult().getExitCode())
+        .isEqualTo(ExitCode.COMMAND_LINE_ERROR);
+    assertThat(exceeded.getBlazeCommandResult().getFailureDetail().getQuery().getCode())
+        .isEqualTo(FailureDetails.Query.Code.SYNTAX_ERROR);
+    assertThat(exceeded.getBlazeCommandResult().getFailureDetail().getMessage())
+        .isEqualTo("query exceeds maximum nesting depth of 1");
+
+    options.clear();
+    QueryOutput withinLimit =
+        getQueryResult("deps(deps(//foo:a))", "--max_query_expression_depth=2");
+    assertThat(withinLimit.getBlazeCommandResult().isSuccess()).isTrue();
+    assertThat(new String(withinLimit.getStdout(), UTF_8).trim()).isEqualTo("//foo:a");
   }
 
   private void writePackageWithBuildBazelFile() throws Exception {
