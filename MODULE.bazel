@@ -58,9 +58,21 @@ cc_compatibility_proxy = use_extension("@rules_cc//cc:extensions.bzl", "compatib
 use_repo(cc_compatibility_proxy, "cc_compatibility_proxy")
 
 rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+rules_rust.patch(
+    patches = [
+        # Compiles Windows Rust proc-macros for MSVC (matching MSVC-hosted
+        # rustc.exe) while Windows host/exec builds use MinGW/gnullvm.
+        # TODO: Remove once Windows host builds use MSVC ABI
+        # (https://github.com/bazelbuild/bazel/pull/32811) or rules_rs supports
+        # a windows-gnullvm exec toolchain.
+        "//third_party:rules_rs_0.2.4_proc_macro_platform.patch",
+    ],
+    strip = 1,
+)
 use_repo(rules_rust, "rules_rust")
 
 rust = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+
 # Keep the repo name short so generated sysroot `.rlib` paths stay under Windows's
 # 260-character MAX_PATH limit (with output-dir overrides in .bazelrc).
 rust.toolchain(
@@ -261,8 +273,8 @@ maven.install(
         "io.netty:netty-codec-compression:4.2.19.Final",
         "io.netty:netty-codec-http:4.2.19.Final",
         "io.netty:netty-codec-http2:4.2.19.Final",
-        "io.netty:netty-common:4.2.19.Final",
         "io.netty:netty-codec-socks:4.2.19.Final",
+        "io.netty:netty-common:4.2.19.Final",
         "io.netty:netty-handler:4.2.19.Final",
         "io.netty:netty-handler-proxy:4.2.19.Final",
         "io.netty:netty-resolver:4.2.19.Final",
@@ -476,8 +488,8 @@ use_repo(
     "remotejdk27_win_toolchain_config_repo",
 )
 
-# `local_config_cc` is required only by
-# `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc.
+# `local_config_cc` is required by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows`
+# and the Windows MSVC proc-macro C++ toolchains (`//:windows_*_msvc_cc_toolchain`).
 # `local_config_cc_toolchains` is required only to build the Turbine native
 # image and bootstrap Rust toolchain with MSVC on Windows, see
 # //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:native_image.bzl

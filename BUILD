@@ -337,6 +337,52 @@ platform(
     parents = [":default_host_platform"],
 )
 
+# Windows host platform for Rust proc-macros: `rules_rs` runs an MSVC-hosted
+# `rustc.exe`, which only loads proc-macro DLLs compiled for `*-windows-msvc`.
+platform(
+    name = "windows_msvc_host_platform",
+    constraint_values = [
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    parents = [":default_host_platform"],
+)
+
+# Host Visual Studio MSVC C++ toolchains scoped strictly to
+# `@llvm//constraints/windows/abi:msvc`, so Windows proc-macro builds can link
+# MSVC DLLs without pulling the EULA-gated `@llvm` MSVC toolchain or affecting
+# MinGW (`gnullvm`) target and exec builds.
+toolchain(
+    name = "windows_x86_64_msvc_cc_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+    tags = ["manual"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    toolchain = "@local_config_cc//:cc-compiler-x64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+toolchain(
+    name = "windows_arm64_msvc_cc_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:windows",
+    ],
+    tags = ["manual"],
+    target_compatible_with = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    toolchain = "@local_config_cc//:cc-compiler-arm64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
 # Standalone Windows x86_64 target platform for cross-compiling
 # //src:bazel_windows_llvm from any host OS.
 platform(

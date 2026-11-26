@@ -46,10 +46,15 @@ common:linux --host_platform=//:linux_host_platform
 
 # On Windows, pair the hermetic MinGW LLVM toolchain with `windows-gnullvm` Rust
 # and shorten platform output dir names to keep generated Rust sysroot `.rlib`
-# paths under Windows's 260-character MAX_PATH limit.
+# paths under Windows's 260-character MAX_PATH limit. Compile Rust proc-macros
+# for MSVC (matching the MSVC-hosted `rustc.exe`) using the host Visual Studio
+# toolchain.
 common:windows --extra_execution_platforms=//:windows_host_platform
 common:windows --host_platform=//:windows_host_platform
+common:windows --extra_toolchains=//:windows_x86_64_msvc_cc_toolchain,//:windows_arm64_msvc_cc_toolchain
+common:windows --@rules_rust//rust/settings:proc_macro_platform=//:windows_msvc_host_platform
 common:windows --experimental_override_name_platform_in_output_dir=//:windows_host_platform=w
+common:windows --experimental_override_name_platform_in_output_dir=//:windows_msvc_host_platform=wm
 common:windows --experimental_override_name_platform_in_output_dir=//:windows_arm64=wa
 
 # With the LLVM toolchains, layering_check reports errors for generated headers
