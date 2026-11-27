@@ -174,10 +174,6 @@ final class TransitionApplier
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
       return runAfter;
-    } catch (InterruptedException e) {
-      // Workaround for https://github.com/bazelbuild/bazel/issues/29132. Is there some way for
-      // Skfyrame to handle this automaticaly without needing special checking here?
-      return runAfter;
     }
 
     return new BuildConfigurationKeyMapProducer(
