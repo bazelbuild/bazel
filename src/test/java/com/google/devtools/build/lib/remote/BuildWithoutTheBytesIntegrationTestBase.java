@@ -2587,6 +2587,147 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         .collect(toImmutableSet());
   }
 
+  @Test
+  public void mapDirectory_readsContentsOfRemoteInputDirectory() throws Exception {
+    writeMapDirectoryRule();
+    addOptions("--experimental_allow_map_directory");
+    setDownloadToplevel();
+
+    // Neither the input directory nor the additional input is a top-level output, so their contents
+    // are downloaded during the expansion of the template.
+    buildTarget("//a:my");
+    waitDownloads();
+
+    assertOutputEquals(getOutputPath("a/my.out/file-hello-world"), "hello");
+  }
+
+  @Test
+  public void mapDirectory_contentsOfInputDirectoryEvicted(@TestParameter boolean actionRewinding)
+      throws Exception {
+    prepareEvictedInputDirectoryForMapDirectory();
+    evictAllBlobs();
+
+    if (actionRewinding) {
+      // The actions generating the input directory and the additional input are rewound within the
+      // next build.
+      enableActionRewinding();
+    } else {
+      // The build fails with exit code 39, but an incremental build without "clean" or "shutdown"
+      // can continue.
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:my"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains("a/my.in/file");
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
+
+    buildTarget("//a:my");
+    waitDownloads();
+
+    assertOutputEquals(getOutputPath("a/my.out/file-hello-world"), "hello");
+  }
+
+  /**
+   * Populates the remote cache with the inputs of a {@code map_directory} template and restarts the
+   * server so that the next build has to fetch their contents again.
+   */
+  protected void prepareEvictedInputDirectoryForMapDirectory() throws Exception {
+    writeMapDirectoryRule();
+    addOptions("--experimental_allow_map_directory");
+    setDownloadToplevel();
+    buildTarget("//a:my");
+    waitDownloads();
+
+    // Reading the inputs during the expansion of the template materialized them locally.
+    getOutputPath("a/my.in").deleteTree();
+    getOutputPath("a/my.suffix").delete();
+    restartServer();
+    // Options don't survive a server restart.
+    addOptions("--experimental_allow_map_directory");
+    setDownloadToplevel();
+  }
+
+  private void writeMapDirectoryRule() throws IOException {
+    write(
+        "a/defs.bzl",
+        """
+        def _map_impl(
+                template_ctx,
+                input_directories,
+                output_directories,
+                additional_inputs,
+                tools,
+                **kwargs):
+            for f in input_directories["in"].children:
+                out = template_ctx.declare_file(
+                    "-".join([
+                        f.basename,
+                        template_ctx.read(f),
+                        template_ctx.read(additional_inputs["suffix"]),
+                    ]),
+                    directory = output_directories["out"],
+                )
+                args = template_ctx.args()
+                args.add_all([out, f])
+                template_ctx.run(
+                    inputs = [f],
+                    outputs = [out],
+                    executable = tools["cp_tool"],
+                    arguments = [args],
+                )
+
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".in")
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "echo -n hello > $1/file",
+                arguments = [dir.path],
+            )
+            suffix = ctx.actions.declare_file(ctx.label.name + ".suffix")
+            ctx.actions.run_shell(
+                outputs = [suffix],
+                command = "echo -n world > $1",
+                arguments = [suffix.path],
+            )
+
+            out = ctx.actions.declare_directory(ctx.label.name + ".out")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"in": dir},
+                output_directories = {"out": out},
+                additional_inputs = {"suffix": suffix},
+                tools = {"cp_tool": ctx.attr._cp_tool.files_to_run},
+            )
+
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(
+            _impl,
+            attrs = {
+                "_cp_tool": attr.label(
+                    default = ":gen_cp_tool",
+                    cfg = "exec",
+                    executable = True,
+                ),
+            },
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        genrule(
+            name = "gen_cp_tool",
+            outs = ["cp_tool"],
+            executable = True,
+            cmd = "echo 'cp $$2 $$1' > $@",
+        )
+
+        my_rule(name = "my")
+        """);
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(

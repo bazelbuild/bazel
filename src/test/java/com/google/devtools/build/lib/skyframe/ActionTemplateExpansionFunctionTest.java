@@ -98,7 +98,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
               Artifact.ARTIFACT,
               new DummyArtifactFunction(artifactValueMap, failingArtifacts),
               SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-              new ActionTemplateExpansionFunction(new ActionKeyContext())),
+              new ActionTemplateExpansionFunction(
+                  new ActionKeyContext(),
+                  // Only used by action templates that read their inputs.
+                  /* skyframeActionExecutor= */ null,
+                  /* actionRewindStrategy= */ null)),
           differencer);
 
   @Before
@@ -203,6 +207,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner,
+              InputFileReader inputFileReader,
               EventHandler eventHandler) {
             return ImmutableList.of();
           }
@@ -237,6 +242,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner,
+              InputFileReader inputFileReader,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             TreeFileArtifact outputWithWrongOwner =
@@ -266,6 +272,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner,
+              InputFileReader inputFileReader,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             Artifact notTreeFileArtifact =
@@ -297,6 +304,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner,
+              InputFileReader inputFileReader,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             TreeFileArtifact outputUnderWrongTree =
@@ -329,6 +337,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner,
+              InputFileReader inputFileReader,
               EventHandler eventHandler) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             return ImmutableList.of(
@@ -363,6 +372,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
               ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner,
+              InputFileReader inputFileReader,
               EventHandler eventHandler) {
             ImmutableList.Builder<DummyAction> actions = ImmutableList.builder();
             ImmutableListMultimap<TreeArtifact, TreeFileArtifact> inputTreeArtifactsToChildren =
@@ -415,6 +425,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
       public ImmutableList<DummyAction> generateActionsForInputArtifacts(
           ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
           ActionLookupKey artifactOwner,
+          InputFileReader inputFileReader,
           EventHandler eventHandler) {
         TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
         return ImmutableList.of(

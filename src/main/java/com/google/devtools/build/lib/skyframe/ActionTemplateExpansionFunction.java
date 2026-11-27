@@ -13,36 +13,56 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.ActionTemplate.InputFileReader;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -58,10 +78,17 @@ import javax.annotation.Nullable;
  */
 public class ActionTemplateExpansionFunction implements SkyFunction {
   private final ActionKeyContext actionKeyContext;
+  private final SkyframeActionExecutor skyframeActionExecutor;
+  private final ActionRewindStrategy actionRewindStrategy;
 
   @VisibleForTesting
-  ActionTemplateExpansionFunction(ActionKeyContext actionKeyContext) {
+  ActionTemplateExpansionFunction(
+      ActionKeyContext actionKeyContext,
+      SkyframeActionExecutor skyframeActionExecutor,
+      ActionRewindStrategy actionRewindStrategy) {
     this.actionKeyContext = actionKeyContext;
+    this.skyframeActionExecutor = skyframeActionExecutor;
+    this.actionRewindStrategy = actionRewindStrategy;
   }
 
   @Nullable
@@ -99,7 +126,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    
+
+    var inputMetadata = new ActionInputMap(inputTreeArtifacts.size());
+    var inputFileReader = new TemplateInputFileReader(actionTemplate, inputMetadata, result);
     ImmutableList<ActionAnalysisMetadata> actions;
     try {
       ImmutableList.Builder<TreeFileArtifact> inputTreeFileArtifacts = ImmutableList.builder();
@@ -113,6 +142,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           return null;
         }
         inputTreeFileArtifacts.addAll(treeArtifactValue.getChildren());
+        ActionInputMapHelper.addToMap(
+            inputMetadata, inputTreeArtifact, treeArtifactValue, MetadataConsumerForMetrics.NO_OP);
       }
       // Check other inputs for errors to avoid propagating both a value and an error (b/580921749).
       for (SkyKey depKey : otherInputKeys) {
@@ -126,16 +157,43 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       try (var _ = NestedSetOwnerScope.enter(key)) {
         actions =
             generateAndValidateActionsFromTemplate(
-                actionTemplate, inputTreeFileArtifacts.build(), key, env.getListener());
+                actionTemplate,
+                inputTreeFileArtifacts.build(),
+                key,
+                inputFileReader,
+                env.getListener());
       }
     } catch (ActionExecutionException e) {
+      ActionExecutionException failure = e;
+      if (inputFileReader.lostInputs != null) {
+        // The expansion failed since it read an input that is no longer available. Rewind the
+        // action generating it.
+        try {
+          return actionRewindStrategy
+              .prepareRewindPlanForLostTemplateExpansionInputs(
+                  key,
+                  actionTemplate,
+                  ImmutableSet.copyOf(Iterables.concat(inputTreeArtifacts, otherInputKeys)),
+                  inputFileReader.lostInputs,
+                  inputMetadata,
+                  env)
+              .toNullIfMissingDependenciesElseReset();
+        } catch (ActionRewindException rewindException) {
+          failure =
+              new ActionExecutionException(
+                  rewindException,
+                  actionTemplate,
+                  /* catastrophe= */ false,
+                  rewindException.getDetailedExitCode());
+        }
+      }
       env.getListener()
           .handle(
               Event.error(
                   actionTemplate.getOwner().getLocation(),
-                  actionTemplate.describe() + " failed: " + e.getMessage()));
+                  actionTemplate.describe() + " failed: " + failure.getMessage()));
       throw new ActionTemplateExpansionFunctionException(
-          new AlreadyReportedActionExecutionException(e));
+          new AlreadyReportedActionExecutionException(failure));
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
@@ -160,6 +218,74 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     return new ActionTemplateExpansionValue(actions);
   }
 
+  /**
+   * Reads the input files of an {@link ActionTemplate} and records the ones that are no longer
+   * available.
+   */
+  private final class TemplateInputFileReader implements InputFileReader {
+    private final ActionTemplate<?> actionTemplate;
+    // Initially contains the metadata of the files in the input tree artifacts. The metadata of
+    // other files is added when they are read.
+    private final ActionInputMap inputMetadata;
+    private final SkyframeLookupResult inputValues;
+    @Nullable private ImmutableSetMultimap<String, ActionInput> lostInputs;
+
+    TemplateInputFileReader(
+        ActionTemplate<?> actionTemplate,
+        ActionInputMap inputMetadata,
+        SkyframeLookupResult inputValues) {
+      this.actionTemplate = actionTemplate;
+      this.inputMetadata = inputMetadata;
+      this.inputValues = inputValues;
+    }
+
+    @Override
+    public byte[] read(Artifact file) throws IOException, InterruptedException {
+      if (!(file instanceof TreeFileArtifact) && inputMetadata.getInputMetadata(file) == null) {
+        addMetadataOfDirectInput(file);
+      }
+      try (SilentCloseable c =
+          skyframeActionExecutor
+              .getOutputService()
+              .getRewoundActionSynchronizer()
+              .enterActionTemplateInputRead(file, inputMetadata)) {
+        ListenableFuture<Void> prefetch =
+            skyframeActionExecutor
+                .getActionInputPrefetcher()
+                .prefetchFiles(
+                    /* action= */ null,
+                    /* spawn= */ null,
+                    () -> ImmutableList.of(file),
+                    inputMetadata,
+                    Priority.CRITICAL,
+                    Reason.INPUTS);
+        try {
+          MoreFutures.waitForFutureAndGetWithCheckedException(
+              prefetch, /* cancelOnInterrupt= */ true, IOException.class);
+        } catch (BulkTransferException e) {
+          LostArtifacts lostArtifacts = e.getLostArtifacts(inputMetadata::getInput);
+          if (!lostArtifacts.isEmpty()) {
+            lostInputs = lostArtifacts.byDigest();
+          }
+          throw e;
+        }
+        return FileSystemUtils.readContent(file.getPath());
+      }
+    }
+
+    private void addMetadataOfDirectInput(Artifact file) throws FileNotFoundException {
+      // Only the keys of the direct inputs of the template have been requested. Since the
+      // expansion depends on them, it's reevaluated when the contents of the file change and the
+      // action generating the file can be rewound if the contents are lost.
+      SkyValue value = inputValues.get(Artifact.key(file));
+      checkArgument(value != null, "%s is not a direct input of %s", file, actionTemplate);
+      if (value instanceof MissingArtifactValue) {
+        throw new FileNotFoundException("missing input file");
+      }
+      ActionInputMapHelper.addToMap(inputMetadata, file, value, MetadataConsumerForMetrics.NO_OP);
+    }
+  }
+
   /** Exception thrown by {@link ActionTemplateExpansionFunction}. */
   private static final class ActionTemplateExpansionFunctionException extends SkyFunctionException {
     ActionTemplateExpansionFunctionException(ActionConflictException e) {
@@ -167,7 +293,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
 
     ActionTemplateExpansionFunctionException(ActionExecutionException e) {
-      super(e, Transience.PERSISTENT);
+      // Reading the contents of inputs can fail for reasons that don't show up in the dependencies,
+      // such as remote cache evictions.
+      super(e, Transience.TRANSIENT);
     }
   }
 
@@ -175,6 +303,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       ActionTemplate<?> actionTemplate,
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionTemplateExpansionKey key,
+      InputFileReader inputFileReader,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException {
     Collection<Artifact> outputs = actionTemplate.getOutputs();
@@ -186,7 +315,8 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           output);
     }
     ImmutableList<? extends Action> actions =
-        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key, eventHandler);
+        actionTemplate.generateActionsForInputArtifacts(
+            inputTreeFileArtifacts, key, inputFileReader, eventHandler);
     for (Action action : actions) {
       for (Artifact output : action.getOutputs()) {
         Preconditions.checkState(

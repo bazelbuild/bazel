@@ -1384,6 +1384,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     public ImmutableList<DummyAction> generateActionsForInputArtifacts(
         ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
         ActionLookupKey artifactOwner,
+        InputFileReader inputFileReader,
         EventHandler eventHandler) {
       return inputTreeFileArtifacts.stream()
           .map(

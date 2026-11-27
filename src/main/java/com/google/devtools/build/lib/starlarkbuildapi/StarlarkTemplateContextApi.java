@@ -80,6 +80,25 @@ public interface StarlarkTemplateContextApi extends StarlarkValue {
   CommandLineArgsApi args(StarlarkThread thread);
 
   @StarlarkMethod(
+      name = "read",
+      doc =
+          "Returns the contents of the given file as a string, downloading it from a remote cache"
+              + " if necessary.<p>Since the file is an input of this template, the implementation"
+              + " function is re-run whenever its contents change.",
+      parameters = {
+        @Param(
+            name = "file",
+            doc =
+                "The file to read. Must either be one of the files in the <code>children</code> of"
+                    + " one of the input directories of this template or a file that is a value"
+                    + " of <code>additional_inputs</code>. Files in depsets or"
+                    + " <code>FilesToRunProvider</code>s in <code>additional_inputs</code> can't"
+                    + " be read, and neither can directories, unresolved symlinks or"
+                    + " <code>ctx.version_file</code>.")
+      })
+  String read(FileApi file) throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
       name = "run",
       doc = "Creates an action that runs an executable.",
       parameters = {

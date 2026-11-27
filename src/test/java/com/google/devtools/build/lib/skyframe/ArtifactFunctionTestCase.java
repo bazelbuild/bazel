@@ -117,7 +117,11 @@ abstract class ArtifactFunctionTestCase {
                         null, BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new ActionTemplateExpansionFunction(actionKeyContext))
+                    new ActionTemplateExpansionFunction(
+                        actionKeyContext,
+                        // Only used by action templates that read their inputs.
+                        /* skyframeActionExecutor= */ null,
+                        /* actionRewindStrategy= */ null))
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());

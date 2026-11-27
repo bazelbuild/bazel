@@ -982,7 +982,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-        new ActionTemplateExpansionFunction(actionKeyContext));
+        new ActionTemplateExpansionFunction(
+            actionKeyContext, skyframeActionExecutor, actionRewindStrategy));
     map.put(
         SkyFunctions.REGISTERED_EXECUTION_PLATFORMS, new RegisteredExecutionPlatformsFunction());
     map.put(SkyFunctions.REGISTERED_TOOLCHAINS, new RegisteredToolchainsFunction());

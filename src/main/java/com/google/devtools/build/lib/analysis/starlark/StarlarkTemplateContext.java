@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionTemplate.InputFileReader;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -31,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkTemplateContextApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -46,9 +50,12 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   private final ActionLookupKey artifactOwner;
   private final SpawnAction.Builder spawnActionBuilder;
   private final InterruptibleSupplier<RepositoryMapping> repoMappingSupplier;
+  private final ImmutableSet<TreeArtifact> inputDirectories;
+  private final ImmutableSet<Artifact> readableAdditionalInputs;
   private final ImmutableSet<TreeArtifact> outputDirectories;
   private final ImmutableMap<String, String> executionInfo;
   private final boolean isSubdirectoryAllowed;
+  private final InputFileReader inputFileReader;
   private ImmutableList.Builder<AbstractAction> actions = ImmutableList.builder();
 
   public StarlarkTemplateContext(
@@ -57,17 +64,23 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       ActionLookupKey artifactOwner,
       SpawnAction.Builder spawnActionBuilder,
       InterruptibleSupplier<RepositoryMapping> repoMappingSupplier,
+      ImmutableSet<TreeArtifact> inputDirectories,
+      ImmutableSet<Artifact> readableAdditionalInputs,
       ImmutableSet<TreeArtifact> outputDirectories,
       ImmutableMap<String, String> executionInfo,
-      boolean isSubdirectoryAllowed) {
+      boolean isSubdirectoryAllowed,
+      InputFileReader inputFileReader) {
     this.semantics = semantics;
     this.actionOwner = actionOwner;
     this.artifactOwner = artifactOwner;
     this.spawnActionBuilder = spawnActionBuilder;
     this.repoMappingSupplier = repoMappingSupplier;
+    this.inputDirectories = inputDirectories;
+    this.readableAdditionalInputs = readableAdditionalInputs;
     this.outputDirectories = outputDirectories;
     this.executionInfo = executionInfo;
     this.isSubdirectoryAllowed = isSubdirectoryAllowed;
+    this.inputFileReader = inputFileReader;
   }
 
   @Override
@@ -197,6 +210,28 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
   @Override
   public Args args(StarlarkThread thread) {
     return Args.newArgs(thread.mutability(), semantics);
+  }
+
+  @Override
+  public String read(FileApi file) throws EvalException, InterruptedException {
+    boolean readable =
+        switch (file) {
+          case TreeFileArtifact treeFileArtifact ->
+              inputDirectories.contains(treeFileArtifact.getParent());
+          case Artifact artifact -> readableAdditionalInputs.contains(artifact);
+          default -> false;
+        };
+    if (!readable) {
+      throw Starlark.errorf(
+          "Cannot read %s, which is neither a file in one of the input directories nor a regular"
+              + " file passed directly in additional_inputs",
+          file);
+    }
+    try {
+      return new String(inputFileReader.read((Artifact) file), ISO_8859_1);
+    } catch (IOException e) {
+      throw new EvalException("Failed to read %s: %s".formatted(file, e.getMessage()), e);
+    }
   }
 
   public ImmutableList<AbstractAction> getActions() {

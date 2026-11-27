@@ -522,6 +522,43 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
+   * A read of a file in a tree artifact declared by an {@link ActionTemplate} excludes the rewinding
+   * of the expanded action that produced the file, but not of the one producing a sibling file.
+   */
+  @Test
+  public void actionTemplateInputRead_excludesOnlyRewindingOfProducerOfReadFile(
+      @TestParameter boolean inflateFineLocksFirst) throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    TreeArtifact tree = newTreeArtifact(root, "tree", ActionLookupData.create(owner, 0));
+    ActionTemplateExpansionKey expansion = ActionTemplateExpansionValue.key(owner, 0);
+    TreeFileArtifact readFile =
+        TreeFileArtifact.createTemplateExpansionOutput(tree, "read", expansion);
+    readFile.setGeneratingActionKey(ActionLookupData.create(expansion, 0));
+    TreeFileArtifact sibling =
+        TreeFileArtifact.createTemplateExpansionOutput(tree, "sibling", expansion);
+    sibling.setGeneratingActionKey(ActionLookupData.create(expansion, 1));
+    Action readFileProducer = newAction(ImmutableList.of(readFile), ImmutableList.of());
+    Action siblingProducer = newAction(ImmutableList.of(sibling), ImmutableList.of());
+    mockTemplateExpansion(owner, ImmutableList.of(readFileProducer, siblingProducer));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+
+    maybeInflateFineLocks(inflateFineLocksFirst);
+
+    var readFilePreparation = new TestThread(() -> rewind(readFileProducer));
+    var siblingPreparation = new TestThread(() -> rewind(siblingProducer));
+    try (SilentCloseable read =
+        synchronizer.enterActionTemplateInputRead(readFile, metadataProvider)) {
+      siblingPreparation.start();
+      siblingPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+      readFilePreparation.start();
+      waitUntilState(readFilePreparation, Thread.State.WAITING);
+    }
+    readFilePreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  /**
    * A consumer of a tree artifact declared by an {@link ActionTemplate} excludes the rewinding of
    * every expanded action populating it, including one whose only output in the tree is an empty
    * subdirectory and which thus doesn't generate any of the tree's files.

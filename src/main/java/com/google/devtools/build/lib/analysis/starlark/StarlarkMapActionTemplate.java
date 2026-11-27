@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.io.IOException;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -209,6 +210,7 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
   public ImmutableList<AbstractAction> generateActionsForInputArtifacts(
       ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
       ActionLookupKey artifactOwner,
+      InputFileReader inputFileReader,
       EventHandler eventHandler)
       throws ActionConflictException, ActionExecutionException, InterruptedException {
 
@@ -222,9 +224,12 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
             artifactOwner,
             spawnActionBuilder,
             () -> repoMapping,
+            inputTreeArtifactsToChildren.keySet(),
+            getReadableAdditionalInputs(),
             ImmutableSet.copyOf(outputDirectories.values()),
             getExecutionInfo(),
-            isSubdirectoryAllowed);
+            isSubdirectoryAllowed,
+            inputFileReader);
 
     ImmutableMap.Builder<String, ExpandedDirectory> expandedDirectories = ImmutableMap.builder();
     for (Entry<String, TreeArtifact> entry : inputDirectories.entrySet()) {
@@ -265,15 +270,45 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       return actions;
     } catch (EvalException e) {
       var messageWithStack = e.getMessageWithStack();
+      // Unlike a bug in the implementation function, an I/O error, such as one encountered while
+      // reading an input, is environmental and shouldn't stop other targets from building.
+      boolean readFailed = e.getCause() instanceof IOException;
       throw new ActionExecutionException(
           messageWithStack,
           e,
           this,
-          /* catastrophe= */ true,
-          makeDetailedExitCode(messageWithStack));
+          /* catastrophe= */ !readFailed,
+          makeDetailedExitCode(
+              messageWithStack,
+              readFailed
+                  ? FailureDetails.Execution.Code.ACTION_INPUT_READ_IO_EXCEPTION
+                  : FailureDetails.Execution.Code
+                      .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE));
     } finally {
       context.close();
     }
+  }
+
+  /**
+   * Returns the files in {@code additional_inputs} that the implementation function can read.
+   *
+   * <p>Files nested in a depset or {@link FilesToRunProvider} aren't readable since their metadata
+   * isn't available to the template expansion without additional Skyframe lookups. The contents of
+   * directories, symlinks and files with constant metadata either can't be read or wouldn't
+   * invalidate the expansion when they change.
+   */
+  private ImmutableSet<Artifact> getReadableAdditionalInputs() {
+    ImmutableSet.Builder<Artifact> readableAdditionalInputs = ImmutableSet.builder();
+    for (Object value : additionalInputs.values()) {
+      if (value instanceof Artifact artifact
+          && !artifact.isDirectory()
+          && !artifact.isSymlink()
+          && !artifact.isRunfilesTree()
+          && !artifact.isConstantMetadata()) {
+        readableAdditionalInputs.add(artifact);
+      }
+    }
+    return readableAdditionalInputs.build();
   }
 
   @Override
@@ -309,15 +344,12 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     }
   }
 
-  private static DetailedExitCode makeDetailedExitCode(String message) {
+  private static DetailedExitCode makeDetailedExitCode(
+      String message, FailureDetails.Execution.Code code) {
     return DetailedExitCode.of(
         FailureDetails.FailureDetail.newBuilder()
             .setMessage(message)
-            .setExecution(
-                FailureDetails.Execution.newBuilder()
-                    .setCode(
-                        FailureDetails.Execution.Code
-                            .PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE))
+            .setExecution(FailureDetails.Execution.newBuilder().setCode(code))
             .build());
   }
 
