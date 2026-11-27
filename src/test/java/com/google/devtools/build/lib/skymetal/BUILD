@@ -100,3 +100,15 @@ java_test(
         "//third_party/java/truth",
     ],
 )
+
+java_test(
+    name = "TrackingAllocatorTest",
+    size = "small",
+    srcs = ["TrackingAllocatorTest.java"],
+    jvm_flags = ["--enable-native-access=ALL-UNNAMED"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skymetal:tracking_allocator",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)

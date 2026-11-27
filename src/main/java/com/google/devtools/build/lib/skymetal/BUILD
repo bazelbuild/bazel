@@ -27,3 +27,11 @@ java_library(
     srcs = ["SkymetalFeature.java"],
     deps = ["//third_party/java/flogger"],
 )
+
+java_library(
+    name = "tracking_allocator",
+    srcs = ["TrackingAllocator.java"],
+    deps = [
+        ":skymetal_bridge",
+    ],
+)

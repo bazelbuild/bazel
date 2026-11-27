@@ -18,5 +18,8 @@
 # Adding a crate here links it into the server and exports all of its `bazel_*`
 # symbols on Linux, macOS, and Windows.
 RUST_FFI_DEPS = [
+    # Installs TrackingAllocator as the #[global_allocator] for all Rust code in
+    # every binary that links these crates.
+    "//src/rust/common:tracking_allocator_ffi",
     "//src/rust/platform:sleep_prevention_ffi",
 ]
