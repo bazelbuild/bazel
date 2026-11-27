@@ -111,7 +111,12 @@ public abstract class BazelDepGraphValue implements SkyValue {
   /** Returns the module extension whose unique name prefixes the canonical repository name. */
   public final Optional<ModuleExtensionId> getModuleExtensionForRepo(
       RepositoryName repositoryName) {
-    var extensionsByName = getExtensionUniqueNames().inverse();
+    return getModuleExtensionForRepo(repositoryName, getExtensionUniqueNames().inverse());
+  }
+
+  /** Looks up the generating extension in a map indexed by extension name. */
+  public static Optional<ModuleExtensionId> getModuleExtensionForRepo(
+      RepositoryName repositoryName, ImmutableMap<String, ModuleExtensionId> extensionsByName) {
     String name = repositoryName.getName();
     // Unique extension names followed by '+' are prefix-free. Check earlier delimiters as well
     // so a nonexistent repository name containing an extra '+' still identifies its extension.

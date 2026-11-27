@@ -189,7 +189,11 @@ java_library(
 
 java_library(
     name = "repo_definition_function",
-    srcs = ["RepoDefinitionFunction.java"],
+    srcs = [
+        "ExtensionRepoSpecFunction.java",
+        "RepoDefinitionFunction.java",
+        "RepoDefinitionInputs.java",
+    ],
     deps = [
         ":repo_definition",
         ":repo_definition_value",
@@ -204,6 +208,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
