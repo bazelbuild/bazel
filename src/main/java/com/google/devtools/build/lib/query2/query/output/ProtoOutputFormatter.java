@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
+import com.google.devtools.build.lib.packages.AttributeProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -73,6 +74,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
@@ -108,6 +110,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean relativeLocations;
   private boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
+  @Nullable private Map<AttributeProvider, ImmutableList<Attribute>> selectedAttributes;
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
@@ -135,7 +138,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.packageGroupIncludesDoubleSlash = options.getIncompatiblePackageGroupIncludesDoubleSlash();
     this.relativeLocations = options.getRelativeLocations();
     this.includeDefaultValues = options.getProtoIncludeDefaultValues();
-    this.ruleAttributePredicate = newAttributePredicate(options.getProtoOutputRuleAttributes());
+    List<String> outputAttributes = options.getProtoOutputRuleAttributes();
+    if (outputAttributes.equals(ImmutableList.of("all"))) {
+      this.ruleAttributePredicate = Predicates.alwaysTrue();
+      this.selectedAttributes = null;
+    } else {
+      this.ruleAttributePredicate = Predicates.in(ImmutableSet.copyOf(outputAttributes));
+      this.selectedAttributes = new ConcurrentHashMap<>();
+    }
     this.flattenSelects = options.getProtoFlattenSelects();
     this.includeLocations = options.getProtoIncludeLocations();
     this.includeRuleInputsAndOutputs = options.getProtoIncludeRuleInputsAndOutputs();
@@ -149,14 +159,21 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         options.getProtoRuleClasses() ? new RuleClassInfoFormatter() : null;
   }
 
-  private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
-    if (outputAttributes.equals(ImmutableList.of("all"))) {
-      return Predicates.alwaysTrue();
-    } else if (outputAttributes.isEmpty()) {
-      return Predicates.alwaysFalse();
-    } else {
-      return Predicates.in(ImmutableSet.copyOf(outputAttributes));
+  /** Releases the attribute providers when the query finishes. */
+  public final void clearSelectedAttributes() {
+    selectedAttributes = null;
+  }
+
+  private ImmutableList<Attribute> getSelectedAttributes(AttributeProvider provider) {
+    if (selectedAttributes == null) {
+      return provider.getAttributes();
     }
+    return selectedAttributes.computeIfAbsent(
+        provider,
+        p ->
+            p.getAttributes().stream()
+                .filter(attr -> ruleAttributePredicate.apply(attr.getName()))
+                .collect(ImmutableList.toImmutableList()));
   }
 
   @Override
@@ -403,7 +420,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       LabelPrinter labelPrinter) {
     Map<Attribute, Build.Attribute> serializedAttributes = new HashMap<>();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
-    for (Attribute attr : rule.getAttributes()) {
+    for (Attribute attr : getSelectedAttributes(rule.getAttributeProvider())) {
       if (!shouldIncludeAttribute(rule, attr)) {
         continue;
       }
