@@ -68,6 +68,12 @@ public interface MemoizingEvaluator {
   void delete(BiPredicate<SkyKey, SkyValue> pred);
 
   /**
+   * Schedules the given keys and their transitive reverse dependencies for deletion at the next
+   * evaluation. Unrelated dirty nodes remain available for change pruning.
+   */
+  void deleteKeys(Iterable<SkyKey> keys);
+
+  /**
    * Marks dirty values for deletion if they have been dirty for at least as many graph versions as
    * the specified limit.
    *
