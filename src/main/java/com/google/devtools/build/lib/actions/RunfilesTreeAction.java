@@ -41,14 +41,23 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
   /** The runfiles tree created by this action. */
   private final RunfilesTree runfilesTree;
 
+  /** Whether the inputs contain the manifest of the runfiles tree. */
+  private final boolean hasManifest;
+
+  /**
+   * @param hasManifest whether {@code inputs} contains the manifest written from the mapping of
+   *     {@code runfilesTree}
+   */
   public RunfilesTreeAction(
       ActionOwner owner,
       RunfilesTree runfilesTree,
+      boolean hasManifest,
       NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs) {
     super(owner, inputs, outputs);
 
     this.runfilesTree = runfilesTree;
+    this.hasManifest = hasManifest;
     Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isRunfilesTree(), outputs);
   }
 
@@ -85,6 +94,7 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
 
     return new RunfilesArtifactValue(
         runfilesTree,
+        hasManifest,
         files.build(),
         fileValues.build(),
         trees.build(),
