@@ -1045,6 +1045,125 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testAliasedBuildSetting_readsActualValue() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {"//test:fact": settings["//test:fact"] + "_and_puffins_mate_for_life"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:fact"],
+            outputs = ["//test:fact"],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests();
+
+    useConfiguration(
+        "--incompatible_read_aliased_transition_inputs",
+        "--//test:cute-animal-fact=rats_are_ticklish");
+
+    ImmutableMap<Label, Object> starlarkOptions =
+        getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
+    assertThat(starlarkOptions)
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:cute-animal-fact"),
+            "rats_are_ticklish_and_puffins_mate_for_life");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_readsDefaultValueWithoutIncompatibleFlag() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {"//test:fact": settings["//test:fact"] + "_and_puffins_mate_for_life"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:fact"],
+            outputs = ["//test:fact"],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests();
+
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish");
+
+    ImmutableMap<Label, Object> starlarkOptions =
+        getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
+    assertThat(starlarkOptions)
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:cute-animal-fact"),
+            CUTE_ANIMAL_DEFAULT + "_and_puffins_mate_for_life");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_inputOnly() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:fact"],
+            outputs = [],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests();
+
+    useConfiguration(
+        "--incompatible_read_aliased_transition_inputs",
+        "--//test:cute-animal-fact=rats_are_ticklish");
+
+    ImmutableMap<Label, Object> starlarkOptions =
+        getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
+    assertThat(starlarkOptions)
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:cute-animal-fact"), "rats_are_ticklish");
+  }
+
+  @Test
+  public void testAliasedBuildSetting_inputOnlyWithoutIncompatibleFlag() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _transition_impl(settings, attr):
+            return {}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["//test:fact"],
+            outputs = [],
+        )
+        """);
+    writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests();
+
+    useConfiguration("--//test:cute-animal-fact=rats_are_ticklish");
+
+    // The transition resets the build setting to the default value it read.
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .isEmpty();
+  }
+
+  private void writeRulesBuildSettingsAndBUILDforAliasedBuildSettingTransitionTests()
+      throws Exception {
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "alias(name = 'fact', actual = ':cute-animal-fact')",
+        "string_flag(",
+        "  name = 'cute-animal-fact',",
+        "  build_setting_default = '" + CUTE_ANIMAL_DEFAULT + "',",
+        ")");
+  }
+
+  @Test
   public void testAliasedBuildSetting_chainedAliases() throws Exception {
     scratch.file(
         "test/transitions.bzl",

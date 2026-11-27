@@ -171,6 +171,19 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getExcludeStarlarkFlagsFromExecConfig();
 
   @Option(
+      name = "incompatible_read_aliased_transition_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If true, a Starlark transition that reads a build setting through an alias gets the value
+          of the build setting. If false, it gets the default value of the build setting instead.
+          """)
+  public abstract boolean getReadAliasedTransitionInputs();
+
+  @Option(
       name = "experimental_use_platforms_in_output_dir_legacy_heuristic",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
