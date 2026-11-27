@@ -556,36 +556,7 @@ class ModCommandTest(test_base.TestBase):
                     '@@bazel_tools//tools/build_defs/repo:http.bzl'
                 ),
                 'apparentName': '@bar_from_foo2',
-                'attribute': [
-                    {
-                        'name': 'strip_prefix',
-                        'type': 'STRING',
-                        'stringValue': '',
-                        'explicitlySpecified': True,
-                        'nodep': False,
-                    },
-                    {
-                        'name': 'remote_file_urls',
-                        'type': 'STRING_LIST_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
-                        'name': 'remote_file_integrity',
-                        'type': 'STRING_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
-                        'name': 'remote_patches',
-                        'type': 'STRING_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
-                        'name': 'remote_patch_strip',
-                        'type': 'INTEGER',
-                        'intValue': 0,
-                        'explicitlySpecified': True,
-                    },
-                ],
+                'attribute': [],
             },
             {
                 'canonicalName': 'ext+',
@@ -619,36 +590,7 @@ class ModCommandTest(test_base.TestBase):
                     '@@bazel_tools//tools/build_defs/repo:http.bzl'
                 ),
                 'moduleKey': 'bar@2.0',
-                'attribute': [
-                    {
-                        'name': 'strip_prefix',
-                        'type': 'STRING',
-                        'stringValue': '',
-                        'explicitlySpecified': True,
-                        'nodep': False,
-                    },
-                    {
-                        'name': 'remote_file_urls',
-                        'type': 'STRING_LIST_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
-                        'name': 'remote_file_integrity',
-                        'type': 'STRING_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
-                        'name': 'remote_patches',
-                        'type': 'STRING_DICT',
-                        'explicitlySpecified': True,
-                    },
-                    {
-                        'name': 'remote_patch_strip',
-                        'type': 'INTEGER',
-                        'intValue': 0,
-                        'explicitlySpecified': True,
-                    },
-                ],
+                'attribute': [],
             },
         ],
         'wrong output in the show query for module and extension-generated'
@@ -687,16 +629,16 @@ class ModCommandTest(test_base.TestBase):
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(
-        stdout.pop(8),
+        stdout.pop(4),
         r'^  remote_module_file_urls = \[".*/modules/bar/2.0/MODULE.bazel"\],$',
     )
-    self.assertRegex(stdout.pop(8), r'^  remote_module_file_integrity = ".*",$')
-    self.assertRegex(stdout.pop(15), r'^  path = ".*",$')
-    self.assertRegex(stdout.pop(37), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(37), r'^  integrity = ".*",$')
-    self.assertRegex(stdout.pop(41), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(4), r'^  remote_module_file_integrity = ".*",$')
+    self.assertRegex(stdout.pop(10), r'^  path = ".*",$')
+    self.assertRegex(stdout.pop(32), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(32), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(32), r'^  remote_module_file_urls = \[".*"\],$')
     self.assertRegex(
-        stdout.pop(41), r'^  remote_module_file_integrity = ".*",$'
+        stdout.pop(32), r'^  remote_module_file_integrity = ".*",$'
     )
     self.assertListEqual(
         stdout,
@@ -710,13 +652,8 @@ class ModCommandTest(test_base.TestBase):
             '  name = "bar+",',
             # pop(4) -- urls=[...]
             # pop(4) -- integrity=...
-            '  strip_prefix = "",',
-            '  remote_patches = {},',
-            '  remote_file_urls = {},',
-            '  remote_file_integrity = {},',
-            # pop(8) -- remote_module_file_urls
-            # pop(8) -- remote_module_file_integrity
-            '  remote_patch_strip = 0,',
+            # pop(4) -- remote_module_file_urls
+            # pop(4) -- remote_module_file_integrity
             ')',
             '',
             '## ext@1.0:',
@@ -726,7 +663,7 @@ class ModCommandTest(test_base.TestBase):
             ),
             'local_repository(',
             '  name = "ext+",',
-            # pop(15) -- path=...
+            # pop(10) -- path=...
             ')',
             '',
             '## @my_repo3:',
@@ -752,15 +689,10 @@ class ModCommandTest(test_base.TestBase):
             ),
             'http_archive(',
             '  name = "bar+",',
-            # pop(37) -- urls=[...]
-            # pop(37) -- integrity=...
-            '  strip_prefix = "",',
-            '  remote_patches = {},',
-            '  remote_file_urls = {},',
-            '  remote_file_integrity = {},',
-            # pop(41) -- remote_module_file_urls=[...]
-            # pop(41) -- remote_module_file_integrity=...
-            '  remote_patch_strip = 0,',
+            # pop(32) -- urls=[...]
+            # pop(32) -- integrity=...
+            # pop(32) -- remote_module_file_urls=[...]
+            # pop(32) -- remote_module_file_integrity=...
             ')',
             '',
         ],

@@ -55,7 +55,11 @@ public abstract class AttributeValues {
     return attributes().hashCode();
   }
 
-  private static boolean strictlyEqual(Object x, Object y) {
+  /**
+   * Returns whether two attribute values are equal, taking the order of dict entries and set
+   * elements and the difference between ints and floats into account.
+   */
+  public static boolean strictlyEqual(Object x, Object y) {
     if (x instanceof Dict<?, ?> xDict && y instanceof Dict<?, ?> yDict) {
       return elementsStrictlyEqual(xDict.keySet(), yDict.keySet())
           && elementsStrictlyEqual(xDict.values(), yDict.values());
