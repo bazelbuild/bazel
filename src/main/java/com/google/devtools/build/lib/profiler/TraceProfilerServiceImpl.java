@@ -312,7 +312,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
     active = true;
 
     // Start collecting Bazel and system-wide CPU metric collection.
-    this.resourceCollector.start();
+    this.resourceCollector.start(clock);
   }
 
   // TODO(ulfjack): This returns incomplete data by design. Also see getTasksHistograms.

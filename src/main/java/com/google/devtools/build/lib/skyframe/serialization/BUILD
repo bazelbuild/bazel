@@ -375,6 +375,7 @@ java_library(
         ":depend_on_future_shim",
         ":frontier_node_version",
         ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",

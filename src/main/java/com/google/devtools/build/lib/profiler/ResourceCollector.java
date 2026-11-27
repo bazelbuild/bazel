@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.profiler;
 import static java.util.stream.Collectors.groupingBy;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.time.Duration;
@@ -25,7 +25,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Monitors a number of counter series collectors and logs them in the profile as a time series. */
@@ -45,14 +44,17 @@ public class ResourceCollector {
   @Nullable
   private Map<CounterSeriesTask, TimeSeries> timeSeries;
 
-  private Stopwatch stopwatch;
+  private Clock clock;
+  private long startTimeNanos;
 
   @Nullable private Collector collector = null;
 
   public ResourceCollector() {}
 
-  public void start() {
+  public void start(Clock clock) {
     Preconditions.checkState(collector == null);
+    this.clock = clock;
+    this.startTimeNanos = clock.nanoTime();
     collector = new Collector();
     collector.setDaemon(true);
     collector.start();
@@ -79,9 +81,7 @@ public class ResourceCollector {
         timeSeries = new LinkedHashMap<>();
       }
 
-      stopwatch = Stopwatch.createStarted();
-      Duration startTime = stopwatch.elapsed();
-      Duration previousElapsed = stopwatch.elapsed();
+      Duration previousElapsed = Duration.ZERO;
       profilingStarted = true;
       try {
         while (!stopCollection) {
@@ -90,16 +90,16 @@ public class ResourceCollector {
           } catch (InterruptedException e) {
             break;
           }
-          previousElapsed = collectOnce(startTime, previousElapsed);
+          previousElapsed = collectOnce(previousElapsed);
         }
       } finally {
-        collectOnce(startTime, previousElapsed);
+        collectOnce(previousElapsed);
       }
     }
 
     @CanIgnoreReturnValue
-    private Duration collectOnce(Duration startTime, Duration previousElapsed) {
-      Duration nextElapsed = stopwatch.elapsed();
+    private Duration collectOnce(Duration previousElapsed) {
+      Duration nextElapsed = elapsed();
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       if (deltaNanos <= 0) {
         return previousElapsed;
@@ -109,7 +109,7 @@ public class ResourceCollector {
         for (var collector : collectors) {
           collector.collect(
               deltaNanos,
-              (type, value) -> addRange(type, startTime, finalPreviousElapsed, nextElapsed, value));
+              (type, value) -> addRange(type, finalPreviousElapsed, nextElapsed, value));
         }
       }
       return nextElapsed;
@@ -137,14 +137,16 @@ public class ResourceCollector {
     }
   }
 
+  private Duration elapsed() {
+    return Duration.ofNanos(clock.nanoTime() - startTimeNanos);
+  }
+
   synchronized void logCollectedData() {
     if (!profilingStarted) {
       return;
     }
     Preconditions.checkArgument(stopCollection);
-    long endTimeNanos = System.nanoTime();
-    long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
-    long startTimeNanos = endTimeNanos - elapsedNanos;
+    long elapsedNanos = elapsed().toNanos();
     Duration profileStart = Duration.ofNanos(startTimeNanos);
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
 
@@ -166,18 +168,14 @@ public class ResourceCollector {
   }
 
   private void addRange(
-      CounterSeriesTask type,
-      Duration startTime,
-      Duration previousElapsed,
-      Duration nextElapsed,
-      double value) {
+      CounterSeriesTask type, Duration previousElapsed, Duration nextElapsed, double value) {
     synchronized (this) {
       if (timeSeries == null) {
         return;
       }
       var series =
           timeSeries.computeIfAbsent(
-              type, unused -> Profiler.instance().createTimeSeries(startTime, BUCKET_DURATION));
+              type, unused -> Profiler.instance().createTimeSeries(Duration.ZERO, BUCKET_DURATION));
       series.addRange(previousElapsed, nextElapsed, value);
     }
   }

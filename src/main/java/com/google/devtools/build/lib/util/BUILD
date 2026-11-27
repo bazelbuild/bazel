@@ -398,6 +398,7 @@ java_library(
         "ResourceUsage.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//third_party/java/guava:base",
         "//third_party/java/guava:io",
