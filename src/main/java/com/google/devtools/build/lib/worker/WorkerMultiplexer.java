@@ -330,7 +330,11 @@ public class WorkerMultiplexer {
       }
     } finally {
       if (shutdownHook != null) {
-        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        try {
+          Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        } catch (IllegalStateException e) {
+          // The JVM is already shutting down. Continue cleaning up the worker.
+        }
         shutdownHook = null;
       }
       // Stop the subthreads only when the process is dead, or their loops will go on.
