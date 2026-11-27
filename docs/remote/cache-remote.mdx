@@ -161,19 +161,23 @@ do the following:
 2. Download the Bazel source code and build the `//src/tools/execlog:parser`
    tool:
 
-       git clone https://github.com/bazelbuild/bazel.git
-       cd bazel
-       bazel build //src/tools/execlog:parser
+   ```bash
+   git clone https://github.com/bazelbuild/bazel.git
+   cd bazel
+   bazel build //src/tools/execlog:parser
+   ```
 
 3. Use the `//src/tools/execlog:parser` tool to convert the logs into a
    human-readable text format. In this format, the actions in the second log are
    sorted to match the order in the first log, making a comparison easier.
 
-        bazel-bin/src/tools/execlog/parser \
-          --log_path=/tmp/exec1.log \
-          --log_path=/tmp/exec2.log \
-          --output_path=/tmp/exec1.log.txt \
-          --output_path=/tmp/exec2.log.txt
+   ```bash
+   bazel-bin/src/tools/execlog/parser \
+     --log_path=/tmp/exec1.log \
+     --log_path=/tmp/exec2.log \
+     --output_path=/tmp/exec1.log.txt \
+     --output_path=/tmp/exec2.log.txt
+   ```
 
 4. Use your favourite text differ to diff `/tmp/exec1.log.txt` and
    `/tmp/exec2.log.txt`.
