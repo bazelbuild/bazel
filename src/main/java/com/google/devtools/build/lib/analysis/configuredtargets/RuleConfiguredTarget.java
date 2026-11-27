@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
@@ -80,6 +81,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private static final Interner<ImmutableList<ConfiguredTargetKey>> IMPLICIT_DEPS_INTERNER =
       BlazeInterners.newWeakInterner();
 
+  // Unrelated configuration differences often leave all config_setting providers unchanged.
+  private static final Interner<TransitiveInfoProviderMap> CONFIG_SETTING_PROVIDERS_INTERNER =
+      BlazeInterners.newWeakInterner();
+
   private final TransitiveInfoProviderMap providers;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final RuleClassId ruleClassId;
@@ -111,7 +116,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     checkState(providerBuilder.contains(FileProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FilesToRunProvider.class), actionLookupKey);
 
-    this.providers = providerBuilder.build();
+    this.providers = internConfigSettingProviders(providerBuilder.build(), ruleClassId);
     this.configConditions = configConditions;
     this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(implicitDeps);
     this.ruleClassId = ruleClassId;
@@ -175,11 +180,26 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       RuleClassId ruleClassId,
       ImmutableList<ActionAnalysisMetadata> actions) {
     super(lookupKey, visibility);
-    this.providers = providers;
+    this.providers = internConfigSettingProviders(providers, ruleClassId);
     this.configConditions = configConditions;
     this.implicitDeps = implicitDeps;
     this.ruleClassId = ruleClassId;
     this.actions = actions;
+  }
+
+  private static TransitiveInfoProviderMap internConfigSettingProviders(
+      TransitiveInfoProviderMap providers, RuleClassId ruleClassId) {
+    // Native rule keys are their names; Starlark rule keys include the defining .bzl label.
+    if (!ruleClassId.key().equals("config_setting")) {
+      return providers;
+    }
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      // NativeInfo equality can omit native-only state, such as coverage support files.
+      if (providers.getProviderInstanceAt(i) instanceof NativeInfo) {
+        return providers;
+      }
+    }
+    return CONFIG_SETTING_PROVIDERS_INTERNER.intern(providers);
   }
 
   /**
