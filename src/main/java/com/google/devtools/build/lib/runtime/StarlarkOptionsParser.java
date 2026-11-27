@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.Scope;
-import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.BuildSetting;
@@ -119,12 +118,6 @@ public class StarlarkOptionsParser {
 
   // Result of #parse, store the parsed options and their values.
   private final Map<String, Object> starlarkOptions = new TreeMap<>();
-
-  // Map of starlark options to their {@link Scope.ScopeType}.
-  private final Map<String, String> scopes = new TreeMap<>();
-
-  // Map of starlark options to their on-leave scope values.
-  private final Map<String, Object> onLeaveScopeValues = new TreeMap<>();
 
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
   private final Map<String, BuildSetting> parsedBuildSettings = new LinkedHashMap<>();
@@ -245,9 +238,6 @@ public class StarlarkOptionsParser {
     }
 
     Map<String, Object> parsedOptions = new HashMap<>();
-    Map<String, String> scopeTypeMap = new HashMap<>();
-    Map<String, Object> onLeaveScopeMap = new HashMap<>();
-    List<String> customExecFlags = new ArrayList<>();
     for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
       Pair<Target, Object> buildSettingAndFinalValue =
           buildSettingWithTargetAndValue.get(buildSetting);
@@ -283,75 +273,28 @@ public class StarlarkOptionsParser {
         }
       }
 
-      String scopeType = getScopeType(buildSettingTarget);
-      scopeTypeMap.put(buildSetting, scopeType);
-      if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
-      }
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-      if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
-        var onLeaveScopeValue = attrMap.get("on_leave_scope", buildSettingObject.getType());
-        onLeaveScopeMap.put(buildSetting, onLeaveScopeValue);
+      if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
+        String scopeType = attrMap.get("scope", Type.STRING);
+        if (!Scope.ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
+            && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+          throw new OptionsParsingException(
+              String.format(
+                  "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
+                      + " [%s].",
+                  buildSetting,
+                  scopeType,
+                  Scope.ScopeType.allowedAttributeValues().stream()
+                      .map(s -> "\"" + s + "\"")
+                      .collect(joining(", "))));
+        }
       }
-    }
-
-    // handling custom exec case with scope "exec:--<another_flag_name>".
-    // For example: --python_launcher=--host_python_launcher
-    // have the --<another_flag_name> flag in the target config but also make sure that it
-    // won't propagate to the exec config by setting the scope to "target".
-    for (String customExecFlag : customExecFlags) {
-      // if the custom exec flag is already in the parsedOptions, we use that value.
-      if (parsedOptions.containsKey(customExecFlag)) {
-        continue;
-      }
-
-      // get the default value for the custom exec flag if it's not set yet.
-      Target customExecFlagTarget = loadBuildSetting(customExecFlag);
-      parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlagTarget));
-      scopeTypeMap.put(customExecFlag, getScopeType(customExecFlagTarget));
     }
 
     nativeOptionsParser.setStarlarkOptions(
         ImmutableMap.copyOf(parsedOptions), getStarlarkOptionsAllowingMultiple());
-    nativeOptionsParser.setOnLeaveScopeValues(ImmutableMap.copyOf(onLeaveScopeMap));
-    nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     this.starlarkOptions.putAll(parsedOptions);
-    this.scopes.putAll(scopeTypeMap);
-    this.onLeaveScopeValues.putAll(onLeaveScopeMap);
     return true;
-  }
-
-  private static Object getDefaultValueForAnyBuildSetting(Target buildSettingTarget) {
-    BuildSetting buildSettingObject =
-        buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
-    Object defaultValue =
-        buildSettingTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
-    if (buildSettingObject.allowsMultiple()) {
-      return ImmutableList.of(Objects.requireNonNull(defaultValue));
-    }
-    return defaultValue;
-  }
-
-  private static String getScopeType(Target buildSettingTarget) throws OptionsParsingException {
-    // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
-    var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-    String scopeType = ScopeType.DEFAULT.toString();
-    if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-      scopeType = attrMap.get("scope", Type.STRING);
-      if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
-          && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        throw new OptionsParsingException(
-            String.format(
-                "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
-                    + " [%s].",
-                buildSettingTarget.getLabel().getCanonicalForm(),
-                scopeType,
-                ScopeType.allowedAttributeValues().stream()
-                    .map(s -> "\"" + s + "\"")
-                    .collect(joining(", "))));
-      }
-    }
-    return scopeType;
   }
 
   /**
@@ -509,16 +452,8 @@ public class StarlarkOptionsParser {
         .collect(toImmutableSet());
   }
 
-  public ImmutableMap<String, String> getScopesAttributes() {
-    return ImmutableMap.copyOf(this.scopes);
-  }
-
   public ImmutableMap<String, Object> getDefaultValues() {
     return ImmutableMap.copyOf(this.buildSettingDefaults);
-  }
-
-  public ImmutableMap<String, Object> getOnLeaveScopeValues() {
-    return ImmutableMap.copyOf(this.onLeaveScopeValues);
   }
 
   public boolean checkIfParsedOptionAllowsMultiple(String option) {

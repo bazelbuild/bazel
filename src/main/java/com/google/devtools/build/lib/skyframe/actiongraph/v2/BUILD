@@ -21,6 +21,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/unresolved_symlink_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/actions:substitution",
