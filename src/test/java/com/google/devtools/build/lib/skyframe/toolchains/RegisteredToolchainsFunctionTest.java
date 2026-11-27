@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -42,7 +43,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   @Test
   public void testRegisteredToolchains() throws Exception {
     // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -113,7 +116,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
     useConfiguration("--extra_toolchains=//extra:extra_toolchain");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -166,7 +171,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "--extra_toolchains=//extra:extra_toolchain_1",
         "--extra_toolchains=//extra:extra_toolchain_2");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -189,7 +196,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     scratch.file("error/BUILD", "filegroup(name = 'not_a_toolchain')");
 
     // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result)
@@ -225,7 +234,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
 
     // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result)
@@ -262,7 +273,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
 
     // Request the toolchains.
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result)
@@ -300,7 +313,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         register_toolchains("//extra/...")
         """);
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -334,7 +349,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "baz");
     useConfiguration("--extra_toolchains=//extra/...");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -386,7 +403,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         register_toolchains("//extra/...")
         """);
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -432,7 +451,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         register_toolchains("//toolchain:toolchain_1")
         """);
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -445,7 +466,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         register_toolchains("//toolchain:toolchain_2")
         """);
 
-    toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     result = requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
@@ -534,7 +557,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "declare_toolchain(name='tool')");
     invalidatePackages();
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     if (result.hasError()) {
@@ -553,6 +578,73 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             Label.parseCanonical("@@ccc+//:tool_impl"),
             Label.parseCanonical("@@eee+//:tool_impl"),
             Label.parseCanonical("@@ddd+//:tool_impl"))
+        .inOrder();
+  }
+
+  @Test
+  public void testRegisteredToolchains_bzlmod_typeOwner() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        register_toolchains("//:bbb_tool")
+        bazel_dep(name = "aaa", version = "1.0")
+        bazel_dep(name = "bbb", version = "1.0")
+        bazel_dep(name = "ccc", version = "1.0")
+        """);
+    registry
+        .addModule(
+            createModuleKey("aaa", "1.0"),
+            """
+            module(name = "aaa", version = "1.0")
+            register_toolchains("//:bbb_tool")
+            bazel_dep(name = "bbb", version = "1.0")
+            """)
+        .addModule(
+            createModuleKey("bbb", "1.0"),
+            """
+            module(name = "bbb", version = "1.0")
+            register_toolchains("//:bbb_tool")
+            """)
+        .addModule(
+            createModuleKey("ccc", "1.0"),
+            """
+            module(name = "ccc", version = "1.0")
+            register_toolchains("//does/not/exist:all")
+            """);
+    for (String repo : ImmutableList.of("aaa+1.0", "bbb+1.0", "ccc+1.0")) {
+      scratch.file(moduleRoot.getRelative(repo).getRelative("REPO.bazel").getPathString());
+    }
+    scratch.file(
+        moduleRoot.getRelative("bbb+1.0").getRelative("BUILD").getPathString(),
+        """
+        toolchain_type(name = "type", visibility = ["//visibility:public"])
+
+        toolchain(name = "bbb_tool", toolchain = ":bbb_tool_impl", toolchain_type = ":type")
+        """);
+    scratch.file(
+        moduleRoot.getRelative("aaa+1.0").getRelative("BUILD").getPathString(),
+        """
+        toolchain(name = "bbb_tool", toolchain = ":bbb_tool_impl", toolchain_type = "@bbb//:type")
+        """);
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        toolchain(name = "bbb_tool", toolchain = ":bbb_tool_impl", toolchain_type = "@bbb//:type")
+        """);
+    invalidatePackages();
+
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, RepositoryName.createUnvalidated("bbb+"));
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // The registrations of aaa and ccc aren't loaded.
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsExactly(
+            Label.parseCanonical("//:bbb_tool_impl"),
+            Label.parseCanonical("@@bbb+//:bbb_tool_impl"))
         .inOrder();
   }
 
@@ -593,7 +685,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         register_toolchains("//toolchain:toolchain_1", "//extra:extra_toolchain")
         """);
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -645,7 +739,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         register_toolchains("//toolchain:toolchain_1", "//extra:extra_toolchain")
         """);
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ true);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ true, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -682,7 +778,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
     useConfiguration("--extra_toolchains=//extra:extra_toolchain");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -734,7 +832,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     writeExtraToolchainUsingTargetPlatformConstraints(true);
     useConfiguration("--extra_toolchains=//extra:extra_toolchain");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -826,7 +926,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
     // Need this so the feature flag is actually gone from the configuration.
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result)
@@ -904,7 +1006,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
     useConfiguration("--extra_toolchains=//:*");
 
-    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    SkyKey toolchainsKey =
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();

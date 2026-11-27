@@ -29,12 +29,14 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.rules.platform.PlatformRule;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
@@ -63,6 +66,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} that returns all registered execution platforms available. */
 public class RegisteredExecutionPlatformsFunction implements SkyFunction {
@@ -167,12 +171,17 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
     BazelDepGraphValue bazelDepGraphValue =
         (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
-    if (bazelDepGraphValue == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (env.valuesMissing()) {
       return null;
     }
+    boolean rootModuleOnly =
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_RESTRICT_NON_ROOT_REGISTRATIONS);
     ImmutableList.Builder<TargetPattern> executionPlatforms = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
-      if (module.getExecutionPlatformsToRegister().isEmpty()) {
+      if (module.getExecutionPlatformsToRegister().isEmpty()
+          || (rootModuleOnly && !module.getKey().equals(ModuleKey.ROOT))) {
         continue;
       }
       RepositoryName repoName =
