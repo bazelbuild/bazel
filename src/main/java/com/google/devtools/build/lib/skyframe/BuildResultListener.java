@@ -46,6 +46,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 import javax.annotation.Nullable;
 
 /**
@@ -69,6 +72,40 @@ public class BuildResultListener {
       new ConcurrentHashMap<>();
   private final Map<AspectKey, NestedSet<Cause>> aspectRootCauses = new ConcurrentHashMap<>();
   private final AtomicBoolean hasSandboxedActionFailures = new AtomicBoolean(false);
+
+  private final SortedCopy<ImmutableSet<ConfiguredTarget>> sortedAnalyzedTargets =
+      new SortedCopy<>(
+          analyzedTargets::size,
+          () -> sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTargets),
+          ImmutableSet::size);
+  private final SortedCopy<ImmutableSet<ConfiguredTarget>> sortedAnalyzedTests =
+      new SortedCopy<>(
+          analyzedTests::size,
+          () -> sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTests),
+          ImmutableSet::size);
+  private final SortedCopy<ImmutableMap<AspectKey, ConfiguredAspect>> sortedAnalyzedAspects =
+      new SortedCopy<>(
+          analyzedAspects::size,
+          () ->
+              analyzedAspects.entrySet().stream()
+                  .sorted(Map.Entry.comparingByKey(AspectKey.ORDERING))
+                  .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
+          ImmutableMap::size);
+  private final SortedCopy<ImmutableSet<ConfiguredTarget>> sortedSkippedTargets =
+      new SortedCopy<>(
+          skippedTargets::size,
+          () -> sortedCopyOf(ConfiguredTarget.ORDERING, skippedTargets),
+          ImmutableSet::size);
+  private final SortedCopy<ImmutableSet<ConfiguredTargetKey>> sortedBuiltTargets =
+      new SortedCopy<>(
+          builtTargets::size,
+          () -> sortedCopyOf(ConfiguredTargetKey.ORDERING, builtTargets),
+          ImmutableSet::size);
+  private final SortedCopy<ImmutableSet<AspectKey>> sortedBuiltAspects =
+      new SortedCopy<>(
+          builtAspects::size,
+          () -> sortedCopyOf(AspectKey.ORDERING, builtAspects),
+          ImmutableSet::size);
 
   @GuardedBy("this")
   @Nullable
@@ -115,33 +152,62 @@ public class BuildResultListener {
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {
-    return sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTargets);
+    return sortedAnalyzedTargets.get();
   }
 
   public ImmutableSet<ConfiguredTarget> getAnalyzedTests() {
-    return sortedCopyOf(ConfiguredTarget.ORDERING, analyzedTests);
+    return sortedAnalyzedTests.get();
   }
 
   public ImmutableMap<AspectKey, ConfiguredAspect> getAnalyzedAspects() {
-    return analyzedAspects.entrySet().stream()
-        .sorted(Map.Entry.comparingByKey(AspectKey.ORDERING))
-        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    return sortedAnalyzedAspects.get();
   }
 
   public ImmutableSet<ConfiguredTarget> getSkippedTargets() {
-    return sortedCopyOf(ConfiguredTarget.ORDERING, skippedTargets);
+    return sortedSkippedTargets.get();
   }
 
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {
-    return sortedCopyOf(ConfiguredTargetKey.ORDERING, builtTargets);
+    return sortedBuiltTargets.get();
   }
 
   public ImmutableSet<AspectKey> getBuiltAspects() {
-    return sortedCopyOf(AspectKey.ORDERING, builtAspects);
+    return sortedBuiltAspects.get();
   }
 
   private static <T> ImmutableSet<T> sortedCopyOf(Comparator<T> comparator, Set<T> set) {
     return ImmutableSet.copyOf(ImmutableList.sortedCopyOf(comparator, set));
+  }
+
+  /**
+   * A sorted copy of a collection that only ever grows, made again only after it has grown.
+   *
+   * <p>The getters of this class are called several times each once a build is over, and sorting
+   * the targets of a build of several hundred thousand of them takes seconds every time.
+   */
+  private static final class SortedCopy<C> {
+    private final IntSupplier currentSize;
+    private final Supplier<C> sort;
+    private final ToIntFunction<C> sizeOf;
+
+    @GuardedBy("this")
+    @Nullable
+    private C copy;
+
+    SortedCopy(IntSupplier currentSize, Supplier<C> sort, ToIntFunction<C> sizeOf) {
+      this.currentSize = currentSize;
+      this.sort = sort;
+      this.sizeOf = sizeOf;
+    }
+
+    synchronized C get() {
+      // Nothing is ever removed, so a copy that has as many elements as the collection has now
+      // holds the same elements.
+      if (copy == null || sizeOf.applyAsInt(copy) != currentSize.getAsInt()) {
+        copy = sort.get();
+      }
+      return copy;
+    }
   }
 
   @Subscribe
