@@ -14,6 +14,7 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import gzip
 import json
 import os
 import shutil
@@ -121,6 +122,93 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+
+  def testRegistryModulePatchDoesNotRecheckUnrelatedRepo(self):
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+        ],
+    )
+    self.AddBazelDep('rules_shell')
+    targets = ['@aaa//:lib_aaa', '@ddd//:lib_ddd']
+    self.RunBazel(['build', '--nobuild', *targets])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  patches = ["//:aaa.patch"],',
+            '  patch_strip = 1,',
+            ')',
+        ],
+        mode='a',
+    )
+    events = self._profileBuild(*targets)
+    self.assertIn(('Fetching repository', '@@aaa+'), events)
+    self.assertNotIn(('Fetching repository', '@@ddd+'), events)
+
+  def testChangingGeneratedRepoSpecDoesNotRecheckSibling(self):
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:ext.bzl", "ext")',
+            'use_repo(ext, "changed", "sibling")',
+        ],
+    )
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            'def _repo_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name = %r)" % ctx.attr.target)',
+            'repo = repository_rule(',
+            '    implementation = _repo_impl,',
+            '    attrs = {"target": attr.string()},',
+            ')',
+            'def _ext_impl(ctx):',
+            '    target = ctx.read(Label("//:target")).strip()',
+            '    repo(name = "changed", target = target)',
+            '    repo(name = "sibling", target = "fixed")',
+            'ext = module_extension(implementation = _ext_impl)',
+        ],
+    )
+    self.ScratchFile('target', ['before'])
+    self.RunBazel(
+        ['build', '--nobuild', '@changed//:before', '@sibling//:fixed']
+    )
+
+    self.ScratchFile('target', ['after'])
+    # SkyFunction profile events contain the function name without the SkyKey.
+    # Request the sibling by itself to identify its REPO_DEFINITION calls.
+    sibling_events = self._profileBuild('@sibling//:fixed')
+    self.assertIn(('skyfunction', 'SINGLE_EXTENSION_EVAL'), sibling_events)
+    self.assertNotIn(('skyfunction', 'REPO_DEFINITION'), sibling_events)
+    self.assertNotIn(('Fetching repository', '@@+ext+sibling'), sibling_events)
+
+    changed_events = self._profileBuild('@changed//:after')
+    self.assertIn(('skyfunction', 'REPO_DEFINITION'), changed_events)
+    self.assertIn(('Fetching repository', '@@+ext+changed'), changed_events)
+
+  def _profileBuild(self, *targets):
+    self.RunBazel([
+        'build',
+        '--nobuild',
+        '--profile=repos.json.gz',
+        '--experimental_profile_additional_tasks=skyfunction',
+        '--record_full_profiler_data',
+        '--noslim_profile',
+        *targets,
+    ])
+    with gzip.open(self.Path('repos.json.gz'), 'rt', encoding='utf-8') as f:
+      return {
+          (event['cat'], event['name'])
+          for event in json.load(f)['traceEvents']
+          if event.get('ph') == 'X'
+          and event.get('cat') in ('skyfunction', 'Fetching repository')
+      }
 
   def testSingleVersionOverrideWithPatchCmds(self):
     self.writeMainProjectFiles()

@@ -115,7 +115,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDeta
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
-import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -944,7 +943,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Inject an empty default BAZEL_DEP_GRAPH SkyFunction for unit tests.
     map.put(
         SkyFunctions.BAZEL_DEP_GRAPH, (skyKey, env) -> BazelDepGraphValue.createEmptyDepGraph());
-    map.put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction(directories));
+    map.putAll(RepoDefinitionFunction.skyFunctions(directories));
     map.put(
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletor.targetCompletionFunction(
