@@ -11,18 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
-/** Various bits of data and functionality serialization needs. */
-public interface SerializationDependenciesProvider {
+/** Shared Skycache dependencies needed by both cache reader and writer views. */
+public interface SkycacheCommonDepsProvider {
   RemoteAnalysisCacheMode mode();
 
   /**
@@ -38,28 +36,10 @@ public interface SerializationDependenciesProvider {
    */
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
-  /** Returns the {@link CompressionService} implementation. */
-  CompressionService getCompressionService();
-
   /** Returns the {@link FingerprintValueService} implementation. */
   @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
-  String getSerializedFrontierProfile();
-
-  /** Returns the destination for file invalidation data when uploading. */
-  @Nullable
-  KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
-
-  @Nullable
-  RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
-
-  @Nullable
-  FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException;
-
-  void waitForUploadCompletion() throws InterruptedException, ExecutionException;
-
+  /** Returns true if Skycache is only used for analysis phase. */
   boolean getSkycacheAnalysisOnly();
-
-  boolean getEmitUploadedEvents();
 }

@@ -91,7 +91,7 @@ public final class RemoteAnalysisCacheFactory {
     if (options == null
         || !env.getCommand().buildPhase().executes()
         || options.getMode() == RemoteAnalysisCacheMode.OFF) {
-      RemoteAnalysisCacheDeps disabledDeps = RemoteAnalysisCacheDeps.createDisabled();
+      SkycacheDeps disabledDeps = SkycacheDeps.createDisabled();
       return new AnalysisDeps(
           RemoteAnalysisCacheManager.createDisabled(), disabledDeps, disabledDeps);
     }
@@ -220,7 +220,7 @@ public final class RemoteAnalysisCacheFactory {
     // Create the return values
 
     var deps =
-        new RemoteAnalysisCacheDeps(
+        new SkycacheDeps(
             env.getReporter(),
             options.getMode(),
             options.getAnalysisCacheBailOnMissingFingerprint(),
@@ -278,8 +278,8 @@ public final class RemoteAnalysisCacheFactory {
                         + " specified). Falling back to local evaluation."));
         return new AnalysisDeps(
             RemoteAnalysisCacheManager.createDisabled(),
-            RemoteAnalysisCacheDeps.createDisabled(),
-            RemoteAnalysisCacheDeps.createDisabled());
+            SkycacheDeps.createDisabled(),
+            SkycacheDeps.createDisabled());
       }
     } else if (!options.getMode().serializesValues()) {
       throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());

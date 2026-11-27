@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -108,7 +108,7 @@ abstract class ArtifactFunctionTestCase {
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
                         /* actionExecutor= */ null, // only used by remote analysis caching
-                        () -> RemoteAnalysisCacheDeps.createDisabled()))
+                        SkycacheDeps::createDisabled))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(

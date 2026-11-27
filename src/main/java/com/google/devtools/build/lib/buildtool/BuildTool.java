@@ -109,10 +109,10 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSer
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheWriterDepsProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -246,9 +246,9 @@ public class BuildTool {
       buildOptions = runtime.createBuildOptions(request);
     }
 
-    RemoteAnalysisCachingDependenciesProvider analysisCachingDeps = null;
-    RemoteAnalysisCacheReaderDepsProvider analysisCacheReaderDeps = null;
-    SerializationDependenciesProvider serializationDependenciesProvider = null;
+    SkycacheCoordinator skycacheCoordinator = null;
+    RemoteAnalysisCacheReaderDepsProvider readerDeps = null;
+    SkycacheWriterDepsProvider writerDeps = null;
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
@@ -382,9 +382,9 @@ public class BuildTool {
               buildOptions,
               request.getUserOptions(),
               projectEvaluationResult.buildOptions());
-      analysisCachingDeps = analysisDeps.deps();
-      analysisCacheReaderDeps = analysisDeps.readerDeps();
-      serializationDependenciesProvider = analysisDeps.serializationDeps();
+      skycacheCoordinator = analysisDeps.skycacheCoordinator();
+      readerDeps = analysisDeps.readerDeps();
+      writerDeps = analysisDeps.writerDeps();
 
       String actionExecutionSalt = computeActionExecutionSalt(request);
       env.getSkyframeExecutor().setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
@@ -398,8 +398,8 @@ public class BuildTool {
               result,
               targetPatternPhaseValue,
               buildOptions,
-              analysisCachingDeps,
-              analysisCacheReaderDeps,
+              skycacheCoordinator,
+              readerDeps,
               actionExecutionSalt);
         } else {
           buildTargetsWithoutMergedAnalysisExecution(
@@ -407,23 +407,23 @@ public class BuildTool {
               result,
               targetPatternPhaseValue,
               buildOptions,
-              analysisCachingDeps,
-              analysisCacheReaderDeps,
+              skycacheCoordinator,
+              readerDeps,
               actionExecutionSalt);
         }
       } catch (BuildFailedException e) {
         if (!request.getKeepGoing()
             || !request.getBuildOptions().getPerformAnalysisPhase()
-            || !analysisCacheReaderDeps.mode().serializesValues()) {
+            || !readerDeps.mode().serializesValues()) {
           throw e;
         }
         delayedBuildFailedException = e;
       }
 
-      if (analysisCacheReaderDeps.mode().serializesValues()) {
-        Preconditions.checkState(!analysisCachingDeps.bailedOut());
+      if (readerDeps.mode().serializesValues()) {
+        Preconditions.checkState(!skycacheCoordinator.bailedOut());
         try {
-          serializeValues(serializationDependenciesProvider);
+          serializeValues(writerDeps);
         } catch (Throwable t) {
           if (delayedBuildFailedException != null) {
             if (!delayedBuildFailedException.isErrorAlreadyShown()) {
@@ -456,13 +456,13 @@ public class BuildTool {
         env.ensureBuildInfoPosted();
 
         // Log stats and sync state even on failure.
-        if (analysisCachingDeps != null) {
-          if (analysisCacheReaderDeps.mode().isRetrievalEnabled()
-              && (analysisCacheReaderDeps.shouldBailOutOnMissingFingerprint()
-                  || analysisCachingDeps.bailedOut())) {
-            reportOnlyBailOutReason(analysisCacheReaderDeps);
+        if (skycacheCoordinator != null) {
+          if (readerDeps.mode().isRetrievalEnabled()
+              && (readerDeps.shouldBailOutOnMissingFingerprint()
+                  || skycacheCoordinator.bailedOut())) {
+            reportOnlyBailOutReason(readerDeps);
           } else {
-            logAnalysisCachingStats(analysisCacheReaderDeps);
+            logAnalysisCachingStats(readerDeps);
           }
         }
       }
@@ -610,8 +610,8 @@ public class BuildTool {
       BuildResult result,
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDeps,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps,
+      SkycacheCoordinator skycacheCoordinator,
+      RemoteAnalysisCacheReaderDepsProvider readerDeps,
       String actionExecutionSalt)
       throws BuildFailedException,
           ViewCreationFailedException,
@@ -624,12 +624,7 @@ public class BuildTool {
           PostExecutionDumpException {
     AnalysisResult analysisResult =
         AnalysisPhaseRunner.execute(
-            env,
-            request,
-            targetPatternPhaseValue,
-            buildOptions,
-            remoteAnalysisCachingDeps,
-            remoteAnalysisCacheReaderDeps);
+            env, request, targetPatternPhaseValue, buildOptions, skycacheCoordinator, readerDeps);
     ExecutionTool executionTool = null;
     try {
       // We cannot move the executionTool down to the execution phase part since it does set up the
@@ -717,8 +712,8 @@ public class BuildTool {
       BuildResult result,
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps,
+      SkycacheCoordinator skycacheCoordinator,
+      RemoteAnalysisCacheReaderDepsProvider readerDeps,
       String actionExecutionSalt)
       throws InterruptedException,
           AbruptExitException,
@@ -767,8 +762,8 @@ public class BuildTool {
                           .forceExclusiveIfLocalTestsInParallel();
                 }
               },
-              remoteAnalysisCachingDependenciesProvider,
-              remoteAnalysisCacheReaderDeps);
+              skycacheCoordinator,
+              readerDeps);
       buildCompleted = true;
 
       // This value is null when there's no analysis.
@@ -1252,8 +1247,7 @@ public class BuildTool {
     }
   }
 
-  private void tryWriteSkycacheMetadata(
-      SerializationDependenciesProvider serializationDependenciesProvider)
+  private void tryWriteSkycacheMetadata(SkycacheWriterDepsProvider writerDeps)
       throws InterruptedException {
     String message = "No local crash but the RPC failed in the backend";
     boolean success = false;
@@ -1266,8 +1260,7 @@ public class BuildTool {
       // This is a blocking call. We cannot finish the build until the metadata has been written
       // and at this point there is nothing else to do in the build that could be done in
       // parallel.
-      RemoteAnalysisMetadataWriter metadataWriter =
-          serializationDependenciesProvider.getMetadataWriter();
+      RemoteAnalysisMetadataWriter metadataWriter = writerDeps.getMetadataWriter();
       if (metadataWriter == null) {
         message = "MetadataAnalysisCacheWriterService is unavailable";
       } else {
@@ -1415,17 +1408,17 @@ public class BuildTool {
     }
   }
 
-  private void serializeValues(SerializationDependenciesProvider serializationDependenciesProvider)
+  private void serializeValues(SkycacheWriterDepsProvider writerDeps)
       throws InterruptedException, AbruptExitException {
     if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
       return;
     }
 
-    checkState(serializationDependenciesProvider.mode().serializesValues());
+    checkState(writerDeps.mode().serializesValues());
 
-    if (serializationDependenciesProvider.mode().isAsyncUpload()) {
+    if (writerDeps.mode().isAsyncUpload()) {
       try {
-        serializationDependenciesProvider.waitForUploadCompletion();
+        writerDeps.waitForUploadCompletion();
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), AbruptExitException.class);
         throw new AbruptExitException(
@@ -1437,14 +1430,14 @@ public class BuildTool {
                             .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
                     .build()));
       }
-      tryWriteSkycacheMetadata(serializationDependenciesProvider);
+      tryWriteSkycacheMetadata(writerDeps);
       return;
     }
 
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
       Optional<FailureDetail> maybeFailureDetail =
           FrontierSerializer.serializeAndUploadFrontier(
-              serializationDependenciesProvider,
+              writerDeps,
               env.getSkyframeExecutor().getEvaluator(),
               env.getVersionGetter(),
               env.getReporter(),
@@ -1456,8 +1449,8 @@ public class BuildTool {
       }
     }
 
-    if (serializationDependenciesProvider.mode().isSyncUpload()) {
-      tryWriteSkycacheMetadata(serializationDependenciesProvider);
+    if (writerDeps.mode().isSyncUpload()) {
+      tryWriteSkycacheMetadata(writerDeps);
     }
   }
 

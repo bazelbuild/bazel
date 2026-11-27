@@ -71,7 +71,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -95,7 +95,7 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      SkycacheCoordinator skycacheCoordinator,
       RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws BuildFailedException,
           InterruptedException,
@@ -120,7 +120,7 @@ public final class AnalysisPhaseRunner {
                   request,
                   targetPatternPhaseValue,
                   buildOptions,
-                  remoteAnalysisCachingDependenciesProvider,
+                  skycacheCoordinator,
                   remoteAnalysisCacheReaderDeps);
         } finally {
           env.getBuildResultListener().stopAnalysisTimer();
@@ -294,7 +294,7 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      SkycacheCoordinator skycacheCoordinator,
       RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws InterruptedException,
           InvalidConfigurationException,
@@ -344,7 +344,7 @@ public final class AnalysisPhaseRunner {
               /* buildConfigurationsCreatedCallback= */ null,
               /* buildDriverKeyTestContext= */ null,
               env.getAdditionalConfigurationChangeEvent(),
-              remoteAnalysisCachingDependenciesProvider,
+              skycacheCoordinator,
               remoteAnalysisCacheReaderDeps);
     } catch (BuildFailedException | TestExecException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);

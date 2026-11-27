@@ -95,12 +95,12 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BaselineConfigurations;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SettablePlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -245,7 +245,7 @@ public class BuildView {
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
       @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
       Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent,
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+      SkycacheCoordinator skycacheCoordinator,
       RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
@@ -266,7 +266,7 @@ public class BuildView {
     BuildOptions topLevelConfigurationTrimmedOfTestOptions;
     boolean shouldDiscardAnalysisCache;
     if (skyframeExecutor.getAndIncrementAnalysisCount() != 0
-        && remoteAnalysisCachingDependenciesProvider.mode().isSyncUpload()) {
+        && skycacheCoordinator.mode().isSyncUpload()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -277,14 +277,14 @@ public class BuildView {
                           .build())
                   .build()));
     }
-    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
+    if (skycacheCoordinator.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
       try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
-        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
+        skycacheCoordinator.queryMetadataAndMaybeBailout();
       }
-      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
-          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
-        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
-        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
+      if (skycacheCoordinator.mode() != RemoteAnalysisCacheMode.OFF
+          && skycacheCoordinator.bailedOut()) {
+        skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
+        remoteAnalysisCacheReaderDeps = SkycacheDeps.createDisabled();
       } else {
         eventBus.post(new RemoteAnalysisCachingEnabledEvent());
       }
@@ -305,7 +305,7 @@ public class BuildView {
           skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
 
       SettablePlatformConfigurationProvider platformConfigProvider =
-          remoteAnalysisCachingDependenciesProvider.getPlatformConfigurationProvider();
+          skycacheCoordinator.getPlatformConfigurationProvider();
       if (platformConfigProvider != null) {
         Label topLevelPlatform =
             skyframeExecutor.resolveTopLevelPlatform(eventHandler, targetOptions);
@@ -316,8 +316,7 @@ public class BuildView {
 
       // Set up remote analysis caching and invalidate stale deserialized nodes before creating the
       // top-level configuration, because configuration creation can read cached platform targets.
-      skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-          remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
+      skyframeExecutor.setSkycacheDeps(skycacheCoordinator, remoteAnalysisCacheReaderDeps);
       skyframeExecutor.invalidateWithExternalService(eventHandler);
 
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
@@ -377,8 +376,7 @@ public class BuildView {
         boolean discardAnalysisCacheAfterAnalysis =
             viewOptions.getDiscardAnalysisCache()
                 || !skyframeExecutor.tracksStateForIncrementality();
-        if (discardAnalysisCacheAfterAnalysis
-            && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
+        if (discardAnalysisCacheAfterAnalysis && skycacheCoordinator.mode().isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
           // during the logical execution phase. In Skymeld mode, discarding the analysis cache
           // while analysis/execution nodes are in flight can lead to crashes (see b/575886997).
@@ -412,9 +410,7 @@ public class BuildView {
                 /* shouldDiscardAnalysisCache= */ discardAnalysisCacheAfterAnalysis,
                 // Analysis uploads happen after the build and use the syscall cache, so it should
                 // not be cleared mid-build. The cache is still cleared upon command completion.
-                /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
-                    .mode()
-                    .isSyncUpload(),
+                /* shouldClearSyscallCache= */ !skycacheCoordinator.mode().isSyncUpload(),
                 buildDriverKeyTestContext);
       } else {
         skyframeAnalysisResult =
@@ -430,7 +426,7 @@ public class BuildView {
                 executors,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
+        if (skyframeExecutor.getSkycacheCoordinator().mode().isSyncUpload()) {
           skyframeExecutor.clearPackageValues();
         }
       }

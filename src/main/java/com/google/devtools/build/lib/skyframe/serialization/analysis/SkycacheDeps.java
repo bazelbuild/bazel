@@ -52,11 +52,12 @@ import javax.annotation.Nullable;
 /**
  * Implementation of remote analysis cache functionality that is needed for reading and writing.
  *
- * <p>The parts that are needed for maintenance of Skyframe, etc. are in {@link
- * RemoteAnalysisCacheManager}.
+ * <p>This single concrete class currently backs both the reader ({@link
+ * RemoteAnalysisCacheReaderDepsProvider}) and writer ({@link SkycacheWriterDepsProvider}) views.
+ * Build-level lifecycle coordination lives in {@link RemoteAnalysisCacheManager}.
  */
-public class RemoteAnalysisCacheDeps
-    implements SerializationDependenciesProvider, RemoteAnalysisCacheReaderDepsProvider {
+public class SkycacheDeps
+    implements SkycacheWriterDepsProvider, RemoteAnalysisCacheReaderDepsProvider {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final long CLIENT_LOOKUP_TIMEOUT_SEC = 20L;
@@ -90,11 +91,11 @@ public class RemoteAnalysisCacheDeps
   private final AtomicBoolean sawCacheHit = new AtomicBoolean();
   private final ExtendedEventHandler eventHandler;
 
-  public static RemoteAnalysisCacheDeps createDisabled() {
-    return new RemoteAnalysisCacheDeps();
+  public static SkycacheDeps createDisabled() {
+    return new SkycacheDeps();
   }
 
-  RemoteAnalysisCacheDeps(
+  SkycacheDeps(
       ExtendedEventHandler eventHandler,
       RemoteAnalysisCacheMode mode,
       boolean bailOutOnMissingFingerprint,
@@ -150,7 +151,7 @@ public class RemoteAnalysisCacheDeps
     this.versionGetter = versionGetter;
   }
 
-  private RemoteAnalysisCacheDeps() {
+  private SkycacheDeps() {
     this.mode = RemoteAnalysisCacheMode.OFF;
     this.bailOutOnMissingFingerprint = false;
     this.skycacheAnalysisOnly = false;

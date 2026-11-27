@@ -21,10 +21,10 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * An interface providing the functionalities used for analysis caching serialization and
- * deserialization.
+ * Coordinates build-level Skycache lifecycle, metadata lookup, invalidation, and memory
+ * minimization.
  */
-public interface RemoteAnalysisCachingDependenciesProvider {
+public interface SkycacheCoordinator {
   RemoteAnalysisCacheMode mode();
 
   void queryMetadataAndMaybeBailout() throws InterruptedException;

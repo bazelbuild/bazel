@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 
 /** A collection of dependencies and minor bits of functionality for remote analysis caching. */
 // Non-final for mockability
-public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependenciesProvider {
+public class RemoteAnalysisCacheManager implements SkycacheCoordinator {
   private final RemoteAnalysisCacheMode mode;
 
   private final Future<? extends RemoteAnalysisCacheClient> analysisCacheClient;
@@ -54,13 +54,25 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   private final SettablePlatformConfigurationProvider platformConfigurationProvider;
 
   /**
-   * A collection of various parts of this class that various parts of Bazel (cache reading, cache
-   * writing, in-memory bookkeeping) need.
+   * Bundles the three Skycache dependency views for a build invocation:
+   *
+   * <ul>
+   *   <li>{@code skycacheCoordinator}: manages build-level Skycache setup, metadata lookup,
+   *       invalidation, and memory minimization.
+   *   <li>{@code readerDeps}: provides cache retrieval dependencies to SkyFunctions during analysis
+   *       and execution.
+   *   <li>{@code writerDeps}: provides serialization and upload dependencies for writing frontier
+   *       values and build metadata.
+   * </ul>
+   *
+   * <p>{@code readerDeps} and {@code writerDeps} remain separate interfaces even though {@link
+   * SkycacheDeps} currently backs both, keeping reader and writer responsibilities decoupled at
+   * call sites.
    */
   public record AnalysisDeps(
-      RemoteAnalysisCachingDependenciesProvider deps,
+      SkycacheCoordinator skycacheCoordinator,
       RemoteAnalysisCacheReaderDepsProvider readerDeps,
-      SerializationDependenciesProvider serializationDeps) {}
+      SkycacheWriterDepsProvider writerDeps) {}
 
   public static RemoteAnalysisCacheManager createDisabled() {
     return new RemoteAnalysisCacheManager();
@@ -137,8 +149,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     } else {
       try {
         RemoteAnalysisCacheClient client =
-            RemoteAnalysisCacheDeps.resolveWithTimeout(
-                analysisCacheClient, "analysis cache client");
+            SkycacheDeps.resolveWithTimeout(analysisCacheClient, "analysis cache client");
         if (client == null) {
           bailedOut = true;
           eventHandler.handle(
@@ -188,8 +199,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       throws InterruptedException {
     checkEnabled();
     AnalysisCacheInvalidator invalidator =
-        RemoteAnalysisCacheDeps.resolveWithTimeout(
-            analysisCacheInvalidator, "analysis cache invalidator");
+        SkycacheDeps.resolveWithTimeout(analysisCacheInvalidator, "analysis cache invalidator");
     if (invalidator == null) {
       // We need to know which keys to invalidate but we don't have an invalidator, presumably
       // because the backend services couldn't be contacted. Play if safe and invalidate every

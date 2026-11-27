@@ -85,7 +85,7 @@ public final class FrontierSerializer {
    * @return empty if successful, otherwise a result containing the appropriate error
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
-      SerializationDependenciesProvider serializationDependenciesProvider,
+      SkycacheWriterDepsProvider writerDeps,
       MemoizingEvaluator evaluator,
       LongVersionGetter versionGetter,
       Reporter reporter,
@@ -97,15 +97,13 @@ public final class FrontierSerializer {
     var stopwatch = Stopwatch.createStarted();
 
     ImmutableSet<SkyKey> selectedKeys =
-        computeFullSelection(
-            graph, serializationDependenciesProvider.getSkycacheAnalysisOnly(), keepGoing);
+        computeFullSelection(graph, writerDeps.getSkycacheAnalysisOnly(), keepGoing);
 
     reporter.handle(
         Event.info(String.format("Found %d selected keys in %s", selectedKeys.size(), stopwatch)));
     stopwatch.reset().start();
 
-    if (serializationDependenciesProvider.mode()
-        == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+    if (writerDeps.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       reporter.handle(
           Event.warn("Dry run of upload, dumping selection to stdout (warning: can be large!)"));
       dumpUploadManifest(
@@ -115,23 +113,20 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    CompressionService compressionService =
-        serializationDependenciesProvider.getCompressionService();
+    CompressionService compressionService = writerDeps.getCompressionService();
 
-    FingerprintValueService fingerprintValueService =
-        serializationDependenciesProvider.getFingerprintValueService();
+    FingerprintValueService fingerprintValueService = writerDeps.getFingerprintValueService();
     if (fingerprintValueService == null) {
       return Optional.of(
           createFailureDetail(
               "Remote analysis cache initialization failed (FingerprintValueService is null).",
               Code.UPLOAD_FAILED));
     }
-    KeyValueWriter fileInvalidationWriter =
-        serializationDependenciesProvider.getFileInvalidationWriter();
+    KeyValueWriter fileInvalidationWriter = writerDeps.getFileInvalidationWriter();
 
-    ObjectCodecs codecs = requireNonNull(serializationDependenciesProvider.getObjectCodecs());
-    FrontierNodeVersion frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
-    String profilePath = serializationDependenciesProvider.getSerializedFrontierProfile();
+    ObjectCodecs codecs = requireNonNull(writerDeps.getObjectCodecs());
+    FrontierNodeVersion frontierVersion = writerDeps.getSkyValueVersion();
+    String profilePath = writerDeps.getSerializedFrontierProfile();
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
@@ -180,8 +175,8 @@ public final class FrontierSerializer {
             eventBus,
             profileCollector,
             serializationStats,
-            serializationDependenciesProvider.getEmitUploadedEvents(),
-            requireNonNull(serializationDependenciesProvider.getFileOpNodes()));
+            writerDeps.getEmitUploadedEvents(),
+            requireNonNull(writerDeps.getFileOpNodes()));
 
     try {
       // Waits for the write to complete uninterruptibly. This avoids returning to the caller

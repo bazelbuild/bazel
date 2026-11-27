@@ -224,11 +224,11 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
@@ -509,12 +509,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private boolean remoteAnalysisCachingHasEverBeenEnabled = false;
 
-  private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
-      RemoteAnalysisCacheManager.createDisabled();
+  private SkycacheCoordinator skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
 
   @Nullable
   private RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider =
-      RemoteAnalysisCacheDeps.createDisabled();
+      SkycacheDeps.createDisabled();
 
   /**
    * The state of the remote analysis caching.
@@ -539,13 +538,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Returns the dependencies for remote analysis caching.
+   * Returns the Skycache coordinator for remote analysis caching.
    *
    * <p>Should not be called before analysis begins.
    */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  public RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
-    return remoteAnalysisCachingDependenciesProvider;
+  public SkycacheCoordinator getSkycacheCoordinator() {
+    return skycacheCoordinator;
   }
 
   public RemoteAnalysisCacheReaderDepsProvider getRemoteAnalysisCacheReaderDepsProvider() {
@@ -569,10 +568,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  public void setRemoteAnalysisCachingDependenciesProvider(
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
+  public void setSkycacheDeps(
+      SkycacheCoordinator skycacheCoordinator,
       RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider) {
-    this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
+    this.skycacheCoordinator = skycacheCoordinator;
     this.remoteAnalysisCacheReaderDepsProvider = remoteAnalysisCacheReaderDepsProvider;
   }
 
@@ -632,7 +631,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     Set<SkyKey> keysToInvalidate =
-        remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
+        skycacheCoordinator.lookupKeysToInvalidate(
             keysToLookupSupplier, remoteAnalysisCachingState);
 
     if (keysToInvalidate.isEmpty()) {
@@ -695,7 +694,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
-    return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
+    return skycacheCoordinator.mode().isRetrievalEnabled();
   }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -1102,8 +1101,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Inform this SkyframeExecutor that a new command is starting. */
   public void noteCommandStart() {
     // Prevent stale Skycache configuration from persisting between builds.
-    remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
-    remoteAnalysisCacheReaderDepsProvider = RemoteAnalysisCacheDeps.createDisabled();
+    skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
+    remoteAnalysisCacheReaderDepsProvider = SkycacheDeps.createDisabled();
   }
 
   /**
@@ -1243,7 +1242,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.reset();
     // Prevent stale Skycache configuration from persisting between cleans.
     remoteAnalysisCachingState = RemoteAnalysisCachingServerState.initializeEmpty();
-    remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+    skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
     remoteAnalysisCachingHasEverBeenEnabled = false;
     // cleanupInterningPools must be called before init(), since init() initializes a new graph,
     // losing all references to the SkyKeyInterners that must be cleaned up.
@@ -1462,9 +1461,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * the Bazel server.
    */
   public void clearPackageValues() {
-    if (remoteAnalysisCachingDependenciesProvider.shouldMinimizeMemory()) {
-      remoteAnalysisCachingDependenciesProvider.computeSelectionAndMinimizeMemory(
-          memoizingEvaluator.getInMemoryGraph());
+    if (skycacheCoordinator.shouldMinimizeMemory()) {
+      skycacheCoordinator.computeSelectionAndMinimizeMemory(memoizingEvaluator.getInMemoryGraph());
     }
   }
 

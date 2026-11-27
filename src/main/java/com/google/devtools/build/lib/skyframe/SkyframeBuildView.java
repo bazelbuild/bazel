@@ -992,7 +992,7 @@ public final class SkyframeBuildView {
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
     }
-    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
+    if (skyframeExecutor.getSkycacheCoordinator().mode().isSyncUpload()) {
       skyframeExecutor.clearPackageValues();
     }
 

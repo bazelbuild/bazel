@@ -86,7 +86,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -266,20 +266,20 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
                         skyframeActionExecutor,
-                        () -> RemoteAnalysisCacheDeps.createDisabled()))
+                        SkycacheDeps::createDisabled))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
                         new ActionRewindStrategy(
                             skyframeActionExecutor,
                             BugReporter.defaultInstance(),
-                            () -> RemoteAnalysisCacheDeps.createDisabled()),
+                            SkycacheDeps::createDisabled),
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,
                         () -> tsgm,
                         BugReporter.defaultInstance(),
-                        () -> RemoteAnalysisCacheDeps.createDisabled(),
+                        SkycacheDeps::createDisabled,
                         () -> null))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(

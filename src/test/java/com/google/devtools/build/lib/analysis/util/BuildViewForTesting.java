@@ -78,8 +78,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -256,9 +256,8 @@ public class BuildViewForTesting {
         /* buildConfigurationsCreatedCallback= */ null,
         /* buildDriverKeyTestContext= */ null,
         /* additionalConfigurationChangeEvent= */ Optional.empty(),
-        /* remoteAnalysisCachingDependenciesProvider= */ RemoteAnalysisCacheManager
-            .createDisabled(),
-        RemoteAnalysisCacheDeps.createDisabled());
+        /* skycacheCoordinator= */ RemoteAnalysisCacheManager.createDisabled(),
+        SkycacheDeps.createDisabled());
   }
 
   /** Sets the configuration. Not thread-safe. */
