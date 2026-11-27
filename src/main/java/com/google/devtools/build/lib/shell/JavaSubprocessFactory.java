@@ -27,13 +27,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 
 /** A subprocess factory that uses {@link java.lang.ProcessBuilder}. */
 public class JavaSubprocessFactory implements SubprocessFactory {
@@ -122,24 +123,10 @@ public class JavaSubprocessFactory implements SubprocessFactory {
     }
   }
 
-  // Subprocesses fork from this platform thread to ensure the subprocess's parent is long lived,
-  // which prevents actions from being killed erroneously. See the doc comment on
-  // startOnPlatformThread for more details.
-  private static final ExecutorService FORK_EXECUTOR =
-      Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "subprocess-fork");
-        thread.setDaemon(true);
-        return thread;
-      });
-
-  private final ReentrantLock lock = new ReentrantLock();
-
-  public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
-
-  private JavaSubprocessFactory() {}
-
-  // since we are a singleton, we represent an ideal global lock for
-  // process invocations, which is required due to the following race condition:
+  // Subprocesses fork from platform threads. See the doc comment on startOnPlatformThread for more
+  // details.
+  private static final ThreadFactory FORK_THREAD_FACTORY =
+      Thread.ofPlatform().daemon().name("subprocess-fork-", 0).factory();
 
   // Linux does not provide a safe API for a multi-threaded program to fork a subprocess.
   // Consider the case where two threads both write an executable file and then try to execute
@@ -155,11 +142,24 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // I was able to reproduce this problem reliably by running significantly more threads than
   // there are CPU cores on my workstation - the more threads the more likely it happens.
   //
-  // As a workaround, we use a lock around the fork.
+  // As a workaround, we fork from a single thread.
+  //
+  // Most other Unixes also return ETXTBSY when executing a file that is open for writing, but macOS
+  // doesn't.
+  private static final ExecutorService FORK_EXECUTOR =
+      switch (OS.getCurrent()) {
+        case LINUX, FREEBSD, OPENBSD, UNKNOWN ->
+            Executors.newSingleThreadExecutor(FORK_THREAD_FACTORY);
+        case DARWIN -> Executors.newCachedThreadPool(FORK_THREAD_FACTORY);
+        // Windows uses WindowsSubprocessFactory instead.
+        case WINDOWS -> null;
+      };
+
+  public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
+
+  private JavaSubprocessFactory() {}
+
   private Process start(ProcessBuilder builder) throws IOException {
-    try (var _ = Profiler.instance().profile("wait for subprocess factory lock")) {
-      lock.lock();
-    }
     try {
       return startOnPlatformThread(builder);
     } catch (IOException e) {
@@ -173,14 +173,13 @@ public class JavaSubprocessFactory implements SubprocessFactory {
       }
       // The message contains the command line and working directory as platform strings.
       throw new IOException(StringEncoding.platformToInternal(e.getMessage()), e);
-    } finally {
-      lock.unlock();
     }
   }
 
   /**
-   * Starts a subprocess by forking from a long-lived platform thread, which prevents the parent
-   * thread from being killed when using virtual threads.
+   * Starts a subprocess by forking from a platform thread, which avoids pinning the carrier thread
+   * when using virtual threads. On Linux, the platform thread is also long-lived, which prevents
+   * the parent thread from being killed.
    *
    * <p>A virtual thread forks from its carrier thread. The carrier thread is detached while the
    * virtual thread waits for the forked process to complete. If there isn't other work for the
@@ -193,7 +192,16 @@ public class JavaSubprocessFactory implements SubprocessFactory {
    * parent, builds can fail unexpectedly when actions take longer than 30 seconds.
    */
   private Process startOnPlatformThread(ProcessBuilder builder) throws IOException {
-    Future<Process> future = FORK_EXECUTOR.submit(builder::start);
+    var started = new CountDownLatch(1);
+    Future<Process> future =
+        FORK_EXECUTOR.submit(
+            () -> {
+              started.countDown();
+              return builder.start();
+            });
+    try (var _ = Profiler.instance().profile("wait for subprocess fork thread")) {
+      Uninterruptibles.awaitUninterruptibly(started);
+    }
     try {
       return Uninterruptibles.getUninterruptibly(future);
     } catch (ExecutionException e) {
@@ -227,8 +235,8 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     Process process = start(builder);
 
-    // Compute the deadline after starting the process so that time spent waiting for the subprocess
-    // factory lock doesn't count towards the timeout.
+    // Compute the deadline after starting the process so that time spent waiting for a fork thread
+    // doesn't count towards the timeout.
     long deadlineMillis =
         params.getTimeoutMillis() > 0
             ? Math.addExact(System.currentTimeMillis(), params.getTimeoutMillis())

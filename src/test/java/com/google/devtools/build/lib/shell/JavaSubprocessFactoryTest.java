@@ -77,7 +77,7 @@ public class JavaSubprocessFactoryTest {
 
     RecordedThread recordedForkThread = processStartEvents.get(0).getThread();
     assertThat(recordedForkThread).isNotNull();
-    assertThat(recordedForkThread.getJavaName()).isEqualTo("subprocess-fork");
+    assertThat(recordedForkThread.getJavaName()).startsWith("subprocess-fork-");
     assertThat(recordedForkThread.isVirtual()).isFalse();
 
     Thread forkThread =
