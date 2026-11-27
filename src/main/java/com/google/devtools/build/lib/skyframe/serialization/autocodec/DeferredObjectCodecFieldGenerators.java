@@ -211,8 +211,16 @@ abstract class DeferredObjectCodecFieldGenerators {
       var builder = CodeBlock.builder();
       switch (accessor) {
         case GetterName getterName -> builder.add("obj.$L()", getterName.name());
-        case FieldType fieldType ->
+        case FieldType fieldType -> {
+          if (fieldType.typeName().isPrimitive()) {
             builder.add("($L) $L.get(obj)", fieldType.typeName(), getHandleName());
+          } else {
+            // Non-primitive callers accept Object; omitting the cast keeps
+            // AccessDescriptor.returnType == Object.class so VarHandleGuards.guard_L_L avoids
+            // emitting a runtime checkcast for interface-typed fields.
+            builder.add("$L.get(obj)", getHandleName());
+          }
+        }
       }
       return builder.build();
     }
