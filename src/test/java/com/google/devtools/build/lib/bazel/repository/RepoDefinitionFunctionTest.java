@@ -160,6 +160,45 @@ public final class RepoDefinitionFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRepoSpec_explicitDefaultValuesAreNotStored() throws Exception {
+    scratch.file("BUILD");
+    scratch.file(
+        "repo_rule.bzl",
+        "def _impl(rctx):",
+        "    pass",
+        "my_repo = repository_rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "        'mandatory': attr.string(mandatory = True),",
+        "        'string': attr.string(default = 'default'),",
+        "        'list': attr.string_list(default = ['default']),",
+        "        'other': attr.string_list(default = ['default']),",
+        "    },",
+        ")");
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='aaa',version='0.1')",
+        "my_repo = use_repo_rule('//:repo_rule.bzl', 'my_repo')",
+        "my_repo(name='repo', mandatory='', string='default', list=['default'], other=['other'])");
+    invalidatePackages(false);
+
+    RepositoryName repo = RepositoryName.create("+my_repo+repo");
+    EvaluationResult<RepoDefinitionValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            skyframeExecutor, RepoDefinitionValue.key(repo), false, reporter);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RepoDefinitionValue repoDefinitionValue = result.get(RepoDefinitionValue.key(repo));
+    assertThat(repoDefinitionValue).isInstanceOf(Found.class);
+    RepoDefinition repoDefinition = ((Found) repoDefinitionValue).repoDefinition();
+
+    assertThat(repoDefinition.attrValues().attributes().keySet())
+        .containsExactly("mandatory", "other");
+    assertThat(repoDefinition.getValue("string")).isEqualTo("default");
+  }
+
+  @Test
   public void testRepoSpec_notFound() throws Exception {
     scratch.overwriteFile("MODULE.bazel", "module(name='aaa',version='0.1')");
     invalidatePackages(false);

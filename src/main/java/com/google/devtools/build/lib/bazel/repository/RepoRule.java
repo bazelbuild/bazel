@@ -102,10 +102,18 @@ public record RepoRule(
               repoMappingWhere);
       var attrDict = Dict.<String, Object>builder();
       for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
-        // Only store explicitly-specified attributes.
+        // Don't store values that equal the attribute's default. Values of mandatory attributes are
+        // stored regardless, since instantiating the spec again fails if they're missing.
         if (!RESERVED_ATTRIBUTES.contains(kwarg.getKey())
             && !Starlark.isNullOrNone(kwarg.getValue())) {
-          attrDict.put(kwarg.getKey(), attrValues.get(attributeIndices.get(kwarg.getKey())));
+          int index = attributeIndices.get(kwarg.getKey());
+          Attribute attr = attributes.get(index);
+          Object value = attrValues.get(index);
+          if (attr.isMandatory()
+              || !AttributeValues.strictlyEqual(
+                  value, Attribute.valueToStarlark(attr.getDefaultValueUnchecked()))) {
+            attrDict.put(kwarg.getKey(), value);
+          }
         }
       }
       return new RepoSpec(id, AttributeValues.create(attrDict.buildImmutable()));
