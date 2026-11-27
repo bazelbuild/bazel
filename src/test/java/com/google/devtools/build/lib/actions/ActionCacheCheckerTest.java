@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifactValue;
@@ -124,14 +125,19 @@ public final class ActionCacheCheckerTest {
   }
 
   private ActionCacheChecker createActionCacheChecker(boolean storeOutputMetadata) {
-    return createActionCacheChecker(storeOutputMetadata, ImmutableSet.of());
+    return createActionCacheChecker(
+        storeOutputMetadata,
+        /* bustActionCachesTargets= */ ImmutableSet.of(),
+        /* artifactResolver= */ new FakeArtifactResolverBase());
   }
 
   private ActionCacheChecker createActionCacheChecker(
-      boolean storeOutputMetadata, ImmutableSet<Label> bustActionCachesTargets) {
+      boolean storeOutputMetadata,
+      ImmutableSet<Label> bustActionCachesTargets,
+      ArtifactResolver artifactResolver) {
     return new ActionCacheChecker(
         cache,
-        new FakeArtifactResolverBase(),
+        artifactResolver,
         new ActionKeyContext(),
         action -> true,
         proxyMetadataFactory,
@@ -499,7 +505,10 @@ public final class ActionCacheCheckerTest {
   public void bustActionCaches_skipsCacheHitForMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
     cacheChecker =
-        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(target),
+            new FakeArtifactResolverBase());
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action = new WriteEmptyOutputAction(createActionOwner(target), output);
 
@@ -514,7 +523,10 @@ public final class ActionCacheCheckerTest {
   public void bustActionCaches_acceptsCacheHitForNonMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
     cacheChecker =
-        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(target),
+            new FakeArtifactResolverBase());
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action =
         new WriteEmptyOutputAction(
@@ -530,7 +542,9 @@ public final class ActionCacheCheckerTest {
     Label other = Label.parseCanonicalUnchecked("//pkg:other");
     cacheChecker =
         createActionCacheChecker(
-            /* storeOutputMetadata= */ true, ImmutableSet.of(target1, target2));
+            /* storeOutputMetadata= */ true,
+            ImmutableSet.of(target1, target2),
+            new FakeArtifactResolverBase());
     Action action1 =
         new WriteEmptyOutputAction(
             createActionOwner(target1), createArtifact(artifactRoot, "bin/out1"));
@@ -2199,6 +2213,60 @@ public final class ActionCacheCheckerTest {
     // Mandatory inputs are derivable from the action itself and are deliberately not stored.
     assertThat(entry.getDiscoveredInputPaths())
         .containsExactly(discoveredInput.getExecPathString());
+  }
+
+  @Test
+  public void getCachedInputs_returnsOnlyCachedDerivedInputs() throws Exception {
+    Artifact mandatoryInput = createArtifact(artifactRoot, "bin/mandatory");
+    Artifact discoveredInput = createArtifact(artifactRoot, "bin/discovered");
+    Artifact unusedInput = createArtifact(artifactRoot, "bin/unused");
+    Artifact output = createArtifact(artifactRoot, "bin/discovers_output");
+
+    writeContentAsLatin1(mandatoryInput.getPath(), "mandatory");
+    writeContentAsLatin1(discoveredInput.getPath(), "discovered");
+    writeContentAsLatin1(output.getPath(), "output");
+
+    Action action =
+        new NullAction(ImmutableList.of(mandatoryInput, discoveredInput), output) {
+          @Override
+          public boolean discoversInputs() {
+            return true;
+          }
+
+          @Override
+          protected boolean inputsDiscovered() {
+            return true;
+          }
+
+          @Override
+          public NestedSet<Artifact> getMandatoryInputs() {
+            return NestedSetBuilder.create(Order.STABLE_ORDER, mandatoryInput);
+          }
+
+          @Override
+          public NestedSet<Artifact> getAllowedDerivedInputs() {
+            return NestedSetBuilder.create(
+                Order.STABLE_ORDER, unusedInput, mandatoryInput, discoveredInput);
+          }
+        };
+    runAction(action);
+
+    ActionCacheChecker checker =
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ false,
+            /* bustActionCachesTargets= */ ImmutableSet.of(),
+            new FakeArtifactResolverBase() {
+              @Override
+              public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
+                  Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
+                Map<PathFragment, SourceArtifact> result = new HashMap<>();
+                execPaths.forEach(execPath -> result.put(execPath, null));
+                return result;
+              }
+            });
+
+    assertThat(checker.getCachedInputs(action, /* resolver= */ null))
+        .containsExactly(discoveredInput);
   }
 
   // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take
