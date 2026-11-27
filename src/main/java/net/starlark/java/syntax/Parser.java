@@ -608,7 +608,7 @@ final class Parser {
     int dotOffset = expect(TokenKind.DOT);
     if (token.kind == TokenKind.IDENTIFIER) {
       Identifier id = parseIdent();
-      return new DotExpression(locs, e, dotOffset, id);
+      return DotExpression.create(locs, e, dotOffset, id);
     }
 
     syntaxError("expected identifier after dot");

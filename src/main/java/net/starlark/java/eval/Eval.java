@@ -431,7 +431,7 @@ final class Eval {
       case DotExpression dot -> {
         // x.f = ...
         Object object = eval(fr, dot.getObject());
-        String field = dot.getField().getName();
+        String field = dot.getFieldName();
         try {
           EvalUtils.setField(object, field, value);
         } catch (EvalException ex) {
@@ -535,7 +535,7 @@ final class Eval {
     } else if (lhs instanceof DotExpression dot) {
       // object.field op= y  (lhs must be evaluated only once)
       Object object = eval(fr, dot.getObject());
-      String field = dot.getField().getName();
+      String field = dot.getFieldName();
       try {
         Object x = Starlark.getattr(fr.thread, object, field, /* defaultValue= */ null);
         Object y = eval(fr, rhs);
@@ -723,7 +723,7 @@ final class Eval {
   private static Object evalDot(StarlarkThread.Frame fr, DotExpression dot)
       throws EvalException, InterruptedException {
     Object object = eval(fr, dot.getObject());
-    String name = dot.getField().getName();
+    String name = dot.getFieldName();
     try {
       return Starlark.getattr(fr.thread, object, name, /* defaultValue= */ null);
     } catch (EvalException ex) {

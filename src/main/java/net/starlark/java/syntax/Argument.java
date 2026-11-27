@@ -61,28 +61,31 @@ public abstract class Argument extends Node {
   /** Syntax node for a keyword argument, {@code f(id=expr)}. */
   public static final class Keyword extends Argument {
 
-    // Unlike in Python, keyword arguments in Bazel BUILD files
-    // are about 10x more numerous than positional arguments.
+    // Unlike in Python, keyword arguments in Bazel BUILD files are about 10x more numerous than
+    // positional arguments, so the name of the keyword is stored instead of an Identifier node.
 
-    final Identifier id;
+    private final String name;
+    private final int nameOffset;
 
     Keyword(FileLocations locs, Identifier id, Expression value) {
       super(locs, value);
-      this.id = id;
+      this.name = id.getName();
+      this.nameOffset = id.getStartOffset();
     }
 
+    /** Returns a new Identifier node for the name of the keyword. */
     public Identifier getIdentifier() {
-      return id;
+      return new Identifier(locs, name, nameOffset);
     }
 
     @Override
     public String getName() {
-      return id.getName();
+      return name;
     }
 
     @Override
     public int getStartOffset() {
-      return id.getStartOffset();
+      return nameOffset;
     }
   }
 

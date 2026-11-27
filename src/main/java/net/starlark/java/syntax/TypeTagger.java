@@ -128,6 +128,8 @@ public final class TypeTagger extends NodeVisitor {
     this.typeTable = typeTable;
     this.module = module;
     this.loader = loader;
+    // The names of keyword arguments and fields don't have types.
+    this.skipNonSymbolIdentifiers = true;
   }
 
   private TypeTagger(

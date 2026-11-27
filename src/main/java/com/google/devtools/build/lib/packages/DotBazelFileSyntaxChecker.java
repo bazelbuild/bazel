@@ -63,6 +63,8 @@ public class DotBazelFileSyntaxChecker extends NodeVisitor {
     this.where = where;
     this.canLoadBzl = canLoadBzl;
     this.allowLiteralStarStarArgs = allowLiteralStarStarArgs;
+    // No check applies to the names of keyword arguments and fields.
+    this.skipNonSymbolIdentifiers = true;
   }
 
   public DotBazelFileSyntaxChecker(String where, boolean canLoadBzl) {
