@@ -757,8 +757,11 @@ public class CppCompileAction extends AbstractAction
       return null;
     }
     setTopLevelModules(requiredModules.topLevel());
+    // Unlike the transitively used modules, the scanned headers are usually specific to this
+    // action. Add them as direct elements to avoid a Skyframe node for them.
     additionalInputs =
-        NestedSetBuilder.fromNestedSet(additionalInputs)
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addAll(additionalInputs.toList())
             .addTransitive(requiredModules.transitivelyUsed())
             .build();
     if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
