@@ -371,12 +371,10 @@ public final class DependencyModule {
      *
      * @param diagnostic a full javac diagnostic, possibly containing an import for a class which
      *     cannot be found on the classpath.
-     * @param javacopts list of all javac options/flags.
      * @return the missing import or dependency as a String, or empty Optional if the diagnostic did
      *     not contain exactly one unresolved import that we know how to fix.
      */
-    Optional<String> resolveMissingImport(
-        Diagnostic<JavaFileObject> diagnostic, ImmutableList<String> javacopts);
+    Optional<String> resolveMissingImport(Diagnostic<JavaFileObject> diagnostic);
 
     /**
      * Returns a command for this tool to fix {@code recipient} by adding all {@code missing}
