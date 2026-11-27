@@ -261,9 +261,14 @@ public final class RepoDefinitionFunction implements SkyFunction {
               new LabelConverter(PackageIdentifier.EMPTY_PACKAGE_ID, basicMainRepoMapping),
               env.getListener(),
               "to the root module");
+      // Share the attributes with the repo spec, which is retained anyway, if type checking didn't
+      // change them.
+      var attributes =
+          typeCheckedRepoSpec.attributes().equals(repoSpec.attributes())
+              ? repoSpec.attributes()
+              : typeCheckedRepoSpec.attributes();
       var repoDefinition =
-          new RepoDefinition(
-              repoRule, typeCheckedRepoSpec.attributes(), repositoryName.getName(), originalName);
+          new RepoDefinition(repoRule, attributes, repositoryName.getName(), originalName);
       return new RepoDefinitionValue.Found(repoDefinition);
     } catch (ExternalDepsException e) {
       throw new RepoDefinitionFunctionException(e, Transience.PERSISTENT);
