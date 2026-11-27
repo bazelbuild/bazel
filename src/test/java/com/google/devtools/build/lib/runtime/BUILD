@@ -361,3 +361,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
 )
+
+java_binary(
+    name = "ExecutionGraphModuleBenchmark",
+    main_class = "com.google.devtools.build.lib.runtime.ExecutionGraphModuleBenchmark",
+    runtime_deps = [":RuntimeTests_lib"],
+)
