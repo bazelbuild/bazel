@@ -780,17 +780,6 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getUseLLVMCoverageMapFormat();
 
   @Option(
-      name = "incompatible_dont_enable_host_nonhost_crosstool_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will not enable 'host' and 'nonhost' features in the c++ toolchain "
-              + "(see https://github.com/bazelbuild/bazel/issues/7407 for more information).")
-  public abstract boolean getDontEnableHostNonhost();
-
-  @Option(
       name = "incompatible_remove_legacy_whole_archive",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
