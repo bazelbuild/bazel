@@ -812,6 +812,70 @@ public final class NestedSetTest {
     assertThat(singletonB).isNotSameInstanceAs(singletonA);
   }
 
+  private record InternedByEquality(String name) implements NestedSetsShouldBeInternedByEquality {}
+
+  private static NestedSet<InternedByEquality> unownedSet(Order order, String... names) {
+    NestedSetBuilder<InternedByEquality> builder = NestedSetBuilder.newBuilder(order);
+    for (String name : names) {
+      builder.add(new InternedByEquality(name));
+    }
+    return builder.buildUnowned();
+  }
+
+  @Test
+  public void interning_unownedNestedSetOfNonStarlarkValue_isInterned() {
+    NestedSet<InternedByEquality> set = unownedSet(Order.STABLE_ORDER, "a", "b");
+    NestedSet<InternedByEquality> singleton = unownedSet(Order.STABLE_ORDER, "a");
+    NestedSet<InternedByEquality> union =
+        NestedSetBuilder.<InternedByEquality>stableOrder()
+            .add(new InternedByEquality("c"))
+            .addTransitive(set)
+            .buildUnowned();
+
+    assertThat(unownedSet(Order.STABLE_ORDER, "a", "b")).isSameInstanceAs(set);
+    assertThat(unownedSet(Order.STABLE_ORDER, "a")).isSameInstanceAs(singleton);
+    assertThat(
+            NestedSetBuilder.<InternedByEquality>stableOrder()
+                .add(new InternedByEquality("c"))
+                .addTransitive(unownedSet(Order.STABLE_ORDER, "a", "b"))
+                .buildUnowned())
+        .isSameInstanceAs(union);
+
+    NestedSet<InternedByEquality> compileOrder = unownedSet(Order.COMPILE_ORDER, "a", "b");
+    assertThat(compileOrder).isNotSameInstanceAs(set);
+    assertThat(compileOrder.getChildren()).isSameInstanceAs(set.getChildren());
+
+    NestedSetInterner.clear();
+    assertThat(unownedSet(Order.STABLE_ORDER, "a", "b")).isNotSameInstanceAs(set);
+  }
+
+  @Test
+  public void interning_ownedNestedSetOfNonStarlarkValue_onlyChildrenArrayIsInterned() {
+    try (var _ = NestedSetOwnerScope.enter("//pkg:t")) {
+      NestedSet<InternedByEquality> first =
+          NestedSetBuilder.<InternedByEquality>stableOrder()
+              .add(new InternedByEquality("a"))
+              .add(new InternedByEquality("b"))
+              .build();
+      NestedSet<InternedByEquality> second =
+          NestedSetBuilder.<InternedByEquality>stableOrder()
+              .add(new InternedByEquality("a"))
+              .add(new InternedByEquality("b"))
+              .build();
+      assertThat(second).isNotSameInstanceAs(first);
+      assertThat(second.getChildren()).isSameInstanceAs(first.getChildren());
+      assertThat(second.getIndex()).isEqualTo(first.getIndex() + 1);
+    }
+  }
+
+  @Test
+  public void interning_unownedMultiElementNestedSetOfString_isNotInterned() {
+    NestedSet<String> nestedSetA = NestedSetBuilder.create(Order.STABLE_ORDER, "cat", "dog");
+    NestedSet<String> nestedSetB = NestedSetBuilder.create(Order.STABLE_ORDER, "cat", "dog");
+    assertThat(nestedSetB).isNotSameInstanceAs(nestedSetA);
+    assertThat(nestedSetB.getChildren()).isSameInstanceAs(nestedSetA.getChildren());
+  }
+
   @Test
   public void interning_multiElementNestedSetOfInteger_isNotInterned() {
     NestedSet<Integer> nestedSetA = nestedSetBuilder(1, 2).build();

@@ -301,7 +301,7 @@ public abstract sealed class NestedSet<E> {
   /**
    * Instantiates a new set. If it is non-empty and {@code scope} is non-null, the set is owned by
    * the scope's owner and takes the scope's next index. Empty sets and sets created without a scope
-   * have no owner.
+   * have no owner and may be interned.
    */
   @SuppressWarnings("ReferenceEquality") // EMPTY_CHILDREN is a sentinel compared by identity.
   private static <E> NestedSet<E> instantiateNew(
@@ -313,7 +313,8 @@ public abstract sealed class NestedSet<E> {
     if (children != EMPTY_CHILDREN && scope != null) {
       return instantiate(order, depth, children, nested, scope.getOwner(), scope.nextIndex());
     }
-    return instantiate(order, depth, children, nested, /* owner= */ null, /* index= */ 0);
+    return NestedSetInterner.intern(
+        instantiate(order, depth, children, nested, /* owner= */ null, /* index= */ 0));
   }
 
   private static <E> NestedSet<E> instantiate(
