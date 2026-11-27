@@ -69,7 +69,8 @@ public final class ToolchainCycleReporterTest extends ToolchainTestCase {
     SkyKey registeredExecPlatformsKey =
         RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     SkyKey registeredToolchainsKey =
-        RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
@@ -143,7 +144,8 @@ public final class ToolchainCycleReporterTest extends ToolchainTestCase {
         AspectKeyCreator.createAspectKey(
             topAspectDescriptor, ImmutableList.of(simpleAspectKey), depKey);
     SkyKey registeredToolchainsKey =
-        RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
     SkyKey registeredExecPlatformsKey =
         RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     ToolchainContextKey toolchainContextKey =
@@ -202,7 +204,8 @@ public final class ToolchainCycleReporterTest extends ToolchainTestCase {
     SkyKey registeredExecPlatformsKey =
         RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     SkyKey registeredToolchainsKey =
-        RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+        RegisteredToolchainsValue.key(
+            targetConfigKey, /* debug= */ false, /* typeOwnerRepo= */ null);
 
     CycleInfo execPlatformsOnlyCycle =
         CycleInfo.createCycleInfo(ImmutableList.of(registeredExecPlatformsKey, targetKey));

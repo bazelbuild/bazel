@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
@@ -91,6 +92,157 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_restrictNonRootRegistrations() throws Exception {
+    registry
+        .addModule(
+            createModuleKey("aaa", "1.0"),
+            """
+            module(name = "aaa", version = "1.0")
+            register_toolchains("//:bbb_tool")
+            bazel_dep(name = "bbb", version = "1.0")
+            """)
+        .addModule(
+            createModuleKey("bbb", "1.0"),
+            """
+            module(name = "bbb", version = "1.0")
+            register_toolchains("//:bbb_tool")
+            """);
+    scratch.file(moduleRoot.getRelative("aaa+1.0").getRelative("REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("aaa+1.0").getRelative("BUILD").getPathString(),
+        """
+        alias(name = "type_alias", actual = "@bbb//:type", visibility = ["//visibility:public"])
+
+        toolchain(name = "bbb_tool", toolchain = ":bbb_tool_impl", toolchain_type = "@bbb//:type")
+        """);
+    scratch.file(moduleRoot.getRelative("bbb+1.0").getRelative("REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("bbb+1.0").getRelative("BUILD").getPathString(),
+        """
+        toolchain_type(name = "type", visibility = ["//visibility:public"])
+
+        toolchain(name = "bbb_tool", toolchain = ":bbb_tool_impl", toolchain_type = ":type")
+        """);
+    rewriteModuleDotBazel(
+        """
+        bazel_dep(name = "aaa", version = "1.0")
+        bazel_dep(name = "bbb", version = "1.0")
+        """);
+    ToolchainContextKey key = toolchainContextKey("@@bbb+//:type");
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(key)).hasResolvedToolchain("@@aaa+//:bbb_tool_impl");
+
+    setBuildLanguageOptions("--incompatible_restrict_non_root_registrations");
+    result = invokeToolchainResolution(key);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(key)).hasResolvedToolchain("@@bbb+//:bbb_tool_impl");
+
+    // The module defining the actual type owns it, not the one defining the alias.
+    ToolchainContextKey aliasKey = toolchainContextKey("@@aaa+//:type_alias");
+    result = invokeToolchainResolution(aliasKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(aliasKey)).hasResolvedToolchain("@@bbb+//:bbb_tool_impl");
+  }
+
+  @Test
+  public void resolve_restrictNonRootRegistrations_moduleExtensionRepo() throws Exception {
+    registry
+        .addModule(
+            createModuleKey("aaa", "1.0"),
+            """
+            module(name = "aaa", version = "1.0")
+            bazel_dep(name = "bbb", version = "1.0")
+            ext = use_extension("@bbb//:defs.bzl", "ext")
+            use_repo(ext, "hub")
+            register_toolchains("//:hub_tool")
+            """)
+        .addModule(
+            createModuleKey("bbb", "1.0"),
+            """
+            module(name = "bbb", version = "1.0")
+            ext = use_extension("//:defs.bzl", "ext")
+            use_repo(ext, "hub")
+            register_toolchains("@hub//:hub_tool")
+            """);
+    scratch.file(moduleRoot.getRelative("aaa+1.0").getRelative("REPO.bazel").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("aaa+1.0").getRelative("BUILD").getPathString(),
+        """
+        toolchain(name = "hub_tool", toolchain = ":hub_tool_impl", toolchain_type = "@hub//:type")
+        """);
+    writeHubDefsToBbb();
+    rewriteModuleDotBazel(
+        """
+        bazel_dep(name = "aaa", version = "1.0")
+        bazel_dep(name = "bbb", version = "1.0")
+        """);
+    ToolchainContextKey key = toolchainContextKey("@@bbb++ext+hub//:type");
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(key)).hasResolvedToolchain("@@aaa+//:hub_tool_impl");
+
+    setBuildLanguageOptions("--incompatible_restrict_non_root_registrations");
+    result = invokeToolchainResolution(key);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(key)).hasResolvedToolchain("@@bbb++ext+hub//:hub_tool_impl");
+  }
+
+  @Test
+  public void resolve_restrictNonRootRegistrations_useRepoRule() throws Exception {
+    registry.addModule(
+        createModuleKey("bbb", "1.0"),
+        """
+        module(name = "bbb", version = "1.0")
+        hub_repo = use_repo_rule("//:defs.bzl", "hub_repo")
+        hub_repo(name = "hub")
+        register_toolchains("@hub//:hub_tool")
+        """);
+    writeHubDefsToBbb();
+    rewriteModuleDotBazel(
+        """
+        bazel_dep(name = "bbb", version = "1.0")
+        """);
+    setBuildLanguageOptions("--incompatible_restrict_non_root_registrations");
+    ToolchainContextKey key = toolchainContextKey("@@bbb++hub_repo+hub//:type");
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(key)).hasResolvedToolchain("@@bbb++hub_repo+hub//:hub_tool_impl");
+  }
+
+  private ToolchainContextKey toolchainContextKey(String toolchainType) throws Exception {
+    return ToolchainContextKey.key()
+        .configurationKey(targetConfigKey)
+        .toolchainTypes(ToolchainTypeRequirement.create(Label.parseCanonical(toolchainType)))
+        .build();
+  }
+
+  private void writeHubDefsToBbb() throws Exception {
+    scratch.file(moduleRoot.getRelative("bbb+1.0").getRelative("REPO.bazel").getPathString());
+    scratch.file(moduleRoot.getRelative("bbb+1.0").getRelative("BUILD").getPathString());
+    scratch.file(
+        moduleRoot.getRelative("bbb+1.0").getRelative("defs.bzl").getPathString(),
+        """
+        def _hub_repo_impl(ctx):
+            ctx.file("BUILD", '''
+        toolchain_type(name = "type", visibility = ["//visibility:public"])
+
+        toolchain(name = "hub_tool", toolchain = ":hub_tool_impl", toolchain_type = ":type")
+        ''')
+
+        hub_repo = repository_rule(_hub_repo_impl)
+
+        def _ext_impl(_):
+            hub_repo(name = "hub")
+
+        ext = module_extension(_ext_impl)
+        """);
   }
 
   @Test

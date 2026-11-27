@@ -144,6 +144,14 @@ public abstract class BazelDepGraphValue implements SkyValue {
         getRepoOverrides());
   }
 
+  /** Returns the ID of the module extension that generates the given repo, if any. */
+  public final Optional<ModuleExtensionId> getModuleExtensionForRepo(RepositoryName repo) {
+    return getExtensionUniqueNames().entrySet().stream()
+        .filter(e -> repo.getName().startsWith(e.getValue() + "+"))
+        .map(Map.Entry::getKey)
+        .findFirst();
+  }
+
   static RepositoryMapping getRepositoryMapping(
       ModuleKey key,
       ImmutableMap<ModuleKey, Module> depGraph,
