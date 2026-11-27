@@ -229,6 +229,69 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       throws IOException;
 
   /**
+   * Returns whether the contents of the file at {@code path} differ from those described by this
+   * metadata.
+   *
+   * <p>In contrast to {@link #wasModifiedSinceDigest}, a file that has been rewritten or replaced
+   * with identical contents is not considered modified. This makes this method suitable for
+   * checking whether the metadata still describes the file, but not for checking whether a reader
+   * of the file may have observed an intermediate state.
+   *
+   * <p>This is cheap if the {@link FileContentsProxy} of the file matches {@link
+   * #getContentsProxy}. Otherwise, the file is read to compare its digest with {@link #getDigest}.
+   *
+   * @param digestCacheKey the key under which {@link DigestUtils} caches the file's digest, see
+   *     {@link DigestUtils#manuallyComputeDigest(PathFragment, Path, FileStatus)}
+   * @param path the path to stat and, if necessary, read
+   * @param ignoreCtimeChanges whether to assume that the contents are unchanged if only the ctime
+   *     of the file changed. Callers that change the ctime themselves, e.g. by creating hard links
+   *     to the file, can set this to avoid recomputing the digest.
+   * @return false if this metadata has no contents proxy, e.g. because it describes a remote file
+   *     that hasn't been materialized
+   */
+  public final boolean contentsDifferFromDigest(
+      PathFragment digestCacheKey, Path path, boolean ignoreCtimeChanges) throws IOException {
+    FileContentsProxy proxy = getContentsProxy();
+    if (proxy == null) {
+      return false;
+    }
+    return contentsDifferFromDigest(
+        getDigest(),
+        proxy,
+        digestCacheKey,
+        path,
+        path.statIfFound(Symlinks.FOLLOW),
+        ignoreCtimeChanges);
+  }
+
+  private static boolean contentsDifferFromDigest(
+      @Nullable byte[] digest,
+      FileContentsProxy proxy,
+      PathFragment digestCacheKey,
+      Path path,
+      @Nullable FileStatus stat,
+      boolean ignoreCtimeChanges)
+      throws IOException {
+    if (stat == null || !stat.isFile()) {
+      // The file no longer exists or changed type, so it certainly has changed.
+      return true;
+    }
+    var newProxy = FileContentsProxy.create(stat);
+    if (proxy.equals(newProxy) || (ignoreCtimeChanges && !proxy.isModified(newProxy))) {
+      // If the proxy is the same, then the file certainly hasn't been modified. This is the common
+      // case, so we check it first.
+      return false;
+    }
+    if (digest == null) {
+      // The contents can't be compared, so cautiously report them as modified.
+      return true;
+    }
+    byte[] newDigest =
+        DigestUtils.getDigestWithManualFallback(digestCacheKey, path, SyscallCache.NO_CACHE, stat);
+    return !Arrays.equals(digest, newDigest);
+  }
+
+  /**
    * Returns whether the two {@link FileArtifactValue} instances could be considered the same for
    * purposes of action invalidation.
    */
@@ -668,36 +731,24 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
         return false;
       }
       var stat = path.statIfFound(Symlinks.FOLLOW);
-      if (stat == null || !stat.isFile()) {
-        // The file no longer exists or changed type, so it certainly has changed.
-        return true;
-      }
-      var newProxy = FileContentsProxy.create(stat);
-      if (proxy.equals(newProxy)) {
-        // If the proxy is the same, then the file certainly hasn't been modified. This is the
-        // common case, so we check it first.
-        return false;
-      }
-      if (proxy.isModified(newProxy)) {
+      if (stat != null && stat.isFile() && proxy.isModified(FileContentsProxy.create(stat))) {
         // If the non-ctime information in the proxy changed, the file has certainly been modified
         // between the time the digest was computed and now.
         return true;
       }
-      // At this point the ctime changed, so some of the file's metadata has changed since we
-      // computed the digest. Returning true here would allow us to cautiously report modification
-      // even in complex ABA scenarios (file modified, then modified back with its mtime reset).
-      // However, we would also report modification in case a hardlink to the file was created or
-      // removed, such as by the hermetic Linux sandbox or certain optimized copy actions.
-      // As a compromise, we check whether the current state of the file differs from the previous
-      // one, ignoring any inbetween modifications that may have happened.
+      // At this point at most the ctime changed, so some of the file's metadata may have changed
+      // since we computed the digest. Returning true here would allow us to cautiously report
+      // modification even in complex ABA scenarios (file modified, then modified back with its
+      // mtime reset). However, we would also report modification in case a hardlink to the file
+      // was created or removed, such as by the hermetic Linux sandbox or certain optimized copy
+      // actions. As a compromise, we check whether the current state of the file differs from the
+      // previous one, ignoring any inbetween modifications that may have happened.
       //
       // Note that this path is always taken when using the hermetic Linux sandbox, but the
       // associated cost should amortize over the next build as the digest will be cached under the
       // new stat.
-      byte[] newDigest =
-          DigestUtils.getDigestWithManualFallback(
-              digestCacheKey, path, SyscallCache.NO_CACHE, stat);
-      return !Arrays.equals(digest, newDigest);
+      return FileArtifactValue.contentsDifferFromDigest(
+          digest, proxy, digestCacheKey, path, stat, /* ignoreCtimeChanges= */ false);
     }
 
     @Override

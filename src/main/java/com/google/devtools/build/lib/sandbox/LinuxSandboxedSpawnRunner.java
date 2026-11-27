@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -511,19 +509,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
 
       Path path = execRoot.getRelative(input.getExecPath());
-      if (wasModifiedSinceDigest(metadata.getContentsProxy(), path)) {
+      // Only check whether the contents of the file still match the metadata: Its ctime has been
+      // changed by the creation of the hardlink, and it may have been rematerialized with identical
+      // contents by Bazel itself, e.g. because its generating action was rerun or because the
+      // metadata is from a previous build (see https://github.com/bazelbuild/bazel/issues/29832).
+      if (metadata.contentsDifferFromDigest(
+          input.getExecPath(), path, /* ignoreCtimeChanges= */ true)) {
         throw new IOException("input dependency " + path + " was modified during execution.");
       }
     }
-  }
-
-  private boolean wasModifiedSinceDigest(FileContentsProxy proxy, Path path) throws IOException {
-    if (proxy == null) {
-      // Metadata is not available (likely because this is not a regular file).
-      return false;
-    }
-    FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
-    return stat == null || !stat.isFile() || proxy.isModified(FileContentsProxy.create(stat));
   }
 
   @Override
