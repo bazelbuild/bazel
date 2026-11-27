@@ -273,8 +273,15 @@ public class StarlarkOptionsParser {
         }
       }
 
-      // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
       var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
+      if (attrMap.isAttributeValueExplicitlySpecified("scope")
+          && (!attrMap.has("scope", Type.STRING) || attrMap.isConfigurable("scope"))) {
+        throw new OptionsParsingException(
+            String.format(
+                "Can't load flag --%s: The \"scope\" attribute must be a string and can't use"
+                    + " select().",
+                buildSetting));
+      }
       if (attrMap.has("scope", Type.STRING)) {
         String scopeType = attrMap.get("scope", Type.STRING);
         // Validate explicitly set values and non-empty rule-defined defaults, while allowing
