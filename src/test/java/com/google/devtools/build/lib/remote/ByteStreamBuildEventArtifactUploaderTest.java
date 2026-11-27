@@ -81,6 +81,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -90,6 +91,7 @@ import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -790,33 +792,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void isBuildOrTestLog_testLogsAndActionOutErr() {
-    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log")).isTrue();
-    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.xml")).isTrue();
-    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/stdout-12")).isTrue();
-    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/stderr-12")).isTrue();
-  }
-
-  @Test
-  public void isBuildOrTestLog_otherFiles() {
-    // A source file, and an output that is neither kind of log.
-    assertThat(isBuildOrTestLog("pkg/a.cc")).isFalse();
-    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/bin/pkg/liba.a")).isFalse();
-    // The parts of a log's path are there, but not where a log has them.
-    assertThat(isBuildOrTestLog("testlogs/a.log")).isFalse();
-    assertThat(isBuildOrTestLog("bazel-out/testlogs/a.log")).isFalse();
-    assertThat(isBuildOrTestLog("bazel-out/k8-fastbuild/bin/testlogs/a.log")).isFalse();
-    assertThat(isBuildOrTestLog("pkg/bazel-out/k8-fastbuild/testlogs/a.log")).isFalse();
-    assertThat(isBuildOrTestLog("pkg/bazel-out/_tmp/actions/stdout-12")).isFalse();
-    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/stdin-12")).isFalse();
-    assertThat(isBuildOrTestLog("bazel-out/_tmp/actions/std")).isFalse();
-  }
-
-  private static boolean isBuildOrTestLog(String execPath) {
-    return ByteStreamBuildEventArtifactUploader.isBuildOrTestLog(PathFragment.create(execPath));
-  }
-
-  @Test
   public void minimalMode_onlyLogsUnderExecRootUploaded() throws Exception {
     Path testLog = execRoot.getRelative("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log");
     Path stderr = execRoot.getRelative("bazel-out/_tmp/actions/stderr-12");
@@ -852,6 +827,103 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     verify(combinedCache).uploadFile(any(), any(), eq(stderr));
     verify(combinedCache, never()).uploadFile(any(), any(), eq(output));
     verify(combinedCache, never()).uploadFile(any(), any(), eq(lookalike));
+  }
+
+  @Test
+  public void downloadedRemoteTestLog_minimalMode_notQueriedOrUploaded() throws Exception {
+    assertDownloadedRemoteTestLogNotQueriedOrUploaded(RemoteBuildEventUploadMode.MINIMAL);
+  }
+
+  @Test
+  public void downloadedRemoteTestLog_allMode_notQueriedOrUploaded() throws Exception {
+    assertDownloadedRemoteTestLogNotQueriedOrUploaded(RemoteBuildEventUploadMode.ALL);
+  }
+
+  private void assertDownloadedRemoteTestLogNotQueriedOrUploaded(RemoteBuildEventUploadMode mode)
+      throws Exception {
+    // A test log from a remote action result, downloaded to disk (e.g. by --remote_download_regex).
+    Path testLog = writeTestLog("PASSED");
+    Digest digest = DIGEST_UTIL.compute("PASSED".getBytes(StandardCharsets.UTF_8));
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of()));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    combinedCache.addRemoteLogDigest(digest);
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, mode);
+
+    PathConverter pathConverter = artifactUploader.upload(testOutput(testLog)).get();
+
+    verify(digestQuerier, never()).findMissingDigests(any(), any());
+    verify(combinedCache, never()).uploadFile(any(), any(), any());
+    assertThat(pathConverter.apply(testLog))
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    assertThat(eventHandler.getEvents()).isEmpty();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void locallyProducedTestLog_queriedAndUploaded() throws Exception {
+    // E.g. a test that ran locally, or whose result came from the disk cache: nothing recorded.
+    assertTestLogQueriedAndUploaded(/* recordedDigest= */ null);
+  }
+
+  @Test
+  public void downloadedRemoteTestLogModifiedOnDisk_queriedAndUploaded() throws Exception {
+    // The test log was downloaded from a remote action result, but has changed on disk since.
+    assertTestLogQueriedAndUploaded(
+        /* recordedDigest= */ DIGEST_UTIL.compute("PASSED".getBytes(StandardCharsets.UTF_8)));
+  }
+
+  private void assertTestLogQueriedAndUploaded(@Nullable Digest recordedDigest) throws Exception {
+    Path testLog = writeTestLog("FAILED");
+    Digest digest = DIGEST_UTIL.compute("FAILED".getBytes(StandardCharsets.UTF_8));
+    MissingDigestsFinder digestQuerier = Mockito.spy(new AllMissingDigestsFinder());
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    if (recordedDigest != null) {
+      combinedCache.addRemoteLogDigest(recordedDigest);
+    }
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.MINIMAL);
+
+    PathConverter pathConverter = artifactUploader.upload(testOutput(testLog)).get();
+
+    verify(digestQuerier).findMissingDigests(any(), eq(ImmutableSet.of(digest)));
+    verify(combinedCache).uploadFile(any(), eq(digest), eq(testLog));
+    assertThat(pathConverter.apply(testLog))
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    artifactUploader.release();
+  }
+
+  private Path writeTestLog(String contents) throws IOException {
+    Path testLog = execRoot.getRelative("bazel-out/k8-fastbuild/testlogs/pkg/a_test/test.log");
+    testLog.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(testLog, StandardCharsets.UTF_8, contents);
+    return testLog;
+  }
+
+  private static ImmutableMap<Path, LocalFile> testOutput(Path path) {
+    return ImmutableMap.of(
+        path,
+        new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null));
   }
 
   @Test
