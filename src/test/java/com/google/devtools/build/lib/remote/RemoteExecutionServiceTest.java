@@ -1454,6 +1454,49 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_symlinksInDirectoryToFilesNotDownloaded_onlyInActionFileSystem()
+      throws Exception {
+    Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("file1").setDigest(d1))
+                    .addFiles(FileNode.newBuilder().setName("file2").setDigest(d2))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("link1").setTarget("file1"))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("link2").setTarget("file2"))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("link3").setTarget("link2"))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("dangling").setTarget("missing")))
+            .build();
+    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    createOutputDirectories(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(
+            PathFragment.create("outputs/dir/file1"), PathFragment.create("outputs/dir")))
+        .thenReturn(true);
+
+    service.downloadOutputs(action, result);
+
+    assertThat(execRoot.getRelative("outputs/dir/link1").readSymbolicLink())
+        .isEqualTo(PathFragment.create("file1"));
+    assertThat(execRoot.getRelative("outputs/dir/link2").exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(execRoot.getRelative("outputs/dir/link3").exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(execRoot.getRelative("outputs/dir/dangling").readSymbolicLink())
+        .isEqualTo(PathFragment.create("missing"));
+    RemoteActionFileSystem actionFs = context.getActionFileSystem();
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/link3")))
+        .isEqualTo(toBinaryDigest(d2));
+  }
+
+  @Test
   public void downloadOutputs_absoluteFileSymlink_success() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFileSymlinksBuilder().setPath("outputs/foo").setTarget("/abs/link");

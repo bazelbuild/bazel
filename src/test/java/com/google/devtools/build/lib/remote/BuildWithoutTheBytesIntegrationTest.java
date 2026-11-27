@@ -1328,6 +1328,61 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void treeWithSymlinks_noOpBuild_doesNotRerunAction(
+      @TestParameter boolean downloadToplevel, @TestParameter boolean restartServer)
+      throws Exception {
+    write(
+        "tree.bzl",
+        """
+        def _impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(
+                outputs = [d],
+                command = "mkdir $1/dir && echo hello > $1/dir/file.1 && ln -s file.1 $1/dir/file"
+                          + " && ln -s dir/file $1/filesym && ln -s dir $1/dirsym",
+                arguments = [d.path],
+            )
+            return DefaultInfo(files = depset([d]))
+
+        tree = rule(_impl)
+        """);
+    write(
+        "BUILD",
+        """
+        load(":tree.bzl", "tree")
+
+        tree(name = "tree")
+        """);
+    if (downloadToplevel) {
+      setDownloadToplevel();
+    }
+
+    buildTarget("//:tree");
+
+    if (downloadToplevel) {
+      assertSymlink("tree/dir/file", PathFragment.create("file.1"));
+      assertSymlink("tree/filesym", PathFragment.create("dir/file"));
+      assertSymlink("tree/dirsym", PathFragment.create("dir"));
+      assertValidOutputFile("tree/filesym", "hello\n");
+      assertValidOutputFile("tree/dirsym/file", "hello\n");
+    } else {
+      assertThat(getOutputPath("tree").getDirectoryEntries()).isEmpty();
+    }
+
+    if (restartServer) {
+      restartServer();
+      if (downloadToplevel) {
+        setDownloadToplevel();
+      }
+    }
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:tree");
+
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+  }
+
+  @Test
   public void remoteAction_inputsOnlyInDiskCache(@TestParameter boolean consumerMayBeCached)
       throws Exception {
     assumeTrue(useDiskCache);
