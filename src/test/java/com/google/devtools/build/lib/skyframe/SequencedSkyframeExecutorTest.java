@@ -108,6 +108,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -547,8 +548,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 .getPackageManager()
                 .getPackage(eventHandler, PackageIdentifier.createInMainRepo("not/a/package")));
 
-    ImmutableSet<PackageIdentifier> deletedPackages =
-        ImmutableSet.of(PackageIdentifier.createInMainRepo("foo/bar"));
+    DeletedPackages deletedPackages =
+        DeletedPackages.exact(ImmutableSet.of(PackageIdentifier.createInMainRepo("foo/bar")));
     skyframeExecutor.setDeletedPackages(deletedPackages);
 
     assertThat(
@@ -639,7 +640,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     scratch.file("nobuildfile/foo.txt");
     scratch.file("deletedpackage/BUILD");
     skyframeExecutor.setDeletedPackages(
-        ImmutableList.of(PackageIdentifier.createInMainRepo("deletedpackage")));
+        DeletedPackages.exact(
+            ImmutableList.of(PackageIdentifier.createInMainRepo("deletedpackage"))));
     scratch.file("invalidpackagename.42/BUILD");
     Path everythingGoodBuildFilePath = scratch.file("everythinggood/BUILD");
 

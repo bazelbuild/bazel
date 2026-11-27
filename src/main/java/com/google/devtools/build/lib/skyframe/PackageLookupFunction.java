@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories.IgnoredReason;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
@@ -53,11 +53,11 @@ import net.starlark.java.eval.EvalException;
 
 /** SkyFunction for {@link PackageLookupValue}s. */
 public class PackageLookupFunction implements SkyFunction {
-  private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
+  private final AtomicReference<DeletedPackages> deletedPackages;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
 
   public PackageLookupFunction(
-      AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
+      AtomicReference<DeletedPackages> deletedPackages,
       ImmutableList<BuildFileName> buildFilesByPriority) {
     this.deletedPackages = deletedPackages;
     this.buildFilesByPriority = buildFilesByPriority;
@@ -83,7 +83,7 @@ public class PackageLookupFunction implements SkyFunction {
           "Invalid package name '" + packageKey + "': " + packageNameErrorMsg);
     }
 
-    if (deletedPackages.get().contains(packageKey)) {
+    if (deletedPackages.get().matches(packageKey)) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
