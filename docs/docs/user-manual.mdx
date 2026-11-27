@@ -2497,7 +2497,7 @@ memory every 5 seconds:
 *   **Linux:** The server exits if available RAM (from `/proc/meminfo`) drops below
     **both** 1 GiB and 5% of total system RAM.
 *   **macOS:** The server exits if the kernel signals a memory pressure level of
-    `WARNING` or `CRITICAL` via `dispatch_source_memorypressure`.
+    `CRITICAL` via `dispatch_source_memorypressure`.
 
 This flag is especially useful on multi-project developer workstations where multiple
 idle Bazel servers across different repositories or output bases can cause system-wide
