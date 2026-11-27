@@ -515,11 +515,8 @@ class IncludeParser {
 
     /** The kind of inclusion. */
     final Kind kind;
-
     /** The relative path of the inclusion. */
     final PathFragment pathFragment;
-
-    @Nullable private volatile String baseName;
 
     private Inclusion(PathFragment pathFragment, Kind kind) {
       this.kind = kind;
@@ -536,15 +533,6 @@ class IncludeParser {
 
     String getPathString() {
       return pathFragment.getPathString();
-    }
-
-    String getBaseName() {
-      String cached = baseName;
-      if (cached == null) {
-        cached = pathFragment.getBaseName();
-        baseName = cached; // NOMUTANTS -- Memoization only; recomputing returns an equal String.
-      }
-      return cached;
     }
 
     @Override
