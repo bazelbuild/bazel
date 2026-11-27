@@ -20,9 +20,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assume.assumeFalse;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -38,6 +40,9 @@ import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
+import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,6 +84,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
       };
 
   private DigestUtil digestUtil;
+  private final Multiset<PathFragment> digestedPaths = ConcurrentHashMultiset.create();
 
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
@@ -124,6 +130,17 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Override
+  protected FileSystem createFileSystem() throws Exception {
+    return new DelegateFileSystem(super.createFileSystem()) {
+      @Override
+      public byte[] getDigest(PathFragment path) throws IOException {
+        digestedPaths.add(path);
+        return super.getDigest(path);
+      }
+    };
+  }
+
+  @Override
   protected ImmutableList<BlazeModule> getSpawnModules() {
     return ImmutableList.<BlazeModule>builder()
         .addAll(super.getSpawnModules())
@@ -156,6 +173,20 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     // Assert: Should download action results from cache and refresh mtime on cache entries.
     events.assertContainsInfo("2 disk cache hit");
     assertRecentlyModified(actionDigests, getBlobDigests("foo", "foobar", "out", "err"));
+  }
+
+  @Test
+  public void uploadedOutputsAreDigestedOnce() throws Exception {
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+    setupWorkspace();
+    buildTarget("//:foobar");
+
+    assertThat(digestedPaths.count(getOutputPath("foo.out"))).isEqualTo(1);
+    assertThat(digestedPaths.count(getOutputPath("foobar.out"))).isEqualTo(1);
+  }
+
+  private PathFragment getOutputPath(String name) throws Exception {
+    return Iterables.getOnlyElement(getArtifacts("//:" + name)).getPath().asFragment();
   }
 
   private static boolean isWindows() {

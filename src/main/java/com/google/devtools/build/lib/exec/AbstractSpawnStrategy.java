@@ -24,9 +24,11 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -152,6 +154,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     startTime,
                     spawnIdentifier));
         if (cacheHandle.willStore()) {
+          maybeObtainOutputMetadata(spawn, spawnResult, actionExecutionContext);
           cacheHandle.store(spawnResult);
         }
       }
@@ -172,6 +175,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
     SpawnLogContext spawnLogContext = actionExecutionContext.getContext(SpawnLogContext.class);
     if (spawnLogContext != null) {
+      maybeObtainOutputMetadata(spawn, spawnResult, actionExecutionContext);
       try {
         spawnLogContext.logSpawn(
             spawn,
@@ -212,6 +216,34 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       throw new SpawnExecException(message, spawnResult, /* forciblyRunRemotely= */ false);
     }
     return ImmutableList.of(spawnResult);
+  }
+
+  /**
+   * Obtains the metadata of the outputs of a successful spawn if the action won't modify them.
+   *
+   * <p>The outputs are made read-only before their digests are computed, which changes their ctime.
+   * Doing this before the outputs are uploaded or logged allows both to use the cached digests.
+   */
+  private static void maybeObtainOutputMetadata(
+      Spawn spawn, SpawnResult spawnResult, ActionExecutionContext actionExecutionContext)
+      throws InterruptedException {
+    OutputMetadataStore outputMetadataStore = actionExecutionContext.getOutputMetadataStore();
+    // There is no OutputMetadataStore during input discovery.
+    if (outputMetadataStore == null
+        || spawnResult.status() != Status.SUCCESS
+        || spawn.getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
+      return;
+    }
+    for (ActionInput output : spawn.getOutputFiles()) {
+      if (!(output instanceof Artifact artifact) || outputMetadataStore.artifactOmitted(artifact)) {
+        continue;
+      }
+      try {
+        var _ = outputMetadataStore.getOutputMetadata(artifact);
+      } catch (IOException _) {
+        // Missing or invalid outputs are reported after the action has executed.
+      }
+    }
   }
 
   private final class SpawnExecutionContextImpl extends AbstractSpawnExecutionContext {
