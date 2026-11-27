@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -297,6 +298,22 @@ public class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(
           new BuildFileNotFoundException(id, e.getMessage()), Transience.PERSISTENT);
     } catch (IOException | EvalException | AlreadyReportedException e) {
+      for (Throwable cause : Throwables.getCausalChain(e)) {
+        if (cause instanceof DetailedIOException detailedCause) {
+          String message =
+              e.getMessage() != null ? e.getMessage() : detailedCause.getMessage();
+          throw new PackageLookupFunctionException(
+              new RepositoryFetchException(
+                  id,
+                  message,
+                  e,
+                  DetailedExitCode.of(
+                      detailedCause.getDetailedExitCode().getFailureDetail().toBuilder()
+                          .setMessage(message)
+                          .build())),
+              detailedCause.getTransience());
+        }
+      }
       throw new PackageLookupFunctionException(
           new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }
