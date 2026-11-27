@@ -288,7 +288,7 @@ public final class TypeChecker extends NodeVisitor {
    * meet.
    */
   private ImmutableList<StarlarkType> inferDotUnfolded(DotExpression dot, StarlarkType objType) {
-    String name = dot.getField().getName();
+    String name = dot.getFieldName();
 
     if (objType.equals(Types.ANY)) {
       return ImmutableList.of(Types.ANY);

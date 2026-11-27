@@ -91,7 +91,7 @@ final class NodePrinter {
     if (arg instanceof Argument.Positional) {
       // nop
     } else if (arg instanceof Argument.Keyword) {
-      buf.append(((Argument.Keyword) arg).getIdentifier().getName());
+      buf.append(arg.getName());
       buf.append(" = ");
     } else if (arg instanceof Argument.Star) {
       buf.append('*');
@@ -326,7 +326,7 @@ final class NodePrinter {
       case DotExpression dot -> {
         printExpr(dot.getObject());
         buf.append('.');
-        printExpr(dot.getField());
+        buf.append(dot.getFieldName());
       }
       case CallExpression call -> {
         printExpr(call.getFunction());

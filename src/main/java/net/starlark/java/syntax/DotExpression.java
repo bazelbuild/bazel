@@ -14,26 +14,38 @@
 package net.starlark.java.syntax;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
-public final class DotExpression extends Expression {
+public sealed class DotExpression extends Expression {
 
   private final Expression object;
   private final int dotOffset;
-  // This Identifier's `binding` is left null by the resolver.
-  private final Identifier field;
+  private final String fieldName;
 
-  DotExpression(FileLocations locs, Expression object, int dotOffset, Identifier field) {
+  static DotExpression create(
+      FileLocations locs, Expression object, int dotOffset, Identifier field) {
+    // The field name almost always follows the dot directly, in which case its offset isn't stored.
+    return field.getStartOffset() == dotOffset + 1
+        ? new DotExpression(locs, object, dotOffset, field.getName())
+        : new SeparatedField(locs, object, dotOffset, field.getName(), field.getStartOffset());
+  }
+
+  private DotExpression(FileLocations locs, Expression object, int dotOffset, String fieldName) {
     super(locs);
     this.object = object;
     this.dotOffset = dotOffset;
-    this.field = field;
+    this.fieldName = fieldName;
   }
 
   public Expression getObject() {
     return object;
   }
 
+  /** Returns a new Identifier node for the field name. */
   public Identifier getField() {
-    return field;
+    return new Identifier(locs, fieldName, getFieldOffset());
+  }
+
+  public String getFieldName() {
+    return fieldName;
   }
 
   @Override
@@ -43,15 +55,35 @@ public final class DotExpression extends Expression {
 
   @Override
   public int getEndOffset() {
-    return field.getEndOffset();
+    return getFieldOffset() + fieldName.length();
   }
 
   public Location getDotLocation() {
     return locs.getLocation(dotOffset);
   }
 
+  int getFieldOffset() {
+    return dotOffset + 1;
+  }
+
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
+  }
+
+  /** A dot expression whose field name doesn't directly follow the dot. */
+  private static final class SeparatedField extends DotExpression {
+    private final int fieldOffset;
+
+    private SeparatedField(
+        FileLocations locs, Expression object, int dotOffset, String fieldName, int fieldOffset) {
+      super(locs, object, dotOffset, fieldName);
+      this.fieldOffset = fieldOffset;
+    }
+
+    @Override
+    int getFieldOffset() {
+      return fieldOffset;
+    }
   }
 }

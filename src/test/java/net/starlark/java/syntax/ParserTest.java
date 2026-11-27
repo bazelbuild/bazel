@@ -385,6 +385,19 @@ public final class ParserTest {
   }
 
   @Test
+  public void testPropRefExprLocation() throws Exception {
+    DotExpression e = (DotExpression) parseExpression("foo.bar");
+    assertLocation(0, 7, e);
+    assertLocation(4, 7, e.getField());
+    assertThat(e.getDotLocation().column()).isEqualTo(4);
+
+    DotExpression separated = (DotExpression) parseExpression("foo.  bar");
+    assertLocation(0, 9, separated);
+    assertLocation(6, 9, separated.getField());
+    assertThat(separated.getDotLocation().column()).isEqualTo(4);
+  }
+
+  @Test
   public void testStringMethExpr() throws Exception {
     CallExpression e = (CallExpression) parseExpression("'foo'.foo()");
 
