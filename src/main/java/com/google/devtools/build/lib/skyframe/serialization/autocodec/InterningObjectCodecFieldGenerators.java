@@ -186,7 +186,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class PrimitiveArrayFieldGenerator extends OffsetFieldGenerator {
+  private static final class PrimitiveArrayFieldGenerator extends OffsetFieldGenerator {
     private final TypeKind componentType;
 
     private PrimitiveArrayFieldGenerator(
@@ -238,7 +238,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class ObjectArrayFieldGenerator extends OffsetFieldGenerator {
+  private static final class ObjectArrayFieldGenerator extends OffsetFieldGenerator {
     private final TypeName componentTypeName;
 
     private ObjectArrayFieldGenerator(
@@ -292,7 +292,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class BooleanFieldGenerator extends OffsetFieldGenerator {
+  private static final class BooleanFieldGenerator extends OffsetFieldGenerator {
     private BooleanFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -314,7 +314,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class ByteFieldGenerator extends OffsetFieldGenerator {
+  private static final class ByteFieldGenerator extends OffsetFieldGenerator {
     private ByteFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -336,7 +336,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class CharFieldGenerator extends OffsetFieldGenerator {
+  private static final class CharFieldGenerator extends OffsetFieldGenerator {
     private CharFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -360,7 +360,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class DoubleFieldGenerator extends OffsetFieldGenerator {
+  private static final class DoubleFieldGenerator extends OffsetFieldGenerator {
     private DoubleFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -382,7 +382,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class FloatFieldGenerator extends OffsetFieldGenerator {
+  private static final class FloatFieldGenerator extends OffsetFieldGenerator {
     private FloatFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -404,7 +404,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class IntFieldGenerator extends OffsetFieldGenerator {
+  private static final class IntFieldGenerator extends OffsetFieldGenerator {
     private IntFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -426,7 +426,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class LongFieldGenerator extends OffsetFieldGenerator {
+  private static final class LongFieldGenerator extends OffsetFieldGenerator {
     private LongFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -448,7 +448,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class ShortFieldGenerator extends OffsetFieldGenerator {
+  private static final class ShortFieldGenerator extends OffsetFieldGenerator {
     private ShortFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
@@ -472,7 +472,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class ObjectFieldGenerator extends OffsetFieldGenerator {
+  private static final class ObjectFieldGenerator extends OffsetFieldGenerator {
     private ObjectFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
       super(variable, typeName, hierarchyLevel);
     }
