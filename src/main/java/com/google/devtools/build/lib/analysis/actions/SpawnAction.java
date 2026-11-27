@@ -19,9 +19,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -512,21 +513,25 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throws CommandLineExpansionException, InterruptedException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
     Spawn spawn = getSpawnForExtraActionSpawnInfo();
-    info.addAllArgument(spawn.getArguments());
+    info.addAllArgument(
+        Iterables.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
     for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
-              .setName(variable.getKey())
-              .setValue(variable.getValue())
+              .setName(internalToUnicode(variable.getKey()))
+              .setValue(internalToUnicode(variable.getValue()))
               .build());
     }
     for (ActionInput input : spawn.getInputFiles().flatten()) {
       // Explicitly ignore runfiles tree artifacts here.
       if (!(input instanceof Artifact artifact) || !artifact.isRunfilesTree()) {
-        info.addInputFile(input.getExecPathString());
+        info.addInputFile(internalToUnicode(input.getExecPathString()));
       }
     }
-    info.addAllOutputFile(ActionInputHelper.toExecPaths(spawn.getOutputFiles()));
+    info.addAllOutputFile(
+        Iterables.transform(
+            ActionInputHelper.toExecPaths(spawn.getOutputFiles()),
+            StringEncoding::internalToUnicode));
     return info.build();
   }
 
@@ -1178,7 +1183,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setMnemonic(String mnemonic) {
       checkArgument(
-          !mnemonic.isEmpty() && CharMatcher.javaLetterOrDigit().matchesAllOf(mnemonic),
+          !mnemonic.isEmpty()
+              && internalToUnicode(mnemonic).codePoints().allMatch(Character::isLetterOrDigit),
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
       this.mnemonic = mnemonic;

@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toCollection;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -362,14 +364,18 @@ public final class SandboxModule extends BlazeModule {
     // TODO(philwo): Does this return the correct result if one of the elements intentionally ends
     // in white space?
     Splitter pathSplitter =
-        Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':').trimResults().omitEmptyStrings();
+        Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':')
+            .trimResults(CharMatcher.ascii().and(CharMatcher.whitespace()))
+            .omitEmptyStrings();
 
     FileSystem fs = cmdEnv.getRuntime().getFileSystem();
 
     for (String pathElement : pathSplitter.split(path)) {
       // Sometimes the PATH contains the non-absolute entry "." - this resolves it against the
       // current working directory.
-      pathElement = new File(pathElement).getAbsolutePath();
+      pathElement =
+          StringEncoding.platformToInternal(
+              new File(StringEncoding.internalToPlatform(pathElement)).getAbsolutePath());
       try {
         for (Path dentry : fs.getPath(pathElement).getDirectoryEntries()) {
           if (dentry.getBaseName().replace(".exe", "").equals("docker")) {

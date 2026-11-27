@@ -31,6 +31,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v1",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v2",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:cgroups_info_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:io",
