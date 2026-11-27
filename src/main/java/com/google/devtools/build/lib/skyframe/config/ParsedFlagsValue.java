@@ -157,8 +157,10 @@ public class ParsedFlagsValue implements SkyValue {
 
   private final NativeAndStarlarkFlags flags;
   private final OptionsParsingResult parsingResult;
-  private final LoadingCache<BuildOptions, BuildConfigurationKey> mergeCache =
-      Caffeine.newBuilder().weakKeys().build(this::mergeWithImpl);
+  // Weak keys use identity. Intern equivalent inputs so temporary option copies share entries.
+  // Values are weak too: a no-op merge returns its input key.
+  private final LoadingCache<BuildConfigurationKey, BuildConfigurationKey> mergeCache =
+      Caffeine.newBuilder().weakKeys().weakValues().build(this::mergeWithImpl);
 
   private final ImmutableSet<String> disabledOptions;
 
@@ -207,7 +209,7 @@ public class ParsedFlagsValue implements SkyValue {
    */
   public BuildConfigurationKey mergeWith(BuildOptions source) throws OptionsParsingException {
     try {
-      return mergeCache.get(source);
+      return mergeCache.get(BuildConfigurationKey.create(source));
     } catch (CompletionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), OptionsParsingException.class);
       Throwables.throwIfUnchecked(e.getCause());
@@ -215,8 +217,9 @@ public class ParsedFlagsValue implements SkyValue {
     }
   }
 
-  private BuildConfigurationKey mergeWithImpl(BuildOptions source) throws OptionsParsingException {
-    BuildOptions.Builder builder = source.toBuilder();
+  private BuildConfigurationKey mergeWithImpl(BuildConfigurationKey source)
+      throws OptionsParsingException {
+    BuildOptions.Builder builder = source.getOptions().toBuilder();
 
     // Handle native options.
     for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
