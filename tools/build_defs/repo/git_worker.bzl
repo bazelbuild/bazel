@@ -208,13 +208,21 @@ def clean(ctx, git_repo):
     _git(ctx, git_repo, "clean", "-xdf")
 
 def update_submodules(ctx, git_repo, recursive = False):
+    # "protocol.file.allow=always" allows cloning a submodule from a local
+    # directory. Needed for Git 2.38.1 and associated backports.
+    # See https://github.com/bazelbuild/bazel/issues/17040
+    start = ["-c", "protocol.file.allow=always", "submodule", "update"]
+    flags = ["--init", "--checkout", "--force"]
     if recursive:
-        # "protocol.file.allow=always" allows the submodule command clone from a local directory.
-        # It's necessary for Git 2.38.1 and assoicated backport versions.
-        # See https://github.com/bazelbuild/bazel/issues/17040
-        _git_maybe_shallow(ctx, git_repo, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive", "--checkout", "--force")
-    else:
-        _git_maybe_shallow(ctx, git_repo, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--checkout", "--force")
+        flags.append("--recursive")
+
+    if git_repo.shallow:
+        st = _execute(ctx, git_repo, start + [git_repo.shallow] + flags)
+        if st.return_code == 0:
+            return
+    st = _execute(ctx, git_repo, start + flags)
+    if st.return_code != 0:
+        _error(ctx.name, ["git"] + start + flags, st.stderr)
 
 def _get_head_commit(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%H")
