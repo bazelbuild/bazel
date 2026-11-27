@@ -336,9 +336,7 @@ java_library(
     srcs = ["CacheFileDigestsModule.java"],
     deps = [
         ":blaze_command_cluster",
-        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
-        "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/caffeine",

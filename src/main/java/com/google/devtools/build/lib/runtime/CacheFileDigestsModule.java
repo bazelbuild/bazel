@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.common.options.Options;
 
@@ -53,26 +51,21 @@ public class CacheFileDigestsModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    // Repository rules and module extensions compute the digests of watched files while loading,
-    // which happens before executorInit and also for commands that don't execute anything (e.g.
-    // query). Set up the cache if this hasn't happened yet, but otherwise leave its size to
-    // commands that execute so that other commands don't reset it.
-    if (lastKnownCacheSize == null) {
-      ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
-      configureCache(
-          (options != null ? options : Options.getDefaults(ExecutionOptions.class))
-              .getCacheSizeForComputedFileDigests());
+    // Every command that loads computes the digests of files watched by repository rules and
+    // module extensions, even if it doesn't execute anything. Resizing discards the cache, so only
+    // such commands resize it and only if they have the flag, which e.g. query doesn't. Other
+    // commands keep the current size.
+    ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
+    int cacheSize =
+        (options != null ? options : Options.getDefaults(ExecutionOptions.class))
+            .getCacheSizeForComputedFileDigests();
+    if (lastKnownCacheSize == null
+        || (options != null
+            && env.getCommand().buildPhase().loads()
+            && cacheSize != lastKnownCacheSize)) {
+      configureCache(cacheSize);
     }
     startStats();
-  }
-
-  @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    int cacheSize = request.getOptions(ExecutionOptions.class).getCacheSizeForComputedFileDigests();
-    if (lastKnownCacheSize == null || cacheSize != lastKnownCacheSize) {
-      configureCache(cacheSize);
-      startStats();
-    }
   }
 
   private void configureCache(int cacheSize) {

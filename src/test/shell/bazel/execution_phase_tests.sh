@@ -181,6 +181,27 @@ EOF
   expect_log "hit count=[1-9]"
 }
 
+function test_cache_computed_file_digests_resized_without_execution() {
+  echo 'filegroup(name = "fg")' > BUILD
+
+  bazel query //:fg >>"${TEST_log}" 2>&1 || fail "Should query"
+  # cquery loads but doesn't execute, so it resizes the cache before any
+  # execution phase.
+  bazel cquery --cache_computed_file_digests=100 //:fg >>"${TEST_log}" 2>&1 \
+      || fail "Should cquery"
+  # Neither query, which doesn't have the flag, nor info, which doesn't load,
+  # resizes the cache.
+  bazel query //:fg >>"${TEST_log}" 2>&1 || fail "Should query"
+  bazel info >>"${TEST_log}" 2>&1 || fail "Should run"
+
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
+  grep "Reconfiguring cache with size=" "${java_log}" >"${TEST_log}" || true
+  expect_log_n "Reconfiguring cache with size=100" 1
+  tail -n 1 "${TEST_log}" | grep -q "size=100" \
+      || fail "Cache should not have been resized after cquery"
+}
+
 function DISABLED_test_cache_computed_file_digests_uncaught_changes() {
   # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
   local timestamp=201703151112.13  # Fixed timestamp to mark our file with.
