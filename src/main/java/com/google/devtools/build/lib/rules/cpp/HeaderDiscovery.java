@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -161,17 +162,16 @@ final class HeaderDiscovery {
       Collection<? extends Artifact> resolvedArtifacts = ImmutableList.of();
       Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
       if (derivedArtifact == null) {
-        Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(execPathFragment, /* forFiles= */ false);
-        if (pkgId.isPresent()) {
+        Optional<RepositoryName> repository =
+            PackageIdentifier.discoverRepositoryFromExecPath(execPathFragment);
+        if (repository.isPresent()) {
           if (possiblyCaseInsensitiveFileSystem) {
             resolvedArtifacts =
                 artifactResolver.resolveSourceArtifactsAsciiCaseInsensitively(
-                    execPathFragment, pkgId.get().getRepository());
+                    execPathFragment, repository.get());
           } else {
             var sourceArtifact =
-                artifactResolver.resolveSourceArtifact(
-                    execPathFragment, pkgId.get().getRepository());
+                artifactResolver.resolveSourceArtifact(execPathFragment, repository.get());
             if (sourceArtifact != null) {
               resolvedArtifacts = ImmutableList.of(sourceArtifact);
             }

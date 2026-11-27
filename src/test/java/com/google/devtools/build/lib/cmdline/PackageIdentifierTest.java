@@ -138,6 +138,26 @@ public class PackageIdentifierTest {
   }
 
   @Test
+  public void discoverRepositoryFromExecPath() throws Exception {
+    assertThat(PackageIdentifier.discoverRepositoryFromExecPath(PathFragment.create("a/b/c.h")))
+        .hasValue(RepositoryName.MAIN);
+    assertThat(PackageIdentifier.discoverRepositoryFromExecPath(PathFragment.create("c.h")))
+        .hasValue(RepositoryName.MAIN);
+    assertThat(
+            PackageIdentifier.discoverRepositoryFromExecPath(
+                PathFragment.create("external/foo+/a/b/c.h")))
+        .hasValue(RepositoryName.create("foo+"));
+    assertThat(
+            PackageIdentifier.discoverRepositoryFromExecPath(
+                PathFragment.create("external/foo+/c.h")))
+        .hasValue(RepositoryName.create("foo+"));
+    assertThat(
+            PackageIdentifier.discoverRepositoryFromExecPath(
+                PathFragment.create("external/f$oo/c.h")))
+        .isEmpty();
+  }
+
+  @Test
   public void testSerialization() throws Exception {
     new SerializationTester(PackageIdentifier.parse("@foo//a")).runTests();
   }
