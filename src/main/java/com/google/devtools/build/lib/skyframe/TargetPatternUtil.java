@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.SignedTargetPattern.Sign;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -43,7 +44,18 @@ public class TargetPatternUtil {
   public static ImmutableSet<Label> expandTargetPatterns(
       Environment env, List<SignedTargetPattern> targetPatterns, FilteringPolicy filteringPolicy)
       throws InvalidTargetPatternException, InterruptedException {
+    return expandTargetPatterns(
+        env, targetPatterns, filteringPolicy, /* allowPartialResults= */ true);
+  }
 
+  /** As above, optionally rejecting patterns that returned targets from packages with errors. */
+  @Nullable
+  public static ImmutableSet<Label> expandTargetPatterns(
+      Environment env,
+      List<SignedTargetPattern> targetPatterns,
+      FilteringPolicy filteringPolicy,
+      boolean allowPartialResults)
+      throws InvalidTargetPatternException, InterruptedException {
     if (targetPatterns.isEmpty()) {
       return ImmutableSet.of();
     }
@@ -61,6 +73,13 @@ public class TargetPatternUtil {
             (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
         if (valuesMissing || value == null) {
           continue;
+        }
+        if (!allowPartialResults && value.getTargets().hasError()) {
+          throw new InvalidTargetPatternException(
+              pattern.getPattern(),
+              new TargetParsingException(
+                  "target pattern matched a package containing errors",
+                  TargetPatterns.Code.TARGET_PATTERN_PARSE_FAILURE));
         }
         if (pattern.isNegative()) {
           // Remove from the results.

@@ -161,6 +161,21 @@ public abstract class ModOptions extends OptionsBase {
   public abstract void setCycles(boolean value);
 
   @Option(
+      name = "include_toolchain_registrations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "With mod graph --output=json, load toolchain registrations from all resolved modules."
+              + " Include canonical target labels in registration order before provider validation."
+              + " Explicitly registered aliases and non-toolchain targets retain their labels."
+              + " This excludes --extra_toolchains and does not apply"
+              + " target_settings, platform constraints, or toolchain resolution.")
+  public abstract boolean getIncludeToolchainRegistrations();
+
+  public abstract void setIncludeToolchainRegistrations(boolean value);
+
+  @Option(
       name = "include_builtin",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
