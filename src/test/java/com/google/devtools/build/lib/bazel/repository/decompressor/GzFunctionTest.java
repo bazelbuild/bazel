@@ -142,9 +142,8 @@ public class GzFunctionTest {
       // Set the modified time gzip metadata.
       GregorianCalendar testDate = new GregorianCalendar(2000, Calendar.FEBRUARY, 14, 3, 7, 14);
       GzipParameters parameters = new GzipParameters();
-      // Expects unix time in seconds.
-      long unixTimeSeconds = testDate.getTimeInMillis() / 1000;
-      parameters.setModificationTime(unixTimeSeconds);
+      long unixTimeMillis = testDate.getTimeInMillis();
+      parameters.setModificationTime(unixTimeMillis);
 
       // Create the gzip file with the above metadata.
       Path testGzipFile = createTestGzipFile(name.getMethodName(), "test.txt.gz", parameters);
@@ -156,16 +155,7 @@ public class GzFunctionTest {
         fn.setFileAttributes(decompressorStream, testFs.getPath(testFile.getCanonicalPath()));
       }
 
-      // There was an error in Apache Commons Compress where the time was improperly divided by
-      // 1000, thus losing 3 digits of precision. This replicates that wrong behavior until we
-      // upgrade the Apache Commons Compress library to 1.28. At which point, you can replace
-      // hackExpectedTimeSeconds below with unixTimeSeconds.
-      // See https://github.com/apache/commons-compress/pull/624
-      // NOTE: 1.28 also has an issue - see https://github.com/bazelbuild/bazel/issues/28454
-      // so cleaning up this hack will need to wait until 1.29 is released.
-      long hackExpectedTimeSeconds = unixTimeSeconds / 1000 * 1000;
-      // Time should be in epoch milliseconds.
-      assertThat(testFile.lastModified()).isEqualTo(hackExpectedTimeSeconds * 1000);
+      assertThat(testFile.lastModified()).isEqualTo(unixTimeMillis);
     }
   }
 }

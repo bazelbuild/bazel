@@ -48,6 +48,6 @@ public class GzFunction extends CompressedFunction {
   @Override
   protected void setFileAttributes(InputStream in, Path uncompressedFile) throws IOException {
     GzipParameters metaData = ((GzipCompressorInputStream) in).getMetaData();
-    uncompressedFile.setLastModifiedTimeNanos(metaData.getModificationTime() * 1_000_000_000L);
+    uncompressedFile.setLastModifiedTimeNanos(metaData.getModificationTime() * 1_000_000L);
   }
 }
