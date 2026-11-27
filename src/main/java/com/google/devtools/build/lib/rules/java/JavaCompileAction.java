@@ -996,8 +996,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                 executorDeps, actionInputs, additionalArtifactsForPathMapping, pathMapper);
     try (var outputStream =
         actionExecutionContext.getInputPath(outputDepsProto).getOutputStream()) {
-      (fullOutputDeps != executorDeps ? fullOutputDeps.toByteString() : executorJdeps)
-          .writeTo(outputStream);
+      if (fullOutputDeps == executorDeps) {
+        executorJdeps.writeTo(outputStream);
+      } else {
+        fullOutputDeps.writeTo(outputStream);
+      }
     }
     return fullOutputDeps;
   }
