@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -30,7 +29,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.ArtifactValueLookup;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.EventFactory;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -41,12 +42,14 @@ final class AspectCompletor
 
   static SkyFunction aspectCompletionFunction(
       PathResolverFactory pathResolverFactory,
+      ArtifactValueLookup artifactValueLookup,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
       BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
+        artifactValueLookup,
         new AspectCompletor(),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
@@ -87,28 +90,30 @@ final class AspectCompletor
   }
 
   @Override
-  public AspectCompleteEvent createFailed(
+  public EventFactory createFailed(
       AspectCompletionKey skyKey,
       AspectValue value,
       NestedSet<Cause> rootCauses,
-      CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       Environment env) {
-    return AspectCompleteEvent.createFailed(
-        skyKey.actionLookupKey(), ctx, rootCauses, outputs, value.getWritesOutputToMasterLog());
+    AspectKey aspectKey = skyKey.actionLookupKey();
+    boolean writesOutputToMasterLog = value.getWritesOutputToMasterLog();
+    return ctx ->
+        AspectCompleteEvent.createFailed(
+            aspectKey, ctx, rootCauses, outputs, writesOutputToMasterLog);
   }
 
   @Override
-  public AspectCompleteEvent createSucceeded(
+  public EventFactory createSucceeded(
       AspectCompletionKey skyKey,
       AspectValue value,
-      CompletionContext completionContext,
       ArtifactsToBuild artifactsToBuild,
       Environment env) {
-    return AspectCompleteEvent.createSuccessful(
-        skyKey.actionLookupKey(),
-        completionContext,
-        artifactsToBuild.getAllArtifactsByOutputGroup(),
-        value.getWritesOutputToMasterLog());
+    AspectKey aspectKey = skyKey.actionLookupKey();
+    ImmutableMap<String, ArtifactsInOutputGroup> outputs =
+        artifactsToBuild.getAllArtifactsByOutputGroup();
+    boolean writesOutputToMasterLog = value.getWritesOutputToMasterLog();
+    return ctx ->
+        AspectCompleteEvent.createSuccessful(aspectKey, ctx, outputs, writesOutputToMasterLog);
   }
 }

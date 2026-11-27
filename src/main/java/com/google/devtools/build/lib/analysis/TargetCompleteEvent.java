@@ -132,7 +132,7 @@ public final class TargetCompleteEvent
   private TargetCompleteEvent(
       ConfiguredTargetAndData targetAndData,
       NestedSet<Cause> rootCauses,
-      CompletionContext completionContext,
+      @Nullable CompletionContext completionContext,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       boolean isTest,
       boolean announceTargetSummary) {
@@ -165,11 +165,40 @@ public final class TargetCompleteEvent
     this.tags = targetAndData.getRuleTags();
   }
 
+  private TargetCompleteEvent(TargetCompleteEvent other, CompletionContext completionContext) {
+    this.label = other.label;
+    this.configuredTargetKey = other.configuredTargetKey;
+    this.rootCauses = other.rootCauses;
+    this.completionContext = completionContext;
+    this.outputs = other.outputs;
+    this.originalLabel = other.originalLabel;
+    this.isTest = other.isTest;
+    this.announceTargetSummary = other.announceTargetSummary;
+    this.testTimeoutSeconds = other.testTimeoutSeconds;
+    this.testParams = other.testParams;
+    this.configurationEvent = other.configurationEvent;
+    this.configEventId = other.configEventId;
+    this.tags = other.tags;
+    this.executableTargetData = other.executableTargetData;
+    this.detailedExitCode = other.detailedExitCode;
+  }
+
+  /**
+   * Returns an event identical to this one but with the given {@link CompletionContext}.
+   *
+   * <p>{@code CompletionFunction} uses this to keep an event without a context in the Skyframe
+   * graph, and to give it one each time that it is reported. An event that was created with a null
+   * context is only good for that: it must not be posted itself.
+   */
+  public TargetCompleteEvent withCompletionContext(CompletionContext completionContext) {
+    return new TargetCompleteEvent(this, checkNotNull(completionContext));
+  }
+
   @Nullable
   /** Construct a successful target completion event. */
   public static TargetCompleteEvent successfulBuild(
       ConfiguredTargetAndData ct,
-      CompletionContext completionContext,
+      @Nullable CompletionContext completionContext,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       boolean announceTargetSummary) {
     return new TargetCompleteEvent(
@@ -179,7 +208,7 @@ public final class TargetCompleteEvent
   /** Construct a successful target completion event for a target that will be tested. */
   public static TargetCompleteEvent successfulBuildSchedulingTest(
       ConfiguredTargetAndData ct,
-      CompletionContext completionContext,
+      @Nullable CompletionContext completionContext,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       boolean announceTargetSummary) {
     return new TargetCompleteEvent(
@@ -191,7 +220,7 @@ public final class TargetCompleteEvent
    */
   public static TargetCompleteEvent createFailed(
       ConfiguredTargetAndData ct,
-      CompletionContext completionContext,
+      @Nullable CompletionContext completionContext,
       NestedSet<Cause> rootCauses,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       boolean announceTargetSummary) {
