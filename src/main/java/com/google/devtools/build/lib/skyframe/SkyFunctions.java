@@ -33,6 +33,8 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("DIRECTORY_LISTING_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING =
       SkyFunctionName.createHermetic("DIRECTORY_LISTING");
+  public static final SkyFunctionName DIRECTORY_SPELLING =
+      SkyFunctionName.createHermetic("DIRECTORY_SPELLING");
   public static final SkyFunctionName DIRECTORY_TREE_DIGEST =
       SkyFunctionName.createHermetic("DIRECTORY_TREE_DIGEST");
   // Hermetic even though package lookups secretly access the set of deleted packages, because
