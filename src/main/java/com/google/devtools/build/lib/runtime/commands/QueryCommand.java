@@ -65,6 +65,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
+import java.nio.file.Path;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Set;
@@ -303,6 +304,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     EvaluationContext orderedEvaluationContext =
         evaluationContext.builder().setOrderedRootResults(true).build();
     Stopwatch skyframeTime = Stopwatch.createUnstarted();
+    String provenance = env.getClientEnv().get("BAZEL_QUERY_HASH_PROVENANCE");
+    boolean provenanceEdges = "1".equals(env.getClientEnv().get("BAZEL_QUERY_HASH_PROVENANCE_EDGES"));
     TransitiveHashes.Result result =
         TransitiveHashes.compute(
             labels,
@@ -321,7 +324,9 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             },
             message -> env.getReporter().handle(Event.progress(message)),
             queryOptions.getQueryHashFailureImpact(),
-            queryOptions.getQueryBatchDirectRuleHashes());
+            queryOptions.getQueryBatchDirectRuleHashes(),
+            provenance == null || provenance.isEmpty() ? null : Path.of(provenance),
+            provenanceEdges);
     CountingOutputStream binary = null;
     if (catalog instanceof StreamedProtoOutputFormatter) {
       binary = new CountingOutputStream(out);

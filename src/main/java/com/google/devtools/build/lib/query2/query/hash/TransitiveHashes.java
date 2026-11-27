@@ -29,6 +29,12 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -129,6 +135,20 @@ public final class TransitiveHashes {
       Consumer<String> progress,
       boolean reportFailureImpact,
       boolean batchDirectRuleHashes)
+      throws InterruptedException {
+    return compute(
+        roots, evaluator, progress, reportFailureImpact, batchDirectRuleHashes, null, false);
+  }
+
+  /** Writes optional direct hashes and the dependency graph from the same computation. */
+  public static Result compute(
+      Collection<Label> roots,
+      Evaluator evaluator,
+      Consumer<String> progress,
+      boolean reportFailureImpact,
+      boolean batchDirectRuleHashes,
+      @Nullable Path provenance,
+      boolean includeEdges)
       throws InterruptedException {
     long discoveryStart = System.nanoTime();
     Map<Label, State<Label>> graph = CompactHashMap.createWithExpectedSize(roots.size());
@@ -241,6 +261,19 @@ public final class TransitiveHashes {
     var profiler = Profiler.instance();
     profiler.logSimpleTask(combineStart, assembleStart, ProfilerTask.INFO, "NativeQuery.combine");
     profiler.logSimpleTask(assembleStart, end, ProfilerTask.INFO, "NativeQuery.assemble");
+    if (provenance != null) {
+      try {
+        writeProvenance(provenance, graph.values(), edges, includeEdges);
+      } catch (IOException e) {
+        // A failed optional export must not discard the regular hash output.
+        try {
+          Files.deleteIfExists(provenance);
+        } catch (IOException suppressed) {
+          e.addSuppressed(suppressed);
+        }
+        progress.accept("Could not write query hash provenance: " + e.getMessage());
+      }
+    }
     return new Result(
         hashes,
         sortedErrors,
@@ -250,6 +283,39 @@ public final class TransitiveHashes {
             TimeUnit.NANOSECONDS.toMillis(combineStart - discoveryStart),
             TimeUnit.NANOSECONDS.toMillis(assembleStart - combineStart),
             TimeUnit.NANOSECONDS.toMillis(end - assembleStart)));
+  }
+
+  private static void writeProvenance(
+      Path output, Collection<State<Label>> graph, List<State<Label>> edges, boolean includeEdges)
+      throws IOException {
+    if (includeEdges) {
+      int index = 0;
+      for (State<Label> state : graph) {
+        state.provenanceIndex = index++;
+      }
+    }
+    try (var out =
+        new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(output), 128 << 10))) {
+      out.writeInt(0x53444731); // SDG1
+      out.writeInt(includeEdges ? 1 : 0);
+      out.writeInt(graph.size());
+      for (State<Label> state : graph) {
+        byte[] label = state.key.getUnambiguousCanonicalForm().getBytes(StandardCharsets.UTF_8);
+        out.writeInt(label.length);
+        out.write(label);
+        byte[] direct = state.directHash;
+        out.writeBoolean(direct != null);
+        if (direct != null) {
+          out.write(direct);
+        }
+        if (includeEdges) {
+          out.writeInt(state.depEnd - state.depStart);
+          for (int i = state.depStart; i < state.depEnd; i++) {
+            out.writeInt(edges.get(i).provenanceIndex);
+          }
+        }
+      }
+    }
   }
 
   private static ImmutableSet<SkyKey> buildFrontierKeys(
@@ -553,6 +619,7 @@ public final class TransitiveHashes {
     final K key;
     // Null for unresolved labels. The failure mask distinguishes errors from known absence.
     byte[] directHash;
+    int provenanceIndex;
     int depStart;
     int depEnd;
     int index = -1;
