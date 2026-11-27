@@ -222,9 +222,12 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:cgroup_capable"],
+    },
     shard_count = 10,
     tags = [
-        # MacOS does not have cgroups so it can't support hardened sandbox
+        # macOS does not support cgroups.
         "no_macos",
         "no_windows",
     ],
@@ -295,9 +298,12 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:cgroup_capable"],
+    },
     shard_count = 7,
     tags = [
-        # MacOS does not have cgroups so it can't support hardened sandbox
+        # macOS does not support cgroups.
         "no_macos",
         "no_windows",
     ],
