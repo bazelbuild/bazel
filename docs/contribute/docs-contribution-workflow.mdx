@@ -16,7 +16,7 @@ holds Mintlify configuration. **Content changes always go to `bazelbuild/bazel`.
 | Repository                                                                | What it contains                                                                                                                           |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel)                 | All doc content (`docs/` folder). This is where you make changes.                                                                          |
-| [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs) | Hosting pipeline. Syncs from `bazelbuild/bazel`, generates PR previews, and deploys to [preview.bazel.build](https://preview.bazel.build). |
+| [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs) | Hosting pipeline. Syncs from `bazelbuild/bazel`, defines the sidebar navigation, generates PR previews, and deploys to [preview.bazel.build](https://preview.bazel.build). |
 
 {/* TODO: Update preview.bazel.build to bazel.build once the domain cutover happens. Tracked in https://github.com/bazel-contrib/bazel-docs/issues/453 */}
 
@@ -141,9 +141,11 @@ Some pages have an introductory list of topics. Add your section there too.
    ```
 
 2. Add your page to the sidebar navigation. This requires a separate change
-   in `bazel-contrib/bazel-docs`. See
+   to `docs-tabs.json` in `bazel-contrib/bazel-docs`. See
    [Update the docs navigation](/contribute/docs-navigation) for instructions.
-   For an initial PR, you can skip this and ask a maintainer to help.
+   For an initial PR, you can skip this and ask a maintainer to help. Your page
+   is published either way, but it doesn't appear in the sidebar until the
+   navigation change lands.
 
 3. Follow the same branch, commit, and PR steps as [Update existing content](#updating-content).
 
@@ -224,7 +226,7 @@ and more), see the [Mintlify text formatting docs](https://mintlify.com/docs/cre
 <Tip>
   If your new page does not appear in the sidebar of the PR preview, use the
   black file-changes icon in the preview to navigate directly to it. New pages
-  do not appear in the sidebar until you update the navigation in
+  do not appear in the sidebar until you add them to `docs-tabs.json` in
   `bazel-contrib/bazel-docs`.
 </Tip>
 
