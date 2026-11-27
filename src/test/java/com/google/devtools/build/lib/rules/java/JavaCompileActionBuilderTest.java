@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -484,6 +485,64 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void createFullOutputDeps_resolvesRootRelativePathsOfInputsWithInputMetadata()
+      throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path execRoot = fs.getPath("/exec");
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(
+            execRoot, RootType.OUTPUT, PathFragment.create("blaze-out/k8-opt/bin"));
+
+    Artifact outputDepsProto =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/liba.jdeps");
+    Artifact depRootRelative =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libb-hjar.jar");
+    Artifact depExecPath =
+        ActionsTestUtil.createArtifact(outputRoot, "java/com/google/test/libc-hjar.jar");
+
+    Deps.Dependencies executorJdeps =
+        Deps.Dependencies.newBuilder()
+            .addDependency(
+                Deps.Dependency.newBuilder()
+                    .setKind(Kind.EXPLICIT)
+                    .setPath(depRootRelative.getRootRelativePath().getPathString()))
+            .addDependency(
+                Deps.Dependency.newBuilder()
+                    .setKind(Kind.EXPLICIT)
+                    .setPath(depExecPath.getExecPathString()))
+            .build();
+
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .setInMemoryOutput(outputDepsProto, executorJdeps.toByteString())
+            .build();
+
+    InputMetadataProvider inputMetadataProvider = mock(InputMetadataProvider.class);
+    when(inputMetadataProvider.getInput(depRootRelative.getExecPath())).thenReturn(depRootRelative);
+    when(inputMetadataProvider.getInput(depExecPath.getExecPath())).thenReturn(depExecPath);
+    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+    when(actionExecutionContext.getInputPath(outputDepsProto))
+        .thenReturn(fs.getPath("/nonexistent"));
+    when(actionExecutionContext.getInputMetadataProvider()).thenReturn(inputMetadataProvider);
+
+    // The inputs are only known to the input metadata provider.
+    Deps.Dependencies fullOutputDeps =
+        JavaCompileAction.createFullOutputDeps(
+            spawnResult,
+            outputDepsProto,
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            actionExecutionContext,
+            PathMapper.NOOP);
+
+    assertThat(fullOutputDeps.getDependencyList().stream().map(Deps.Dependency::getPath).toList())
+        .containsExactly(depRootRelative.getExecPathString(), depExecPath.getExecPathString())
+        .inOrder();
+  }
+
+  @Test
   public void createFullOutputDeps_resolvesRootRelativePaths() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path execRoot = fs.getPath("/exec");
@@ -541,6 +600,8 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
     when(actionExecutionContext.getInputPath(outputDepsProto))
         .thenReturn(fs.getPath("/nonexistent"));
+    when(actionExecutionContext.getInputMetadataProvider())
+        .thenReturn(mock(InputMetadataProvider.class));
 
     Deps.Dependencies fullOutputDeps =
         JavaCompileAction.createFullOutputDeps(
