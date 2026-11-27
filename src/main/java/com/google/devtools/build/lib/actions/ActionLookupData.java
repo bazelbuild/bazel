@@ -17,16 +17,21 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /** Data that uniquely identifies an action. */
+@AutoCodec
 public class ActionLookupData implements ExecutionPhaseSkyKey {
 
   private final ActionLookupKey actionLookupKey;
   private final int actionIndex;
 
-  private ActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  ActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
     this.actionLookupKey = Preconditions.checkNotNull(actionLookupKey);
     this.actionIndex = actionIndex;
   }
@@ -101,8 +106,12 @@ public class ActionLookupData implements ExecutionPhaseSkyKey {
     return SkyFunctions.ACTION_EXECUTION;
   }
 
-  private static final class UnshareableActionLookupData extends ActionLookupData {
-    private UnshareableActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
+  @VisibleForSerialization
+  @AutoCodec
+  static final class UnshareableActionLookupData extends ActionLookupData {
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    UnshareableActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
       super(actionLookupKey, actionIndex);
     }
 
