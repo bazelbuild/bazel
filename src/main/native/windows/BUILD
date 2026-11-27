@@ -53,6 +53,15 @@ cc_library(
     deps = [":lib-file"],
 )
 
+cc_library(
+    name = "lib-stat",
+    srcs = ["stat.cc"],
+    hdrs = ["stat.h"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/test/native:__subpackages__"],
+    deps = [":lib-file"],
+)
+
 cc_binary(
     name = "windows_jni.dll",
     srcs = [
@@ -72,6 +81,7 @@ cc_binary(
     deps = [
         ":lib-file",
         ":lib-process",
+        ":lib-stat",
         "//src/main/native:blake3_jni",
     ],
 )

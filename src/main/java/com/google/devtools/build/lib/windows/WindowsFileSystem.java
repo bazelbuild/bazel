@@ -23,14 +23,14 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.lib.windows.WindowsFileOperations.FileMetadata;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.attribute.DosFileAttributes;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** File system implementation for Windows. */
@@ -155,65 +155,79 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    final Path nioPath;
-    final DosFileAttributes attributes;
+    final FileMetadata metadata;
     try {
-      nioPath = getNioPath(path);
-      attributes = getAttribs(nioPath, followSymlinks);
-    } catch (IOException | InvalidPathException e) {
+      metadata = statMetadataIfFound(path, followSymlinks);
+    } catch (AccessDeniedException | InvalidPathException e) {
       FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
       fnfe.initCause(e);
       throw fnfe;
     }
+    if (metadata == null) {
+      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    }
+    return newFileStatus(metadata);
+  }
 
+  @Override
+  @Nullable
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
+    FileMetadata metadata;
+    try {
+      metadata = statMetadataIfFound(path, followSymlinks);
+    } catch (AccessDeniedException | InvalidPathException e) {
+      // Same as WindowsFileSystem#stat: null where #stat throws FileNotFoundException
+      return null;
+    } catch (IOException e) {
+      // Same as JavaIoFileSystem#statIfFound
+      throw new IllegalStateException(e);
+    }
+    return metadata == null ? null : newFileStatus(metadata);
+  }
+
+  @Nullable
+  private FileMetadata statMetadataIfFound(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return WindowsFileOperations.statIfFound(getNioPath(path).toString(), followSymlinks);
+  }
+
+  private static FileStatus newFileStatus(FileMetadata metadata) {
     FileStatus status =
         new FileStatus() {
-          @Nullable volatile Boolean isSymbolicLink; // null if not yet known
-          volatile long lastChangeTimeNanos = -1;
-
           @Override
           public boolean isFile() {
-            return !isSymbolicLink() && (attributes.isRegularFile() || isSpecialFile());
+            return (!metadata.isReparsePoint() && !metadata.isDirectory()) || metadata.isDevice();
           }
 
           @Override
           public boolean isSpecialFile() {
-            // attributes.isOther() returns false for symlinks but returns true for junctions.
-            // Bazel treats junctions like symlinks. So let's return false here for junctions.
-            // This fixes https://github.com/bazelbuild/bazel/issues/9176
-            return !isSymbolicLink() && attributes.isOther();
+            return metadata.isDevice();
           }
 
           @Override
           public boolean isDirectory() {
-            return !isSymbolicLink() && attributes.isDirectory();
+            return !metadata.isReparsePoint() && metadata.isDirectory();
           }
 
           @Override
           public boolean isSymbolicLink() {
-            if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(nioPath);
-            }
-            return isSymbolicLink;
+            // Bazel treats both symlinks and junctions as symbolic links.
+            return metadata.isReparsePoint();
           }
 
           @Override
           public long getSize() {
-            return attributes.size();
+            return metadata.size();
           }
 
           @Override
           public long getLastModifiedTimeNanos() {
-            return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
+            return metadata.lastModifiedTimeNanos();
           }
 
           @Override
-          public long getLastChangeTimeNanos() throws IOException {
-            if (lastChangeTimeNanos == -1) {
-              lastChangeTimeNanos =
-                  WindowsFileOperations.getLastChangeTimeNanos(nioPath.toString(), followSymlinks);
-            }
-            return lastChangeTimeNanos;
+          public long getLastChangeTimeNanos() {
+            return metadata.lastChangeTimeNanos();
           }
 
           @Override
@@ -225,7 +239,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           @Override
           public int getPermissions() {
             // Files on Windows are implicitly readable and executable.
-            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
+            return 0555 | (metadata.isReadOnly() ? 0 : 0200);
           }
         };
 
@@ -300,10 +314,5 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @VisibleForTesting
   static boolean isSymlinkOrJunction(Path file) throws IOException {
     return WindowsFileOperations.isSymlinkOrJunction(file.toString());
-  }
-
-  private static DosFileAttributes getAttribs(Path file, boolean followSymlinks)
-      throws IOException {
-    return Files.readAttributes(file, DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 }

@@ -138,6 +138,9 @@ struct ReadSymlinkOrJunctionResult {
 // see http://superuser.com/a/343079. In Bazel we only ever create junctions.
 int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error);
 
+// Converts a FILETIME value to nanoseconds since the Unix epoch.
+int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime);
+
 // Retrieves the time at which `path` was last changed, including metadata, in
 // nanoseconds since the Unix epoch.
 //

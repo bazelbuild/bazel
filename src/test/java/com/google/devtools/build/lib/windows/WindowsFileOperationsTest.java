@@ -212,4 +212,27 @@ public class WindowsFileOperationsTest {
     assertThat(WindowsFileOperations.isSymlinkOrJunction(longPath)).isFalse();
     assertThat(WindowsFileOperations.isSymlinkOrJunction(shortPath)).isFalse();
   }
+
+  @Test
+  public void testStatIfFoundReturnsNullForMissingFile() throws Exception {
+    testUtil.scratchDir("");
+    String path = scratchRoot + "\\no_such_file";
+
+    assertThat(WindowsFileOperations.statIfFound(path, /* followReparsePoints= */ false)).isNull();
+    assertThat(WindowsFileOperations.statIfFound(path, /* followReparsePoints= */ true)).isNull();
+  }
+
+  @Test
+  public void testStatIfFoundReportsFailureOtherThanMissingFile() throws Exception {
+    // "<" is invalid in a file name, so the native call fails with an error other than "not
+    // found", which must not be reported as a missing file.
+    testUtil.scratchDir("");
+    String path = scratchRoot + "\\in<valid";
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> WindowsFileOperations.statIfFound(path, /* followReparsePoints= */ true));
+    assertThat(e).isNotInstanceOf(FileNotFoundException.class);
+  }
 }

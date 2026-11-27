@@ -26,6 +26,7 @@
 #include "src/main/native/jni.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/jni-util.h"
+#include "src/main/native/windows/stat.h"
 #include "src/main/native/windows/util.h"
 
 static bool CanReportError(JNIEnv* env, jobjectArray error_msg_holder) {
@@ -159,6 +160,36 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeDeletePat
         env, error_msg_holder);
   }
   return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeStat(
+    JNIEnv* env, jclass clazz, jstring path, jboolean follow_reparse_points,
+    jlongArray result_holder, jobjectArray error_msg_holder) {
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  bazel::windows::FileMetadata metadata;
+  std::wstring error;
+  int result =
+      bazel::windows::Stat(wpath, follow_reparse_points, metadata, error);
+  if (result == bazel::windows::StatResult::kSuccess) {
+    // Keep the layout in sync with WindowsFileOperations#statIfFound.
+    jlong values[bazel::windows::kStatResultLength] = {
+        static_cast<jlong>(metadata.attributes),
+        static_cast<jlong>(metadata.size),
+        bazel::windows::WindowsFileTimeToUnixNanos(metadata.last_write_time),
+        bazel::windows::WindowsFileTimeToUnixNanos(metadata.change_time),
+    };
+    env->SetLongArrayRegion(result_holder, 0, bazel::windows::kStatResultLength,
+                            values);
+  } else {
+    if (!error.empty() && CanReportError(env, error_msg_holder)) {
+      ReportLastError(
+          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                           L"nativeStat", wpath, error),
+          env, error_msg_holder);
+    }
+  }
+  return static_cast<jint>(result);
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
