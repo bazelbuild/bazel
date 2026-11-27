@@ -275,7 +275,7 @@ abstract class FileTransport implements BuildEventTransport {
     checkNotNull(event);
 
     ListenableFuture<PathConverter> converterFuture =
-        uploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
+        uploader.uploadReferencedLocalFiles(event.referencedLocalFiles(options));
     ListenableFuture<?> remoteUploads =
         uploader.waitForRemoteUploads(event.remoteUploads(), timeoutExecutor);
     return Futures.transform(

@@ -221,7 +221,8 @@ public final class BuildEventServiceUploader implements Runnable {
     // This needs to happen outside a synchronized block as it may trigger
     // stdout/stderr and lead to a deadlock. See b/109725432
     ListenableFuture<PathConverter> localFileUploadFuture =
-        buildEventUploader.uploadReferencedLocalFiles(event.referencedLocalFiles());
+        buildEventUploader.uploadReferencedLocalFiles(
+            event.referencedLocalFiles(buildEventProtocolOptions));
 
     // The generation of the sequence number and the addition to the {@link #commandQueue} should be
     // atomic since BES expects the events in that exact order.

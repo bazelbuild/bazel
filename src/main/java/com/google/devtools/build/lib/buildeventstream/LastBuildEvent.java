@@ -42,6 +42,11 @@ public class LastBuildEvent implements BuildEvent {
   }
 
   @Override
+  public Collection<LocalFile> referencedLocalFiles(BuildEventProtocolOptions options) {
+    return event.referencedLocalFiles(options);
+  }
+
+  @Override
   public Collection<ListenableFuture<String>> remoteUploads() {
     return event.remoteUploads();
   }

@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -156,6 +158,19 @@ public final class AspectCompleteEvent
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.of();
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The representation of this event names the files of an output group itself only where the
+   * group is reported inline. A transport has to be told of those files, or it cannot give their
+   * locations.
+   */
+  @Override
+  public ImmutableList<LocalFile> referencedLocalFiles(BuildEventProtocolOptions options) {
+    return TargetCompleteEvent.localFilesReportedInline(
+        artifactOutputGroups, completionContext, options);
   }
 
   @Override
