@@ -40,14 +40,18 @@ import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCo
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand;
 import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -196,6 +200,78 @@ public class BlazeRuntimeTest {
                     /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success())
                 .getResponseExtensions())
         .containsExactly(anyFoo, anyBar);
+  }
+
+  /** A module whose {@code afterCommand} fails the way a BES upload failure does. */
+  private static final class FailingAfterCommandModule extends BlazeModule {
+    private static final DetailedExitCode EXIT_CODE =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("The Build Event Protocol upload timed out.")
+                .setBuildProgress(
+                    BuildProgress.newBuilder().setCode(BuildProgress.Code.BES_UPLOAD_TIMEOUT_ERROR))
+                .build());
+
+    @Override
+    public void afterCommand() throws AbruptExitException {
+      throw new AbruptExitException(EXIT_CODE);
+    }
+  }
+
+  private static final DetailedExitCode TESTS_FAILED =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage("tests failed")
+              .setTestCommand(TestCommand.newBuilder().setCode(TestCommand.Code.TESTS_FAILED))
+              .build());
+
+  @Test
+  public void afterCommandModuleFailure_successfulCommand_usesModuleExitCode() throws Exception {
+    BlazeRuntime runtime =
+        createRuntime(ImmutableList.of(new FailingAfterCommandModule()), ImmutableList.of());
+    CommandEnvironment env = createCommandEnvironment(runtime);
+
+    BlazeCommandResult result =
+        runtime.afterCommand(
+            /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success());
+
+    assertThat(result.getDetailedExitCode()).isEqualTo(FailingAfterCommandModule.EXIT_CODE);
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR);
+  }
+
+  @Test
+  public void afterCommandModuleFailure_failedCommand_keepsCommandExitCode() throws Exception {
+    BlazeRuntime runtime =
+        createRuntime(ImmutableList.of(new FailingAfterCommandModule()), ImmutableList.of());
+    CommandEnvironment env = createCommandEnvironment(runtime);
+
+    BlazeCommandResult result =
+        runtime.afterCommand(
+            /* forceKeepStateForTesting= */ false,
+            env,
+            BlazeCommandResult.detailedExitCode(TESTS_FAILED));
+
+    assertThat(result.getDetailedExitCode()).isEqualTo(TESTS_FAILED);
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.TESTS_FAILED);
+  }
+
+  @Test
+  public void afterCommandModuleFailure_infrastructureFailure_keepsCommandExitCode()
+      throws Exception {
+    BlazeRuntime runtime =
+        createRuntime(ImmutableList.of(new FailingAfterCommandModule()), ImmutableList.of());
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    DetailedExitCode oom =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setCrash(Crash.newBuilder().setCode(Code.CRASH_OOM))
+                .build());
+
+    BlazeCommandResult result =
+        runtime.afterCommand(
+            /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.detailedExitCode(oom));
+
+    assertThat(result.getDetailedExitCode()).isEqualTo(oom);
   }
 
   @Test
