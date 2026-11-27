@@ -110,6 +110,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private static final UUID GUID = UUID.fromString("5ab0ac92-9cd5-4d8a-ae69-efde245bef88");
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
+  private static final int MAX_INLINE_RECORDED_INPUT_BYTES = 4096;
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
   private static final Splitter SPLIT_ON_NEWLINE = Splitter.on('\n').omitEmptyStrings();
 
@@ -459,22 +460,32 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           // cache entry is an acceptable trade-off for simplicity.
           var newInputsString = newInputString + '\n' + currentInputsString;
           var stdoutBytes = getInternalStringBytes(newInputsString);
-          var stdoutDigest = cache.digestUtil().compute(stdoutBytes);
-          var actionResult =
-              ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
+          var actionResult = ActionResult.newBuilder().setExitCode(0);
+          ListenableFuture<Void> stdoutUpload;
+          if (stdoutBytes.length <= MAX_INLINE_RECORDED_INPUT_BYTES) {
+            // Readers need these inputs immediately. Keep small lists in the action result so
+            // caches that do not honor the inline_stdout request can return them in one read.
+            actionResult.setStdoutRaw(ByteString.copyFrom(stdoutBytes));
+            stdoutUpload = immediateFuture(null);
+          } else {
+            var stdoutDigest = cache.digestUtil().compute(stdoutBytes);
+            actionResult.setStdoutDigest(stdoutDigest);
+            stdoutUpload =
+                cache.uploadBlob(
+                    context,
+                    stdoutDigest,
+                    (Blob) ByteString.copyFrom(stdoutBytes)::newInput,
+                    /* force= */ false);
+          }
           return whenAllSucceed(
                   cache.uploadBlob(
                       context,
                       actionKey.digest(),
                       (Blob) action.toByteString()::newInput,
                       /* force= */ false),
-                  cache.uploadBlob(
-                      context,
-                      stdoutDigest,
-                      (Blob) ByteString.copyFrom(stdoutBytes)::newInput,
-                      /* force= */ false))
+                  stdoutUpload)
               .callAsync(
-                  () -> cache.uploadActionResult(context, actionKey, actionResult),
+                  () -> cache.uploadActionResult(context, actionKey, actionResult.build()),
                   directExecutor());
         },
         directExecutor());
