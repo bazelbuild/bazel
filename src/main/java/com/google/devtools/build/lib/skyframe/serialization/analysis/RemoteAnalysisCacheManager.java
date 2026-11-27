@@ -71,7 +71,7 @@ public class RemoteAnalysisCacheManager implements SkycacheCoordinator {
    */
   public record AnalysisDeps(
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider readerDeps,
+      SkycacheReaderDepsProvider readerDeps,
       SkycacheWriterDepsProvider writerDeps) {}
 
   public static RemoteAnalysisCacheManager createDisabled() {

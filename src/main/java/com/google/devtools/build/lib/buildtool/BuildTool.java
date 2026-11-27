@@ -108,10 +108,10 @@ import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataPara
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheWriterDepsProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -247,7 +247,7 @@ public class BuildTool {
     }
 
     SkycacheCoordinator skycacheCoordinator = null;
-    RemoteAnalysisCacheReaderDepsProvider readerDeps = null;
+    SkycacheReaderDepsProvider readerDeps = null;
     SkycacheWriterDepsProvider writerDeps = null;
     boolean catastrophe = false;
     try {
@@ -611,7 +611,7 @@ public class BuildTool {
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider readerDeps,
+      SkycacheReaderDepsProvider readerDeps,
       String actionExecutionSalt)
       throws BuildFailedException,
           ViewCreationFailedException,
@@ -713,7 +713,7 @@ public class BuildTool {
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider readerDeps,
+      SkycacheReaderDepsProvider readerDeps,
       String actionExecutionSalt)
       throws InterruptedException,
           AbruptExitException,
@@ -1201,7 +1201,7 @@ public class BuildTool {
     env.getRemoteAnalysisCachingEventListener().recordPeers(servicesSupplier.getPeers());
   }
 
-  private void reportOnlyBailOutReason(RemoteAnalysisCacheReaderDepsProvider readerDeps)
+  private void reportOnlyBailOutReason(SkycacheReaderDepsProvider readerDeps)
       throws InterruptedException {
     RemoteAnalysisCacheClient remoteAnalysisCacheClient = readerDeps.getAnalysisCacheClient();
     if (remoteAnalysisCacheClient == null) {
@@ -1223,7 +1223,7 @@ public class BuildTool {
    *       downloading the frontier Skyframe values during analysis.
    * </ol>
    */
-  private void logAnalysisCachingStats(RemoteAnalysisCacheReaderDepsProvider dependenciesProvider)
+  private void logAnalysisCachingStats(SkycacheReaderDepsProvider dependenciesProvider)
       throws InterruptedException {
     if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
       return;

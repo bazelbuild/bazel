@@ -225,10 +225,10 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServerState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
@@ -512,8 +512,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private SkycacheCoordinator skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
 
   @Nullable
-  private RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider =
-      SkycacheDeps.createDisabled();
+  private SkycacheReaderDepsProvider skycacheReaderDepsProvider = SkycacheDeps.createDisabled();
 
   /**
    * The state of the remote analysis caching.
@@ -547,8 +546,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return skycacheCoordinator;
   }
 
-  public RemoteAnalysisCacheReaderDepsProvider getRemoteAnalysisCacheReaderDepsProvider() {
-    return remoteAnalysisCacheReaderDepsProvider;
+  public SkycacheReaderDepsProvider getSkycacheReaderDepsProvider() {
+    return skycacheReaderDepsProvider;
   }
 
   /** Represents the baseline target and exec configurations. */
@@ -570,9 +569,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public void setSkycacheDeps(
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider) {
+      SkycacheReaderDepsProvider skycacheReaderDepsProvider) {
     this.skycacheCoordinator = skycacheCoordinator;
-    this.remoteAnalysisCacheReaderDepsProvider = remoteAnalysisCacheReaderDepsProvider;
+    this.skycacheReaderDepsProvider = skycacheReaderDepsProvider;
   }
 
   public RemoteAnalysisCachingServerState getRemoteAnalysisCachingState() {
@@ -803,7 +802,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
     this.actionRewindStrategy =
         new ActionRewindStrategy(
-            skyframeActionExecutor, bugReporter, this::getRemoteAnalysisCacheReaderDepsProvider);
+            skyframeActionExecutor, bugReporter, this::getSkycacheReaderDepsProvider);
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
 
@@ -894,7 +893,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldUnblockCpuWorkWhenFetchingDeps,
             analysisProgress,
             this::getExistingPackage,
-            this::getRemoteAnalysisCacheReaderDepsProvider));
+            this::getSkycacheReaderDepsProvider));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -903,7 +902,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
             new BaseTargetPrerequisitesSupplierImpl(),
-            this::getRemoteAnalysisCacheReaderDepsProvider,
+            this::getSkycacheReaderDepsProvider,
             analysisProgress));
     map.put(
         SkyFunctions.TOP_LEVEL_ASPECTS,
@@ -916,7 +915,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(GenQueryPackageProviderFactory.GENQUERY_SCOPE, GenQueryPackageProviderFactory.FUNCTION);
     map.put(
         SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING,
-        new ActionLookupConflictFindingFunction(this::getRemoteAnalysisCacheReaderDepsProvider));
+        new ActionLookupConflictFindingFunction(this::getSkycacheReaderDepsProvider));
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
         new TopLevelActionLookupConflictFindingFunction());
@@ -970,7 +969,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             sourceArtifactsSeen,
             syscallCache,
             skyframeActionExecutor,
-            this::getRemoteAnalysisCacheReaderDepsProvider));
+            this::getSkycacheReaderDepsProvider));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
@@ -1043,7 +1042,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
-        this::getRemoteAnalysisCacheReaderDepsProvider,
+        this::getSkycacheReaderDepsProvider,
         this::getConsumedArtifactsTracker);
   }
 
@@ -1102,7 +1101,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void noteCommandStart() {
     // Prevent stale Skycache configuration from persisting between builds.
     skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
-    remoteAnalysisCacheReaderDepsProvider = SkycacheDeps.createDisabled();
+    skycacheReaderDepsProvider = SkycacheDeps.createDisabled();
   }
 
   /**
@@ -1428,9 +1427,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // discard. See b/466388360.
     boolean partialDiscard =
         discardType.discardsAnalysis()
-            && remoteAnalysisCacheReaderDepsProvider.mode().isRetrievalEnabled()
+            && skycacheReaderDepsProvider.mode().isRetrievalEnabled()
             // On a clean build with no remote analysis cache hits, a full discard is safe.
-            && (analysisCount.get() > 1 || remoteAnalysisCacheReaderDepsProvider.sawCacheHit());
+            && (analysisCount.get() > 1 || skycacheReaderDepsProvider.sawCacheHit());
 
     getEventBus().post(new AboutToClearAnalysisCacheEvent());
 

@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.AnalysisValueWithMtsv;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheUploadClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -50,7 +50,7 @@ public final class SkyValueRetrieverUtils {
   public static RetrievalResult retrieveRemoteSkyValue(
       SkyKey key,
       Environment env,
-      RemoteAnalysisCacheReaderDepsProvider analysisCachingDeps,
+      SkycacheReaderDepsProvider analysisCachingDeps,
       Supplier<? extends SerializableSkyKeyComputeState> stateSupplier)
       throws InterruptedException {
     if (env.inErrorBubbling()) {
@@ -122,7 +122,7 @@ public final class SkyValueRetrieverUtils {
       SkyKey key,
       RetrievalResult retrievalResult,
       Environment env,
-      RemoteAnalysisCacheReaderDepsProvider analysisCachingDeps) {
+      SkycacheReaderDepsProvider analysisCachingDeps) {
     if (!(key instanceof ActionLookupKey)
         || !(retrievalResult instanceof RetrievedValue(SkyValue value))) {
       return retrievalResult;
@@ -142,10 +142,7 @@ public final class SkyValueRetrieverUtils {
   }
 
   public static void tryUploadAsync(
-      RemoteAnalysisCacheReaderDepsProvider cachingDeps,
-      SkyKey key,
-      SkyValue value,
-      Environment env)
+      SkycacheReaderDepsProvider cachingDeps, SkyKey key, SkyValue value, Environment env)
       throws InterruptedException {
     if (!cachingDeps.mode().isAsyncUpload()) {
       return;

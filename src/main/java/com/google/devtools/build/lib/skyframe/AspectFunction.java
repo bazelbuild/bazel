@@ -91,7 +91,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -168,7 +168,7 @@ final class AspectFunction implements SkyFunction {
    */
   private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
-  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
+  private final Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier;
   private final AnalysisProgressReceiver analysisProgressReceiver;
 
   AspectFunction(
@@ -177,7 +177,7 @@ final class AspectFunction implements SkyFunction {
       boolean storeTransitivePackages,
       PrerequisitePackageFunction prerequisitePackages,
       BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
-      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier,
+      Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier,
       AnalysisProgressReceiver analysisProgressReceiver) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
@@ -256,8 +256,7 @@ final class AspectFunction implements SkyFunction {
     java.util.function.Supplier<State> stateSupplier =
         () -> new State(storeTransitivePackages, prerequisitePackages);
 
-    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
-        cachingDependenciesSupplier.get();
+    SkycacheReaderDepsProvider remoteCachingDependencies = cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
         case SkyValueRetriever.Restart unused:

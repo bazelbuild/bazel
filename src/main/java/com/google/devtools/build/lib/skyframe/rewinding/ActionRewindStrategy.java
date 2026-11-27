@@ -66,7 +66,7 @@ import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEve
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.FallbackToBuildRewindingException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.GenericActionRewindException;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -109,12 +109,12 @@ public final class ActionRewindStrategy {
       Collections.synchronizedList(new ArrayList<>(MAX_ACTION_REWIND_EVENTS));
   private final AtomicInteger rewindEventSampleCounter = new AtomicInteger();
 
-  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
+  private final Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier;
 
   public ActionRewindStrategy(
       SkyframeActionExecutor skyframeActionExecutor,
       BugReporter bugReporter,
-      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
+      Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier) {
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
     this.bugReporter = checkNotNull(bugReporter);
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;

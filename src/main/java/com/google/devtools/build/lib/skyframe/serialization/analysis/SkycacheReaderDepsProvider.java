@@ -22,14 +22,25 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
-/** Functionality needed to retrieve values from the remote cache. */
-public interface RemoteAnalysisCacheReaderDepsProvider extends SkycacheCommonDepsProvider {
+/**
+ * Functionality needed to retrieve values from the remote cache.
+ *
+ * <p>Note: async upload currently still flows through this interface via {@link
+ * #getSkycacheUploadClient()} and will be moved to {@link SkycacheWriterDepsProvider}
+ * (b/591051118).
+ */
+public interface SkycacheReaderDepsProvider extends SkycacheCommonDepsProvider {
   @Nullable
   RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException;
 
   @Nullable
   SkyValueRetriever getSkyValueRetriever() throws InterruptedException;
 
+  /**
+   * Returns the client used for async Skycache uploads.
+   *
+   * <p>TODO(b/591051118): Move async upload to {@link SkycacheWriterDepsProvider}.
+   */
   @Nullable
   SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException;
 

@@ -53,11 +53,10 @@ import javax.annotation.Nullable;
  * Implementation of remote analysis cache functionality that is needed for reading and writing.
  *
  * <p>This single concrete class currently backs both the reader ({@link
- * RemoteAnalysisCacheReaderDepsProvider}) and writer ({@link SkycacheWriterDepsProvider}) views.
- * Build-level lifecycle coordination lives in {@link RemoteAnalysisCacheManager}.
+ * SkycacheReaderDepsProvider}) and writer ({@link SkycacheWriterDepsProvider}) views. Build-level
+ * lifecycle coordination lives in {@link RemoteAnalysisCacheManager}.
  */
-public class SkycacheDeps
-    implements SkycacheWriterDepsProvider, RemoteAnalysisCacheReaderDepsProvider {
+public class SkycacheDeps implements SkycacheWriterDepsProvider, SkycacheReaderDepsProvider {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final long CLIENT_LOOKUP_TIMEOUT_SEC = 20L;

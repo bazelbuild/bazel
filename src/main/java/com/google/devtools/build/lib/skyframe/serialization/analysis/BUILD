@@ -96,8 +96,8 @@ java_library(
 )
 
 java_library(
-    name = "dependencies_provider",
-    srcs = ["RemoteAnalysisCacheReaderDepsProvider.java"],
+    name = "skycache_reader_deps_provider",
+    srcs = ["SkycacheReaderDepsProvider.java"],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
         "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
@@ -712,7 +712,6 @@ java_library(
     deps = [
         ":analysis_cache_invalidator",
         ":default_platform_configuration_provider",
-        ":dependencies_provider",
         ":frontier_serializer",
         ":lookup_result",
         ":remote_analysis_cache_client",
@@ -721,6 +720,7 @@ java_library(
         ":skycache_coordinator",
         ":skycache_deps",
         ":skycache_metadata_query_result_event",
+        ":skycache_reader_deps_provider",
         ":skycache_writer_deps_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -832,7 +832,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
     ],
     deps = [
-        ":dependencies_provider",
         ":event_listener",
         ":file_op_node_map",
         ":frontier_serializer",
@@ -841,6 +840,7 @@ java_library(
         ":remote_analysis_caching_services_supplier",
         ":remote_analysis_metadata_writer",
         ":skycache_channel_state_advisor",
+        ":skycache_reader_deps_provider",
         ":skycache_writer_deps_provider",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",

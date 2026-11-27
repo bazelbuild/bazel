@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -63,8 +63,7 @@ public final class ActionLookupConflictFindingFunctionTest {
 
   @Test
   public void compute_missingValue_isRetrievalEnabled_noBugReport() throws Exception {
-    RemoteAnalysisCacheReaderDepsProvider provider =
-        mock(RemoteAnalysisCacheReaderDepsProvider.class);
+    SkycacheReaderDepsProvider provider = mock(SkycacheReaderDepsProvider.class);
     when(provider.mode()).thenReturn(RemoteAnalysisCacheMode.DOWNLOAD);
 
     ActionLookupConflictFindingFunction function =
@@ -88,8 +87,7 @@ public final class ActionLookupConflictFindingFunctionTest {
 
   @Test
   public void compute_missingValue_isRetrievalDisabled_bugReport() throws Exception {
-    RemoteAnalysisCacheReaderDepsProvider provider =
-        mock(RemoteAnalysisCacheReaderDepsProvider.class);
+    SkycacheReaderDepsProvider provider = mock(SkycacheReaderDepsProvider.class);
     when(provider.mode()).thenReturn(RemoteAnalysisCacheMode.OFF);
 
     ActionLookupConflictFindingFunction function =

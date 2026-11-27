@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -138,7 +138,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
-  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
+  private final Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier;
 
   /**
    * Packages of prerequisites.
@@ -161,7 +161,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable AnalysisProgressReceiver analysisProgress,
       PrerequisitePackageFunction prerequisitePackages,
-      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
+      Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -257,8 +257,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               /* postFetch= */ () -> maybeAcquireSemaphoreWithLogging(key));
     }
 
-    RemoteAnalysisCacheReaderDepsProvider remoteCachingDependencies =
-        cachingDependenciesSupplier.get();
+    SkycacheReaderDepsProvider remoteCachingDependencies = cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.mode().isRetrievalEnabled()) {
       switch (retrieveRemoteSkyValue(
           configuredTargetKey, env, remoteCachingDependencies, stateSupplier)) {

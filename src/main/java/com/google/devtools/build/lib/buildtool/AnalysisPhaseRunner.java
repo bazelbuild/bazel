@@ -70,8 +70,8 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -96,7 +96,7 @@ public final class AnalysisPhaseRunner {
       TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptions,
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
+      SkycacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -295,7 +295,7 @@ public final class AnalysisPhaseRunner {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
+      SkycacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
       throws InterruptedException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException,

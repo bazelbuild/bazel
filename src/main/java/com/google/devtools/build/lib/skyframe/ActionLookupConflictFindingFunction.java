@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,10 +38,10 @@ import javax.annotation.Nullable;
 
 /** Check all transitive actions of an {@link ActionLookupValue} for action conflicts. */
 public class ActionLookupConflictFindingFunction implements SkyFunction {
-  private final Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier;
+  private final Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier;
 
   public ActionLookupConflictFindingFunction(
-      Supplier<RemoteAnalysisCacheReaderDepsProvider> cachingDependenciesSupplier) {
+      Supplier<SkycacheReaderDepsProvider> cachingDependenciesSupplier) {
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
 

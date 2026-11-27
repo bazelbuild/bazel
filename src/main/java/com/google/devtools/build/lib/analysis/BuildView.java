@@ -97,10 +97,10 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SettablePlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheCoordinator;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheDeps;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -246,7 +246,7 @@ public class BuildView {
       @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
       Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent,
       SkycacheCoordinator skycacheCoordinator,
-      RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDeps)
+      SkycacheReaderDepsProvider readerDeps)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -284,7 +284,7 @@ public class BuildView {
       if (skycacheCoordinator.mode() != RemoteAnalysisCacheMode.OFF
           && skycacheCoordinator.bailedOut()) {
         skycacheCoordinator = RemoteAnalysisCacheManager.createDisabled();
-        remoteAnalysisCacheReaderDeps = SkycacheDeps.createDisabled();
+        readerDeps = SkycacheDeps.createDisabled();
       } else {
         eventBus.post(new RemoteAnalysisCachingEnabledEvent());
       }
@@ -316,7 +316,7 @@ public class BuildView {
 
       // Set up remote analysis caching and invalidate stale deserialized nodes before creating the
       // top-level configuration, because configuration creation can read cached platform targets.
-      skyframeExecutor.setSkycacheDeps(skycacheCoordinator, remoteAnalysisCacheReaderDeps);
+      skyframeExecutor.setSkycacheDeps(skycacheCoordinator, readerDeps);
       skyframeExecutor.invalidateWithExternalService(eventHandler);
 
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
