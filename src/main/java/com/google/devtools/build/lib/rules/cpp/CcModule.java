@@ -72,18 +72,6 @@ public abstract class CcModule
     }
   }
 
-  // TODO(blaze-team): duplicate with the getExecutionRequirements below
-  @Override
-  public Sequence<String> getToolRequirementForAction(
-      FeatureConfigurationForStarlark featureConfiguration,
-      String actionName,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return StarlarkList.immutableCopyOf(
-        featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
-  }
-
   @Override
   public Sequence<String> getExecutionRequirements(
       FeatureConfigurationForStarlark featureConfiguration,

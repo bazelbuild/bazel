@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
+import static com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.MAX_FILENAME_LENGTH;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.actionConfigFromStarlark;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.artifactNamePatternFromStarlark;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.envEntryFromStarlark;
@@ -28,7 +29,6 @@ import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.too
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.toolPathFromStarlark;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.variableWithValueFromStarlark;
 import static com.google.devtools.build.lib.rules.cpp.CcToolchainFeaturesLib.withFeatureSetFromStarlark;
-import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
