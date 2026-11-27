@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -124,14 +125,15 @@ public final class StarlarkExecTransitionLoader {
   }
 
   /** A marker class to distinguish the exec transition from other starlark transitions. */
+  @AutoCodec
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
     /** The details of the source configuration's Starlark flags. */
     private final StarlarkBuildSettingsDetailsValue scopeDetails;
 
     StarlarkExecTransitionProvider(
-        StarlarkDefinedConfigTransition execTransition,
+        StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
         StarlarkBuildSettingsDetailsValue scopeDetails) {
-      super(execTransition);
+      super(starlarkDefinedConfigTransition);
       this.scopeDetails = scopeDetails;
     }
 
