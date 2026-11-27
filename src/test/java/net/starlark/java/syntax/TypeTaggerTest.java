@@ -868,6 +868,66 @@ public class TypeTaggerTest {
   }
 
   @Test
+  public void loadStatement_typesReferencesInFunctions() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of("x", Types.INT);
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "x")
+            def f():
+                return x
+            def g():
+                def h():
+                    return x
+            """);
+    var f = (DefStatement) result.file().getStatements().get(1);
+    var g = (DefStatement) result.file().getStatements().get(2);
+    var h = getFirstStatement(DefStatement.class, g);
+
+    assertThat(result.getType((Identifier) getFirstStatement(ReturnStatement.class, f).getResult()))
+        .isEqualTo(Types.INT);
+    assertThat(result.getType((Identifier) getFirstStatement(ReturnStatement.class, h).getResult()))
+        .isEqualTo(Types.INT);
+  }
+
+  @Test
+  public void loadStatement_loadsTypeConstructor_usableInFunctions() throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    Result result =
+        tagFile(
+            """
+            load("//x:x.bzl", "numeric")
+            def f():
+                x: numeric = 1
+            """);
+    var f = (DefStatement) result.file().getStatements().get(1);
+    var assignment = getFirstStatement(AssignmentStatement.class, f);
+
+    assertThat(result.getType((Identifier) assignment.getLHS())).isEqualTo(Types.NUMERIC);
+  }
+
+  @Test
+  public void loadedTypeConstructor_shadowedByEnclosingFunctionLocal_cannotBeUsedAsType()
+      throws Exception {
+    loader =
+        importName ->
+            TestUtils.LoadableModule.ofTypesAndConstructors(
+                "numeric", Types.ANY, Types.wrapType("numeric", Types.NUMERIC));
+    assertInvalid(
+        ":5:12: local symbol 'numeric' cannot be used as a type",
+        """
+        load("//x:x.bzl", "numeric")
+        def f():
+            numeric = 1
+            def g():
+                x: numeric = 1
+        """);
+  }
+
+  @Test
   public void loadedTypeConstructor_cannotBeRebound_inTypedCode() throws Exception {
     loader =
         importName ->
