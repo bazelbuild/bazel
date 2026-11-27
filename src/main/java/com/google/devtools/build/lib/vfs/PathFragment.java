@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
@@ -532,6 +533,36 @@ public abstract sealed class PathFragment
   @Override
   public int compareTo(PathFragment o) {
     return this.normalizedPath.compareTo(o.normalizedPath);
+  }
+
+  /**
+   * Compares the path strings of this and {@code other} in the same way as {@link
+   * String#CASE_INSENSITIVE_ORDER} compares their {@linkplain StringEncoding#internalToUnicode
+   * Unicode} representations.
+   *
+   * <p>This operation does not allocate if both path strings are ASCII.
+   */
+  public int compareToIgnoringCase(PathFragment other) {
+    byte[] b1 = StringUnsafe.getInternalStringBytes(normalizedPath);
+    byte[] b2 = StringUnsafe.getInternalStringBytes(other.normalizedPath);
+    int n = Math.min(b1.length, b2.length);
+    for (int i = 0; i < n; i++) {
+      byte c1 = b1[i];
+      byte c2 = b2[i];
+      if (c1 < 0 || c2 < 0) {
+        // Non-ASCII characters require decoding.
+        return String.CASE_INSENSITIVE_ORDER.compare(
+            internalToUnicode(normalizedPath), internalToUnicode(other.normalizedPath));
+      }
+      if (c1 != c2) {
+        char lower1 = Ascii.toLowerCase((char) c1);
+        char lower2 = Ascii.toLowerCase((char) c2);
+        if (lower1 != lower2) {
+          return lower1 - lower2;
+        }
+      }
+    }
+    return b1.length - b2.length;
   }
 
   ////////////////////////////////////////////////////////////////////////

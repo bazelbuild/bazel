@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static java.util.Comparator.comparing;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
@@ -29,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -79,11 +76,7 @@ public class ArtifactFactory implements ArtifactResolver {
      * may perform poorly if there are many artifacts with case-insensitively equivalent paths.
      */
     private final ConcurrentMap<PathFragment, Object /* Entry | CopyOnWriteArrayList<Entry> */>
-        pathToSourceArtifact =
-            new ConcurrentSkipListMap<>(
-                comparing(
-                    pathFragment -> StringEncoding.internalToUnicode(pathFragment.getPathString()),
-                    String.CASE_INSENSITIVE_ORDER));
+        pathToSourceArtifact = new ConcurrentSkipListMap<>(PathFragment::compareToIgnoringCase);
 
     /** Id of current build. Has to be increased every time before analysis starts. */
     private int buildId = -1;
