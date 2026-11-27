@@ -39,6 +39,10 @@ public interface LazyMaterializer {
   void ensureMaterialized(RepositoryName repo, @Nullable String requester)
       throws IOException, InterruptedException;
 
+  /** Returns the download error for a file backed by the overlay, or null for other paths. */
+  @Nullable
+  IOException getRepoDownloadError(PathFragment path, IOException cause);
+
   /**
    * Materializes the subtree rooted at the given path to the local file system if its contents are
    * currently only available in memory, together with the targets of any symlinks below it.

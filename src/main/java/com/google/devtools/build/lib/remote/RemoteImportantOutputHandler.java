@@ -94,6 +94,10 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       ensureToplevelArtifacts(importantOutputs, metadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {
+        var eviction = bulkTransferException.getLostRepoFile();
+        if (eviction != null) {
+          throw new ImportantOutputException(e, eviction.getDetailedExitCode().getFailureDetail());
+        }
         var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider::getInput);
         if (!lostArtifacts.isEmpty()) {
           return lostArtifacts;
