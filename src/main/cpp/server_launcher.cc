@@ -322,6 +322,11 @@ vector<string> GetServerExeArgs(const blaze_util::Path& jvm_path,
   } else {
     result.push_back("--nowindows_enable_symlinks");
   }
+  if (startup_options.windows_enable_directory_symlinks) {
+    result.push_back("--windows_enable_directory_symlinks");
+  } else {
+    result.push_back("--nowindows_enable_directory_symlinks");
+  }
   if (startup_options.delete_output_base_on_shutdown) {
     result.push_back("--delete_output_base_on_shutdown");
   } else {

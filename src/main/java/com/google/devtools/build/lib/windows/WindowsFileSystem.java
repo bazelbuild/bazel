@@ -41,10 +41,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
 
   private final boolean createSymbolicLinks;
+  private final boolean createDirectorySymbolicLinks;
 
-  public WindowsFileSystem(DigestHashFunction hashFunction, boolean createSymbolicLinks) {
+  public WindowsFileSystem(
+      DigestHashFunction hashFunction,
+      boolean createSymbolicLinks,
+      boolean createDirectorySymbolicLinks) {
     super(hashFunction);
     this.createSymbolicLinks = createSymbolicLinks;
+    this.createDirectorySymbolicLinks = createDirectorySymbolicLinks;
   }
 
   @Override
@@ -89,6 +94,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     FileStatus stat = statIfFound(targetPath, /* followSymlinks= */ true);
     boolean existingFile = stat != null && stat.isFile();
     boolean existingDirectory = stat != null && stat.isDirectory();
+    // Prefer the existing target's type over the hint for dangling links.
+    boolean directory = existingDirectory || (!existingFile && type == SymlinkTargetType.DIRECTORY);
 
     try {
       Path link = getNioPath(linkPath);
@@ -97,11 +104,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (!createSymbolicLinks && existingFile) {
         // If symlinks aren't enabled and the target is an existing file, fall back to a copy.
         Files.copy(target, link);
-      } else if (createSymbolicLinks
-          && (existingFile || (!existingDirectory && type != SymlinkTargetType.DIRECTORY))) {
-        // If symlinks are enabled and the target is not an existing or future directory, create a
-        // symlink.
-        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+      } else if (createSymbolicLinks && (!directory || createDirectorySymbolicLinks)) {
+        WindowsFileOperations.createSymlink(link.toString(), target.toString(), directory);
       } else {
         // Otherwise, create a junction.
         WindowsFileOperations.createJunction(link.toString(), target.toString());
@@ -279,23 +283,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   /**
-   * Returns true if the path refers to a directory junction, directory symlink, or regular symlink.
+   * Returns true if the path refers to a junction, directory symlink, or file symlink, even if its
+   * target does not exist.
    *
-   * <p>Directory junctions are symbolic links created with "mklink /J" where the target is a
-   * directory or another directory junction. Directory junctions can be created without any user
-   * privileges.
-   *
-   * <p>Directory symlinks are symbolic links created with "mklink /D" where the target is a
-   * directory or another directory symlink. Note that directory symlinks can only be created by
-   * Administrators.
-   *
-   * <p>Normal symlinks are symbolic links created with "mklink". Normal symlinks should not point
-   * at directories, because even though "mklink" can create the link, it will not be a functional
-   * one (the linked directory's contents cannot be listed). Only Administrators may create regular
-   * symlinks.
-   *
-   * <p>This method returns true for all three types as long as their target is a directory (even if
-   * they are dangling), though only directory junctions and directory symlinks are useful.
+   * <p>Junctions ("mklink /J") require no special privileges. Directory symlinks ("mklink /D") and
+   * file symlinks ("mklink") require Developer Mode or administrator privileges. The symlink type
+   * must match the target's type for the link to be usable.
    */
   @VisibleForTesting
   static boolean isSymlinkOrJunction(Path file) throws IOException {

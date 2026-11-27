@@ -506,10 +506,22 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If true, real symbolic links will be created on Windows instead of file copying. "
+          "If true, real symbolic links will be created for files on Windows instead of copying"
+              + " them. Directory symlinks also require --windows_enable_directory_symlinks. "
               + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
               + "greater.")
   public abstract boolean getEnableWindowsSymlinks();
+
+  @Option(
+      name = "windows_enable_directory_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, and --windows_enable_symlinks is also enabled, create directory symlinks on"
+              + " Windows instead of junctions. Existing links may be reused. Directory symlinks"
+              + " and junctions resolve nested relative symlinks differently.")
+  public abstract boolean getEnableWindowsDirectorySymlinks();
 
   @Option(
       name = "unix_digest_hash_attribute_name",

@@ -120,7 +120,10 @@ public final class Gc {
     // Note: the digest function is irrelevant, as the garbage collector scans the entire disk cache
     // and never computes digests.
     if (OS.getCurrent() == OS.WINDOWS) {
-      return new WindowsFileSystem(DigestHashFunction.SHA256, false);
+      return new WindowsFileSystem(
+          DigestHashFunction.SHA256,
+          /* createSymbolicLinks= */ false,
+          /* createDirectorySymbolicLinks= */ false);
     }
     return new UnixFileSystem(DigestHashFunction.SHA256, "");
   }

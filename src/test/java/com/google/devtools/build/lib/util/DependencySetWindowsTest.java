@@ -31,7 +31,10 @@ public class DependencySetWindowsTest {
 
   private final Scratch scratch = new Scratch();
   private final FileSystem fileSystem =
-      new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ false);
+      new WindowsFileSystem(
+          DigestHashFunction.SHA256,
+          /* createSymbolicLinks= */ false,
+          /* createDirectorySymbolicLinks= */ false);
   private final Path root = fileSystem.getPath("C:/");
 
   private DependencySet newDependencySet() {

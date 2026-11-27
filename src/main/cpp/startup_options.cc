@@ -111,6 +111,7 @@ StartupOptions::StartupOptions(const string& product_name,
       run_in_user_cgroup(false),
 #endif
       windows_enable_symlinks(false),
+      windows_enable_directory_symlinks(false),
       remote_repo_contents_cache(false),
       use_compact_object_headers_(false) {
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -152,6 +153,8 @@ StartupOptions::StartupOptions(const string& product_name,
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterNullaryStartupFlag("windows_enable_symlinks",
                              &windows_enable_symlinks);
+  RegisterNullaryStartupFlag("windows_enable_directory_symlinks",
+                             &windows_enable_directory_symlinks);
   RegisterNullaryStartupFlag("experimental_remote_repo_contents_cache",
                              &remote_repo_contents_cache);
   RegisterNullaryStartupFlag("experimental_use_compact_object_headers",

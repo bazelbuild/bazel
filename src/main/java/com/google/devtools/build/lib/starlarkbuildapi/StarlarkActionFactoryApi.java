@@ -294,7 +294,10 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "May only be used with <code>target_path</code>, not <code>target_file</code>. If"
                     + " specified, it must be one of 'file' or 'directory', indicating the target"
                     + " path's expected type.<p>On Windows, this determines which kind of"
-                    + " filesystem object to create (junction for a directory, symlink for a file)."
+                    + " symlink to create (directory or file). Unless both"
+                    + " <code>--windows_enable_symlinks</code> and"
+                    + " <code>--windows_enable_directory_symlinks</code> are enabled, directories"
+                    + " use junctions instead."
                     + " It has no effect on other operating systems."),
         @Param(
             name = "is_executable",
