@@ -66,42 +66,35 @@ class FirstTimeUseTest(test_base.TestBase):
         '    print("arg%d=(%s)" % (i, sys.argv[i]))',
     ])
 
-    if test_base.TestBase.IsWindows():
-      # "bazel run" needs no Bash on Windows, so this call should succeed.
-      exit_code, stdout, stderr = self.RunBazel(
-          [
-              'run',
-              '--shell_executable=',
-              '//foo:x',
-          ],
-          allow_failure=True,
-      )
-      self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr)
-    else:
-      exit_code, stdout, stderr = self.RunBazel(
-          [
-              'run',
-              # Run fails because we provide no shell. Platforms other than
-              # Windows always use Bash for "bazel run".
-              '--shell_executable=',
-              '//foo:x',
-          ],
-          allow_failure=True,
-      )
-      self.AssertNotExitCode(exit_code, 0, stderr)
-      found_error = False
-      for line in stdout + stderr:
-        if 'ERROR' in line and 'needs a shell' in line:
-          found_error = True
-          break
-      if not found_error:
-        self._FailWithOutput(stdout + stderr)
+    # "bazel run" needs no Bash for simple binaries on any platform.
+    exit_code, stdout, stderr = self.RunBazel(
+        [
+            'run',
+            '--shell_executable=',
+            '//foo:x',
+        ],
+        allow_failure=True,
+    )
+    self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr)
 
-      # Run succeeds because there is a shell.
-      exit_code, stdout, stderr = self.RunBazel(
-          ['run', '//foo:x'], allow_failure=True
-      )
-      self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr)
+    # Using --run_under still requires a shell executable.
+    exit_code, stdout, stderr = self.RunBazel(
+        [
+            'run',
+            '--shell_executable=',
+            '--run_under=echo',
+            '//foo:x',
+        ],
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    found_error = False
+    for line in stdout + stderr:
+      if 'ERROR' in line and 'needs a shell' in line:
+        found_error = True
+        break
+    if not found_error:
+      self._FailWithOutput(stdout + stderr)
 
 
 if __name__ == '__main__':

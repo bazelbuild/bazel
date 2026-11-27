@@ -118,11 +118,11 @@ class RunCommandLine {
   }
 
   boolean requiresShExecutable() {
-    return OS.getCurrent() != OS.WINDOWS || runUnderPrefix != null;
+    return runUnderPrefix != null;
   }
 
   /** Returns the command arguments including residue. */
-  ImmutableList<String> getArgs(String shExecutable) {
+  ImmutableList<String> getArgs(@Nullable String shExecutable) {
     return formatter()
         .formatArgv(
             shExecutable,
@@ -178,18 +178,20 @@ class RunCommandLine {
         @Nullable String shExecutable,
         @Nullable String runUnderPrefix,
         ImmutableList<String> args) {
-      Preconditions.checkArgument(shExecutable != null, "shExecutable must be non-null");
-      StringBuilder command = new StringBuilder();
       if (runUnderPrefix != null) {
+        Preconditions.checkArgument(
+            shExecutable != null, "shExecutable must be non-null when --run_under is used");
+        StringBuilder command = new StringBuilder();
         command.append(runUnderPrefix).append(" ");
-      }
-      for (int i = 0; i < args.size(); i++) {
-        if (i > 0) {
-          command.append(" ");
+        for (int i = 0; i < args.size(); i++) {
+          if (i > 0) {
+            command.append(" ");
+          }
+          command.append(ShellEscaper.escapeString(args.get(i)));
         }
-        command.append(ShellEscaper.escapeString(args.get(i)));
+        return ImmutableList.of(shExecutable, "-c", command.toString());
       }
-      return ImmutableList.of(shExecutable, "-c", command.toString());
+      return args;
     }
 
     @Override

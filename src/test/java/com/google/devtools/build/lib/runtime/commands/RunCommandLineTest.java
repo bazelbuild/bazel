@@ -28,7 +28,31 @@ import org.junit.runners.JUnit4;
 public final class RunCommandLineTest {
 
   @Test
-  public void linuxFormatter_formatArgv_requiresShExecutable() {
+  public void requiresShExecutable_onlyWhenRunUnderPrefixIsSet() {
+    RunCommandLine withoutRunUnder =
+        new RunCommandLine.Builder(
+                ImmutableSortedMap.of(),
+                ImmutableSortedSet.of(),
+                /* workingDir= */ null,
+                /* isTestTarget= */ false)
+            .addArg("executable")
+            .build();
+    assertThat(withoutRunUnder.requiresShExecutable()).isFalse();
+
+    RunCommandLine withRunUnder =
+        new RunCommandLine.Builder(
+                ImmutableSortedMap.of(),
+                ImmutableSortedSet.of(),
+                /* workingDir= */ null,
+                /* isTestTarget= */ false)
+            .setRunUnderPrefix("echo hello &&")
+            .addArg("executable")
+            .build();
+    assertThat(withRunUnder.requiresShExecutable()).isTrue();
+  }
+
+  @Test
+  public void linuxFormatter_formatArgv_runUnderRequiresShExecutable() {
     assertThrows(
         IllegalArgumentException.class,
         () ->
@@ -48,16 +72,21 @@ public final class RunCommandLineTest {
   }
 
   @Test
-  public void linuxFormatter_formatArgv_returnsEscapedCommandLine() {
+  public void linuxFormatter_formatArgv_withoutRunUnderReturnsArgsDirectly() {
     RunCommandLine.LinuxFormatter underTest = new RunCommandLine.LinuxFormatter();
     ImmutableList<String> result =
         underTest.formatArgv(
-            "/bin/bash",
+            /* shExecutable= */ null,
             /* runUnderPrefix= */ null,
             ImmutableList.of("executable", "argv1", "arg w spaces"));
-    assertThat(result)
-        .containsExactly("/bin/bash", "-c", "executable argv1 'arg w spaces'")
-        .inOrder();
+    assertThat(result).containsExactly("executable", "argv1", "arg w spaces").inOrder();
+
+    ImmutableList<String> resultWithShell =
+        underTest.formatArgv(
+            "/non-existent",
+            /* runUnderPrefix= */ null,
+            ImmutableList.of("executable", "argv1", "arg w spaces"));
+    assertThat(resultWithShell).containsExactly("executable", "argv1", "arg w spaces").inOrder();
   }
 
   @Test
