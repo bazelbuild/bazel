@@ -211,16 +211,15 @@ those rules without ever having to worry about their implementation.
 Actions sound like they might run into the same problems as tasks in other
 systems—isn’t it still possible to write actions that both write to the same
 file and end up conflicting with one another? Actually, Bazel makes these
-conflicts impossible by using _[sandboxing](/docs/sandboxing)_. On supported
-systems, every action is isolated from every other action via a filesystem
-sandbox. Effectively, each action can see only a restricted view of the
-filesystem that includes the inputs it has declared and any outputs it has
-produced. This is enforced by systems such as LXC on Linux, the same technology
-behind Docker. This means that it’s impossible for actions to conflict with one
-another because they are unable to read any files they don’t declare, and any
-files that they write but don’t declare will be thrown away when the action
-finishes. Bazel also uses sandboxes to restrict actions from communicating via
-the network.
+conflicts much less likely by using _[sandboxing](/docs/sandboxing)_. On
+supported systems, Bazel can run actions in filesystem sandboxes with a
+restricted working directory. The protections vary by sandbox strategy: some
+strategies prevent undeclared outputs from reaching the execroot but do not
+prevent reads through absolute host paths, while OS-level strategies can impose
+stronger filesystem isolation. Network access is also controlled by the selected
+strategy and configuration rather than blocked by default. See
+[Sandboxing](/docs/sandboxing) for the available strategies and their
+restrictions.
 
 ### Making external dependencies deterministic
 
