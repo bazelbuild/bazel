@@ -135,6 +135,16 @@ if [[ ${UMBRELLA_COUNT} -eq 0 ]]; then
   exit 0
 fi
 
+LINK_FLAGS=()
+# Rust 1.90+ enables self-contained rust-lld by default on x86_64-unknown-linux-gnu,
+# which requires <sysroot>/lib/rustlib/<triple>/bin/gcc-ld/. That directory is not
+# always staged in hermetic sandboxes (e.g. RBE) or distro rustc packages, so fall
+# back to the host C compiler's default linker when supported.
+if [[ "${PLATFORM}" != "windows" && "${PLATFORM}" != "darwin" ]] \
+    && [[ "$("${RUSTC_BIN}" -C help 2>/dev/null || true)" == *"linker-features"* ]]; then
+  LINK_FLAGS+=(-C linker-features=-lld)
+fi
+
 "${RUSTC_BIN}" \
   ${RUSTC_SYSROOT_ARGS[@]+"${RUSTC_SYSROOT_ARGS[@]}"} \
   --edition=2024 \
@@ -143,6 +153,7 @@ fi
   -C opt-level=2 \
   -C embed-bitcode=no \
   "${CODEGEN_FLAGS[@]}" \
+  ${LINK_FLAGS[@]+"${LINK_FLAGS[@]}"} \
   -L "dependency=${TMPDIR_OUT}" \
   "${UMBRELLA_EXTERNS[@]}" \
   "${TMPDIR_OUT}/umbrella.rs" \
