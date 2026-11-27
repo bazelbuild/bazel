@@ -411,8 +411,14 @@ function run_bazel_jar() {
   local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_" && name ~ /^[A-Za-z0-9_]*$/) print name; } }' </dev/null)"
   for varname in $env_vars; do
     eval value=\$$varname
-    if [ "${PLATFORM}" = "windows" ] && echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\|systemdrive\)$" ; then
-      varname="$(echo "$varname" | tr [:lower:] [:upper:])"
+    if [ "${PLATFORM}" = "windows" ]; then
+      # Skip pre-activation env snapshots to avoid Windows' 32k command-line limit.
+      case "$varname" in
+        ORIGINAL_PATH|ORIGINAL_TMP|ORIGINAL_TEMP|__VSCMD_PREINIT_*) continue ;;
+      esac
+      if echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\|systemdrive\)$" ; then
+        varname="$(echo "$varname" | tr [:lower:] [:upper:])"
+      fi
     fi
     if [ "${value}" ]; then
       client_env=("${client_env[@]}" --client_env="${varname}=${value}")
