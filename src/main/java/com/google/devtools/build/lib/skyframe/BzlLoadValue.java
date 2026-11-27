@@ -19,10 +19,11 @@ import static com.google.devtools.build.lib.cmdline.Label.labelCodec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoMappingEntry;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
@@ -61,14 +62,14 @@ public class BzlLoadValue implements SkyValue {
   // from the Module as client data?
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
   private final BzlVisibility bzlVisibility;
-  private final ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings;
+  private final NestedSet<RepoMappingEntry> recordedRepoMappings;
 
   @VisibleForTesting
   public BzlLoadValue(
       Module module,
       byte[] transitiveDigest,
       BzlVisibility bzlVisibility,
-      ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings) {
+      NestedSet<RepoMappingEntry> recordedRepoMappings) {
     this.module = checkNotNull(module);
     this.transitiveDigest = checkNotNull(transitiveDigest);
     this.bzlVisibility = checkNotNull(bzlVisibility);
@@ -91,10 +92,10 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /**
-   * Returns the repo mapping entries used to laod this bzl file. Stored for correctness across
-   * Bazel server restarts.
+   * Returns the repo mapping entries used to load this bzl file and the files it loads,
+   * transitively. Stored for correctness across Bazel server restarts.
    */
-  public ImmutableTable<RepositoryName, String, RepositoryName> getRecordedRepoMappings() {
+  public NestedSet<RepoMappingEntry> getRecordedRepoMappings() {
     return recordedRepoMappings;
   }
 

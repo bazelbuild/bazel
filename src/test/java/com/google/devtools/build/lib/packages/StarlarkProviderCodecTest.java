@@ -21,8 +21,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -238,7 +239,7 @@ public final class StarlarkProviderCodecTest {
                 module,
                 /* transitiveDigest= */ new byte[0],
                 BzlVisibility.PUBLIC,
-                /* recordedRepoMappings= */ ImmutableTable.of()))
+                /* recordedRepoMappings= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         ::get;
   }
 }

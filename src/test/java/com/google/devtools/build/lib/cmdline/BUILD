@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline:batch_callback",
         "//src/main/java/com/google/devtools/build/lib/cmdline:parallel_visitor",
         "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",

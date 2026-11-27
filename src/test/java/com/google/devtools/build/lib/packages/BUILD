@@ -138,6 +138,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.packages.StarlarkProviderCodecTest",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
