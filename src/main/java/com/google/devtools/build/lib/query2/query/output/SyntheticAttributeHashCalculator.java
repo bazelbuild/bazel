@@ -33,6 +33,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Contains the logic for condensing the various properties of rules that contribute to their
@@ -48,6 +49,12 @@ class SyntheticAttributeHashCalculator {
 
   private SyntheticAttributeHashCalculator() {}
 
+  @FunctionalInterface
+  private interface SerializedAttributeLookup {
+    @Nullable
+    Build.Attribute get(Attribute attribute, int attrIndex);
+  }
+
   /**
    * Returns a hash of various properties of a rule which might contribute to the rule's
    * "affectedness". This includes, but is not limited to, attribute values and error-state.
@@ -60,6 +67,39 @@ class SyntheticAttributeHashCalculator {
   static String compute(
       Rule rule,
       Map<Attribute, Build.Attribute> serializedAttributes,
+      Object extraDataForAttrHash,
+      HashFunction hashFunction,
+      boolean includeAttributeSourceAspects,
+      boolean includeStarlarkRuleEnv) {
+    return compute(
+        rule,
+        (attribute, attrIndex) -> serializedAttributes.get(attribute),
+        extraDataForAttrHash,
+        hashFunction,
+        includeAttributeSourceAspects,
+        includeStarlarkRuleEnv);
+  }
+
+  static String computeWithIndexedAttributes(
+      Rule rule,
+      @Nullable Build.Attribute[] serializedAttributes,
+      Object extraDataForAttrHash,
+      HashFunction hashFunction,
+      boolean includeAttributeSourceAspects,
+      boolean includeStarlarkRuleEnv) {
+    return compute(
+        rule,
+        (attribute, attrIndex) ->
+            serializedAttributes == null ? null : serializedAttributes[attrIndex],
+        extraDataForAttrHash,
+        hashFunction,
+        includeAttributeSourceAspects,
+        includeStarlarkRuleEnv);
+  }
+
+  private static String compute(
+      Rule rule,
+      SerializedAttributeLookup serializedAttributes,
       Object extraDataForAttrHash,
       HashFunction hashFunction,
       boolean includeAttributeSourceAspects,
@@ -91,7 +131,7 @@ class SyntheticAttributeHashCalculator {
 
   private static void writeRule(
       Rule rule,
-      Map<Attribute, Build.Attribute> serializedAttributes,
+      SerializedAttributeLookup serializedAttributes,
       Object extraDataForAttrHash,
       boolean includeAttributeSourceAspects,
       boolean includeStarlarkRuleEnv,
@@ -107,7 +147,9 @@ class SyntheticAttributeHashCalculator {
     }
 
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
-    for (Attribute attr : rule.getAttributes()) {
+    var attributes = rule.getAttributeProvider().getAttributes();
+    for (int attrIndex = 0; attrIndex < attributes.size(); attrIndex++) {
+      Attribute attr = attributes.get(attrIndex);
       String attrName = attr.getName();
 
       if (attrName.equals("generator_location")) {
@@ -143,8 +185,9 @@ class SyntheticAttributeHashCalculator {
         }
       }
 
-      Build.Attribute attrPb;
-      if (valueToHash instanceof SelectorList<?> || !serializedAttributes.containsKey(attr)) {
+      Build.Attribute attrPb =
+          valueToHash instanceof SelectorList<?> ? null : serializedAttributes.get(attr, attrIndex);
+      if (attrPb == null) {
         // We didn't already serialize the attribute or it's a SelectorList. Latter may
         // have been flattened while we want the full representation, so we start from scratch.
         attrPb =
@@ -156,8 +199,6 @@ class SyntheticAttributeHashCalculator {
                 /* sourceAspect= */ null,
                 includeAttributeSourceAspects,
                 LabelPrinter.legacy());
-      } else {
-        attrPb = serializedAttributes.get(attr);
       }
 
       try {

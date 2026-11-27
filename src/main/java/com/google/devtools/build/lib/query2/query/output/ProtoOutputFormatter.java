@@ -21,8 +21,6 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -35,6 +33,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
+import com.google.devtools.build.lib.packages.AttributeProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -107,7 +106,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean includeDefaultValues = true;
-  private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
+
+  /** Null when all rule attributes are eligible for output. */
+  @Nullable private ImmutableSet<String> ruleAttributes;
+
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
@@ -135,7 +137,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.packageGroupIncludesDoubleSlash = options.getIncompatiblePackageGroupIncludesDoubleSlash();
     this.relativeLocations = options.getRelativeLocations();
     this.includeDefaultValues = options.getProtoIncludeDefaultValues();
-    this.ruleAttributePredicate = newAttributePredicate(options.getProtoOutputRuleAttributes());
+    List<String> outputAttributes = options.getProtoOutputRuleAttributes();
+    this.ruleAttributes =
+        outputAttributes.equals(ImmutableList.of("all"))
+            ? null
+            : ImmutableSet.copyOf(outputAttributes);
     this.flattenSelects = options.getProtoFlattenSelects();
     this.includeLocations = options.getProtoIncludeLocations();
     this.includeRuleInputsAndOutputs = options.getProtoIncludeRuleInputsAndOutputs();
@@ -147,16 +153,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.hashFunction = hashFunction;
     this.ruleClassInfoFormatter =
         options.getProtoRuleClasses() ? new RuleClassInfoFormatter() : null;
-  }
-
-  private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
-    if (outputAttributes.equals(ImmutableList.of("all"))) {
-      return Predicates.alwaysTrue();
-    } else if (outputAttributes.isEmpty()) {
-      return Predicates.alwaysFalse();
-    } else {
-      return Predicates.in(ImmutableSet.copyOf(outputAttributes));
-    }
   }
 
   @Override
@@ -401,9 +397,36 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Rule rule,
       Object extraDataForAttrHash,
       LabelPrinter labelPrinter) {
-    Map<Attribute, Build.Attribute> serializedAttributes = new HashMap<>();
+    var serializedAttributes = addRuleAttributes(rulePb, rule, labelPrinter);
+    if (includeSyntheticAttributeHash) {
+      rulePb.addAttribute(
+          Build.Attribute.newBuilder()
+              .setName("$internal_attr_hash")
+              .setStringValue(
+                  SyntheticAttributeHashCalculator.computeWithIndexedAttributes(
+                      rule,
+                      serializedAttributes,
+                      extraDataForAttrHash,
+                      hashFunction,
+                      includeAttributeSourceAspects,
+                      includeStarlarkRuleEnv))
+              .setType(Discriminator.STRING));
+    }
+  }
+
+  @Nullable
+  private Build.Attribute[] addRuleAttributes(
+      Build.Rule.Builder rulePb, Rule rule, LabelPrinter labelPrinter) {
+    if (ruleAttributes != null && ruleAttributes.isEmpty()) {
+      return null;
+    }
+    AttributeProvider attributeProvider = rule.getAttributeProvider();
+    var sortedIndices = attributeProvider.getAttributeIndicesSortedByName();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
-    for (Attribute attr : rule.getAttributes()) {
+    Build.Attribute[] serializedAttributes = null;
+    for (int i = 0; i < sortedIndices.size(); i++) {
+      int attrIndex = sortedIndices.get(i);
+      Attribute attr = attributeProvider.getAttribute(attrIndex);
       if (!shouldIncludeAttribute(rule, attr)) {
         continue;
       }
@@ -422,33 +445,21 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               /* sourceAspect= */ null,
               includeAttributeSourceAspects,
               labelPrinter);
-      serializedAttributes.put(attr, serializedAttribute);
+      rulePb.addAttribute(serializedAttribute);
+      if (includeSyntheticAttributeHash) {
+        // The hash uses declaration order, while the protobuf output uses name order.
+        if (serializedAttributes == null) {
+          serializedAttributes = new Build.Attribute[attributeProvider.getAttributeCount()];
+        }
+        serializedAttributes[attrIndex] = serializedAttribute;
+      }
     }
-    rulePb.addAllAttribute(
-        serializedAttributes.values().stream()
-            .distinct()
-            .sorted(ATTRIBUTE_NAME)
-            .collect(Collectors.toList()));
-
-    if (includeSyntheticAttributeHash) {
-      rulePb.addAttribute(
-          Build.Attribute.newBuilder()
-              .setName("$internal_attr_hash")
-              .setStringValue(
-                  SyntheticAttributeHashCalculator.compute(
-                      rule,
-                      serializedAttributes,
-                      extraDataForAttrHash,
-                      hashFunction,
-                      includeAttributeSourceAspects,
-                      includeStarlarkRuleEnv))
-              .setType(Discriminator.STRING));
-    }
+    return serializedAttributes;
   }
 
   protected boolean shouldIncludeAttribute(Rule rule, Attribute attr) {
     return (includeDefaultValues || rule.isAttributeValueExplicitlySpecified(attr))
-        && ruleAttributePredicate.apply(attr.getName());
+        && isRequestedAttribute(attr);
   }
 
   private Object getAspectAttributeValue(
@@ -485,7 +496,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /** Allow filtering of aspect attributes. */
   protected boolean includeAspectAttribute(Attribute attr, Collection<Label> value) {
-    return ruleAttributePredicate.apply(attr.getName());
+    return isRequestedAttribute(attr);
+  }
+
+  private boolean isRequestedAttribute(Attribute attr) {
+    return ruleAttributes == null || ruleAttributes.contains(attr.getName());
   }
 
   protected boolean includeRuleDefinitionEnvironment() {
