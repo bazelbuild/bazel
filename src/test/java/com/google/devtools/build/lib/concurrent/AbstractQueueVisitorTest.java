@@ -100,6 +100,73 @@ public class AbstractQueueVisitorTest {
     assertThat(future.isCancelled()).isTrue();
   }
 
+  /**
+   * Regression test for a hang on a fail-fast abort: a task that is still running after {@link
+   * AbstractQueueVisitor#awaitQuiescence} has cancelled all outstanding futures registers another
+   * future that nothing would ever complete. That future must be cancelled too, or {@code
+   * awaitQuiescence} never returns.
+   */
+  @Test
+  public void externalDepRegisteredAfterFutureCancellationOnCriticalError() throws Exception {
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+    AbstractQueueVisitor visitor =
+        new AbstractQueueVisitor(
+            executor,
+            ExecutorOwnership.PRIVATE,
+            ExceptionHandlingMode.FAIL_FAST,
+            new ErrorClassifier() {
+              @Override
+              protected ErrorClassification classifyException(Exception e) {
+                return ErrorClassification.CRITICAL;
+              }
+            });
+
+    // A future that is outstanding when the critical error happens. It is cancelled by the sweep in
+    // awaitQuiescence, which tells us that the sweep has started.
+    SettableFuture<Object> earlyFuture = SettableFuture.create();
+    CountDownLatch sweepStarted = new CountDownLatch(1);
+    earlyFuture.addListener(sweepStarted::countDown, Runnable::run);
+    visitor.dependOnFuture(earlyFuture);
+
+    // A task that only registers its future after the sweep, like a Skyframe node that is still
+    // evaluating when another node fails. Nothing completes this future.
+    SettableFuture<Object> lateFuture = SettableFuture.create();
+    CountDownLatch taskStarted = new CountDownLatch(1);
+    visitor.execute(
+        () -> {
+          taskStarted.countDown();
+          Uninterruptibles.awaitUninterruptibly(sweepStarted);
+          try {
+            visitor.dependOnFuture(lateFuture);
+          } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+          }
+        });
+    taskStarted.await();
+    visitor.execute(throwingRunnable());
+
+    AtomicBoolean threw = new AtomicBoolean(false);
+    TestThread awaitThread =
+        new TestThread(
+            () -> {
+              RuntimeException e =
+                  assertThrows(
+                      RuntimeException.class,
+                      () -> visitor.awaitQuiescence(/* interruptWorkers= */ true));
+              assertThat(e).isSameInstanceAs(THROWABLE);
+              threw.set(true);
+            });
+    awaitThread.start();
+    // Without the fix, awaitQuiescence waits forever for lateFuture.
+    awaitThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+
+    assertThat(threw.get()).isTrue();
+    assertThat(earlyFuture.isCancelled()).isTrue();
+    assertThat(lateFuture.isCancelled()).isTrue();
+    assertThat(visitor.getTaskCount()).isEqualTo(0);
+  }
+
   @Test
   public void callerOwnedPool() throws Exception {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(5, 5, 0, TimeUnit.SECONDS,

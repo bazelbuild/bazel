@@ -98,6 +98,20 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private final Set<ListenableFuture<?>> outstandingFutures = Sets.newConcurrentHashSet();
 
   /**
+   * Set (under the <em>write</em> lock of {@link #outstandingFuturesLock}) once {@link
+   * #cancelAllFutures} has committed to the set of {@link #outstandingFutures} to cancel. Only ever transitions from {@code
+   * false} to {@code true}.
+   *
+   * <p>A future registered after the sweep would never be cancelled. If nothing else completes it
+   * (e.g. because it waits for work that {@link #blockNewActions} now skips), {@link
+   * #remainingTasks} never reaches zero and {@link #awaitTermination} hangs. This happens on a
+   * fail-fast abort, which, unlike an interrupt, does not set {@link #threadInterrupted}, so tasks
+   * still running after the sweep can register futures. {@link #dependOnFuture} therefore cancels
+   * any future registered once this is set.
+   */
+  private volatile boolean futuresCancelled = false;
+
+  /**
    * Flag used to record when all threads were killed by failed action execution. Only ever
    * transitions from {@code false} to {@code true}.
    *
@@ -556,6 +570,14 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         throw new InterruptedException();
       }
       remainingTasks.incrementAndGet();
+      if (futuresCancelled) {
+        // The sweep in cancelAllFutures has already run, so nothing else would cancel this future.
+        // Still count it and let the listener below uncount it, so that the caller sees the same
+        // behavior as for a future that is cancelled by the sweep.
+        future.addListener(this::decrementRemainingTasks, MoreExecutors.directExecutor());
+        future.cancel(/* mayInterruptIfRunning= */ true);
+        return;
+      }
       outstandingFutures.add(future);
       future.addListener(() -> markFutureDone(future), MoreExecutors.directExecutor());
     } finally {
@@ -686,6 +708,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     // Nobody else can modify outstandingFutures while this thread is holding the write lock.
     outstandingFuturesLock.writeLock().lock();
     try {
+      futuresCancelled = true;
       for (ListenableFuture<?> future : outstandingFutures) {
         future.cancel(/*mayInterruptIfRunning=*/ true);
       }
