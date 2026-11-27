@@ -144,6 +144,18 @@ public enum Order {
   @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_NAIVE_LINK = NAIVE_LINK_ORDER.emptySet();
 
+  @SerializationConstant @VisibleForSerialization
+  static final Depset EMPTY_STABLE_DEPSET = STABLE_ORDER.emptyDepset();
+
+  @SerializationConstant @VisibleForSerialization
+  static final Depset EMPTY_COMPILE_DEPSET = COMPILE_ORDER.emptyDepset();
+
+  @SerializationConstant @VisibleForSerialization
+  static final Depset EMPTY_LINK_DEPSET = LINK_ORDER.emptyDepset();
+
+  @SerializationConstant @VisibleForSerialization
+  static final Depset EMPTY_NAIVE_LINK_DEPSET = NAIVE_LINK_ORDER.emptyDepset();
+
   /**
    * Returns an empty set of the given ordering.
    */

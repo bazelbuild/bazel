@@ -20,6 +20,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
 import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -112,12 +113,14 @@ the other's order.
 semantics.
 """)
 @Immutable
+@AutoCodec
 public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttributes {
   // The value of elemClass is set to getTypeClass(actualElemClass)
   // null is used for empty Depset-s
   @Nullable private final Class<?> elemClass;
   private final NestedSet<?> set;
 
+  @AutoCodec.Instantiator
   Depset(@Nullable Class<?> elemClass, NestedSet<?> set) {
     this.elemClass = elemClass;
     this.set = set;

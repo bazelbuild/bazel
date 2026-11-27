@@ -18,7 +18,12 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import java.util.EnumSet;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
@@ -475,5 +480,71 @@ public final class DepsetTest {
 
     assertThat(original).isEqualTo(replayed);
     assertThat(original.hashCode()).isEqualTo(replayed.hashCode());
+  }
+
+  private static ObjectCodecs createSerializationCodecs() {
+    return new ObjectCodecs(
+        AutoRegistry.get()
+            .getBuilder()
+            .setAllowDefaultCodec(false)
+            .add(new DeferredNestedSetCodec())
+            .build());
+  }
+
+  @Test
+  public void testGeneratedCodecIsDeferredObjectCodec() throws Exception {
+    assertThat(Class.forName(Depset.class.getName() + "_AutoCodec"))
+        .isAssignableTo(DeferredObjectCodec.class);
+  }
+
+  @Test
+  public void testEmptyDepsetsAreSerializationConstants() throws Exception {
+    ObjectCodecs codecs = createSerializationCodecs();
+    for (Order order : EnumSet.allOf(Order.class)) {
+      Depset empty = order.emptyDepset();
+      assertThat(AutoRegistry.get().maybeGetTagForConstant(empty)).isNotNull();
+      assertThat(codecs.deserializeMemoized(codecs.serializeMemoized(empty)))
+          .isSameInstanceAs(empty);
+    }
+  }
+
+  @Test
+  public void testSerializationRoundTrip() throws Exception {
+    Depset nonEmptySingleton;
+    Depset nonEmptyArray;
+    Depset transitiveDepset;
+    try (var _ = NestedSetOwnerScope.enter("//pkg:target")) {
+      nonEmptySingleton =
+          Depset.of(String.class, NestedSetBuilder.<String>stableOrder().add("a").build());
+      nonEmptyArray =
+          Depset.of(
+              Boolean.class, NestedSetBuilder.<Boolean>compileOrder().add(true).add(false).build());
+      NestedSet<String> child = NestedSetBuilder.<String>linkOrder().add("x").add("y").build();
+      transitiveDepset =
+          Depset.of(
+              String.class,
+              NestedSetBuilder.<String>linkOrder().add("z").addTransitive(child).build());
+    }
+
+    new SerializationTester(
+            Order.STABLE_ORDER.emptyDepset(),
+            Order.COMPILE_ORDER.emptyDepset(),
+            Order.LINK_ORDER.emptyDepset(),
+            Order.NAIVE_LINK_ORDER.emptyDepset(),
+            nonEmptySingleton,
+            nonEmptyArray,
+            transitiveDepset)
+        .setObjectCodecs(createSerializationCodecs())
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .setVerificationFunction((Depset original, Depset deserialized) -> {
+          assertThat(deserialized).isEqualTo(original);
+          assertThat(deserialized.getElementType()).isEqualTo(original.getElementType());
+          assertThat(deserialized.getOrder()).isEqualTo(original.getOrder());
+          assertThat(deserialized.toList()).containsExactlyElementsIn(original.toList()).inOrder();
+          if (original.isEmpty()) {
+            assertThat(deserialized).isSameInstanceAs(original);
+          }
+        })
+        .runTests();
   }
 }

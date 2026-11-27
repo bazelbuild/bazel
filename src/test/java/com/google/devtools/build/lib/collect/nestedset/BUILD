@@ -47,6 +47,8 @@ java_test(
     srcs = ["DepsetTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//third_party/java/guava:collect",
