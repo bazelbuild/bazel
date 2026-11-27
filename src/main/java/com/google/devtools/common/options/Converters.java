@@ -214,24 +214,22 @@ public final class Converters {
       if (!m.matches()) {
         throw new OptionsParsingException("Illegal duration '" + input + "'.");
       }
-      long duration = Long.parseLong(m.group(1));
-      String unit = m.group(2);
-      switch (unit) {
-        case "d":
-          return Duration.ofDays(duration);
-        case "h":
-          return Duration.ofHours(duration);
-        case "m":
-          return Duration.ofMinutes(duration);
-        case "s":
-          return Duration.ofSeconds(duration);
-        case "ms":
-          return Duration.ofMillis(duration);
-        case "ns":
-          return Duration.ofNanos(duration);
-        default:
-          throw new IllegalStateException(
-              "This must not happen. Did you update the regex without the switch case?");
+      try {
+        long duration = Long.parseLong(m.group(1));
+        String unit = m.group(2);
+        return switch (unit) {
+          case "d" -> Duration.ofDays(duration);
+          case "h" -> Duration.ofHours(duration);
+          case "m" -> Duration.ofMinutes(duration);
+          case "s" -> Duration.ofSeconds(duration);
+          case "ms" -> Duration.ofMillis(duration);
+          case "ns" -> Duration.ofNanos(duration);
+          default ->
+              throw new IllegalStateException(
+                  "This must not happen. Did you update the regex without the switch case?");
+        };
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Illegal duration '" + input + "'.", e);
       }
     }
 
@@ -444,7 +442,8 @@ public final class Converters {
         return RegexPatternOption.create(
             Pattern.compile(StringEncoding.internalToUnicode(input), Pattern.DOTALL));
       } catch (PatternSyntaxException e) {
-        throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
+        throw new OptionsParsingException(
+            "Not a valid regular expression: " + StringEncoding.unicodeToInternal(e.getMessage()));
       }
     }
 

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -40,10 +39,7 @@ import org.junit.runners.JUnit4;
 public final class CommandUsingProcessWrapperTest {
 
   private final FileSystem fs =
-      new UnixFileSystem(
-          DigestHashFunction.SHA256,
-          /* hashAttributeName= */ "",
-          new NativePosixFilesServiceImpl());
+      new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
 
   private static ProcessWrapper getProcessWrapper() {
     PathFragment path =

@@ -673,7 +673,7 @@ class ModCommandTest(test_base.TestBase):
     self.assertListEqual(
         [line for line in stdout if line.startswith('# Located at: ')],
         [
-            '# Located at: ' + output_base[0] + '/external/' + name
+            '# Located at: "' + output_base[0] + '/external/' + name + '"'
             for name in [
                 'bar+',
                 'ext+',
@@ -778,7 +778,7 @@ class ModCommandTest(test_base.TestBase):
         current_key = line[3:-1]  # Remove '## ' prefix and ':' suffix.
 
       elif line.startswith('  name = "') or line.startswith(
-          'Builtin or overridden repo located at:'
+          '# Builtin or overridden repo located at:'
       ):
         if current_key is None:
           self.fail(f'Found repo without key: {line}')
@@ -957,7 +957,7 @@ class ModCommandTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     stdout = '\n'.join(stdout)
     self.assertIn('## @bazel_tools:', stdout)
-    self.assertIn('Builtin or overridden repo located at: ', stdout)
+    self.assertIn('# Builtin or overridden repo located at: ', stdout)
     self.assertIn('/embedded_tools', stdout)
 
   def testShowRepoBazelToolsJson(self):
@@ -969,6 +969,42 @@ class ModCommandTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     stdout = '\n'.join(stdout)
     self.assertEqual('', stdout)
+
+  def testShowRepoUnicode(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'data_repo = use_repo_rule("//:repo.bzl", "data_repo")',
+            'data_repo(name = "unicode", data = "äöü€🌱")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.file("BUILD")',
+            (
+                'data_repo = repository_rule(_impl, attrs = {"data":'
+                ' attr.string()})'
+            ),
+        ],
+    )
+
+    # --charset=ascii is set in the .bazelrc and only affects the tree.
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '@unicode'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('  data = "äöü€🌱",', stdout)
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'show_repo', '--output=streamed_jsonproto', '@unicode'],
+        rstrip=True,
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('"äöü€🌱"', '\n'.join(stdout))
 
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.profiler.memory.AllocationTrackerService.AllocationSampler;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -48,7 +48,7 @@ import net.starlark.java.syntax.Location;
 /** Tracks allocations for memory reporting. */
 @ConditionallyThreadCompatible
 @SuppressWarnings("ThreadLocalUsage") // the AllocationTracker is effectively a global
-public final class AllocationTracker implements AllocationSampler, Debug.ThreadHook {
+public final class AllocationTracker implements Debug.ThreadHook {
 
   // A mapping from Java thread to StarlarkThread.
   // Used to effect a hidden StarlarkThread parameter to sampleAllocation.
@@ -171,7 +171,6 @@ public final class AllocationTracker implements AllocationSampler, Debug.ThreadH
   // This function runs within 'new', so is not supposed to allocate memory;
   // see Sampler interface. In fact it allocates in nearly a dozen places.
   // TODO(adonovan): suppress reentrant calls by setting a thread-local flag.
-  @Override
   @ThreadSafe
   public void sampleAllocation(int count, String desc, Object newObj, long size) {
     if (!enabled) {
@@ -397,7 +396,7 @@ public final class AllocationTracker implements AllocationSampler, Debug.ThreadH
       return table.computeIfAbsent(
           str,
           key -> {
-            profile.addStringTable(key);
+            profile.addStringTable(StringEncoding.internalToUnicode(key));
             return index++;
           });
     }

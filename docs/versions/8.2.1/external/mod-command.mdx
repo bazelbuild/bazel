@@ -91,8 +91,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     modules which were originally present in the dependency graph, but became
     unused after module resolution.
 
-*   `--extension_info <var>mode</var>`: Include information about the module extension
-    usages as part of the output graph (see [example](#mod-example7)). `<var>mode</var>`
+*   `--extension_info mode`: Include information about the module extension
+    usages as part of the output graph (see [example](#mod-example7)). `mode`
     can be one of:
 
     *   `hidden` *(default)*: Don't show anything about extensions.
@@ -132,7 +132,7 @@ The following options only affect the subcommands that print graphs (`graph`,
     Therefore, the `"ascii"` charset is present to also support the usage on
     legacy platforms which cannot use Unicode.
 
-*   `--output <var>mode</var>`: Include information about the module extension usages as
+*   `--output mode`: Include information about the module extension usages as
     part of the output graph. `<mode`> can be one of:
 
     *   `text` *(default)*: A human-readable representation of the output graph

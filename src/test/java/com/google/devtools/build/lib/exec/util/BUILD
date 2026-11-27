@@ -56,7 +56,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

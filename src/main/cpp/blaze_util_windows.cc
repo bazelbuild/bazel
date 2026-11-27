@@ -48,13 +48,16 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
-#include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 
 namespace blaze {
@@ -368,9 +371,7 @@ void SigPrintf(const char* format, ...) {
 
 void WarnFilesystemType(const blaze_util::Path& output_base) {}
 
-string GetProcessIdAsString() {
-  return blaze_util::ToString(GetCurrentProcessId());
-}
+string GetProcessIdAsString() { return absl::StrCat(GetCurrentProcessId()); }
 
 string GetSelfPath(const char* argv0) {
   WCHAR buffer[kWindowsPathBufferSize] = {0};
@@ -459,8 +460,7 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
 }
 
 bool IsSharedLibrary(const string& filename) {
-  return (blaze_util::ends_with(filename, ".dll") ||
-          blaze_util::ends_with(filename, ".pyd"));
+  return (absl::EndsWith(filename, ".dll") || absl::EndsWith(filename, ".pyd"));
 }
 
 string GetSystemJavabase() {
@@ -554,8 +554,7 @@ static void WriteProcessStartupTime(const blaze_util::Path& server_dir,
   }
 
   blaze_util::Path start_time_file = server_dir.GetRelative("server.starttime");
-  if (!blaze_util::WriteFile(blaze_util::ToString(start_time),
-                             start_time_file)) {
+  if (!blaze_util::WriteFile(absl::StrCat(start_time), start_time_file)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "WriteProcessStartupTime(" << server_dir.AsPrintablePath()
         << "): WriteFile(" << start_time_file.AsPrintablePath()
@@ -630,6 +629,11 @@ int ExecuteDaemon(
     const blaze_util::Path& daemon_output, const bool daemon_out_append,
     const blaze_util::Path& binaries_dir, const blaze_util::Path& server_dir,
     const StartupOptions& options, BlazeServerStartup** server_startup) {
+  if (!options.allow_server_subprocesses) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "--noallow_server_subprocesses is not supported on Windows.";
+  }
+
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
                                                nullptr, TRUE};
 
@@ -728,7 +732,7 @@ int ExecuteDaemon(
   // Pass ownership of processInfo.hProcess
   *server_startup = new ProcessHandleBlazeServerStartup(processInfo.hProcess);
 
-  string pid_string = blaze_util::ToString(processInfo.dwProcessId);
+  string pid_string = absl::StrCat(processInfo.dwProcessId);
   blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
   if (!blaze_util::WriteFile(pid_string, pid_file)) {
     // Not a lot we can do if this fails
@@ -807,8 +811,14 @@ static void AppendQuotedForJavaArgFile(const string& arg, string* out) {
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
                       const std::vector<string>& server_jvm_args,
-                      const blaze_util::Path& argfile,
-                      bool run_in_user_cgroup) {
+                      const blaze_util::Path& binaries_dir,
+                      const blaze_util::Path& argfile, bool run_in_user_cgroup,
+                      bool allow_server_subprocesses) {
+  if (!allow_server_subprocesses) {
+    BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+        << "--noallow_server_subprocesses is not supported on Windows.";
+  }
+
   // The arguments can exceed the command line length limit of CreateProcessW,
   // for example in batch mode with a large client environment passed via
   // --client_env. Let the Java launcher read them from a file instead. The
@@ -898,8 +908,7 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
 
   // If start time file got deleted, but PID file didn't, assume that this is an
   // old Bazel process that doesn't know how to write start time files yet.
-  return !file_present ||
-         recorded_start_time == blaze_util::ToString(start_time);
+  return !file_present || recorded_start_time == absl::StrCat(start_time);
 }
 
 std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
@@ -1347,9 +1356,8 @@ bool IsStandardTerminal() {
 int GetTerminalColumns() {
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
-    char* endptr;
-    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
-    if (*endptr == '\0') {  // $COLUMNS is a valid number
+    int columns;
+    if (absl::SimpleAtoi(columns_env, &columns)) {
       return columns;
     }
   }
@@ -1515,45 +1523,98 @@ static string GetMsysBash() {
   return string();
 }
 
-static string GetBinaryFromPath(const string& binary_name) {
-  char found[MAX_PATH];
-  string path_list = blaze::GetPathEnv("PATH");
+// Returns whether `path` is under `dir`, ignoring case.
+static bool IsUnderDirectory(const blaze_util::Path& path,
+                             const blaze_util::Path& dir) {
+  if (dir.IsEmpty()) {
+    return false;
+  }
+  const std::wstring prefix = dir.AsNativePath() + L"\\";
+  const std::wstring file = path.AsNativePath();
+  int prefix_size = static_cast<int>(prefix.size());
+  return file.size() >= prefix.size() &&
+         CompareStringOrdinal(file.c_str(), prefix_size, prefix.c_str(),
+                              prefix_size, TRUE) == CSTR_EQUAL;
+}
+
+string FindBashInPath(const string& path_list, const string& windir,
+                      const string& local_app_data) {
+  // Skip the WSL launcher in %WINDIR% and its Microsoft Store alias, they
+  // cannot run Bazel's commands.
+  string error;
+  std::vector<blaze_util::Path> skip_dirs = {blaze_util::Path(windir, &error)};
+  if (!local_app_data.empty()) {
+    skip_dirs.emplace_back(local_app_data + "\\Microsoft\\WindowsApps", &error);
+  }
 
   // We do not fully replicate all the quirks of search in PATH.
   // There is no system function to do so, and that way lies madness.
-  size_t start = 0;
-  do {
-    // This ignores possibly quoted semicolons in PATH etc.
-    size_t end = path_list.find_first_of(";", start);
-    string path = path_list.substr(
-        start, end != string::npos ? end - start : string::npos);
+  // This ignores possibly quoted semicolons in PATH etc.
+  const std::vector<string> dirs =
+      absl::StrSplit(path_list, ';', absl::SkipEmpty());
+  for (string dir : dirs) {
     // Handle one typical way of quoting (where.exe does not handle this, but
     // CreateProcess does).
-    if (path.size() > 1 && path[0] == '"' && path[path.size() - 1] == '"') {
-      path = path.substr(1, path.size() - 2);
+    if (dir.size() > 1 && dir.front() == '"' && dir.back() == '"') {
+      dir = dir.substr(1, dir.size() - 2);
     }
-    if (SearchPathA(path.c_str(),         // _In_opt_  LPCTSTR lpPath,
-                    binary_name.c_str(),  // _In_      LPCTSTR lpFileName,
-                    0,                    // LPCTSTR lpExtension,
-                    sizeof(found),        // DWORD   nBufferLength,
-                    found,                // _Out_     LPTSTR  lpBuffer,
-                    0                     // _Out_opt_ LPTSTR  *lpFilePart
-                    )) {
-      BAZEL_LOG(INFO) << binary_name.c_str() << " found on PATH: " << found;
-      return string(found);
+    if (dir.empty()) {
+      continue;
     }
-    if (end == string::npos) {
-      break;
+    blaze_util::Path bash(blaze_util::JoinPath(dir, "bash.exe"), &error);
+    if (!blaze_util::PathExists(bash)) {
+      continue;
     }
-    start = end + 1;
-  } while (true);
-
+    if (std::any_of(skip_dirs.begin(), skip_dirs.end(),
+                    [&bash](const blaze_util::Path& skip_dir) {
+                      return IsUnderDirectory(bash, skip_dir);
+                    })) {
+      BAZEL_LOG(INFO) << "Ignoring " << bash.AsPrintablePath();
+      continue;
+    }
+    BAZEL_LOG(INFO) << "bash.exe found on PATH: " << bash.AsPrintablePath();
+    return bash.AsCommandLineArgument();
+  }
   return string();
 }
 
+// Returns Git for Windows' bash.exe from the install path in `root`, or an
+// empty string.
+static string GetGitForWindowsBash(HKEY root) {
+  WCHAR install_path[MAX_PATH];
+  DWORD size = sizeof(install_path);
+  if (RegGetValueW(root, L"Software\\GitForWindows", L"InstallPath",
+                   RRF_RT_REG_SZ, nullptr, install_path,
+                   &size) != ERROR_SUCCESS ||
+      install_path[0] == L'\0') {
+    return string();
+  }
+  string error;
+  blaze_util::Path bash(
+      blaze_util::JoinPath(blaze_util::WstringToCstring(install_path),
+                           "usr\\bin\\bash.exe"),
+      &error);
+  if (!blaze_util::PathExists(bash)) {
+    return string();
+  }
+  BAZEL_LOG(INFO) << "Detected Git for Windows Bash at "
+                  << bash.AsPrintablePath();
+  return bash.AsCommandLineArgument();
+}
+
 static string LocateBashMaybe() {
-  string msys_bash = GetMsysBash();
-  return msys_bash.empty() ? GetBinaryFromPath("bash.exe") : msys_bash;
+  string bash = GetMsysBash();
+  if (bash.empty()) {
+    bash = FindBashInPath(blaze::GetPathEnv("PATH"), blaze::GetEnv("WINDIR"),
+                          blaze::GetEnv("LOCALAPPDATA"));
+  }
+  if (bash.empty()) {
+    bash = GetGitForWindowsBash(HKEY_LOCAL_MACHINE);
+  }
+  if (bash.empty()) {
+    bash = GetGitForWindowsBash(HKEY_CURRENT_USER);
+  }
+  return bash;
 }
 
 string DetectBashAndExportBazelSh() {

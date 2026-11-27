@@ -5,6 +5,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//scripts:rust_bootstrap.bzl", "rust_bootstrap_bundle")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load("//tools/res:winsdk_toolchain.bzl", "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE", "windows_resource_compiler_toolchain")
 load(":bazel_binary.bzl", "bazel_binary")
@@ -16,6 +17,7 @@ load(":windows_llvm_alias.bzl", "windows_llvm_alias")
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
 exports_files([
+    "combine_derived_java_srcs.sh",
     "jdeps_modules.golden",
     "MODULE.tools",
 ])
@@ -79,6 +81,7 @@ py_library(
 py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
+    legacy_create_init = 0,
     deps = [":create_embedded_tools_lib"],
 )
 
@@ -327,17 +330,6 @@ genrule(
     ("_nojdk", True, False),
 ]]
 
-genrule(
-    name = "package_bazel_on_host_platform",
-    srcs = ["package-bazel.sh"],
-    outs = ["package-bazel-on-host-platform.sh"],
-    cmd = select({
-        "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
-        "//conditions:default": "cp $(SRCS) $@",
-    }),
-)
-
 [bazel_binary(
     name = "bazel-bin" + suffix,
     out = "bazel" + suffix,
@@ -384,17 +376,16 @@ genrule(
 windows_llvm_alias(
     name = "bazel_windows_llvm",
     actual = ":bazel.exe",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Keep wildcard builds from cross-compiling Bazel for Windows.
     tags = ["manual"],
 )
 
 # Compiles Windows resources with llvm-rc from the hermetic LLVM toolchains.
-# Not registered by default; it is only used with the `llvm` config in .bazelrc
-# and by :bazel_windows_llvm.
+# Enabled by default in .bazelrc and used by :bazel_windows_llvm.
 windows_resource_compiler_toolchain(
     name = "llvm_rc",
     rc_exe = "@llvm//tools:llvm-rc",
-    # Keep wildcard builds from fetching the LLVM toolchains.
+    # Only necessary for builds that target Windows.
     tags = ["manual"],
 )
 
@@ -428,6 +419,7 @@ filegroup(
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
+        "//src/rust:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
@@ -442,7 +434,6 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
-        "//src/test/tools/test_repos:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
@@ -500,6 +491,12 @@ genrule(
     visibility = ["//:__pkg__"],
 )
 
+rust_bootstrap_bundle(
+    name = "bootstrap-rust",
+    visibility = ["//:__pkg__"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
+)
+
 # config_setting alias left here because bazel-only third_party code is pointing to it
 alias(
     name = "windows",
@@ -540,6 +537,7 @@ genrule(
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
         "//third_party/java/proguard:srcs",
+        "//tools/jdk:proguard_allowlister_srcs",
     ],
     outs = ["java_tools_dist.zip"],
     cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
@@ -592,6 +590,7 @@ release_archive(
         "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
+        "//tools/jdk:proguard_allowlister_zip",
     ],
 )
 
@@ -613,6 +612,7 @@ release_archive(
         "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
+        "//tools/jdk:proguard_allowlister_deploy_zip",
     ] + select({
         "//src/conditions:darwin_x86_64": [],
         "//conditions:default": [":turbine_direct_graal_zip"],
@@ -668,9 +668,42 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
-alias(
+JDK_VERSIONS = [
+    "11",
+    "17",
+    "21",
+    "25",
+]
+
+filegroup(
     name = "test_repos",
-    actual = "//src/test/tools/test_repos",
+    srcs = [
+        "@bazel_pip_dev_deps//bazel_runfiles",  # Fetching the hermetic Python toolchain.
+        "@bazel_skylib//:WORKSPACE",
+        "@com_google_protobuf//:LICENSE",
+        "@remote_coverage_tools//:all_lcov_merger_lib",
+        "@remote_java_tools//:GenClass",
+        "@remote_java_tools_darwin_arm64//:prebuilt_singlejar",
+        "@remote_java_tools_darwin_x86_64//:prebuilt_singlejar",
+        "@remote_java_tools_linux//:prebuilt_singlejar",
+        "@remote_java_tools_linux_aarch64//:prebuilt_singlejar",
+        "@remote_java_tools_windows//:prebuilt_singlejar",
+        "@rules_cc//:LICENSE",
+        "@rules_java//:WORKSPACE",
+        "@rules_license//:WORKSPACE",
+        "@rules_pkg//:WORKSPACE",
+        "@rules_python//:LICENSE",
+        "@rules_shell//shell:rules_bzl",
+        "@rules_testing//:LICENSE",
+    ] + select({
+        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:BUILD.bazel" % v for v in JDK_VERSIONS],
+        "//conditions:default": [],
+    }) + [
+        "@bazel_tools_repo_cache//:files",
+    ],
 )
 
 java_binary(

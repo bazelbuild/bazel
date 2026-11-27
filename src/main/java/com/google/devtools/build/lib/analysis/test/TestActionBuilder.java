@@ -284,7 +284,7 @@ public final class TestActionBuilder {
     if (collectCodeCoverage) {
       collectCoverageScript =
           ruleContext
-              .getPrerequisite("$collect_coverage_script")
+              .getPrerequisite(":collect_coverage_script")
               .getProvider(FilesToRunProvider.class);
       inputsBuilder.addTransitive(collectCoverageScript.getFilesToRun());
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
@@ -438,6 +438,8 @@ public final class TestActionBuilder {
                 : CancelConcurrentTests.NEVER;
 
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
+        boolean incompatibleSeparateTestSpawnMnemonics =
+            testConfiguration.incompatibleSeparateTestSpawnMnemonics();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 actionOwner,
@@ -459,13 +461,13 @@ public final class TestActionBuilder {
                 shard,
                 run,
                 config,
-                ruleContext.getWorkspaceName(),
                 (!isExecutedOnWindows || executionSettings.needsShell())
                     ? ShToolchain.getPathForPlatform(
                         ruleContext.getConfiguration(), actionOwner.getExecutionPlatform())
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
+                incompatibleSeparateTestSpawnMnemonics,
                 lcovMergerFilesToRun,
                 unrunnableReason);
 

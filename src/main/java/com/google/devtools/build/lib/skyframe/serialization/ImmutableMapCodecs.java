@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.deserializeMapEntries;
 import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.serializeMapEntries;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 import static java.util.Comparator.naturalOrder;
 
 import com.google.common.collect.ImmutableMap;
@@ -123,7 +122,10 @@ public final class ImmutableMapCodecs {
       }
 
       ImmutableSortedMapEntryBuffer buffer = new ImmutableSortedMapEntryBuffer(size);
-      context.deserialize(codedIn, buffer, COMPARATOR_OFFSET);
+      context.deserialize(
+          codedIn,
+          buffer,
+          (entryBuffer, comparator) -> entryBuffer.comparator = (Comparator) comparator);
       deserializeMapEntries(
           context,
           codedIn,
@@ -160,16 +162,6 @@ public final class ImmutableMapCodecs {
         builder.put(keys[i], values[i]);
       }
       return builder.buildOrThrow();
-    }
-  }
-
-  private static final long COMPARATOR_OFFSET;
-
-  static {
-    try {
-      COMPARATOR_OFFSET = getFieldOffset(ImmutableSortedMapEntryBuffer.class, "comparator");
-    } catch (NoSuchFieldException e) {
-      throw new ExceptionInInitializerError(e);
     }
   }
 

@@ -16,10 +16,12 @@ package net.starlark.java.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.BitSet;
 import java.util.function.Function;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -785,5 +787,120 @@ public class TypesTest {
         .isEqualTo("struct[{\"a\": str, \"b\": int}]");
     assertThat(Types.partialStruct(ImmutableMap.of("b", Types.INT, "a", Types.STR)).typeRepr())
         .isEqualTo("struct[{\"a\": str, \"b\": int}, ...]");
+  }
+
+  @Test
+  public void generalCallable_nullParameterTypesIfAllAnyAndSharesMandatoryParams() {
+    Types.GeneralCallableType c1 =
+        Types.generalCallable(
+            ImmutableList.of("a", "b"),
+            ImmutableList.of(Types.ANY, Types.ANY),
+            0,
+            2,
+            ImmutableSet.of("a"),
+            null,
+            null,
+            Types.ANY);
+    Types.GeneralCallableType c2 =
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.ANY, Types.ANY),
+            0,
+            2,
+            ImmutableSet.of("x"),
+            null,
+            null,
+            Types.ANY);
+    assertThat(c1.getParameterTypesIfNonAny()).isNull();
+    assertThat(c2.getParameterTypesIfNonAny()).isNull();
+    assertThat(c1.getParameterType(0)).isEqualTo(Types.ANY);
+    assertThat(c1.getParameterType(1)).isEqualTo(Types.ANY);
+    assertThat(c1.getMandatoryParamIndices()).isSameInstanceAs(c2.getMandatoryParamIndices());
+  }
+
+  @Test
+  public void generalCallable_manyMandatoryParameters() {
+    ImmutableList.Builder<String> names = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
+    for (int i = 0; i < 70; i++) {
+      names.add("p" + i);
+      types.add(Types.INT);
+    }
+    Types.GeneralCallableType callable =
+        Types.generalCallable(
+            names.build(),
+            types.build(),
+            0,
+            70,
+            ImmutableSet.of("p0", "p63", "p64", "p69"),
+            null,
+            null,
+            Types.NONE);
+    assertThat(callable.getNumMandatoryParameters()).isEqualTo(4);
+    assertThat(callable.isMandatory(0)).isTrue();
+    assertThat(callable.isMandatory(1)).isFalse();
+    assertThat(callable.isMandatory(63)).isTrue();
+    assertThat(callable.isMandatory(64)).isTrue();
+    assertThat(callable.isMandatory(65)).isFalse();
+    assertThat(callable.isMandatory(69)).isTrue();
+    assertThat(getMandatoryParameters(callable))
+        .containsExactly("p0", "p63", "p64", "p69")
+        .inOrder();
+  }
+
+  @Test
+  public void mandatoryParamIndices_compact() {
+    BitSet bitSet = new BitSet(64);
+    bitSet.set(0);
+    bitSet.set(63);
+    Types.MandatoryParamIndices indices = Types.MandatoryParamIndices.of(bitSet);
+    assertThat(indices.getNumMandatoryParameters()).isEqualTo(2);
+    assertThat(indices.isMandatory(0)).isTrue();
+    assertThat(indices.isMandatory(1)).isFalse();
+    assertThat(indices.isMandatory(63)).isTrue();
+    assertThat(indices.isMandatory(64)).isFalse();
+    assertThat(indices.isMandatory(100)).isFalse();
+    assertThrows(IndexOutOfBoundsException.class, () -> indices.isMandatory(-1));
+
+    // Mutating the caller's BitSet after of() must not affect the instance.
+    bitSet.set(1);
+    assertThat(indices.isMandatory(1)).isFalse();
+    assertThat(indices.getNumMandatoryParameters()).isEqualTo(2);
+  }
+
+  @Test
+  public void mandatoryParamIndices_greaterThan64() {
+    BitSet bitSet = new BitSet(128);
+    bitSet.set(0);
+    bitSet.set(63);
+    bitSet.set(100);
+    Types.MandatoryParamIndices indices = Types.MandatoryParamIndices.of(bitSet);
+    assertThat(indices.getNumMandatoryParameters()).isEqualTo(3);
+    assertThat(indices.isMandatory(0)).isTrue();
+    assertThat(indices.isMandatory(1)).isFalse();
+    assertThat(indices.isMandatory(63)).isTrue();
+    assertThat(indices.isMandatory(64)).isFalse();
+    assertThat(indices.isMandatory(100)).isTrue();
+    assertThat(indices.isMandatory(101)).isFalse();
+    assertThat(indices.isMandatory(256)).isFalse();
+    assertThrows(IndexOutOfBoundsException.class, () -> indices.isMandatory(-1));
+
+    // Mutating the caller's BitSet after of() must not affect the instance.
+    bitSet.set(1);
+    bitSet.set(111);
+    assertThat(indices.isMandatory(1)).isFalse();
+    assertThat(indices.isMandatory(111)).isFalse();
+    assertThat(indices.getNumMandatoryParameters()).isEqualTo(3);
+  }
+
+  private static ImmutableList<String> getMandatoryParameters(Types.CallableType type) {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    ImmutableList<String> names = type.getParameterNames();
+    for (int i = 0; i < names.size(); i++) {
+      if (type.isMandatory(i)) {
+        builder.add(names.get(i));
+      }
+    }
+    return builder.build();
   }
 }

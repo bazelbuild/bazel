@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -85,8 +84,6 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public class MerkleTreeComputerTest {
-  private static final String WORKSPACE_NAME = "_main";
-
   private Path execRoot;
   private ArtifactRoot artifactRoot;
 
@@ -403,7 +400,7 @@ public class MerkleTreeComputerTest {
         runfilesTreeArtifact,
         AnalysisTestUtil.createRunfilesTree(
             runfilesTreeArtifact.getExecPath(),
-            new Runfiles.Builder(TestConstants.WORKSPACE_NAME).addArtifact(runfile).build()));
+            new Runfiles.Builder().addArtifact(runfile).build()));
     var spawn = new SpawnBuilder().withInputs(runfilesTreeArtifact).build();
     var uploader = new CountingMerkleTreeUploader();
 
@@ -575,6 +572,17 @@ public class MerkleTreeComputerTest {
                   .build());
       assertThat(dir.getFilesCount()).isEqualTo(firstDirectory.equals(secondDirectory) ? 2 : 1);
     }
+
+    assertThat(
+            createMerkleTreeComputer(/* uploader= */ null)
+                .buildForSpawn(
+                    spawn,
+                    ImmutableSet.of(),
+                    /* scrubber= */ null,
+                    createSpawnExecutionContext(spawn, fakeFileCache),
+                    MerkleTreeComputer.BlobPolicy.DISCARD)
+                .digest())
+        .isEqualTo(merkleTree.digest());
   }
 
   @Test
@@ -650,6 +658,19 @@ public class MerkleTreeComputerTest {
     assertThat(merkleTree.inputFiles()).isEqualTo(0);
     assertThat(merkleTree.inputBytes()).isEqualTo(0);
     assertThat(merkleTree.blobs()).isEmpty();
+
+    var discarded =
+        createMerkleTreeComputer(/* uploader= */ null)
+            .buildForSpawn(
+                spawn,
+                ImmutableSet.of(),
+                scrubber,
+                createSpawnExecutionContext(spawn, fakeFileCache),
+                MerkleTreeComputer.BlobPolicy.DISCARD);
+    assertThat(discarded).isInstanceOf(MerkleTree.RootOnly.BlobsDiscarded.class);
+    assertThat(discarded.digest()).isEqualTo(merkleTree.digest());
+    assertThat(discarded.inputFiles()).isEqualTo(0);
+    assertThat(discarded.inputBytes()).isEqualTo(0);
   }
 
   private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
@@ -708,8 +729,7 @@ public class MerkleTreeComputerTest {
         new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256),
         uploader,
         "buildRequestId",
-        "commandId",
-        WORKSPACE_NAME);
+        "commandId");
   }
 
   private FakeSpawnExecutionContext createSpawnExecutionContext(

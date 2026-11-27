@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -87,6 +88,7 @@ import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -169,6 +171,8 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
 
@@ -201,6 +205,7 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
+  private final AtomicBoolean liveOutputWarningReported = new AtomicBoolean(false);
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
   private final OutputService outputService;
@@ -218,7 +223,6 @@ public class RemoteExecutionService {
       RemotePathResolver remotePathResolver,
       String buildRequestId,
       String commandId,
-      String workspaceName,
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
       ExecutionOptions executionOptions,
@@ -249,8 +253,7 @@ public class RemoteExecutionService {
                 ? remoteExecutionCache
                 : null,
             buildRequestId,
-            commandId,
-            workspaceName);
+            commandId);
 
     this.scrubber = remoteOptions.getScrubber();
 
@@ -385,6 +388,14 @@ public class RemoteExecutionService {
         && remoteExecutor != null
         && Spawns.mayBeExecutedRemotely(spawn)
         && !isScrubbedSpawn(spawn, scrubber);
+  }
+
+  /**
+   * Returns {@code true} if this service is configured for remote execution, in which case
+   * "exclusive-if-local" tests should be allowed to run in parallel rather than serialized.
+   */
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    return combinedCache instanceof RemoteExecutionCache && remoteExecutor != null;
   }
 
   @Nullable
@@ -704,7 +715,7 @@ public class RemoteExecutionService {
      * may be displayed to the user upon failure or when requested explicitly.
      */
     public String getMessage() {
-      return executeResponse != null ? executeResponse.getMessage() : "";
+      return executeResponse != null ? unicodeToInternal(executeResponse.getMessage()) : "";
     }
 
     /** Returns the details of the execution that originally produced this result. */
@@ -812,7 +823,9 @@ public class RemoteExecutionService {
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
       inlineOutputFiles =
-          ImmutableSet.of(action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath));
+          ImmutableSet.of(
+              internalToUnicode(
+                  action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath)));
     }
 
     CachedActionResult cachedActionResult =
@@ -909,14 +922,14 @@ public class RemoteExecutionService {
       ListenableFuture<Void> future =
           combinedCache.downloadFile(
               context,
-              internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+              remotePathResolver.localPathToOutputPath(file.path()),
               remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
               /* finalPath= */ file.path(),
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,
-                  internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+                  remotePathResolver.localPathToOutputPath(file.path()),
                   file.digest().getSizeBytes()));
       return transform(future, (d) -> file, directExecutor());
     } catch (IOException e) {
@@ -1195,8 +1208,8 @@ public class RemoteExecutionService {
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-      var outputPath = dir.getPath();
-      var localPath = remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath));
+      var outputPath = unicodeToInternal(dir.getPath());
+      var localPath = remotePathResolver.outputPathToLocalPath(outputPath);
       if (dir.getTreeDigest().getSizeBytes() == 2) {
         // A valid Tree message contains at least a non-empty root field. The only way for a Tree
         // message to have a size of 2 bytes is if the root field is the only non-empty field and
@@ -1463,7 +1476,9 @@ public class RemoteExecutionService {
       throw e;
     }
 
-    FileOutErr.dump(tmpOutErr, outErr);
+    if (tmpOutErr.hasRecordedOutput()) {
+      FileOutErr.dump(tmpOutErr, outErr);
+    }
 
     // Ensure that we are the only ones writing to the output files when using the dynamic spawn
     // strategy.
@@ -2044,7 +2059,7 @@ public class RemoteExecutionService {
       FileArtifactValue metadata =
           action.getSpawnExecutionContext().getInputMetadataProvider().getInputMetadata(input);
       Path path = execRoot.getRelative(input.getExecPath());
-      if (metadata.wasModifiedSinceDigest(path)) {
+      if (metadata.wasModifiedSinceDigest(input.getExecPath(), path)) {
         throw new IOException(path + " was modified during execution");
       }
     }
@@ -2158,10 +2173,80 @@ public class RemoteExecutionService {
 
     ExecuteRequest request = requestBuilder.build();
 
-    ExecuteResponse reply =
-        remoteExecutor.executeRemotely(action.getRemoteActionExecutionContext(), request, observer);
+    LiveOutputStreamer liveOutput = maybeStreamOutput(action);
+    if (liveOutput == null) {
+      ExecuteResponse reply =
+          remoteExecutor.executeRemotely(
+              action.getRemoteActionExecutionContext(), request, observer);
+      return RemoteActionResult.createFromResponse(reply);
+    }
 
-    return RemoteActionResult.createFromResponse(reply);
+    // Whether the execution produced a result whose outputs will be downloaded, replacing the live
+    // output. Otherwise, e.g. when the build is interrupted, the live output is kept, since it is
+    // all the output there is.
+    boolean hasResult = false;
+    try {
+      ExecuteResponse reply =
+          remoteExecutor.executeRemotely(
+              action.getRemoteActionExecutionContext(),
+              request,
+              operation -> {
+                observer.onNext(operation);
+                liveOutput.onNext(operation);
+              });
+      hasResult = true;
+      return RemoteActionResult.createFromResponse(reply);
+    } catch (IOException e) {
+      hasResult = hasResult(e);
+      throw e;
+    } finally {
+      // Streaming must stop before the outputs are downloaded, which rewrites the same files.
+      liveOutput.close(/* discardOutput= */ hasResult);
+    }
+  }
+
+  /** Returns whether the given execution failure carries a result whose outputs are downloaded. */
+  private static boolean hasResult(IOException e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof ExecutionStatusException executionStatusException) {
+        return executionStatusException.getResponse() != null
+            && executionStatusException.getResponse().hasResult();
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns a streamer that writes the live stdout and stderr of a test to its test log while it
+   * executes, for {@code --test_output=streamed}, or null if the output of the action isn't
+   * streamed.
+   */
+  @Nullable
+  private LiveOutputStreamer maybeStreamOutput(RemoteAction action) {
+    // Streamed test output tails the test log, which is the stdout file of the test spawn. Live
+    // output is only worth the extra requests if someone is watching it.
+    if (executionOptions.getTestOutput() != TestOutputFormat.STREAMED
+        || !action.getSpawn().getMnemonic().equals("TestRunner")) {
+      return null;
+    }
+    return LiveOutputStreamer.create(
+        (resourceName, out) ->
+            remoteExecutor.readOutputStream(
+                action.getRemoteActionExecutionContext(), resourceName, out),
+        action.getSpawnExecutionContext().getFileOutErr(),
+        this::reportLiveOutputFailure);
+  }
+
+  private void reportLiveOutputFailure(String streamName, Throwable cause) {
+    logger.atInfo().withCause(cause).log("Failed to read live output stream %s", streamName);
+    if (liveOutputWarningReported.compareAndSet(false, true)) {
+      reporter.handle(
+          Event.warn(
+              String.format(
+                  "Can't stream test output: the remote execution server failed to serve the live"
+                      + " output stream: %s. Test output will be shown when tests finish.",
+                  Utils.grpcAwareErrorMessage(cause, verboseFailures))));
+    }
   }
 
   /** A value classes representing downloaded server logs. */
@@ -2188,13 +2273,14 @@ public class RemoteExecutionService {
       context = context.withReadCachePolicy(context.getReadCachePolicy().addRemoteCache());
       for (Map.Entry<String, LogFile> e : resp.getServerLogsMap().entrySet()) {
         if (e.getValue().getHumanReadable()) {
-          Path lastLogPath = serverLogs.directory.getRelative(e.getKey());
+          String key = unicodeToInternal(e.getKey());
+          Path lastLogPath = serverLogs.directory.getRelative(key);
           if (!lastLogPath.startsWith(serverLogs.directory)) {
             throw new IOException(
                 String.format(
                     "Path traversal detected in server log key: %s (resolved: %s, expected"
                         + " descendant of %s)",
-                    e.getKey(), lastLogPath, serverLogs.directory));
+                    key, lastLogPath, serverLogs.directory));
           }
           serverLogs.lastLogPath = lastLogPath;
           serverLogs.logCount++;

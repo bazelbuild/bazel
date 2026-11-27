@@ -145,7 +145,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("bazel_tools", "1.0"),
                 "module(name='bazel_tools', version='1.0');");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
     evaluator =
@@ -158,7 +158,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                             new TimestampGranularityMonitor(BlazeClock.instance())),
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
-                .put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(pkgLocator, directories, externalFilesHelper))
                 .put(SkyFunctions.REPOSITORY_DIRECTORY, delegatorFunction)
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(

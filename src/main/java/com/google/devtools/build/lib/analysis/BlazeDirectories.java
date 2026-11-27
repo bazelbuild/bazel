@@ -20,6 +20,7 @@ import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -173,8 +174,8 @@ public final class BlazeDirectories {
    * Blaze builds the source symlink forest, to represent the merged view of different workspaces
    * specified with --package_path.
    */
-  public Path getExecRoot(String workspaceName) {
-    return getExecRootBase().getRelative(workspaceName);
+  public Path getExecRoot() {
+    return getExecRootBase().getRelative(LabelConstants.MAIN_REPO_DIR_NAME);
   }
 
   /**
@@ -188,8 +189,8 @@ public final class BlazeDirectories {
   }
 
   /** Returns the output path used by this Blaze instance. */
-  public Path getOutputPath(String workspaceName) {
-    return getExecRoot(workspaceName).getRelative(getRelativeOutputPath());
+  public Path getOutputPath() {
+    return getExecRoot().getRelative(getRelativeOutputPath());
   }
 
   /** Returns the local output path used by this Blaze instance. */
@@ -217,9 +218,9 @@ public final class BlazeDirectories {
    * <p>Note that, for historic reasons, this method is also used to determine where coverage data
    * ("_coverage") should be stored.
    */
-  public ArtifactRoot getBuildDataDirectory(String workspaceName) {
+  public ArtifactRoot getBuildDataDirectory() {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), RootType.OUTPUT, getRelativeOutputPath(productName));
+        getExecRoot(), RootType.OUTPUT, getRelativeOutputPath(productName));
   }
 
   /**

@@ -50,13 +50,11 @@ filegroup(
         "//third_party/java/java_diff_utils:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jimfs:srcs",
         "//third_party/java/jmh:srcs",
         "//third_party/java/jol:srcs",
         "//third_party/java/jspecify_annotations:srcs",
         "//third_party/java/jsr250_annotations:srcs",
         "//third_party/java/jsr305_annotations:srcs",
-        "//third_party/java/jsr330_inject:srcs",
         "//third_party/java/junit:srcs",
         "//third_party/java/mockito:srcs",
         "//third_party/java/netty4:srcs",
@@ -65,7 +63,6 @@ filegroup(
         "//third_party/java/protobuf/util:srcs",
         "//third_party/java/roaringbitmap:srcs",
         "//third_party/java/rxjava3:srcs",
-        "//third_party/java/snakeyaml:srcs",
         "//third_party/java/testparameterinjector:srcs",
         "//third_party/java/truth:srcs",
         "//third_party/java/truth/extensions:srcs",
@@ -74,8 +71,6 @@ filegroup(
         "//third_party/java/zstd_jni:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/py/abseil:srcs",
-        "//third_party/py/frozendict:srcs",
     ],
 )
 
@@ -110,19 +105,6 @@ alias(
 alias(
     name = "apache_velocity",
     actual = "@maven//:org_apache_velocity_velocity",
-)
-
-java_library(
-    name = "api_client",
-    exports = [
-        "@maven//:com_google_api_client_google_api_client",
-        "@maven//:com_google_api_client_google_api_client_gson",
-        "@maven//:com_google_http_client_google_http_client",
-        "@maven//:com_google_http_client_google_http_client_gson",
-    ],
-    runtime_deps = [
-        ":gson",
-    ],
 )
 
 exports_files(
@@ -177,8 +159,9 @@ java_library(
         "@maven//:com_google_auth_google_auth_library_oauth2_http",
     ],
     runtime_deps = [
-        ":api_client",
         ":guava",
+        "@maven//:com_google_http_client_google_http_client",
+        "@maven//:com_google_http_client_google_http_client_gson",
     ],
 )
 
@@ -418,11 +401,6 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-alias(
-    name = "pcollections",
-    actual = "@maven//:org_pcollections_pcollections",
-)
-
 # For bootstrapping JavaBuilder
 filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
@@ -497,11 +475,6 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-alias(
-    name = "javax_activation",
-    actual = "@maven//:javax_activation_javax_activation_api",
-)
-
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
 java_library(
@@ -533,17 +506,13 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-alias(
-    name = "jsr330_inject",
-    actual = "@maven//:javax_inject_javax_inject",
-)
-
 distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
     jars = [
         "@maven//:io_netty_netty_buffer_file",
-        "@maven//:io_netty_netty_codec_file",
+        "@maven//:io_netty_netty_codec_base_file",
+        "@maven//:io_netty_netty_codec_compression_file",
         "@maven//:io_netty_netty_codec_http2_file",
         "@maven//:io_netty_netty_codec_http_file",
         "@maven//:io_netty_netty_common_file",
@@ -600,12 +569,6 @@ java_library(
 )
 
 alias(
-    name = "jimfs",
-    testonly = 1,
-    actual = "@maven//:com_google_jimfs_jimfs",
-)
-
-alias(
     name = "mockito",
     testonly = 1,
     actual = "@maven//:org_mockito_mockito_core",
@@ -625,7 +588,6 @@ java_library(
     name = "truth",
     testonly = 1,
     exports = [
-        "@maven//:com_google_truth_extensions_truth_java8_extension",
         "@maven//:com_google_truth_extensions_truth_proto_extension",
         "@maven//:com_google_truth_truth",
     ],

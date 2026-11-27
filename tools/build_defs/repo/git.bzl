@@ -285,10 +285,15 @@ def _git_repository_implementation(ctx):
     # to patch their packaged module and the patch may not apply to the file
     # checked in to the registry. This overrides the file if it exists.
     if ctx.attr.remote_module_file_urls:
+        # See _expand_workspace in utils.bzl.
+        remote_module_file_urls = [
+            url.replace("%workspace%", str(ctx.workspace_root))
+            for url in ctx.attr.remote_module_file_urls
+        ]
         ctx.download(
-            ctx.attr.remote_module_file_urls,
+            remote_module_file_urls,
             "MODULE.bazel",
-            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            auth = get_auth(ctx, remote_module_file_urls),
             integrity = ctx.attr.remote_module_file_integrity,
         )
 
@@ -305,7 +310,7 @@ git_repository = repository_rule(
     doc = """Clone an external git repository.
 
 Clones a Git repository, checks out the specified branch, tag, or commit, and
-makes its targets available for binding. If no branch, tag or commit is
+makes its targets available to the build. If no branch, tag or commit is
 specified, check out the repository's default branch. Also determine the id
 and date of the commit that was checked out, and return a dict with
 parameters that provide a reproducible version of this rule (which a tag or

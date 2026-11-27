@@ -14,6 +14,25 @@ filegroup(
 )
 
 java_test(
+    name = "AllowedLocalActionsTest",
+    srcs = ["AllowedLocalActionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
+        "//src/main/java/com/google/devtools/build/lib/exec/local:options",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/sandbox:testutil",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "LocalSpawnRunnerTest",
     srcs = ["LocalSpawnRunnerTest.java"],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -38,7 +57,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/testing/common:directory_listing_helper",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -86,6 +104,7 @@ java_test(
 test_suite(
     name = "ExecLocalTests",
     tests = [
+        ":AllowedLocalActionsTest",
         ":LocalSpawnRunnerTest",
         ":PosixLocalEnvProviderTest",
         ":WindowsLocalEnvProviderTest",

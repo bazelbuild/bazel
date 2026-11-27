@@ -21,6 +21,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -54,6 +55,11 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
   /** Provider class for {@link AnalysisTestResultInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface AnalysisTestResultInfoProviderApi extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(
+          AnalysisTestResultInfoProviderApi.class, AnalysisTestResultInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "AnalysisTestResultInfo",

@@ -1,0 +1,44 @@
+diff --git a/rust/private/rustc.bzl b/rust/private/rustc.bzl
+--- a/rust/private/rustc.bzl
++++ b/rust/private/rustc.bzl
+@@ -1550,6 +1550,8 @@
+     if toolchain.target_os == "windows" and toolchain.target_abi == "gnu" and toolchain.dlltool:
+         rustc_flags.add(toolchain.dlltool, format = "--codegen=dlltool=%s")
+ 
++    linker_has_unmapped_paths = False
++
+     # Link!
+     if ("link" in emit and crate_info.type not in ["rlib", "lib"]) or add_flags_for_binary:
+         # Rust's built-in linker can handle linking wasm files. We don't want to attempt to use the cc
+@@ -1592,10 +1594,21 @@
+             link_env = _get_linker_env(linker_config)
+             env.update(link_env)
+ 
++            # cc_common.get_memory_inefficient_command_line and get_tool_for_action
++            # return plain strings that Bazel's path mapper does not rewrite. Disable
++            # path mapping when the C++ toolchain embeds generated output paths (e.g.
++            # hermetic LLVM runtime directories).
++            linker_args = _get_linker_args(linker_config) if linker_config.variables != None else []
++            if linker_config.variables != None:
++                for val in linker_args + [_get_linker_path(linker_config)] + link_env.values():
++                    if "bazel-out/" in val or "bazel-out\\" in val:
++                        linker_has_unmapped_paths = True
++                        break
++
+             # Only expand C++ linker arguments during analysis when the target
+             # or an explicit --linkopt selects an Apple deployment target.
+             if toolchain.target_os in _APPLE_DEPLOYMENT_TARGET_ENV or apple_deployment_target_env(get_cc_user_link_flags(ctx)):
+-                for key, value in apple_deployment_target_env(_get_linker_args(linker_config)).items():
++                for key, value in apple_deployment_target_env(linker_args or _get_linker_args(linker_config)).items():
+                     if key not in ctx.configuration.default_shell_env:
+                         env[key] = value
+ 
+@@ -1870,7 +1883,7 @@
+         rustc_path = rustc_path,
+         rustc_flags = rustc_flags,
+         extra_rustc_flags = rust_flags_args,
+-        supports_path_mapping = not target_has_location_expansion,
++        supports_path_mapping = not target_has_location_expansion and not linker_has_unmapped_paths,
+         all = all_args,
+     )
+ 

@@ -39,6 +39,7 @@ public class DynamicTypeCheckTest {
     ev = new EvaluationTestCase();
     ev.setSemantics(
         StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, false)
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build());
   }
@@ -47,6 +48,7 @@ public class DynamicTypeCheckTest {
   public void typechecking_disabledByFlag() throws Exception {
     ev.setSemantics(
         StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, false)
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, false)
             .build());
 
@@ -267,9 +269,21 @@ public class DynamicTypeCheckTest {
     StarlarkSemantics semantics = ev.getStarlarkThread().getSemantics();
 
     // Verify that sibling functions didn't duplicate type data.
-    assertThat(siblingFn.getFunctionTypes()).isSameInstanceAs(outerFn.getFunctionTypes());
-    assertThat(siblingFn.getFunctionTypes()).isSameInstanceAs(middleFn.getFunctionTypes());
-    assertThat(siblingFn.getFunctionTypes()).isSameInstanceAs(innerFn.getFunctionTypes());
+    assertThat(siblingFn.getAnnotatedFunctionTypes())
+        .isSameInstanceAs(outerFn.getAnnotatedFunctionTypes());
+    assertThat(siblingFn.getAnnotatedFunctionTypes())
+        .isSameInstanceAs(middleFn.getAnnotatedFunctionTypes());
+    assertThat(siblingFn.getAnnotatedFunctionTypes())
+        .isSameInstanceAs(innerFn.getAnnotatedFunctionTypes());
+
+    // Verify that annotatedFunctionTypes doesn't include <toplevel>.
+    assertThat(outerFn.getAnnotatedFunctionTypes()).hasLength(4);
+    assertThat(outerFn.getAnnotatedFunctionTypes()[innerFn.rfn.getFunctionId()]).isNull();
+    assertThat(outerFn.getAnnotatedFunctionTypes()[outerFn.rfn.getFunctionId()]).isNull();
+    assertThat(outerFn.getAnnotatedFunctionTypes()[middleFn.rfn.getFunctionId()])
+        .isSameInstanceAs(middleFn.getStarlarkType(semantics));
+    assertThat(outerFn.getAnnotatedFunctionTypes()[siblingFn.rfn.getFunctionId()])
+        .isSameInstanceAs(siblingFn.getStarlarkType(semantics));
 
     assertThat(outerFn.getStarlarkType(semantics).typeRepr()).isEqualTo("<def () -> Any>");
     assertThat(middleFn.getStarlarkType(semantics).typeRepr())

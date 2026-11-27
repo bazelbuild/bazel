@@ -913,4 +913,49 @@ public final class FileDependencySerializerTest {
     assertThat(childInfo.getRemainingReferencesForTesting()).isEqualTo(1);
     assertThat(childInfo.isBitmapDroppedForTesting()).isFalse();
   }
+
+  @Test
+  public void twoLevelUplevelSymlinkReenteringNestedRoot_failsWithIllegalArgumentException()
+      throws Exception {
+    FileSystem fs = root.getFileSystem();
+    Root nestedRoot = Root.fromPath(fs.getPath("/ws/ROOT_BASE"));
+    nestedRoot.asPath().createDirectoryAndParents();
+
+    RootedPath subDirRootedPath = RootedPath.toRootedPath(nestedRoot, PathFragment.create("sub"));
+    FileKey subDirKey = FileKey.create(subDirRootedPath);
+    InMemoryNodeEntry subDirEntry = mock(InMemoryNodeEntry.class);
+    FileValue subDirValue = mock(FileValue.class);
+    when(subDirValue.isSymlink()).thenReturn(false);
+    when(subDirValue.realRootedPath(subDirRootedPath)).thenReturn(subDirRootedPath);
+    when(subDirValue.exists()).thenReturn(true);
+    when(subDirValue.isDirectory()).thenReturn(true);
+    when(subDirEntry.getValue()).thenReturn(subDirValue);
+    when(graph.getIfPresent(subDirKey)).thenReturn(subDirEntry);
+    when(versionGetter.getFilePathOrSymlinkVersion(subDirRootedPath.asPath())).thenReturn(1L);
+    SettableWriteStatus writeStatus = new SettableWriteStatus();
+    when(writer.put(any(), any())).thenReturn(writeStatus);
+
+    RootedPath symlinkRootedPath =
+        RootedPath.toRootedPath(nestedRoot, PathFragment.create("sub/link"));
+    RootedPath targetRootedPath =
+        RootedPath.toRootedPath(nestedRoot, PathFragment.create("target.txt"));
+    FileKey symlinkKey = FileKey.create(symlinkRootedPath);
+    FileValue symlinkValue = mock(FileValue.class);
+    when(symlinkValue.isSymlink()).thenReturn(true);
+    when(symlinkValue.getUnresolvedLinkTarget())
+        .thenReturn(PathFragment.create("../../../ws/ROOT_BASE/target.txt"));
+    when(symlinkValue.realRootedPath(symlinkRootedPath)).thenReturn(targetRootedPath);
+    when(symlinkValue.exists()).thenReturn(true);
+    when(symlinkValue.isDirectory()).thenReturn(false);
+    when(nodeEntry.getValue()).thenReturn(symlinkValue);
+    when(graph.getIfPresent(symlinkKey)).thenReturn(nodeEntry);
+    when(versionGetter.getFilePathOrSymlinkVersion(targetRootedPath.asPath())).thenReturn(2L);
+
+    FileDataInfoOrFuture result = serializer.registerDependency(symlinkKey);
+    assertThat(result).isInstanceOf(FutureFileDataInfo.class);
+    ExecutionException thrown =
+        assertThrows(ExecutionException.class, () -> ((FutureFileDataInfo) result).get());
+    assertThat(thrown).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    assertThat(thrown).hasCauseThat().hasMessageThat().contains("symlink link above root");
+  }
 }

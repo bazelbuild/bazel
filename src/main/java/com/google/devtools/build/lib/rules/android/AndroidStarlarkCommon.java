@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -47,6 +49,24 @@ import net.starlark.java.eval.StarlarkValue;
             + "Common utilities and functionality related to Android rules.",
     documented = false)
 public class AndroidStarlarkCommon implements StarlarkValue {
+  // Based on com.android.resources.ResourceFolderType
+  private static final ImmutableSet<String> RESOURCE_DIRECTORY_TYPES =
+      ImmutableSet.of(
+          "anim",
+          "animator",
+          "color",
+          "drawable",
+          "font",
+          "interpolator",
+          "layout",
+          "menu",
+          "mipmap",
+          "navigation",
+          "raw",
+          "transition",
+          "values",
+          "xml");
+
   @StarlarkMethod(
       name = "resource_source_directory",
       allowReturnNones = true,
@@ -65,7 +85,100 @@ public class AndroidStarlarkCommon implements StarlarkValue {
       })
   @Nullable
   public String getSourceDirectoryRelativePathFromResource(Artifact resource) {
-    return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource).toString();
+    PathFragment resourceDir = findResourceDir(resource);
+    if (resourceDir == null) {
+      return null;
+    }
+    return trimTo(resource.getRootRelativePath(), resourceDir).toString();
+  }
+
+  /**
+   * Finds and validates the resource directory PathFragment from the artifact Path.
+   *
+   * <p>If the artifact is not a Fileset, the resource directory is presumed to be the second
+   * directory from the end. Filesets are expect to have the last directory as the resource
+   * directory.
+   */
+  @Nullable
+  private static PathFragment findResourceDir(Artifact artifact) {
+    PathFragment fragment = artifact.getExecPath();
+    int segmentCount = fragment.segmentCount();
+    if (segmentCount < 3) {
+      return null;
+    }
+    // TODO(bazel-team): Expand Fileset to verify, or remove Fileset as an option for resources.
+    if (artifact.isFileset() || artifact.isTreeArtifact()) {
+      return fragment.subFragment(segmentCount - 1);
+    }
+
+    // Check the resource folder type layout.
+    // get the prefix of the parent folder of the fragment.
+    String parentDirectory = fragment.getSegment(segmentCount - 2);
+    int dashIndex = parentDirectory.indexOf('-');
+    String androidFolder =
+        dashIndex == -1 ? parentDirectory : parentDirectory.substring(0, dashIndex);
+    if (!RESOURCE_DIRECTORY_TYPES.contains(androidFolder)) {
+      return null;
+    }
+
+    return fragment.subFragment(segmentCount - 3, segmentCount - 2);
+  }
+
+  /**
+   * Finds the rightmost occurrence of the needle and returns subfragment of the haystack from left
+   * to the end of the occurrence inclusive of the needle.
+   *
+   * <pre>
+   * Example:
+   *   Given the haystack:
+   *     res/research/handwriting/res/values/strings.xml
+   *   And the needle:
+   *     res
+   *   Returns:
+   *     res/research/handwriting/res
+   * </pre>
+   */
+  private static PathFragment trimTo(PathFragment haystack, PathFragment needle) {
+    if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
+      return haystack;
+    }
+    ImmutableList<String> needleSegments = needle.splitToListOfSegments();
+    // Compute the overlap offset for duplicated parts of the needle.
+    int[] overlap = new int[needleSegments.size() + 1];
+    // Start overlap at -1, as it will cancel out the increment in the search.
+    // See http://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm for the
+    // details.
+    overlap[0] = -1;
+    for (int i = 0, j = -1; i < needleSegments.size(); j++, i++, overlap[i] = j) {
+      while (j >= 0 && !needleSegments.get(i).equals(needleSegments.get(j))) {
+        // Walk the overlap until the bound is found.
+        j = overlap[j];
+      }
+    }
+    // TODO(corysmith): reverse the search algorithm.
+    // Keep the index of the found so that the rightmost index is taken.
+    ImmutableList<String> haystackSegments = haystack.splitToListOfSegments();
+    int found = -1;
+    for (int i = 0, j = 0; i < haystackSegments.size(); i++) {
+
+      while (j >= 0 && !haystackSegments.get(i).equals(needleSegments.get(j))) {
+        // Not matching, walk the needle index to attempt another match.
+        j = overlap[j];
+      }
+      j++;
+      // Needle index is exhausted, so the needle must match.
+      if (j == needleSegments.size()) {
+        // Record the found index + 1 to be inclusive of the end index.
+        found = i + 1;
+        // Subtract one from the needle index to restart the search process
+        j = j - 1;
+      }
+    }
+    if (found != -1) {
+      // Return the subsection of the haystack.
+      return haystack.subFragment(0, found);
+    }
+    throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
   }
 
   @StarlarkMethod(
@@ -131,10 +244,18 @@ public class AndroidStarlarkCommon implements StarlarkValue {
       StarlarkInt minSdkVersion,
       Object desugarGlobals)
       throws EvalException, RuleErrorException {
+    if (!(output instanceof TreeArtifact outputTree)) {
+      throw Starlark.errorf(
+          "Expected 'output' to be a directory artifact, but got %s", output.prettyPrint());
+    }
+    if (!(input instanceof TreeArtifact inputTree)) {
+      throw Starlark.errorf(
+          "Expected 'input' to be a directory artifact, but got %s", input.prettyPrint());
+    }
     createTemplatedMergerActions(
         starlarkRuleContext.getRuleContext(),
-        (TreeArtifact) output,
-        (TreeArtifact) input,
+        outputTree,
+        inputTree,
         Sequence.cast(dexopts, String.class, "dexopts"),
         dexmerger,
         minSdkVersion.toInt("min_sdk_version"),

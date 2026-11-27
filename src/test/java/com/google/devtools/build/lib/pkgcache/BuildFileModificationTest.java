@@ -215,7 +215,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     Package oldPkg = getPackage("pkg");
     // Change ctime to 1.
     clock.advanceMillis(1);
-    path.setLastModifiedTime(1001);
+    path.setLastModifiedTimeNanos(1001);
     assertThat(getPackage("pkg")).isSameInstanceAs(oldPkg); // change not yet visible
 
     invalidatePackages();

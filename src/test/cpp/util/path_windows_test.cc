@@ -15,10 +15,9 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
-
 #include <stdio.h>
 #include <string.h>
+#include <windows.h>
 
 #include <algorithm>
 #include <memory>
@@ -34,6 +33,7 @@
 #include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/test_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
+#include "absl/strings/ascii.h"
 
 #if !defined(_WIN32) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
@@ -301,7 +301,7 @@ TEST(PathWindowsTest, MakeAbsolute) {
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\bar\\"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar/"));
-  EXPECT_EQ(blaze_util::ToLower(blaze_util::GetCwd()) + "\\foo",
+  EXPECT_EQ(absl::AsciiStrToLower(blaze_util::GetCwd()) + "\\foo",
             MakeAbsolute("foo"));
 
   EXPECT_EQ("nul", MakeAbsolute("NUL"));

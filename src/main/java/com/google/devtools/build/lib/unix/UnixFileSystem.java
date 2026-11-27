@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.unix.NativePosixFilesService.StatErrorHandling;
+import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -45,15 +45,10 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class UnixFileSystem extends DiskBackedFileSystem {
   protected final String hashAttributeName;
-  protected final NativePosixFilesService nativePosixFilesService;
 
-  public UnixFileSystem(
-      DigestHashFunction hashFunction,
-      String hashAttributeName,
-      NativePosixFilesService nativePosixFilesService) {
+  public UnixFileSystem(DigestHashFunction hashFunction, String hashAttributeName) {
     super(hashFunction);
     this.hashAttributeName = hashAttributeName;
-    this.nativePosixFilesService = nativePosixFilesService;
   }
 
   @Override
@@ -61,9 +56,9 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     String name = path.getPathString();
     long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      NativePosixFilesService.Dirent[] dirents = run(() -> nativePosixFilesService.readdir(name));
+      NativePosixFiles.Dirent[] dirents = run(() -> NativePosixFiles.readdir(name));
       ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(dirents.length);
-      for (NativePosixFilesService.Dirent dirent : dirents) {
+      for (NativePosixFiles.Dirent dirent : dirents) {
         builder.add(dirent.name());
       }
       return builder.build();
@@ -81,7 +76,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      String result = run(() -> nativePosixFilesService.readlink(name));
+      String result = run(() -> NativePosixFiles.readlink(name));
       return result != null ? PathFragment.create(result) : null;
     } finally {
       Blocker.end(comp);
@@ -89,13 +84,13 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     }
   }
 
-  /** Converts from {@link NativePosixFilesService.Dirent.Type} to {@link Dirent.Type}. */
-  private static Dirent.Type convertDirentType(NativePosixFilesService.Dirent.Type type) {
-    if (type == NativePosixFilesService.Dirent.Type.FILE) {
+  /** Converts from {@link NativePosixFiles.Dirent.Type} to {@link Dirent.Type}. */
+  private static Dirent.Type convertDirentType(NativePosixFiles.Dirent.Type type) {
+    if (type == NativePosixFiles.Dirent.Type.FILE) {
       return Dirent.Type.FILE;
-    } else if (type == NativePosixFilesService.Dirent.Type.DIRECTORY) {
+    } else if (type == NativePosixFiles.Dirent.Type.DIRECTORY) {
       return Dirent.Type.DIRECTORY;
-    } else if (type == NativePosixFilesService.Dirent.Type.SYMLINK) {
+    } else if (type == NativePosixFiles.Dirent.Type.SYMLINK) {
       return Dirent.Type.SYMLINK;
     } else {
       return Dirent.Type.UNKNOWN;
@@ -107,14 +102,14 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     String name = path.getPathString();
     long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      NativePosixFilesService.Dirent[] dirents = run(() -> nativePosixFilesService.readdir(name));
+      NativePosixFiles.Dirent[] dirents = run(() -> NativePosixFiles.readdir(name));
       ImmutableList.Builder<Dirent> builder = ImmutableList.builderWithExpectedSize(dirents.length);
-      for (NativePosixFilesService.Dirent dirent : dirents) {
+      for (NativePosixFiles.Dirent dirent : dirents) {
         Dirent.Type type;
         // If the entry type is unknown, or if we're following symlinks and the entry is a symlink,
         // we need to stat the entry to get the type.
-        if (dirent.type() == NativePosixFilesService.Dirent.Type.UNKNOWN
-            || (followSymlinks && dirent.type() == NativePosixFilesService.Dirent.Type.SYMLINK)) {
+        if (dirent.type() == NativePosixFiles.Dirent.Type.UNKNOWN
+            || (followSymlinks && dirent.type() == NativePosixFiles.Dirent.Type.SYMLINK)) {
           try {
             FileStatus stat = statIfFound(path.getRelative(dirent.name()), followSymlinks);
             type = stat != null ? ((UnixFileStatus) stat).getDirentType() : Dirent.Type.UNKNOWN;
@@ -139,11 +134,10 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     var comp = Blocker.begin();
     try {
       return new UnixFileStatus(
-          run(
-              () ->
-                  followSymlinks
-                      ? nativePosixFilesService.stat(name, StatErrorHandling.ALWAYS_THROW)
-                      : nativePosixFilesService.lstat(name, StatErrorHandling.ALWAYS_THROW)));
+          run(() ->
+              followSymlinks
+                  ? NativePosixFiles.stat(name, StatErrorHandling.ALWAYS_THROW)
+                  : NativePosixFiles.lstat(name, StatErrorHandling.ALWAYS_THROW)));
     } finally {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
@@ -161,13 +155,11 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      NativePosixFilesService.Stat stat =
-          run(
-              () ->
-                  followSymlinks
-                      ? nativePosixFilesService.stat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND)
-                      : nativePosixFilesService.lstat(
-                          name, StatErrorHandling.THROW_UNLESS_NOT_FOUND));
+      NativePosixFiles.Stat stat =
+          run(() ->
+              followSymlinks
+                  ? NativePosixFiles.stat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND)
+                  : NativePosixFiles.lstat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND));
       return stat != null ? new UnixFileStatus(stat) : null;
     } finally {
       Blocker.end(comp);
@@ -201,7 +193,9 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       throws IOException {
     int oldMode = stat(path, /* followSymlinks= */ true).getPermissions();
     int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
-    chmod(path, newMode);
+    if (newMode != oldMode) {
+      chmod(path, newMode);
+    }
   }
 
   @Override
@@ -223,7 +217,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   public void chmod(PathFragment path, int mode) throws IOException {
     var comp = Blocker.begin();
     try {
-      run(() -> nativePosixFilesService.chmod(path.toString(), mode));
+      run(() -> NativePosixFiles.chmod(path.toString(), mode));
     } finally {
       Blocker.end(comp);
     }
@@ -256,7 +250,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       // Use 0777 so that the permissions can be overridden by umask(2).
       // Note: UNIX mkdir(2), FilesystemUtils.mkdir() and createDirectory all
       // have different ways of representing failure!
-      if (run(() -> nativePosixFilesService.mkdir(path.toString(), 0777))) {
+      if (run(() -> NativePosixFiles.mkdir(path.toString(), 0777))) {
         return true; // successfully created
       }
     } finally {
@@ -296,10 +290,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       throws IOException {
     var comp = Blocker.begin();
     try {
-      run(
-          () ->
-              nativePosixFilesService.symlink(
-                  targetFragment.getSafePathString(), linkPath.toString()));
+      run(() -> NativePosixFiles.symlink(targetFragment.getSafePathString(), linkPath.toString()));
     } finally {
       Blocker.end(comp);
     }
@@ -313,7 +304,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      String result = run(() -> nativePosixFilesService.readlink(name));
+      String result = run(() -> NativePosixFiles.readlink(name));
       if (result == null) {
         throw new NotASymlinkException(path);
       }
@@ -328,7 +319,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     var comp = Blocker.begin();
     try {
-      run(() -> nativePosixFilesService.rename(sourcePath.toString(), targetPath.toString()));
+      run(() -> NativePosixFiles.rename(sourcePath.toString(), targetPath.toString()));
     } finally {
       Blocker.end(comp);
     }
@@ -345,7 +336,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      return run(() -> nativePosixFilesService.remove(name));
+      return run(() -> NativePosixFiles.remove(name));
     } finally {
       Blocker.end(comp);
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, name);
@@ -353,18 +344,17 @@ public class UnixFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    return stat(path, followSymlinks).getLastModifiedTime();
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    return stat(path, followSymlinks).getLastModifiedTimeNanos();
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
     var comp = Blocker.begin();
     try {
-      run(
-          () ->
-              nativePosixFilesService.utimensat(
-                  path.toString(), newTime == Path.NOW_SENTINEL_TIME, newTime));
+      run(() ->
+          NativePosixFiles.utimensat(path.toString(), newTime == Path.NOW_SENTINEL_TIME, newTime));
     } finally {
       Blocker.end(comp);
     }
@@ -378,11 +368,10 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     long startTime = Profiler.instance().nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      return run(
-          () ->
-              followSymlinks
-                  ? nativePosixFilesService.getxattr(pathName, name)
-                  : nativePosixFilesService.lgetxattr(pathName, name));
+      return run(() ->
+          followSymlinks
+              ? NativePosixFiles.getxattr(pathName, name)
+              : NativePosixFiles.lgetxattr(pathName, name));
     } catch (UnsupportedOperationException e) {
       // getxattr() syscall is not supported by the underlying filesystem (it returned ENOTSUP).
       // Per method contract, treat this as ENODATA.
@@ -417,7 +406,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       throws IOException {
     var comp = Blocker.begin();
     try {
-      run(() -> nativePosixFilesService.link(originalPath.toString(), linkPath.toString()));
+      run(() -> NativePosixFiles.link(originalPath.toString(), linkPath.toString()));
     } finally {
       Blocker.end(comp);
     }
@@ -429,7 +418,7 @@ public class UnixFileSystem extends DiskBackedFileSystem {
       long startTime = Profiler.instance().nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
-        run(() -> nativePosixFilesService.deleteTreesBelow(dir.toString()));
+        run(() -> NativePosixFiles.deleteTreesBelow(dir.toString()));
       } finally {
         Blocker.end(comp);
         Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DELETE, dir.toString());

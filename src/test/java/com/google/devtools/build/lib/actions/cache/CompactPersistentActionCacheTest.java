@@ -21,9 +21,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -173,6 +175,56 @@ public class CompactPersistentActionCacheTest {
     ActionCache.Entry readentry = newCache.get(key);
     assertThat(readentry).isNotNull();
     assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
+  }
+
+  @Test
+  public void testDiscoveredInputsRoundTrip() throws Exception {
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, "a.h");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b.h");
+    Artifact c = ActionsTestUtil.createArtifact(artifactRoot, "c.h");
+    Artifact d = ActionsTestUtil.createArtifact(artifactRoot, "d.h");
+    FileArtifactValue metadata = createRemoteMetadata(a, "content");
+
+    // Assign indices in the order a, b, c so that the next entry lists its inputs out of index
+    // order and has to be sorted when encoded.
+    cache.put(
+        "first",
+        builder("first", /* discoversInputs= */ true)
+            .addInputFile(a, metadata, /* saveExecPath= */ true)
+            .addInputFile(b, metadata, /* saveExecPath= */ true)
+            .addInputFile(c, metadata, /* saveExecPath= */ true)
+            .build());
+    cache.put(
+        "second",
+        builder("second", /* discoversInputs= */ true)
+            .addInputFile(d, metadata, /* saveExecPath= */ true)
+            .addInputFile(c, metadata, /* saveExecPath= */ true)
+            .addInputFile(a, metadata, /* saveExecPath= */ true)
+            .addInputFile(c, metadata, /* saveExecPath= */ true)
+            .build());
+
+    ImmutableList<String> expectedFirst =
+        ImmutableList.of(a.getExecPathString(), b.getExecPathString(), c.getExecPathString());
+    ImmutableList<String> expectedSecond =
+        ImmutableList.of(
+            d.getExecPathString(),
+            c.getExecPathString(),
+            a.getExecPathString(),
+            c.getExecPathString());
+    assertThat(cache.get("first").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedFirst);
+    assertThat(cache.get("second").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedSecond);
+
+    cache.save();
+    CompactPersistentActionCache newCache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newCache.get("first").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedFirst);
+    assertThat(newCache.get("second").getDiscoveredInputPaths())
+        .containsExactlyElementsIn(expectedSecond);
   }
 
   @Test
@@ -601,6 +653,46 @@ public class CompactPersistentActionCacheTest {
     entry = cache.get("key");
 
     assertThat(entry.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+  }
+
+  @Test
+  public void putAndGet_constantMetadata_savesRemoteFileMetadata() {
+    ConstantMetadataArtifact artifact =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata1 = createRemoteMetadata(artifact, "content1");
+    FileArtifactValue metadata2 = createRemoteMetadata(artifact, "content2");
+    var entry1 =
+        builder("key").addOutputFile(artifact, metadata1, /* saveFileMetadata= */ true).build();
+    var entry2 =
+        builder("key").addOutputFile(artifact, metadata2, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry1);
+
+    Entry cached = cache.get("key");
+
+    assertThat(cached.getOutputFile(artifact)).isEqualTo(metadata1);
+    assertThat(cached.getDigest()).isEqualTo(entry2.getDigest());
+  }
+
+  @Test
+  public void putAndGet_constantMetadata_savesProxyOutputs() throws Exception {
+    ConstantMetadataArtifact artifact =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata1 =
+        new ProxyFileArtifactValue(createLocalMetadata(artifact, "content1"), artifact.getPath());
+    FileArtifactValue metadata2 =
+        new ProxyFileArtifactValue(createLocalMetadata(artifact, "content2"), artifact.getPath());
+    var entry1 =
+        builder("key").addOutputFile(artifact, metadata1, /* saveFileMetadata= */ true).build();
+    var entry2 =
+        builder("key").addOutputFile(artifact, metadata2, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry1);
+
+    Entry cached = cache.get("key");
+
+    assertThat(cached.getProxyOutputs()).containsExactly(artifact.getExecPathString());
+    assertThat(cached.getDigest()).isEqualTo(entry2.getDigest());
   }
 
   @Test

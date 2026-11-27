@@ -93,8 +93,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     modules which were originally present in the dependency graph, but became
     unused after module resolution.
 
-*   `--extension_info <var>mode</var>`: Include information about the module extension
-    usages as part of the output graph (see [example](#mod-example7)). `<var>mode</var>`
+*   `--extension_info mode`: Include information about the module extension
+    usages as part of the output graph (see [example](#mod-example7)). `mode`
     can be one of:
 
     *   `hidden` *(default)*: Don't show anything about extensions.
@@ -134,8 +134,8 @@ The following options only affect the subcommands that print graphs (`graph`,
     Therefore, the `"ascii"` charset is present to also support the usage on
     legacy platforms which cannot use Unicode.
 
-*   `--output <var>mode</var>`: Include information about the module extension usages as
-    part of the output graph. `<var>mode</var>' can be one of:
+*   `--output mode`: Include information about the module extension usages as
+    part of the output graph. `mode` can be one of:
 
     *   `text` *(default)*: A human-readable representation of the output graph
         (flattened as a tree).
@@ -154,8 +154,8 @@ The following options only affect the subcommands that print graphs (`graph`,
 
     ### show_repo options
 `show_repo` supports a different set of output formats:
-*   `--output <var>mode</var>`: Change how repository definitions are displayed.
-    `<var>mode</var>` can be one of:
+*   `--output mode`: Change how repository definitions are displayed.
+    `mode` can be one of:
     *   `text` *(default)*: Display repo definitions in Starlark.
     *   `streamed_proto`: Prints a
         [length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)

@@ -163,43 +163,41 @@ public class BuildViewForTesting {
     var proxyNodeKeys = ImmutableSet.<ConfiguredTargetKey>builder();
     ImmutableMap<ActionLookupKey, Version> newMap =
         graph.getAllNodeEntries().stream()
-            .filter(
-                entry -> {
-                  SkyKey key = entry.getKey();
-                  if (!(key instanceof ActionLookupKey)) {
-                    return false;
-                  }
-                  if (!key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-                    return true;
-                  }
+            .filter(entry -> {
+              SkyKey key = entry.getKey();
+              if (!SkyframeExecutor.isAnalysisPhaseActionLookupKey(key)) {
+                return false;
+              }
+              if (!key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+                return true;
+              }
 
-                  var ctKey = (ConfiguredTargetKey) key;
+              var ctKey = (ConfiguredTargetKey) key;
 
-                  if (!entry.isDone()) {
-                    if (previousProxyNodeKeys.contains(ctKey)) {
-                      // The node is dirty and was a proxy previously. Filters the entry as long as
-                      // it remains not done.
-                      proxyNodeKeys.add(ctKey);
-                      return false;
-                    }
-                    return true;
-                  }
+              if (!entry.isDone()) {
+                if (previousProxyNodeKeys.contains(ctKey)) {
+                  // The node is dirty and was a proxy previously. Filters the entry as long as
+                  // it remains not done.
+                  proxyNodeKeys.add(ctKey);
+                  return false;
+                }
+                return true;
+              }
 
-                  var value = (ConfiguredTargetValue) entry.getValue();
-                  if (value == null) {
-                    // The node has an error. No filtering is applied in this case.
-                    return true;
-                  }
-                  if (!Objects.equals(
-                      ctKey.getConfigurationKey(),
-                      value.getConfiguredTarget().getConfigurationKey())) {
-                    // The configurations are not equal so the node is only performing delegation
-                    // and doesn't own the configured target.
-                    proxyNodeKeys.add(ctKey);
-                    return false;
-                  }
-                  return true;
-                })
+              var value = (ConfiguredTargetValue) entry.getValue();
+              if (value == null) {
+                // The node has an error. No filtering is applied in this case.
+                return true;
+              }
+              if (!Objects.equals(
+                  ctKey.getConfigurationKey(), value.getConfiguredTarget().getConfigurationKey())) {
+                // The configurations are not equal so the node is only performing delegation
+                // and doesn't own the configured target.
+                proxyNodeKeys.add(ctKey);
+                return false;
+              }
+              return true;
+            })
             .collect(toImmutableMap(e -> (ActionLookupKey) e.getKey(), NodeEntry::getVersion));
     previousProxyNodeKeys = proxyNodeKeys.build();
     MapDifference<ActionLookupKey, Version> difference =

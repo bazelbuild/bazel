@@ -37,4 +37,15 @@ filegroup(
     ) or fail("No ijar binary found"),
 )
 
+filegroup(
+    name = "prebuilt_proguard_allowlister",
+    srcs = glob(
+        [
+            "java_tools/tools/jdk/proguard_allowlister",
+            "java_tools/tools/jdk/proguard_allowlister.exe",
+        ],
+        allow_empty = True,
+    ) or fail("No proguard_allowlister binary found"),
+)
+
 # LINT.ThenChange(//tools/jdk/BUILD.java_tools_prebuilt)

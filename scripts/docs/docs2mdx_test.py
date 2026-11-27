@@ -63,6 +63,31 @@ config_setting(
     self.assertNotIn("&lcub;", result)
     self.assertNotIn("&rcub;", result)
 
+  def test_inline_backticks_in_html_are_not_entity_escaped(self):
+    html = """<html><body>
+<p>The default value of facts is `{}` and `{output_jar}-src.jar` with `__init__.py`, while {prose} is escaped.</p>
+</body></html>"""
+    result = docs2mdx._transform("example.html", html)
+
+    self.assertIn("`{}`", result)
+    self.assertIn("`{output_jar}-src.jar`", result)
+    self.assertIn("`__init__.py`", result)
+    self.assertIn("&lcub;prose&rcub;", result)
+
+  def test_var_tags_and_double_bracket_templates_are_stripped(self):
+    md = """# Title
+
+#### `--stripopt={{ "<var>" }}strip-option{{ "</var>" }}` {#stripopt}
+
+#### `--copt=<var>cc-option</var>` {#copt}
+"""
+    result = docs2mdx._transform("example.md", md)
+
+    self.assertIn("#### `--stripopt=strip-option` {#stripopt}", result)
+    self.assertIn("#### `--copt=cc-option` {#copt}", result)
+    self.assertNotIn("<var>", result)
+    self.assertNotIn("</var>", result)
+
 
 class Docs2MdxTableCellTest(parameterized.TestCase):
 

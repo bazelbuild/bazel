@@ -430,23 +430,25 @@ function test_console_log_for_tests() {
   # Get repeatable results from this test.
   bazel clean --expunge
 
+  # Skipped tests are counted in the final summary line, but not listed with the
+  # default --test_summary=short.
   bazel test \
     --host_platform=@//target_skipping:foo1_bar1_platform \
     --platforms=@//target_skipping:foo1_bar1_platform \
     ... &> "${TEST_log}" || fail "Bazel failed unexpectedly."
   expect_log 'Executed 1 out of 3 tests: 1 test passes and 2 were skipped'
   expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
-  expect_log '^//target_skipping:fail_on_foo2  *  SKIPPED$'
-  expect_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+  expect_not_log '^//target_skipping:fail_on_foo2  *  SKIPPED$'
+  expect_not_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
 
   bazel test \
     --host_platform=@//target_skipping:foo2_bar1_platform \
     --platforms=@//target_skipping:foo2_bar1_platform \
     ... &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'Executed 1 out of 3 tests: 1 fails .* and 2 were skipped.'
-  expect_log '^//target_skipping:pass_on_foo1  *  SKIPPED$'
+  expect_not_log '^//target_skipping:pass_on_foo1  *  SKIPPED$'
   expect_log '^//target_skipping:fail_on_foo2  *  FAILED in'
-  expect_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+  expect_not_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
 
   # Use :all for this one to validate similar behaviour.
   bazel test \
@@ -455,7 +457,7 @@ function test_console_log_for_tests() {
     :all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
   expect_log 'Executed 2 out of 3 tests: 2 tests pass and 1 was skipped'
   expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
-  expect_log '^//target_skipping:fail_on_foo2  *  SKIPPED$'
+  expect_not_log '^//target_skipping:fail_on_foo2  *  SKIPPED$'
   expect_log '^//target_skipping:pass_on_foo1_bar2  *  PASSED in'
 }
 
@@ -583,6 +585,7 @@ function test_success_on_incompatible_top_level_target_with_skipping() {
 
     bazel test \
       --show_result=10 \
+      --test_summary=detailed \
       --host_platform=@//target_skipping:foo1_bar1_platform \
       --platforms=@//target_skipping:foo1_bar1_platform \
       --build_event_text_file="${TEST_log}".build.json \

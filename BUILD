@@ -79,6 +79,7 @@ genrule(
     name = "generate_dist_lockfile",
     srcs = [
         "MODULE.bazel",
+        "MODULE.bazel.lock",
         "//third_party:remoteapis/MODULE.bazel",
         "//third_party:BUILD",
         "//third_party:patches",
@@ -90,16 +91,21 @@ genrule(
         "trap 'rm -rf $$TMPDIR' EXIT",
         "mkdir -p $$TMPDIR/workspace",
         "touch $$TMPDIR/workspace/BUILD.bazel",
-        "for i in $(SRCS); do dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
-        "cd $$TMPDIR/workspace",
+        "for i in $(SRCS); do if [ \"$$(basename \"$$i\")\" = \"MODULE.bazel.lock\" ]; then continue; fi; dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
         # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
         # so that we only trigger module resolution, not extension eval.
         # Also use `--batch` so that Bazel doesn't keep a server process alive.
-        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
-        "mv MODULE.bazel.lock $$ROOT/$@",
+        "(cd $$TMPDIR/workspace && $$ROOT/$(execpath //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all)",
+        # Carry over platform-independent reproducible extension facts from the
+        # checked-in lockfile so extensions (such as rules_rs) do not attempt
+        # network downloads during offline bootstrap.
+        "$(execpath //scripts:merge_dist_lockfile) $$TMPDIR/workspace/MODULE.bazel.lock $(execpath MODULE.bazel.lock) $@",
     ]),
     tags = ["requires-network"],
-    tools = ["//src:bazel"],
+    tools = [
+        "//scripts:merge_dist_lockfile",
+        "//src:bazel",
+    ],
 )
 
 sh_test(
@@ -252,6 +258,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":maven-srcs",
+        "//src:bootstrap-rust",
         "//src:derived_java_srcs",
         "@bootstrap_repo_cache//:archives.tar",
     ],
@@ -269,6 +276,7 @@ genrule(
         ":bootstrap-jars",
         ":platforms-srcs",
         ":maven-srcs",
+        "//src:bootstrap-rust",
         "//src:derived_java_srcs",
         "@bootstrap_repo_cache//:archives.tar",
     ],
@@ -306,11 +314,94 @@ platform(
     parents = ["@platforms//host"],
 )
 
+# The host platform, but with the oldest glibc that the hermetic LLVM toolchains
+# support. Binaries built for this platform run with glibc 2.17 or newer, like
+# the embedded JDK for Linux arm64 (the one for x86_64 needs glibc 2.9).
+# This is also an execution platform: tests need an execution platform that has
+# all constraints of the target platform.
+platform(
+    name = "linux_host_platform",
+    constraint_values = ["@llvm//constraints/libc:gnu.2.17"],
+    parents = [":default_host_platform"],
+)
+
+# Default Windows host/execution platform: pairs the default hermetic MinGW
+# LLVM toolchain (MSVCRT) with the matching `windows-gnullvm` Rust toolchain
+# while inheriting host capabilities from `:default_host_platform`.
+platform(
+    name = "windows_host_platform",
+    constraint_values = [
+        "@llvm//constraints/windows/abi:gnullvm",
+        "@llvm//constraints/windows/crt:msvcrt",
+    ],
+    parents = [":default_host_platform"],
+)
+
+# Windows host platform for Rust proc-macros: `rules_rs` runs an MSVC-hosted
+# `rustc.exe`, which only loads proc-macro DLLs compiled for `*-windows-msvc`.
+platform(
+    name = "windows_msvc_host_platform",
+    constraint_values = [
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    parents = [":default_host_platform"],
+)
+
+# Host Visual Studio MSVC C++ toolchains scoped strictly to
+# `@llvm//constraints/windows/abi:msvc`, so Windows proc-macro builds can link
+# MSVC DLLs without pulling the EULA-gated `@llvm` MSVC toolchain or affecting
+# MinGW (`gnullvm`) target and exec builds.
+toolchain(
+    name = "windows_x86_64_msvc_cc_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+    tags = ["manual"],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    toolchain = "@local_config_cc//:cc-compiler-x64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+toolchain(
+    name = "windows_arm64_msvc_cc_toolchain",
+    exec_compatible_with = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:windows",
+    ],
+    tags = ["manual"],
+    target_compatible_with = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:windows",
+        "@llvm//constraints/windows/abi:msvc",
+    ],
+    toolchain = "@local_config_cc//:cc-compiler-arm64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+# Standalone Windows x86_64 target platform for cross-compiling
+# //src:bazel_windows_llvm from any host OS.
+platform(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+        "@llvm//constraints/windows/abi:gnullvm",
+        "@llvm//constraints/windows/crt:msvcrt",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "windows_arm64",
     constraint_values = [
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
+        "@llvm//constraints/windows/abi:msvc",
     ],
 )
 
@@ -321,6 +412,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
         name = platform_name + "_platform",
         constraint_values = [
             "//:mount_capable",
+            "@llvm//constraints/libc:gnu.2.17",
         ],
         exec_properties = {
             "dockerNetwork": "standard",

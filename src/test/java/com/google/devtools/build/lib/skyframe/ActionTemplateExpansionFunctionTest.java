@@ -67,30 +67,36 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link ActionTemplateExpansionFunction}. */
-@RunWith(JUnit4.class)
-public final class ActionTemplateExpansionFunctionTest extends FoundationTestCase  {
+@RunWith(TestParameterInjector.class)
+public final class ActionTemplateExpansionFunctionTest extends FoundationTestCase {
 
   private final Map<Artifact, TreeArtifactValue> artifactValueMap = new LinkedHashMap<>();
+  private final Set<Artifact> failingArtifacts = new HashSet<>();
   private final SequencedRecordingDifferencer differencer = new SequencedRecordingDifferencer();
   private final MemoizingEvaluator evaluator =
       new InMemoryMemoizingEvaluator(
           ImmutableMap.of(
               Artifact.ARTIFACT,
-              new DummyArtifactFunction(artifactValueMap),
+              new DummyArtifactFunction(artifactValueMap, failingArtifacts),
               SkyFunctions.ACTION_TEMPLATE_EXPANSION,
               new ActionTemplateExpansionFunction(new ActionKeyContext())),
           differencer);
@@ -376,21 +382,61 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     evaluate(template);
   }
 
+  @Test
+  public void failingExpandedActionInput_isErrorWithoutValue(@TestParameter boolean keepGoing)
+      throws Exception {
+    ActionTemplate<DummyAction> template = createTemplateWithFailingExpandedActionInput();
+
+    EvaluationResult<ActionTemplateExpansionValue> result = evaluateToResult(template, keepGoing);
+
+    ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.get(templateKey)).isNull();
+    assertThat(result.getError(templateKey).getException())
+        .isInstanceOf(DummyArtifactException.class);
+  }
+
+  /**
+   * Creates a template whose {@link ActionTemplate#getInputs} contains, in addition to the input
+   * tree, a non-tree input that fails to build. The function does not need the value of such
+   * inputs, but it must still surface their errors.
+   */
+  private ActionTemplate<DummyAction> createTemplateWithFailingExpandedActionInput()
+      throws Exception {
+    TreeArtifact inputTree = createAndPopulateTreeArtifact("input", "child");
+    TreeArtifact outputTree = createTreeArtifact("output");
+    Artifact failingInput =
+        ActionsTestUtil.createArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)), "failing_input");
+    failingArtifacts.add(failingInput);
+
+    return new TestActionTemplate(inputTree, outputTree) {
+      @Override
+      public ImmutableList<DummyAction> generateActionsForInputArtifacts(
+          ImmutableList<TreeFileArtifact> inputTreeFileArtifacts,
+          ActionLookupKey artifactOwner,
+          EventHandler eventHandler) {
+        TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
+        return ImmutableList.of(
+            new DummyAction(
+                NestedSetBuilder.create(Order.STABLE_ORDER, input, failingInput),
+                TreeFileArtifact.createTemplateExpansionOutput(
+                    outputTree, "child", artifactOwner)));
+      }
+
+      @Override
+      public NestedSet<Artifact> getInputs() {
+        return NestedSetBuilder.create(Order.STABLE_ORDER, inputTree, failingInput);
+      }
+    };
+  }
+
   private static final ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
 
   private ImmutableList<Action> evaluate(ActionTemplate<?> actionTemplate) throws Exception {
-    ActionLookupValue ctValue = createActionLookupValue(actionTemplate);
-
-    differencer.inject(CTKEY, Delta.justNew(ctValue));
     ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setKeepGoing(false)
-            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHandler(NullEventHandler.INSTANCE)
-            .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
-        evaluator.evaluate(ImmutableList.of(templateKey), evaluationContext);
+        evaluateToResult(actionTemplate, /* keepGoing= */ false);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -400,6 +446,21 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
       actionList.add(actionTemplateExpansionValue.getAction(i));
     }
     return actionList.build();
+  }
+
+  private EvaluationResult<ActionTemplateExpansionValue> evaluateToResult(
+      ActionTemplate<?> actionTemplate, boolean keepGoing) throws Exception {
+    ActionLookupValue ctValue = createActionLookupValue(actionTemplate);
+
+    differencer.inject(CTKEY, Delta.justNew(ctValue));
+    ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    return evaluator.evaluate(ImmutableList.of(templateKey), evaluationContext);
   }
 
   private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
@@ -436,16 +497,35 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return treeArtifact;
   }
 
-  /** Dummy ArtifactFunction that just returns injected values */
+  /** Dummy ArtifactFunction that just returns injected values or throws for failing artifacts. */
   private static final class DummyArtifactFunction implements SkyFunction {
     private final Map<Artifact, TreeArtifactValue> artifactValueMap;
+    private final Set<Artifact> failingArtifacts;
 
-    DummyArtifactFunction(Map<Artifact, TreeArtifactValue> artifactValueMap) {
+    DummyArtifactFunction(
+        Map<Artifact, TreeArtifactValue> artifactValueMap, Set<Artifact> failingArtifacts) {
       this.artifactValueMap = artifactValueMap;
+      this.failingArtifacts = failingArtifacts;
     }
+
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws DummyArtifactFunctionException {
+      if (failingArtifacts.contains(skyKey)) {
+        throw new DummyArtifactFunctionException(new DummyArtifactException((Artifact) skyKey));
+      }
       return Preconditions.checkNotNull(artifactValueMap.get(skyKey));
+    }
+  }
+
+  private static final class DummyArtifactException extends Exception {
+    DummyArtifactException(Artifact artifact) {
+      super("Failed to build " + artifact);
+    }
+  }
+
+  private static final class DummyArtifactFunctionException extends SkyFunctionException {
+    DummyArtifactFunctionException(DummyArtifactException cause) {
+      super(cause, Transience.PERSISTENT);
     }
   }
 

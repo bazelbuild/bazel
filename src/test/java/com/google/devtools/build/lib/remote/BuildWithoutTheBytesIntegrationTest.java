@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -118,6 +121,142 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     }
   }
 
+  @Test
+  public void remoteFileWrite_switchToLocalBuild_materializesOutput() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions("--file_write_strategy=remote");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    addOptions(
+        "--file_write_strategy=local", "--remote_executor=", "--remote_cache=", "--disk_cache=");
+    buildTarget("//:foo");
+    assertOnlyOutputContent("//:foo", "foo", "hello");
+  }
+
+  @Test
+  public void remoteFileWrite_withoutCache_isRejected() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions(
+        "--file_write_strategy=remote", "--remote_executor=", "--remote_cache=", "--disk_cache=");
+
+    var e = assertThrows(AbruptExitException.class, () -> buildTarget("//:foo"));
+
+    assertThat(e).hasMessageThat().contains("FileWriteActionContext");
+    assertThat(e).hasMessageThat().contains("'remote'");
+  }
+
+  @Test
+  public void remoteFileWrite_strategiesAreIndependent(
+      @TestParameter({"expand_template", "write_file"}) String remoteFileWriteRule)
+      throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:expand_template.bzl', 'expand_template')
+        load('//rules:write_file.bzl', 'write_file')
+        expand_template(name = 'expand_template', content = 'hello')
+        write_file(name = 'write_file', content = 'hello')
+        """);
+    setFileWriteStrategy(remoteFileWriteRule, "remote");
+
+    buildTarget("//:expand_template", "//:write_file");
+
+    for (var fileWriteRule : ImmutableList.of("expand_template", "write_file")) {
+      if (fileWriteRule.equals(remoteFileWriteRule)) {
+        assertOutputsDoNotExist("//:" + fileWriteRule);
+      } else {
+        assertOnlyOutputContent("//:" + fileWriteRule, fileWriteRule, "hello");
+      }
+    }
+  }
+
+  @Test
+  public void remoteFileWrite_readOnlyRemoteCache() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions("--file_write_strategy=remote");
+
+    // Populate the caches with the contents of the file.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // A read-only remote cache that already has the contents doesn't require a local write.
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=grpc://localhost:" + worker.getPort(),
+        "--noremote_upload_local_results");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // Without the contents in any cache, they can only be kept off disk if there is a disk cache
+    // to store them in. Otherwise, the file has to be written locally.
+    evictAllBlobs();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=grpc://localhost:" + worker.getPort(),
+        "--noremote_upload_local_results");
+    buildTarget("//:foo");
+    if (useDiskCache) {
+      assertOutputsDoNotExist("//:foo");
+    } else {
+      assertOnlyOutputContent("//:foo", "foo", "hello");
+    }
+  }
+
+  @Test
+  public void remoteFileWrite_diskCacheOnly_keepsOutputOffDisk() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        genrule(
+            name = 'bar',
+            srcs = [':foo'],
+            outs = ['bar.txt'],
+            cmd = 'cat $(location :foo) > $@',
+        )
+        """);
+    addOptions(
+        "--file_write_strategy=remote",
+        "--remote_executor=",
+        "--remote_cache=",
+        "--disk_cache=" + getWorkspace().getRelative(UUID.randomUUID().toString()));
+
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // A local consumer fetches the contents from the disk cache.
+    buildTarget("//:bar");
+    assertOnlyOutputContent("//:bar", "bar.txt", "hello");
+  }
+
   @Override
   protected void setDownloadToplevel() {
     addOptions("--remote_download_outputs=toplevel");
@@ -134,6 +273,26 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--rewind_lost_inputs",
         // Disable build rewinding.
         "--experimental_remote_cache_eviction_retries=0");
+  }
+
+  @Override
+  protected String getLocalFileWriteStrategyFlag() {
+    return "--file_write_strategy=local";
+  }
+
+  @Override
+  protected String getRemoteFileWriteStrategyFlag() {
+    return "--file_write_strategy=remote";
+  }
+
+  @Override
+  protected String getLocalTemplateExpansionStrategyFlag() {
+    return "--template_expansion_strategy=local";
+  }
+
+  @Override
+  protected String getRemoteTemplateExpansionStrategyFlag() {
+    return "--template_expansion_strategy=remote";
   }
 
   @Override
@@ -489,7 +648,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             () -> {
               while (!Thread.currentThread().isInterrupted()) {
                 try {
-                  mtimes.add(blobPath.getLastModifiedTime());
+                  mtimes.add(blobPath.getLastModifiedTimeNanos());
                 } catch (IOException ignored) {
                   // Intentionally ignored
                 }
@@ -1169,6 +1328,103 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void remoteAction_inputsOnlyInDiskCache(@TestParameter boolean consumerMayBeCached)
+      throws Exception {
+    assumeTrue(useDiskCache);
+    write(
+        "a/defs.bzl",
+        """
+        def _tree_impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(
+                outputs = [d],
+                command = "echo tree > $1/file",
+                arguments = [d.path],
+                execution_requirements = {"no-remote": ""},
+            )
+            return DefaultInfo(files = depset([d]))
+
+        tree = rule(_tree_impl)
+
+        def _tool_impl(ctx):
+            ctx.actions.write(ctx.outputs.executable, "", is_executable = True)
+            return DefaultInfo(
+                executable = ctx.outputs.executable,
+                runfiles = ctx.runfiles(files = [ctx.file.data]),
+            )
+
+        tool = rule(
+            _tool_impl,
+            attrs = {"data": attr.label(allow_single_file = True)},
+            executable = True,
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "tool", "tree")
+
+        genrule(
+            name = "input",
+            outs = ["input.out"],
+            cmd = "echo input > $@",
+            tags = ["no-remote"],
+        )
+
+        tree(name = "tree")
+
+        genrule(
+            name = "runfile",
+            outs = ["runfile.out"],
+            cmd = "echo runfile > $@",
+            tags = ["no-remote"],
+        )
+
+        tool(
+            name = "tool",
+            data = ":runfile",
+        )
+
+        # Builds the same inputs as :consumer, but runs locally.
+        genrule(
+            name = "local_consumer",
+            srcs = [":input", ":tree"],
+            outs = ["local_consumer.out"],
+            cmd = "touch $@",
+            tags = ["no-remote"],
+            tools = [":tool"],
+        )
+
+        genrule(
+            name = "consumer",
+            srcs = [":input", ":tree"],
+            outs = ["consumer.out"],
+            cmd = "cat $(execpath :input) $(execpath :tree)/file " +
+                  "$(execpath :tool).runfiles/%s/a/runfile.out > $@",
+            tags = %s,
+            tools = [":tool"],
+        )
+        """
+            .formatted(
+                LabelConstants.MAIN_REPO_DIR_NAME, consumerMayBeCached ? "[]" : "[\"no-cache\"]"));
+
+    // Populate the disk cache, but not the remote cache.
+    buildTarget("//a:local_consumer");
+
+    // Turn the inputs of :consumer into disk cache hits that aren't downloaded.
+    var populatedDiskCacheDir = diskCacheDir;
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions("--disk_cache=" + populatedDiskCacheDir.getPathString());
+    setDownloadToplevel();
+    disableActionRewinding();
+
+    buildTarget("//a:consumer");
+
+    assertValidOutputFile("a/consumer.out", "input\ntree\nrunfile\n");
+  }
+
+  @Test
   public void remoteFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
@@ -1410,5 +1666,189 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert: the generating action of the symlink's target was rewound
     assertValidOutputFile("a/link", "foo\n");
+  }
+
+  @Test
+  public void actionRewinding_changeRemoteExecutor_topLevelOutputsRewoundWithoutInvalidatingCached()
+      throws Exception {
+    assumeFalse(useDiskCache);
+    writeOutputDirRule();
+    write("BUILD");
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        genrule(
+            name = "cached_file",
+            srcs = [],
+            outs = ["cached.out"],
+            cmd = "echo -n cached > $@",
+        )
+
+        output_dir(
+            name = "cached_tree.out",
+            content_map = {"file-inside": "cached-tree"},
+        )
+
+        output_dir(
+            name = "remote_tree.out",
+            content_map = {"file-inside": "remote-tree"},
+        )
+
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["foo.out"],
+            cmd = "echo -n foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(location :foo.out) $(location bar.in) > $@",
+        )
+        """);
+    write("a/bar.in", "one");
+    addOptions("--remote_instance_name=instance1", "--remote_download_regex=.*cached.*");
+
+    // Build on the initial worker: cached.out and cached_tree.out are downloaded locally, while
+    // foo.out, bar.out, and remote_tree.out remain remote-only.
+    buildTarget("//a:cached_file", "//a:cached_tree.out", "//a:remote_tree.out", "//a:bar");
+
+    // Switch to a fresh remote worker and instance name across invocations. Cached actions whose
+    // outputs are already available locally (//a:cached_file, //a:cached_tree.out) must not be
+    // invalidated, while remote-only outputs needed as top-level outputs in the new build
+    // (//a:remote_tree.out, //a:bar, and its transitive input //a:foo) must be rewound.
+    var secondWorker = IntegrationTestUtils.createWorker();
+    try (var ignored = secondWorker.start()) {
+      // Add the new options before waitDownloads, which internally creates the next command and
+      // parses the options.
+      addOptions(
+          "--remote_executor=grpc://localhost:" + secondWorker.getPort(),
+          "--remote_instance_name=instance2",
+          "--remote_bytestream_uri_prefix=custom-prefix");
+      enableActionRewinding();
+      setDownloadToplevel();
+      waitDownloads();
+      assertValidOutputFile("a/cached.out", "cached");
+      assertValidOutputFile("a/cached_tree.out/file-inside", "cached-tree");
+      assertOutputDoesNotExist("a/remote_tree.out/file-inside");
+      assertOutputDoesNotExist("a/foo.out");
+      assertOutputDoesNotExist("a/bar.out");
+
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+
+      buildTarget("//a:cached_file", "//a:cached_tree.out", "//a:remote_tree.out", "//a:bar");
+      waitDownloads();
+
+      assertRewoundActions(rewoundKeys, "//a:remote_tree.out", "//a:bar", "//a:foo");
+      assertValidOutputFile("a/cached.out", "cached");
+      assertValidOutputFile("a/cached_tree.out/file-inside", "cached-tree");
+      assertValidOutputFile("a/remote_tree.out/file-inside", "remote-tree");
+      assertValidOutputFile("a/bar.out", "fooone\n");
+      assertThat(secondWorker.hasCasBlob("cached".getBytes(UTF_8))).isFalse();
+      assertThat(secondWorker.hasCasBlob("cached-tree".getBytes(UTF_8))).isFalse();
+      assertThat(secondWorker.hasCasBlob("remote-tree".getBytes(UTF_8))).isTrue();
+      assertThat(secondWorker.hasCasBlob("foo".getBytes(UTF_8))).isTrue();
+    }
+  }
+
+  @Test
+  public void actionRewinding_changeRemoteInstance_incrementalBuildRewindsOnlyMissingInputs(
+      @TestParameter boolean localExecution) throws Exception {
+    assumeFalse(useDiskCache);
+    writeOutputDirRule();
+    write("BUILD");
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        genrule(
+            name = "cached_file",
+            srcs = [],
+            outs = ["cached.out"],
+            cmd = "echo -n cached > $@",
+        )
+
+        output_dir(
+            name = "cached_tree.out",
+            content_map = {"file-inside": "cached-tree"},
+        )
+
+        genrule(
+            name = "remote_file",
+            srcs = [],
+            outs = ["remote.out"],
+            cmd = "echo -n remote > $@",
+        )
+
+        output_dir(
+            name = "remote_tree.out",
+            content_map = {"file-inside": "remote-tree"},
+        )
+
+        genrule(
+            name = "consumer",
+            srcs = [
+                ":cached.out",
+                ":cached_tree.out",
+                ":remote.out",
+                ":remote_tree.out",
+                "consumer.in",
+            ],
+            outs = ["consumer.out"],
+            cmd = "cat $(location :cached.out) $(location :cached_tree.out)/file-inside $(location :remote.out) $(location :remote_tree.out)/file-inside $(location consumer.in) > $@",
+        )
+        """);
+    write("a/consumer.in", "one");
+    addOptions("--remote_instance_name=instance1", "--remote_download_regex=.*cached.*");
+
+    // Build //a:consumer on the initial worker so that both cached_tree.out and remote_tree.out are
+    // recorded as uploaded in MerkleTreeComputer's persistent subtree cache.
+    buildTarget("//a:consumer");
+
+    var secondWorker = IntegrationTestUtils.createWorker();
+    try (var ignored = secondWorker.start()) {
+      write("a/consumer.in", "two");
+      if (localExecution) {
+        addOptions(
+            "--remote_executor=",
+            "--remote_cache=grpc://localhost:" + secondWorker.getPort(),
+            "--strategy_regexp=.*=local");
+      } else {
+        addOptions("--remote_executor=grpc://localhost:" + secondWorker.getPort());
+      }
+      addOptions("--remote_instance_name=instance2");
+      enableActionRewinding();
+      setDownloadToplevel();
+      waitDownloads();
+      assertValidOutputFile("a/cached.out", "cached");
+      assertValidOutputFile("a/cached_tree.out/file-inside", "cached-tree");
+      assertOutputDoesNotExist("a/remote.out");
+      assertOutputDoesNotExist("a/remote_tree.out/file-inside");
+
+      var rewoundKeys = rewindingTestsHelper.collectOrderedRewoundKeys();
+
+      buildTarget("//a:consumer");
+      waitDownloads();
+
+      // Locally present inputs (cached.out and cached_tree.out) are reused/reuploaded without
+      // rewinding their generating actions, whereas remote-only inputs missing from the new worker
+      // (remote.out and remote_tree.out) are rewound and regenerated.
+      assertRewoundActions(rewoundKeys, "//a:remote_file", "//a:remote_tree.out");
+      assertValidOutputFile("a/consumer.out", "cachedcached-treeremoteremote-treetwo\n");
+      if (!localExecution) {
+        assertThat(secondWorker.hasCasBlob("cached".getBytes(UTF_8))).isTrue();
+        assertThat(secondWorker.hasCasBlob("cached-tree".getBytes(UTF_8))).isTrue();
+      }
+      assertThat(secondWorker.hasCasBlob("remote".getBytes(UTF_8))).isTrue();
+      assertThat(secondWorker.hasCasBlob("remote-tree".getBytes(UTF_8))).isTrue();
+    }
   }
 }

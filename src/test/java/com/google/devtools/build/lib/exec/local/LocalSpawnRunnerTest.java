@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.testing.common.DirectoryListingHelper;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
@@ -543,7 +542,8 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    FileOutErr fileOutErr = new FileOutErr();
+    assertThat(fs.getPath("/out").createDirectory()).isTrue();
+    FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting context =
         new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ZERO);
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, context);
@@ -554,9 +554,12 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.getUserTimeInMs()).isEqualTo(0);
     assertThat(reply.getSystemTimeInMs()).isEqualTo(0);
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
+    assertThat(fileOutErr.errAsLatin1())
+        .isEqualTo(
+            "Action type Mnemonic is not allowed to run locally due to regex filter: none\n");
 
-    // TODO(ulfjack): Maybe we should only lock after checking?
-    assertThat(context.lockOutputFilesCalled).isTrue();
+    assertThat(context.prefetchCalled).isFalse();
+    assertThat(context.lockOutputFilesCalled).isFalse();
   }
 
   @Test
@@ -847,11 +850,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs =
-        new UnixFileSystem(
-            DigestHashFunction.SHA256,
-            /* hashAttributeName= */ "",
-            new NativePosixFilesServiceImpl());
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
 

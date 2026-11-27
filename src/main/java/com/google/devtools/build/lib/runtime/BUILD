@@ -242,7 +242,6 @@ java_library(
     name = "options_supplier",
     srcs = ["OptionsSupplier.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
@@ -254,7 +253,6 @@ java_library(
     ],
     deps = [
         ":options_supplier",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:serialized_abrupt_exit_exception",
         "//src/main/java/com/google/devtools/common/options",
     ],
@@ -967,18 +965,14 @@ java_library(
         ":blaze_command_cluster",
         ":spawn_stats",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_key_context",
         "//src/main/java/com/google/devtools/build/lib/actions/cache",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
-        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//third_party/java/flogger",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -1010,11 +1004,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
-)
-
-java_library(
-    name = "line_buffered_output_stream",
-    srcs = ["LineBufferedOutputStream.java"],
 )
 
 java_library(
@@ -1178,7 +1167,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler:collect_local_resource_usage",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/profiler:memory_profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocation_tracker",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:options",
@@ -1188,7 +1176,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:cgroups_info_java_proto",
         "//src/main/java/com/google/devtools/build/lib/server:command_server",
         "//src/main/java/com/google/devtools/build/lib/server:gc_and_interner_shrinking_idle_task",
-        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service",
+        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",

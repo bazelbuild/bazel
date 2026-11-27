@@ -287,7 +287,7 @@ genrule(
     setupScenarioWithConfiguredTargets();
     addUploadOptions();
     runtimeWrapper.newCommand(CqueryCommand.class);
-    buildTarget("//foo:A"); // succeeds, even though there's no PROJECT.scl
+    buildTarget("//foo:A");
     assertThat(
             getCommandEnvironment()
                 .getRemoteAnalysisCachingEventListener()

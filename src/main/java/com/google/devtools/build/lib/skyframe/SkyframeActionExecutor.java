@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
 import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
@@ -25,6 +26,7 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -90,12 +92,15 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -254,7 +259,7 @@ public final class SkyframeActionExecutor {
   private boolean rewindingEnabled;
   private boolean checkRewoundActionOutputs;
   private int maxRepeatedLostInputs;
-  @Nullable private Label bustActionCachesTarget;
+  private ImmutableSet<Label> bustActionCachesTargets = ImmutableSet.of();
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -372,7 +377,7 @@ public final class SkyframeActionExecutor {
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
     this.checkRewoundActionOutputs = buildRequestOptions.getCheckRewoundActionOutputs();
     this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
-    this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
+    this.bustActionCachesTargets = buildRequestOptions.getBustActionCachesTargets();
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
@@ -529,7 +534,7 @@ public final class SkyframeActionExecutor {
     this.rewoundActions = null;
     this.actionsWithLostOutputs = null;
     this.actionCacheChecker = null;
-    this.bustActionCachesTarget = null;
+    this.bustActionCachesTargets = ImmutableSet.of();
     this.outputDirectoryHelper = null;
     this.actionConcurrencyMeter.stop();
     this.actionConcurrencyMeter = null;
@@ -589,8 +594,8 @@ public final class SkyframeActionExecutor {
    * is inaccessible.
    */
   public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
-    if (bustActionCachesTarget != null) {
-      // Ideally we'd only return true if the target matches or is an rdep of the cache buster
+    if (!bustActionCachesTargets.isEmpty()) {
+      // Ideally we'd only return true if the target matches or is an rdep of a cache buster
       // target, but it's not easy to determine that.
       return true;
     }
@@ -702,7 +707,7 @@ public final class SkyframeActionExecutor {
       ActionLookupData actionLookupData,
       @Nullable FileSystem actionFileSystem,
       ActionPostprocessing postprocessing,
-      boolean hasDiscoveredInputs,
+      @Nullable NestedSet<Artifact> discoveredInputs,
       @Nullable ActionExecutionValue previousOutputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
@@ -746,10 +751,14 @@ public final class SkyframeActionExecutor {
                         actionExecutionContext,
                         actionLookupData,
                         postprocessing,
+                        discoveredInputs == null
+                            ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+                            : discoveredInputs,
                         previousOutputs)));
 
     SharedActionCallback callback =
-        getSharedActionCallback(env.getListener(), hasDiscoveredInputs, action, actionLookupData);
+        getSharedActionCallback(
+            env.getListener(), discoveredInputs != null, action, actionLookupData);
 
     ActionExecutionValue result = null;
     ActionExecutionException finalException = null;
@@ -758,6 +767,15 @@ public final class SkyframeActionExecutor {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    } catch (InterruptedException e) {
+      // Interrupted actions may still have open output streams. Preserve the interruption if
+      // closing the context also fails.
+      try {
+        actionExecutionContext.close();
+      } catch (IOException closeException) {
+        e.addSuppressed(closeException);
+      }
+      throw e;
     }
 
     // Do not close the context for lost input exceptions. It will be done by prepareForRewinding
@@ -801,9 +819,6 @@ public final class SkyframeActionExecutor {
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
-    boolean bustActionCache =
-        bustActionCachesTarget != null
-            && bustActionCachesTarget.equals(actionLookupData.getLabel());
     return new ActionExecutionContext(
         executorEngine,
         compositeInputMetadataProvider,
@@ -819,7 +834,7 @@ public final class SkyframeActionExecutor {
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverFactory.apply(actionLookupData),
-        bustActionCache);
+        bustActionCachesTargets.contains(actionLookupData.getLabel()));
   }
 
   private static void closeContext(
@@ -1167,6 +1182,9 @@ public final class SkyframeActionExecutor {
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
+    // The inputs returned by Action#discoverInputs, which the action may read during execution
+    // even if they aren't part of Action#getInputs yet.
+    private final NestedSet<Artifact> discoveredInputs;
     @Nullable private final ActionExecutionValue previousOutputs;
     // True if the action was successfully registered with the statusReporter.
     // This ensures we only attempt to remove it during cleanup, avoiding
@@ -1181,6 +1199,7 @@ public final class SkyframeActionExecutor {
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing,
+        NestedSet<Artifact> discoveredInputs,
         @Nullable ActionExecutionValue previousOutputs) {
       this.action = action;
       this.inputMetadataProvider = inputMetadataProvider;
@@ -1190,6 +1209,7 @@ public final class SkyframeActionExecutor {
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
       this.postprocessing = postprocessing;
+      this.discoveredInputs = discoveredInputs;
       this.previousOutputs = previousOutputs;
     }
 
@@ -1272,7 +1292,10 @@ public final class SkyframeActionExecutor {
 
             try (SilentCloseable innerLock =
                 rewoundActionSynchronizer.enterActionExecution(
-                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
+                    action,
+                    wasRewound,
+                    discoveredInputs,
+                    actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }
@@ -1621,8 +1644,7 @@ public final class SkyframeActionExecutor {
   private static void setupActionFsFileOutErr(FileOutErr fileOutErr, Action action)
       throws ActionExecutionException {
     try {
-      fileOutErr.getOutputPath().getParentDirectory().createDirectoryAndParents();
-      fileOutErr.getErrorPath().getParentDirectory().createDirectoryAndParents();
+      fileOutErr.createParentDirectories();
     } catch (IOException e) {
       String message =
           String.format(
@@ -2096,7 +2118,13 @@ public final class SkyframeActionExecutor {
         findSpawnResultsInActionResultAndException(actionResult, exception);
     Instant firstStartTime = Instant.MAX;
     Instant lastEndTime = Instant.MIN;
+    ImmutableList.Builder<SpawnExec> strategyDetails = ImmutableList.builder();
     for (SpawnResult spawnResult : spawnResults) {
+      strategyDetails.add(
+          SpawnExec.newBuilder()
+              .setRunner(nullToEmpty(spawnResult.getRunnerName()))
+              .setCacheHit(spawnResult.isCacheHit())
+              .build());
       // Not all SpawnResults have a start time, and some use Instant.MIN/MAX instead of null.
       @Nullable Instant startTime = spawnResult.getStartTime();
       if (startTime != null && !startTime.equals(Instant.MIN) && !startTime.equals(Instant.MAX)) {
@@ -2117,7 +2145,8 @@ public final class SkyframeActionExecutor {
             stderr,
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
-            lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
+            lastEndTime.equals(Instant.MIN) ? null : lastEndTime,
+            strategyDetails.build()));
   }
 
   /**

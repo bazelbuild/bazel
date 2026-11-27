@@ -53,14 +53,6 @@ public abstract class AdbOptions extends OptionsBase {
   public abstract String getDevice();
 
   @Option(
-      name = "incremental_install_verbosity",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "The verbosity for incremental install. Set to 1 for debug logging.")
-  public abstract String getIncrementalInstallVerbosity();
-
-  @Option(
       name = "start",
       converter = StartTypeConverter.class,
       defaultValue = "NO",

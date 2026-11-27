@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -248,6 +249,21 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
               + " supported on local filesystems; network filesystems (such as NFS) are not"
               + " supported.")
   public abstract boolean getDeleteOutputBaseOnShutdown();
+
+  @Option(
+      name = "redact_client_env",
+      allowMultiple = true,
+      defaultValue = "null",
+      valueHelp = "<pattern>",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Hides the value of a client environment variable in the server log. The value is a"
+              + " case-insensitive pattern for the variable name. '*' matches any characters and"
+              + " may appear anywhere in the pattern, more than once if needed. 'FOO' hides only"
+              + " 'FOO'; 'FOO*' also hides 'FOOBAR'; '*_SIGNER' hides 'MY_SIGNER'. May be"
+              + " repeated. Adds to Bazel's built-in heuristic for credential-like names.")
+  public abstract List<String> getRedactClientEnv();
 
   @Deprecated
   @Option(
@@ -561,6 +577,20 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
           "If true, the Bazel server will be run with systemd-run, and the user will own the"
               + " cgroup. This flag only takes effect on Linux.")
   public abstract boolean getRunInUserCgroup();
+
+  @Option(
+      name = "allow_server_subprocesses",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+      },
+      help =
+          "If false, the C++ launcher installs a Linux seccomp-bpf filter preventing the Bazel"
+              + " server from spawning child processes (returning EPERM) or executing other"
+              + " binaries. This flag only works on Linux. If set to false on other operating"
+              + " systems, it signals an error.")
+  public abstract boolean getAllowServerSubprocesses();
 
   /**
    * Note: This option is only used by the C++ client, never by the Java server. It is included here

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -100,8 +101,6 @@ public class BuildConfigurationValue
     FragmentRegistry getFragmentRegistry();
 
     ImmutableSet<String> getReservedActionMnemonics();
-
-    String getRunfilesPrefix();
   }
 
   private final OutputDirectories outputDirectories;
@@ -109,7 +108,6 @@ public class BuildConfigurationValue
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
 
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
-  private final String workspaceName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private final CommandLineLimits commandLineLimits;
 
@@ -124,6 +122,9 @@ public class BuildConfigurationValue
 
   private final BuildOptions buildOptions;
   private final CoreOptions options;
+
+  /** Details of this configuration's Starlark build settings, such as their scopes. */
+  private final StarlarkBuildSettingsDetailsValue starlarkFlagDetails;
 
   /** The cpu value based on the platform the configuration is built for. */
   private final String platformCpu;
@@ -219,6 +220,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       String platformCpu,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -233,14 +235,14 @@ public class BuildConfigurationValue
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
     OutputPathMnemonicComputer.Result mnemonic =
-        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions, fragments);
+        OutputPathMnemonicComputer.computeMnemonic(buildOptions, baselineOptions);
 
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic.mnemonic(),
         mnemonic.dependsOnBaseline(),
         platformCpu,
-        globalProvider.getRunfilesPrefix(),
+        starlarkFlagDetails,
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -273,7 +275,7 @@ public class BuildConfigurationValue
         // The mnemonic passed to createForTesting is taken at face value.
         /* mnemonicDependsOnBaseline= */ false,
         "",
-        globalProvider.getRunfilesPrefix(),
+        StarlarkBuildSettingsDetailsValue.EMPTY,
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -300,8 +302,8 @@ public class BuildConfigurationValue
       String mnemonic,
       boolean mnemonicDependsOnBaseline,
       String platformCpu,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are either server-global and constant or completely dependent values.
-      String workspaceName,
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
       ImmutableSet<String> reservedActionMnemonics,
@@ -311,13 +313,13 @@ public class BuildConfigurationValue
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
+    this.starlarkFlagDetails = starlarkFlagDetails;
     this.mnemonic = mnemonic;
     this.mnemonicDependsOnBaseline = mnemonicDependsOnBaseline;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
-            directories, options, buildOptions.get(PlatformOptions.class), mnemonic, workspaceName);
-    this.workspaceName = workspaceName;
+            directories, options, buildOptions.get(PlatformOptions.class), mnemonic);
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -359,15 +361,22 @@ public class BuildConfigurationValue
     if (!(other instanceof BuildConfigurationValue otherVal)) {
       return false;
     }
-    // Only considering arguments that are non-dependent and non-server-global.
+    // Only considering arguments that are non-dependent and non-server-global, plus the Starlark
+    // flag details. hashCode skips the latter since hashing them is expensive.
     return this.buildOptions.equals(otherVal.buildOptions)
-        && this.workspaceName.equals(otherVal.workspaceName)
-        && this.mnemonic.equals(otherVal.mnemonic);
+        && this.mnemonic.equals(otherVal.mnemonic)
+        && Objects.equals(this.platformCpu, otherVal.platformCpu)
+        && this.starlarkFlagDetails.equals(otherVal.starlarkFlagDetails);
+  }
+
+  /** Returns the details of this configuration's Starlark build settings. */
+  public StarlarkBuildSettingsDetailsValue starlarkFlagDetails() {
+    return starlarkFlagDetails;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, workspaceName, mnemonic);
+    return Objects.hash(buildOptions, mnemonic, platformCpu);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -490,10 +499,6 @@ public class BuildConfigurationValue
   @Override
   public String getHostPathSeparator() {
     return outputDirectories.getHostPathSeparator();
-  }
-
-  public String getWorkspaceName() {
-    return workspaceName;
   }
 
   @Override
@@ -723,6 +728,11 @@ public class BuildConfigurationValue
   @Override
   public CommandLineLimits getCommandLineLimits() {
     return commandLineLimits;
+  }
+
+  @Override
+  public CoreOptions.OutputPathsMode getOutputPathsMode() {
+    return options.getOutputPathsMode();
   }
 
   @Override

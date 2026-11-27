@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -584,14 +585,16 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(expected)
         .hasMessageThat()
         .startsWith(
-            "Invocation policy is applied after --config expansion, changing config values now "
-                + "would have no effect and is disallowed to prevent confusion. Please remove "
-                + "the following policy : flag_name: \"config\"\n"
-                + "set_value {\n"
-                + "  flag_value: \"foo\"\n"
-                + "  behavior: "
-                + behavior
-                + "\n");
+            """
+            Invocation policy is applied after --config expansion, changing config values now \
+            would have no effect and is disallowed to prevent confusion. To add a --config to the \
+            command line, use config_policies instead. Please remove the following policy : \
+            flag_name: "config"
+            set_value {
+              flag_value: "foo"
+              behavior: %s
+            """
+                .formatted(behavior));
   }
 
   @Test
@@ -731,5 +734,57 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.getTestMultipleString())
         .containsExactly(TEST_STRING_POLICY_VALUE, TEST_STRING_POLICY_VALUE_2)
         .inOrder();
+  }
+
+  @Test
+  public void finalValueIgnoreOverrides_nonAsciiValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_IGNORE_OVERRIDES)
+        .addFlagValue("pölicy välue 🌱");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+    parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
+
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
+
+    assertThat(getTestOptions().getTestString()).isEqualTo(unicodeToInternal("pölicy välue 🌱"));
+    assertThat(
+            parser.asCompleteListOfParsedOptions().stream()
+                .map(ParsedOptionDescription::getCommandLineForm))
+        .containsExactly(
+            "--test_string=" + TEST_STRING_USER_VALUE,
+            unicodeToInternal("--test_string=pölicy välue 🌱"))
+        .inOrder();
+  }
+
+  @Test
+  public void finalValueThrowOnOverride_nonAsciiValueAndCustomErrorMessage() throws Exception {
+    InvocationPolicy.Builder invocationPolicy = InvocationPolicy.newBuilder();
+    invocationPolicy
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .setCustomErrorMessage("Siehe ☃ für Details.")
+        .getSetValueBuilder()
+        .setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE)
+        .addFlagValue("pölicy välue 🌱");
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
+    parser.parse("--test_string=" + TEST_STRING_USER_VALUE);
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            unicodeToInternal(
+                "User set a value for option '--test_string' which is not permitted by the"
+                    + " invocation policy. This flag value will always be overridden to"
+                    + " [pölicy välue 🌱]. Siehe ☃ für Details."));
   }
 }

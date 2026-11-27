@@ -20,7 +20,7 @@ py_binary(
         ":base",
         ":bazel_api",
         ":lib",
-        "//third_party/py/abseil",
+        "@bazel_pip_dev_deps//absl_py",
     ],
 )
 
@@ -57,7 +57,7 @@ py_library(
     srcs_version = "PY3ONLY",
     deps = [
         # Backport for Python < 3.7.
-        "//third_party/py/frozendict",
+        "@bazel_pip_dev_deps//frozendict",
     ],
 )
 
@@ -103,6 +103,6 @@ py_test(
     python_version = "PY3",
     deps = [
         ":base",
-        "//third_party/py/frozendict",
+        "@bazel_pip_dev_deps//frozendict",
     ],
 )

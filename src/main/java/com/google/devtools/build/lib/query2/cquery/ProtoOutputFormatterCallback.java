@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,6 +55,8 @@ import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -127,8 +130,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         for (Map.Entry<String, String> option : fragmentOptionsForOutput.getOptions().entrySet()) {
           AnalysisProtosV2.Option optionProto =
               AnalysisProtosV2.Option.newBuilder()
-                  .setName(option.getKey())
-                  .setValue(option.getValue())
+                  .setName(internalToUnicode(option.getKey()))
+                  .setValue(internalToUnicode(option.getValue()))
                   .build();
           fragmentOptions.addOptions(optionProto);
         }
@@ -252,8 +255,10 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       case DELIMITED_BINARY -> message.writeDelimitedTo(outputStream);
       case TEXT -> TextFormat.printer().print(message, printStream);
       case JSON -> {
-        jsonPrinter.appendTo(message, printStream);
-        printStream.append('\n');
+        Writer writer = new OutputStreamWriter(outputStream, UTF_8);
+        jsonPrinter.appendTo(message, writer);
+        writer.append('\n');
+        writer.flush();
       }
     }
   }
@@ -279,7 +284,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       Target target = accessor.getTarget(keyedConfiguredTarget);
       Build.Target.Builder targetBuilder =
           formatter.toTargetProtoBuffer(target, labelPrinter).toBuilder();
-      if (target instanceof Rule && !Transitions.NONE.equals(options.getTransitions())) {
+      if (target instanceof Rule
+          && (options.getProtoIncludeConfigurations()
+              || !options.getTransitions().equals(Transitions.NONE))) {
         // To set configured_rule_input dependencies, use ConfiguredTargetAccessor.getPrerequisites.
         // Note that both that and CqueryTransitionResolver can get a target's direct deps. We use
         // the former because it implements cquery's "canonical" view of the dependency graph, which
@@ -295,10 +302,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
               Build.ConfiguredRuleInput.newBuilder()
                   .setLabel(internalToUnicode(labelPrinter.toString(dep.getOriginalLabel())));
           if (dep.getConfigurationChecksum() != null) {
-            configuredRuleInput
-                .setConfigurationChecksum(dep.getConfigurationChecksum())
-                .setConfigurationId(
-                    configurationCache.getId(dep.getConfigurationKey().getOptions()));
+            configuredRuleInput.setConfigurationChecksum(dep.getConfigurationChecksum());
+            if (options.getProtoIncludeConfigurations()) {
+              configuredRuleInput.setConfigurationId(
+                  configurationCache.getId(dep.getConfigurationKey().getOptions()));
+            }
           }
           targetBuilder.getRuleBuilder().addConfiguredRuleInput(configuredRuleInput);
         }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
@@ -56,7 +57,7 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
 
   /** Constructs a mock {@link Registry} with dummy information. */
   private Registry mockRegistry() throws Exception {
-    return new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()))
+    return new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()), rootDirectory)
         .createRegistry(
             "https://fake.registry",
             LockfileMode.UPDATE,
@@ -79,7 +80,9 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
             Checksum.fromString(
                 DownloadCache.KeyType.SHA256,
                 Hashing.sha256()
-                    .hashString("module(name = \"test_module\", version = \"1.0\")", UTF_8)
+                    .hashBytes(
+                        StringUnsafe.getInternalStringBytes(
+                            "module(name = \"test_module\", version = \"1.0\")"))
                     .toString())));
   }
 

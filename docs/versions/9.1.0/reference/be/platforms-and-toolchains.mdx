@@ -265,13 +265,13 @@ In this example, the child platforms have the following properties:
 * `child_a` inherits the "exec_properties" of the parent and does not set its own.
 * `child_b` inherits the parent's `exec_properties` and overrides the
   value of `k1`. Its `exec_properties` will be:
-  `&lcub; "k1": "child", "k2": "v2" &rcub;`.
+  `{ "k1": "child", "k2": "v2" }`.
 * `child_c` inherits the parent's `exec_properties` and unsets
   `k1`. Its `exec_properties` will be:
-  `&lcub; "k2": "v2" &rcub;`.
+  `{ "k2": "v2" }`.
 * `child_d` inherits the parent's `exec_properties` and adds a new
   property. Its `exec_properties` will be:
-  `&lcub; "k1": "v1", "k2": "v2", "k3": "v3" &rcub;`.
+  `{ "k1": "v1", "k2": "v2", "k3": "v3" }`.
 
 ### Arguments
 
@@ -279,7 +279,7 @@ In this example, the child platforms have the following properties:
 | --- | --- |
 | `name` | [Name](/versions/9.1.0/concepts/labels#target-names); required  A unique name for this target. |
 | `constraint_values` | List of [labels](/versions/9.1.0/concepts/labels); [nonconfigurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes); default is `[]` The combination of constraint choices that this platform comprises. In order for a platform to apply to a given environment, the environment must have at least the values in this list. Each `constraint_value` in this list must be for a different `constraint_setting`. For example, you cannot define a platform that requires the cpu architecture to be both `@platforms//cpu:x86_64` and `@platforms//cpu:arm`. |
-| `exec_properties` | Dictionary: String -&gt; String; [nonconfigurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes); default is `&lcub;&rcub;` A map of strings that affect the way actions are executed remotely. Bazel makes no attempt to interpret this, it is treated as opaque data that's forwarded via the Platform field of the [remote execution protocol](https://github.com/bazelbuild/remote-apis). This includes any data from the parent platform's `exec_properties` attributes. If the child and parent platform define the same keys, the child's values are kept. Any keys associated with a value that is an empty string are removed from the dictionary. This attribute is a full replacement for the deprecated `remote_execution_properties`. |
+| `exec_properties` | Dictionary: String -&gt; String; [nonconfigurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes); default is `{}` A map of strings that affect the way actions are executed remotely. Bazel makes no attempt to interpret this, it is treated as opaque data that's forwarded via the Platform field of the [remote execution protocol](https://github.com/bazelbuild/remote-apis). This includes any data from the parent platform's `exec_properties` attributes. If the child and parent platform define the same keys, the child's values are kept. Any keys associated with a value that is an empty string are removed from the dictionary. This attribute is a full replacement for the deprecated `remote_execution_properties`. |
 | `flags` | List of strings; [nonconfigurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes); default is `[]` A list of flags that will be enabled when this platform is used as the target platform in a configuration. Only flags that are part of the configuration can be set, such as those that can be used in transitions, or the `--define` flag. |
 | `missing_toolchain_error` | String; [nonconfigurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes); default is `"For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro."` A custom error message that is displayed when a mandatory toolchain requirement cannot be satisfied for this target platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured. Not inherited from parent platforms. |
 | `parents` | List of [labels](/versions/9.1.0/concepts/labels); [nonconfigurable](/versions/9.1.0/reference/be/common-definitions#configurable-attributes); default is `[]` The label of a `platform` target that this platform should inherit from. Although the attribute takes a list, there should be no more than one platform present. Any constraint_settings not set directly on this platform will be found in the parent platform. See the section on [Platform Inheritance](#platform_inheritance) for details. |

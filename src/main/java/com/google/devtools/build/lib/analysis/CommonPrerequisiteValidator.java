@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
-
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
@@ -26,14 +24,12 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.MacroInstance;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleOrMacroInstance;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import java.util.ArrayList;
@@ -773,7 +769,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       Rule rule,
       ConfiguredTargetAndData prerequisite,
       boolean forAspect) {
-    if (forAspect || attributeOrNull(rule, "deprecation", Type.STRING) != null) {
+    if (forAspect || rule.getDeprecationWarning() != null) {
       // No warning for aspects because the base target would already have the warning.
       // No warning if the current target is already deprecated.
       return;
@@ -824,7 +820,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // getTarget() called by the depender will not return the alias rule, but its actual target
       return;
     }
-    if (!prerequisite.isTestOnly() || isTestOnlyRule(rule)) {
+    if (!prerequisite.isTestOnly() || rule.isTestOnly()) {
       return;
     }
 
@@ -856,10 +852,5 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     } else {
       context.ruleError(message);
     }
-  }
-
-  private static boolean isTestOnlyRule(Rule rule) {
-    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
-    return mapper.has("testonly", Type.BOOLEAN) && mapper.get("testonly", Type.BOOLEAN);
   }
 }

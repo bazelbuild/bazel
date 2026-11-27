@@ -282,6 +282,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("third_party/bazel_rules/rules_apple/BUILD");
     scratch.file(
         "third_party/bazel_rules/rules_apple/apple_binary_starlark.bzl",
+        "load('@rules_cc//cc:build_settings.bzl', 'cc')",
         "load('@rules_cc//cc/common:cc_info.bzl', 'CcInfo')",
         "load('@rules_cc//cc/common:cc_common.bzl', 'cc_common')",
         "load('@rules_cc//cc/private/rules_impl:objc_compilation_support.bzl',"
@@ -501,7 +502,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    return always_link_libraries.keys(), as_needed_libraries.keys()",
         "def _emit_builtin_objc_strip_action(ctx):",
         "    return (",
-        "        ctx.fragments.objc.builtin_objc_strip_action and",
+        "        cc.read_possibly_native_flag(",
+        "            ctx, 'incompatible_builtin_objc_strip_action') and",
         "        ctx.fragments.cpp.objc_enable_binary_stripping() and",
         "        ctx.fragments.cpp.compilation_mode() == 'opt'",
         "    )",
@@ -853,7 +855,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        feature_configuration,",
         "        apple_platform_info,",
         "        extra_link_args):",
-        "    strip_safe = ctx.fragments.objc.strip_executable_safely",
+        "    strip_safe = cc.read_possibly_native_flag(",
+        "        ctx, 'incompatible_strip_executable_safely')",
         "",
         "    # For dylibs, loadable bundles, and kexts, must strip only local symbols.",
         "    link_dylib = cc_common.is_enabled(",
@@ -1125,6 +1128,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
+        "        '_incompatible_builtin_objc_strip_action': attr.label(",
+        "            default = Label('"
+            + TestConstants.RULES_CC
+            + ":incompatible_builtin_objc_strip_action'),),",
+        "        '_incompatible_disallow_sdk_frameworks_attributes': attr.label(",
+        "            default = Label('"
+            + TestConstants.RULES_CC
+            + ":incompatible_disallow_sdk_frameworks_attributes'),),",
+        "        '_incompatible_strip_executable_safely': attr.label(",
+        "            default = Label('"
+            + TestConstants.RULES_CC
+            + ":incompatible_strip_executable_safely'),),",
         "        'additional_linker_inputs': attr.label_list(",
         "            allow_files = True,",
         "        ),",

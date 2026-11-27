@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.util.StringUtil.formatCount;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.base.Preconditions;
@@ -25,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
@@ -58,7 +61,9 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyframeTransitiveTargetCounter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
@@ -76,7 +81,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /** Performs target pattern eval, configuration creation, loading and analysis. */
@@ -137,6 +141,7 @@ public final class AnalysisPhaseRunner {
       }
 
       postAbortedEventsForSkippedTargets(env, analysisResult.getTargetsToSkip());
+      countTransitiveTargets(env, analysisResult.getTargetsToBuild());
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
@@ -256,6 +261,24 @@ public final class AnalysisPhaseRunner {
     }
   }
 
+  private static void countTransitiveTargets(
+      CommandEnvironment env, Collection<ConfiguredTarget> targetsToBuild)
+      throws InterruptedException {
+    AnalysisOptions analysisOptions = env.getOptions().getOptions(AnalysisOptions.class);
+    if (analysisOptions == null || analysisOptions.getMaxTransitiveAnalysisNodes() <= 0) {
+      return;
+    }
+    try (SilentCloseable c = Profiler.instance().profile("countTransitiveTargets")) {
+      ImmutableSet<ConfiguredTargetKey> roots =
+          targetsToBuild.stream()
+              .map(ConfiguredTargetKey::fromConfiguredTarget)
+              .collect(toImmutableSet());
+      var _ =
+          SkyframeTransitiveTargetCounter.count(
+              env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(), roots);
+    }
+  }
+
   /**
    * Performs the initial phases 0-2 of the build: Setup, Loading and Analysis.
    *
@@ -335,7 +358,7 @@ public final class AnalysisPhaseRunner {
                 view.getEvaluatedCounts(),
                 view.getEvaluatedActionsCounts(),
                 view.getEvaluatedActionsCountsByMnemonic(),
-                timer.stop().elapsed(TimeUnit.MILLISECONDS),
+                timer.stop().elapsed().toMillis(),
                 view.getAndClearPkgManagerStatistics(),
                 env.getSkyframeExecutor().wasAnalysisCacheInvalidatedAndResetBit()));
     ImmutableSet<BuildConfigurationKey> configurationKeys =
@@ -349,8 +372,7 @@ public final class AnalysisPhaseRunner {
                         .map(ConfiguredTarget::getConfigurationKey)
                         .distinct())
             .filter(Objects::nonNull)
-            .distinct()
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(toImmutableSet());
     Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap =
         env.getSkyframeExecutor().getConfigurations(env.getReporter(), configurationKeys);
     env.getEventBus()
@@ -403,16 +425,16 @@ public final class AnalysisPhaseRunner {
           .handle(
               Event.info(
                   "Found "
-                      + testCount
+                      + formatCount(testCount)
                       + (testCount == 1 ? " test target..." : " test targets...")));
     } else {
       env.getReporter()
           .handle(
               Event.info(
                   "Found "
-                      + targetCount
+                      + formatCount(targetCount)
                       + (targetCount == 1 ? " target and " : " targets and ")
-                      + testCount
+                      + formatCount(testCount)
                       + (testCount == 1 ? " test target..." : " test targets...")));
     }
   }
@@ -421,7 +443,10 @@ public final class AnalysisPhaseRunner {
     int targetCount = targetsToBuild.size();
     env.getReporter()
         .handle(
-            Event.info("Found " + targetCount + (targetCount == 1 ? " target..." : " targets...")));
+            Event.info(
+                "Found "
+                    + formatCount(targetCount)
+                    + (targetCount == 1 ? " target..." : " targets...")));
   }
 
   /**
@@ -480,6 +505,6 @@ public final class AnalysisPhaseRunner {
       }
     }
 
-    return ImmutableSet.copyOf(explicitTargetPatterns.build());
+    return explicitTargetPatterns.build();
   }
 }

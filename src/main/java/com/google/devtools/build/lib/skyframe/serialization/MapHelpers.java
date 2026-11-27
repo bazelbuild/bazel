@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
-
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -56,18 +53,16 @@ final class MapHelpers {
    * <p>There's no direct indication of when the deserialization is complete so this should be used
    * with a {@link DeferredObjectCodec}.
    */
-  // TODO: b/386384684 - remove Unsafe usage
   static void deserializeMapEntries(
       AsyncDeserializationContext context, CodedInputStream codedIn, Object[] keys, Object[] values)
       throws SerializationException, IOException {
     int size = keys.length;
     checkArgument(values.length == size, "%s %s", keys.length, values.length);
-    long offset = ARRAY_OBJECT_BASE_OFFSET;
     for (int i = 0; i < size; i++) {
       // Ensures that keys are fully deserialized.
-      context.deserialize(codedIn, keys, offset);
+      context.deserializeArrayElement(codedIn, keys, i);
       try {
-        context.deserialize(codedIn, values, offset);
+        context.deserializeArrayElement(codedIn, values, i);
       } catch (SerializationException | IOException e) {
         Object key = keys[i];
         if (key != null) {
@@ -76,7 +71,6 @@ final class MapHelpers {
         }
         throw e;
       }
-      offset += ARRAY_OBJECT_INDEX_SCALE;
     }
   }
 
@@ -87,7 +81,6 @@ final class MapHelpers {
    * keys} are fully deserialized when the {@code done} callback is called. The {@code values}
    * references will all be available but they might only be partially deserialized.
    */
-  // TODO: b/386384684 - remove Unsafe usage
   static void deserializeMapEntries(
       AsyncDeserializationContext context,
       CodedInputStream codedIn,
@@ -98,11 +91,10 @@ final class MapHelpers {
     int size = keys.length;
     checkArgument(values.length == size, "%s %s", keys.length, values.length);
     ReferenceCounter countDown = new ReferenceCounter(2 * size, done);
-    long offset = ARRAY_OBJECT_BASE_OFFSET;
     for (int i = 0; i < size; i++) {
-      context.deserialize(codedIn, keys, offset, /* done= */ countDown);
+      context.deserializeArrayElement(codedIn, keys, i, /* done= */ countDown);
       try {
-        context.deserialize(codedIn, values, offset, /* done= */ countDown);
+        context.deserializeArrayElement(codedIn, values, i, /* done= */ countDown);
       } catch (SerializationException | IOException e) {
         Object key = keys[i];
         if (key != null) {
@@ -111,7 +103,6 @@ final class MapHelpers {
         }
         throw e;
       }
-      offset += ARRAY_OBJECT_INDEX_SCALE;
     }
   }
 

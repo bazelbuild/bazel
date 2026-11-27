@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -316,7 +317,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -472,8 +473,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
-  protected BuildOptions createBuildOptions(String... args)
-      throws OptionsParsingException, InvalidConfigurationException {
+  protected BuildOptions createBuildOptions(String... args) throws InvalidConfigurationException {
     ImmutableList<String> allArgs = ImmutableList.copyOf(args);
     return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }
@@ -1726,7 +1726,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Path getOutputPath() {
-    return directories.getOutputPath(ruleClassProvider.getRunfilesPrefix());
+    return directories.getOutputPath();
   }
 
   protected String getRelativeOutputPath() {
@@ -2154,7 +2154,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 com.google.devtools.build.runfiles.Runfiles.preload()
                     .withSourceRepository("")
                     .rlocation(
-                        TestConstants.WORKSPACE_NAME
+                        LabelConstants.MAIN_REPO_DIR_NAME
                             + "/"
                             + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
   }
@@ -2420,7 +2420,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   public Path getExecRoot() {
-    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
+    return directories.getExecRoot();
   }
 
   /** Returns true iff commandLine contains the option --flagName followed by arg. */

@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -432,8 +433,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     PathFragment path = artifact.getPath().asFragment();
     injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
 
-    actionFs.getPath(path).setLastModifiedTime(1234567890);
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(1234567890);
+    actionFs.getPath(path).setLastModifiedTimeNanos(1234567890);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(1234567890);
   }
 
   @Test
@@ -443,8 +444,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     PathFragment path = artifact.getPath().asFragment();
     writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
 
-    actionFs.getPath(path).setLastModifiedTime(1234567890);
-    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(1234567890);
+    actionFs.getPath(path).setLastModifiedTimeNanos(1234567890);
+    assertThat(actionFs.getPath(path).getLastModifiedTimeNanos()).isEqualTo(1234567890);
   }
 
   @Test
@@ -465,9 +466,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       injectRemoteFile(actionFs, targetPath, "content");
     }
 
-    actionFs.getPath(linkPath).setLastModifiedTime(1234567890);
-    assertThat(actionFs.getPath(linkPath).getLastModifiedTime()).isEqualTo(1234567890);
-    assertThat(actionFs.getPath(targetPath).getLastModifiedTime()).isEqualTo(1234567890);
+    actionFs.getPath(linkPath).setLastModifiedTimeNanos(1234567890);
+    assertThat(actionFs.getPath(linkPath).getLastModifiedTimeNanos()).isEqualTo(1234567890);
+    assertThat(actionFs.getPath(targetPath).getLastModifiedTimeNanos()).isEqualTo(1234567890);
   }
 
   @Test
@@ -1296,6 +1297,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   private byte[] getDigest(String content) {
-    return fs.getDigestFunction().getHashFunction().hashString(content, UTF_8).asBytes();
+    return fs.getDigestFunction()
+        .getHashFunction()
+        .hashBytes(StringUnsafe.getInternalStringBytes(content))
+        .asBytes();
   }
 }

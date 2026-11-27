@@ -17,7 +17,13 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Map;
 
-/** Common interface for ResourceSet and builder. */
+/**
+ * Common interface for ResourceSet and builder.
+ *
+ * <p>Implementations retained by actions (as opposed to transient ones created by spawn strategies
+ * at execution time) are interned and serialized alongside other action attributes, so they must
+ * have value-based {@code equals}/{@code hashCode}. Do not pass a lambda to a {@code SpawnAction}.
+ */
 @FunctionalInterface
 public interface ResourceSetOrBuilder {
   /**

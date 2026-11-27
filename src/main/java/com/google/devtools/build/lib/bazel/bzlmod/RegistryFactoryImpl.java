@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -29,9 +30,12 @@ import java.util.function.Supplier;
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
   private final Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier;
+  private final Path workspaceRoot;
 
-  public RegistryFactoryImpl(Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier) {
+  public RegistryFactoryImpl(
+      Supplier<ImmutableMap<String, String>> nonstrictRepoEnvSupplier, Path workspaceRoot) {
     this.nonstrictRepoEnvSupplier = nonstrictRepoEnvSupplier;
+    this.workspaceRoot = workspaceRoot;
   }
 
   @Override
@@ -43,16 +47,16 @@ public class RegistryFactoryImpl implements RegistryFactory {
       Optional<Path> vendorDir,
       ImmutableSet<String> moduleMirrors)
       throws URISyntaxException {
-    URI uri = new URI(url);
+    URI uri = HttpUtils.parseUri(url.replace("%workspace%", workspaceRoot.getPathString()));
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
-          uri.toString(),
+          url,
           "Registry URL has no scheme -- supported schemes are: "
               + "http://, https:// and file://");
     }
     if (uri.getPath() == null) {
       throw new URISyntaxException(
-          uri.toString(),
+          url,
           "Registry URL path is not valid -- did you mean to use file:///foo/bar "
               + "or file:///c:/foo/bar for Windows?");
     }
@@ -66,14 +70,14 @@ public class RegistryFactoryImpl implements RegistryFactory {
                 case OFF -> KnownFileHashesMode.IGNORE;
               };
           case "file" -> KnownFileHashesMode.IGNORE;
-          default ->
-              throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
+          default -> throw new URISyntaxException(url, "Unrecognized registry URL protocol");
         };
     var moduleMirrorUris = ImmutableSet.<URI>builderWithExpectedSize(moduleMirrors.size());
     for (var moduleMirror : moduleMirrors) {
-      moduleMirrorUris.add(new URI(moduleMirror));
+      moduleMirrorUris.add(HttpUtils.parseUri(moduleMirror));
     }
     return new IndexRegistry(
+        url,
         uri,
         nonstrictRepoEnvSupplier.get(),
         knownFileHashes,

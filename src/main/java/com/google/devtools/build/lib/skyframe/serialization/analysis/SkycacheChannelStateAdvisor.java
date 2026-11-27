@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -21,13 +20,37 @@ import java.util.concurrent.atomic.AtomicLong;
  * on an aggregate in-flight request capacity threshold derived from the Bandwidth-Delay Product
  * (BDP).
  */
-@SkybridgeInterface
-public final class SkycacheChannelStateAdvisor {
+public class SkycacheChannelStateAdvisor {
   public static final SkycacheChannelStateAdvisor DISABLED =
-      new SkycacheChannelStateAdvisor(/* maxInFlightRequests= */ 0);
+      new SkycacheChannelStateAdvisor(/* maxInFlightRequests= */ 0) {
+        @Override
+        public boolean isSaturated() {
+          return false;
+        }
+
+        @Override
+        public void incrementInFlightRequests() {}
+
+        @Override
+        public void decrementInFlightRequests(long delta) {}
+
+        @Override
+        public long getInFlightRequests() {
+          return 0;
+        }
+
+        @Override
+        public boolean isSchedulingHashesExhausted() {
+          return false;
+        }
+
+        @Override
+        public void markSchedulingHashesExhausted() {}
+      };
 
   private final AtomicLong inFlightRequests = new AtomicLong(0);
   private final long maxInFlightRequests;
+  private volatile boolean schedulingHashesExhausted = false;
 
   public SkycacheChannelStateAdvisor(long maxInFlightRequests) {
     this.maxInFlightRequests = maxInFlightRequests;
@@ -52,6 +75,16 @@ public final class SkycacheChannelStateAdvisor {
     return inFlightRequests.get();
   }
 
-  // TODO(b/549365818): Surface whether the channel/store is disconnected (e.g. permanently entered
-  // BLACKHOLE state) to immediately shed requests upstream without attempting remote lookups.
+  /**
+   * Returns true if backend scheduling hashes have been exhausted, indicating that no active
+   * backend storage proxy or ACS instance is reachable for remote analysis cache retrieval.
+   */
+  public boolean isSchedulingHashesExhausted() {
+    return schedulingHashesExhausted;
+  }
+
+  /** Marks backend scheduling hashes as exhausted, shedding upstream retrieval attempts. */
+  public void markSchedulingHashesExhausted() {
+    this.schedulingHashesExhausted = true;
+  }
 }

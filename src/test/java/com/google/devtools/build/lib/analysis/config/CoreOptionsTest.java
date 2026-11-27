@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.devtools.build.lib.analysis.util.OptionsTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,6 +27,7 @@ public final class CoreOptionsTest extends OptionsTestCase<CoreOptions> {
   private static final String FEATURES_PREFIX = "--features=";
   private static final String DEFINE_PREFIX = "--define=";
   private static final String FLAG_ALIAS_PREFIX = "--flag_alias=";
+  private static final String OVERRIDE_PLATFORM_CPU_NAME_PREFIX = "--override_platform_cpu_name=";
 
   @Test
   public void testFeatures_orderingOfPositiveFeatures() throws Exception {
@@ -75,6 +78,36 @@ public final class CoreOptionsTest extends OptionsTestCase<CoreOptions> {
     CoreOptions one = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "c=//three", "b=//two");
     CoreOptions two = createWithPrefix(FLAG_ALIAS_PREFIX, "b=//two", "a=//one", "c=//three");
     assertSame(one, two);
+  }
+
+  @Test
+  public void testFlagAliasMap_returnsInternedMapInstance() throws Exception {
+    CoreOptions one = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "b=//two");
+    CoreOptions two = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "b=//two");
+    assertThat(one.getCommandLineFlagAliases())
+        .isNotSameInstanceAs(two.getCommandLineFlagAliases());
+    assertThat(one.getCommandLineFlagAliasesMap())
+        .isSameInstanceAs(two.getCommandLineFlagAliasesMap());
+  }
+
+  @Test
+  public void testOverridePlatformCpuName_duplicateKey() throws Exception {
+    // Last one should win (including shorthand vs. explicit target label), preserving first-seen
+    // key order to match ParsedFlagsValue.updateOptionValue().
+    CoreOptions one =
+        createWithPrefix(
+            OVERRIDE_PLATFORM_CPU_NAME_PREFIX,
+            "//platforms:platforms=cpu1",
+            "//platforms:b=cpu2",
+            "//platforms=cpu3");
+    CoreOptions two =
+        createWithPrefix(
+            OVERRIDE_PLATFORM_CPU_NAME_PREFIX, "//platforms:platforms=cpu3", "//platforms:b=cpu2");
+    CoreOptions reversed =
+        createWithPrefix(
+            OVERRIDE_PLATFORM_CPU_NAME_PREFIX, "//platforms:b=cpu2", "//platforms:platforms=cpu3");
+    assertSame(one, two);
+    assertDifferent(two, reversed);
   }
 
   @Override

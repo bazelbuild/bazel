@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -35,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -56,8 +59,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -66,6 +71,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.time.Duration;
@@ -143,6 +149,27 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
+  public void testExec_deniesActionsNotAllowedLocally() throws Exception {
+    LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
+    localExecutionOptions.setAllowedLocalAction(new RegexPatternConverter().convert("none"));
+    WorkerSpawnRunner runner =
+        createWorkerSpawnRunner(Options.getDefaults(WorkerOptions.class), localExecutionOptions);
+    ActionExecutionMetadata owner = mock(ActionExecutionMetadata.class);
+    when(owner.getMnemonic()).thenReturn("Javac");
+    when(spawn.getResourceOwner()).thenReturn(owner);
+    FileOutErr fileOutErr = new FileOutErr(fs.getPath("/stdout"), fs.getPath("/stderr"));
+    when(context.getFileOutErr()).thenReturn(fileOutErr);
+
+    SpawnResult result = runner.exec(spawn, context);
+
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
+    assertThat(fileOutErr.errAsLatin1())
+        .isEqualTo("Action type Javac is not allowed to run locally due to regex filter: none\n");
+    verify(context, never()).prefetchInputsAndWait();
+    verify(resourceManager, never()).acquireResources(any(), any(), any());
+  }
+
+  @Test
   public void testExecInWorker_virtualInputs_doesntQueryInputFileCache() throws Exception {
     Path execRoot = fs.getPath("/execRoot");
     Path workDir = execRoot.getRelative("workdir");
@@ -157,6 +184,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilesTreeUpdater= */ null,
             Options.getDefaults(WorkerOptions.class),
+            Options.getDefaults(LocalExecutionOptions.class),
             metricsCollector,
             new JavaClock());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
@@ -624,6 +652,11 @@ public class WorkerSpawnRunnerTest {
   }
 
   private WorkerSpawnRunner createWorkerSpawnRunner(WorkerOptions workerOptions) {
+    return createWorkerSpawnRunner(workerOptions, Options.getDefaults(LocalExecutionOptions.class));
+  }
+
+  private WorkerSpawnRunner createWorkerSpawnRunner(
+      WorkerOptions workerOptions, LocalExecutionOptions localExecutionOptions) {
     return new WorkerSpawnRunner(
         fs.getPath("/execRoot"),
         WorkerTestUtils.createTestWorkerPool(worker),
@@ -633,6 +666,7 @@ public class WorkerSpawnRunnerTest {
         resourceManager,
         /* runfilesTreeUpdater= */ null,
         workerOptions,
+        localExecutionOptions,
         metricsCollector,
         new JavaClock());
   }

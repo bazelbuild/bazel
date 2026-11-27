@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <jni.h>
 #include <notify.h>
 
 #include <cstdint>
@@ -24,35 +25,9 @@
 namespace blaze_jni {
 
 static int gSystemLoadAdvisoryNotifyToken = 0;
+static jobject g_system_load_advisory_callback = nullptr;
 
-void portable_start_system_load_advisory_monitoring() {
-  // We install a test notification as well that can be used for testing.
-  static dispatch_once_t once_token;
-  dispatch_once(&once_token, ^{
-    dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
-    notify_handler_t handler = (^(int state) {
-      int value = portable_system_load_advisory();
-      system_load_advisory_callback(value);
-    });
-    int status = notify_register_dispatch(kIOSystemLoadAdvisoryNotifyName,
-                                          &gSystemLoadAdvisoryNotifyToken,
-                                          queue, handler);
-    if (status != NOTIFY_STATUS_OK) {
-      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
-    }
-
-    // This is registered solely so we can test the system from end-to-end.
-    // Using the Apple notification requires admin access.
-    int testToken;
-    status = notify_register_dispatch(
-        "com.google.bazel.test.SystemLoadAdvisory", &testToken, queue, handler);
-    if (status != NOTIFY_STATUS_OK) {
-      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
-    }
-  });
-}
-
-int portable_system_load_advisory() {
+static int GetSystemLoadAdvisory() {
   uint64_t state;
   uint32_t status = notify_get_state(gSystemLoadAdvisoryNotifyToken, &state);
   if (status != NOTIFY_STATUS_OK) {
@@ -81,6 +56,46 @@ int portable_system_load_advisory() {
   }
 
   return load;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_registerLoadAdvisoryNative(
+    JNIEnv* env, jclass, jobject callback) {
+  if (!blaze_jni::RegisterIntConsumerCallback(env, callback,
+                                              &g_system_load_advisory_callback,
+                                              "system load advisory")) {
+    return;
+  }
+  // We install a test notification as well that can be used for testing.
+  static dispatch_once_t once_token;
+  dispatch_once(&once_token, ^{
+    dispatch_queue_t queue = bazel::darwin::JniDispatchQueue();
+    notify_handler_t handler = (^(int state) {
+      blaze_jni::PerformIntegerValueCallback(g_system_load_advisory_callback,
+                                             GetSystemLoadAdvisory());
+    });
+    int status = notify_register_dispatch(kIOSystemLoadAdvisoryNotifyName,
+                                          &gSystemLoadAdvisoryNotifyToken,
+                                          queue, handler);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
+
+    // This is registered solely so we can test the system from end-to-end.
+    // Using the Apple notification requires admin access.
+    int testToken;
+    status = notify_register_dispatch(
+        "com.google.bazel.test.SystemLoadAdvisory", &testToken, queue, handler);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
+  });
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemLoadAdvisoryModule_systemLoadAdvisoryNative(
+    JNIEnv*, jclass) {
+  return GetSystemLoadAdvisory();
 }
 
 }  // namespace blaze_jni

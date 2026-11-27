@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions.ConfigDefinition;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.ConfigPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
@@ -43,10 +44,12 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.OptionAndRawValue;
@@ -317,12 +320,33 @@ public final class BlazeOptionHandler {
             runtime.getCommandMap().keySet());
     parseRcOptions(eventHandler, commandToRcArgs);
 
+    // --config flags added by invocation policy are parsed at command-line priority, either before
+    // or after the user's command-line options, so that they are expanded by expandConfigOptions()
+    // below and appear in the original command line exactly as if the user had passed them.
+    ImmutableList<String> prependedConfigs = getPolicyConfigArgs(ConfigPolicy.Order.PREPEND);
+    ImmutableList<String> appendedConfigs = getPolicyConfigArgs(ConfigPolicy.Order.APPEND);
+    if (!prependedConfigs.isEmpty()) {
+      rcfileNotes.add(
+          String.format(
+              "Invocation policy prepended options: %s", Joiner.on(' ').join(prependedConfigs)));
+      optionsParser.parse(
+          PriorityCategory.COMMAND_LINE, GlobalRcUtils.INVOCATION_POLICY_SOURCE, prependedConfigs);
+    }
+
     // Parses the remaining command-line options.
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
         remainingCmdLine.build(),
         /* fallbackData= */ null);
+
+    if (!appendedConfigs.isEmpty()) {
+      rcfileNotes.add(
+          String.format(
+              "Invocation policy appended options: %s", Joiner.on(' ').join(appendedConfigs)));
+      optionsParser.parse(
+          PriorityCategory.COMMAND_LINE, GlobalRcUtils.INVOCATION_POLICY_SOURCE, appendedConfigs);
+    }
 
     if (commandAnnotation.buildPhase().analyzes()) {
       // split project files from targets in the traditional sense.
@@ -337,6 +361,38 @@ public final class BlazeOptionHandler {
 
     expandConfigOptions(eventHandler, commandToRcArgs);
     return commandToRcArgs;
+  }
+
+  /**
+   * Returns the {@code --config=<name>} arguments contributed by {@link ConfigPolicy}s with the
+   * given {@link ConfigPolicy.Order}, in policy order. Module-provided policies come before the
+   * user-supplied (command-line) invocation policy.
+   */
+  private ImmutableList<String> getPolicyConfigArgs(ConfigPolicy.Order order)
+      throws OptionsParsingException {
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    for (ConfigPolicy policy :
+        Iterables.concat(
+            runtime.getModuleInvocationPolicy().getConfigPoliciesList(),
+            invocationPolicy.getConfigPoliciesList())) {
+      String name = StringEncoding.unicodeToInternal(policy.getName());
+      if (name.isEmpty()) {
+        throw new OptionsParsingException(
+            "Invocation policy config_policies entry is missing a name (order: "
+                + policy.getOrder()
+                + ")");
+      }
+      if (policy.getOrder() == ConfigPolicy.Order.UNDEFINED) {
+        throw new OptionsParsingException(
+            "Invocation policy config_policies entry for config '"
+                + name
+                + "' has an undefined order");
+      }
+      if (policy.getOrder() == order) {
+        args.add("--config=" + name);
+      }
+    }
+    return args.build();
   }
 
   /**
@@ -432,11 +488,6 @@ public final class BlazeOptionHandler {
    * not passed in here during {@link #getOptionsResult}.
    */
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env, List<String> args) {
-    // For now, restrict starlark options to commands that already build to ensure that loading
-    // will work. We may want to open this up to other commands in the future.
-    if (!commandAnnotation.buildPhase().analyzes()) {
-      return DetailedExitCode.success();
-    }
     try {
       BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
       StarlarkOptionsParser starlarkOptionsParser =

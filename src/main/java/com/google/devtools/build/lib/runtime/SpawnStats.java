@@ -29,7 +29,6 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Collects results from SpawnResult. */
@@ -40,7 +39,6 @@ public class SpawnStats {
 
   private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
   private final ConcurrentHashMap<String, String> runnerExecKinds = new ConcurrentHashMap<>();
-  private final AtomicLong totalWallTimeMillis = new AtomicLong();
   // Counts all actions, where an action can run an arbitrary number of spawns (including zero).
   private final AtomicInteger allActionsCount = new AtomicInteger();
   // Counts internal actions, such as SymlinkTree actions, which are recognized by having zero
@@ -58,16 +56,11 @@ public class SpawnStats {
       SpawnMetrics metrics = r.getMetrics();
       runnerExecKinds.put(r.getRunnerName(), metrics.execKind().toString());
       runners.add(r.getRunnerName());
-      totalWallTimeMillis.addAndGet(metrics.executionWallTimeInMs());
     }
   }
 
   public void incrementActionCount() {
     allActionsCount.incrementAndGet();
-  }
-
-  public long getTotalWallTimeMillis() {
-    return totalWallTimeMillis.get();
   }
 
   public void recordActionCacheStats(ActionCacheStatistics actionCacheStatistics) {

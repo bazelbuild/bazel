@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
@@ -248,12 +249,12 @@ public class TextOutputFormatter extends OutputFormatter {
         String indirectChildIndent,
         String lastChildIndent,
         String lastIndirectChildIndent) {
-      this.emptyIndent = emptyIndent;
-      this.prevChildIndent = prevChildIndent;
-      this.childIndent = childIndent;
-      this.indirectChildIndent = indirectChildIndent;
-      this.lastChildIndent = lastChildIndent;
-      this.lastIndirectChildIndent = lastIndirectChildIndent;
+      this.emptyIndent = unicodeToInternal(emptyIndent);
+      this.prevChildIndent = unicodeToInternal(prevChildIndent);
+      this.childIndent = unicodeToInternal(childIndent);
+      this.indirectChildIndent = unicodeToInternal(indirectChildIndent);
+      this.lastChildIndent = unicodeToInternal(lastChildIndent);
+      this.lastIndirectChildIndent = unicodeToInternal(lastIndirectChildIndent);
     }
   }
 }

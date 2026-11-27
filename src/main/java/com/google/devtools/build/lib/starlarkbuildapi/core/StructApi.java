@@ -21,6 +21,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
 
 /**
  * Interface for the "struct" object in the build API.
@@ -50,6 +51,10 @@ public interface StructApi extends StarlarkValue {
   /** Callable Provider for new struct objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface StructProviderApi extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(StructProviderApi.class, StructApi.class);
+    }
 
     @StarlarkMethod(
         name = "struct",

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.decompressor;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.difflib.patch.AbstractDelta;
@@ -27,7 +27,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -163,11 +165,30 @@ public class PatchUtil {
   }
 
   private static ImmutableList<String> readFile(Path file) throws IOException {
-    return FileSystemUtils.readLines(file, UTF_8);
+    return FileSystemUtils.readLinesAsLatin1(file);
   }
 
-  private static void writeFile(Path file, List<String> content) throws IOException {
-    FileSystemUtils.writeLinesAs(file, UTF_8, content);
+  private static void writeFile(Path file, List<String> content, boolean crlf) throws IOException {
+    if (crlf) {
+      file.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.asByteSink(file).asCharSink(ISO_8859_1).writeLines(content, "\r\n");
+    } else {
+      FileSystemUtils.writeLinesAs(file, ISO_8859_1, content);
+    }
+  }
+
+  /** Returns whether the first line of the file ends in CRLF. */
+  private static boolean startsWithCrlf(Path file) throws IOException {
+    try (InputStream in = new BufferedInputStream(file.getInputStream())) {
+      int previous = -1;
+      for (int c = in.read(); c != -1; c = in.read()) {
+        if (c == '\n') {
+          return previous == '\r';
+        }
+        previous = c;
+      }
+    }
+    return false;
   }
 
   private static boolean getReadPermission(int permission) {
@@ -209,10 +230,12 @@ public class PatchUtil {
     }
 
     ImmutableList<String> oldContent;
+    boolean crlf = false;
     if (inputFile == null) {
       oldContent = ImmutableList.of();
     } else {
       oldContent = readFile(inputFile);
+      crlf = startsWithCrlf(inputFile);
       // Preserve old file permission if no explicit permission is set.
       if (filePermission == -1) {
         filePermission = getFilePermissionValue(inputFile);
@@ -253,7 +276,7 @@ public class PatchUtil {
     boolean isDeleteFile = newFile == null && newContent.isEmpty();
 
     if (outputFile != null && !isDeleteFile) {
-      writeFile(outputFile, newContent);
+      writeFile(outputFile, newContent, crlf);
       if (filePermission != -1) {
         setFilePermission(outputFile, filePermission);
       }
@@ -319,6 +342,30 @@ public class PatchUtil {
               "Cannot patch file outside of external repository (%s), file path = \"%s\" at line"
                   + " %d",
               outputDirectory.getPathString(), path, loc));
+    }
+    try {
+      Path realOutputDirectory = null;
+      for (Path ancestor = filePath;
+          ancestor != null && !ancestor.equals(outputDirectory);
+          ancestor = ancestor.getParentDirectory()) {
+        if (ancestor.isSymbolicLink()) {
+          if (realOutputDirectory == null) {
+            realOutputDirectory = outputDirectory.resolveSymbolicLinks();
+          }
+          Path resolved = ancestor.resolveSymbolicLinks();
+          if (!resolved.startsWith(realOutputDirectory)) {
+            throw new PatchFailedException(
+                String.format(
+                    "Cannot patch file outside of external repository (%s), file path = \"%s\" at"
+                        + " line %d (resolves to %s)",
+                    outputDirectory.getPathString(), path, loc, resolved.getPathString()));
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new PatchFailedException(
+          String.format(
+              "Cannot resolve file path \"%s\" at line %d: %s", path, loc, e.getMessage()));
     }
     return filePath;
   }

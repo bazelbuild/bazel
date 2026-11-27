@@ -19,6 +19,7 @@ final class FlagConstants {
 
   private FlagConstants() {}
 
+  public static final String DEFAULT_INCOMPATIBLE_SEPARATE_TEST_SPAWN_MNEMONICS = "true";
   public static final String DEFAULT_EXPERIMENTAL_SPLIT_COVERAGE_POSTPROCESSING = "true";
   public static final String DEFAULT_EXPERIMENTAL_FETCH_ALL_COVERAGE_OUTPUTS = "true";
 }

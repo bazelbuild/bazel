@@ -21,6 +21,7 @@ def _system_repo_impl(ctx):
 
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
     ctx.file("BUILD.bazel", ctx.read(ctx.attr.build_file))
+    return ctx.repo_metadata(reproducible = True)
 
 system_repo = repository_rule(
     implementation = _system_repo_impl,

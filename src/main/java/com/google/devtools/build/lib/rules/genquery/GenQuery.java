@@ -203,9 +203,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.simple(
-                new Runfiles.Builder(ruleContext.getWorkspaceName())
-                    .addTransitiveArtifacts(filesToBuild)
-                    .build()))
+                new Runfiles.Builder().addTransitiveArtifacts(filesToBuild).build()))
         .addOutputGroup(
             OutputGroupInfo.VALIDATION_TRANSITIVE, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
         .build();
@@ -316,7 +314,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /* useGraphlessQuery= */ graphlessQuery,
               queryOptions.getLabelPrinterLegacy(
                   ruleContext.getAnalysisEnvironment().getStarlarkSemantics()));
-      QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
+      QueryExpression expr =
+          QueryExpression.parse(query, queryEnvironment, queryOptions.toParserOptions());
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
           graphlessQuery && !expr.isSomePathFunction()

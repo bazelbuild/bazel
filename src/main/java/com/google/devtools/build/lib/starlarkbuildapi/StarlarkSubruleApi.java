@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkCallable;
     name = "Subrule",
     category = DocCategory.BUILTIN,
     doc =
-        "Experimental: a building block for writing rules with shared code. For more information,"
+        "A building block for writing rules with shared code. For more information,"
             + " please see the subrule proposal:"
             + " https://docs.google.com/document/d/1RbNC88QieKvBEwir7iV5zZU08AaMlOzxhVkPnmKDedQ")
 public interface StarlarkSubruleApi extends StarlarkCallable {

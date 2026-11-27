@@ -37,6 +37,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -197,14 +199,17 @@ public class UploadManifest {
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
+    // These are per-action temporary files, so caching their digests would only evict entries
+    // that can still be reused.
     var errorStat = outErr.getErrorPath().statIfFound();
     if (errorStat != null) {
-      stderrDigest = digestUtil.compute(outErr.getErrorPath(), errorStat);
+      stderrDigest = DigestUtil.buildDigest(outErr.getErrorPath().getDigest(), errorStat.getSize());
       digestToFile.put(stderrDigest, outErr.getErrorPath());
     }
     var outputStat = outErr.getOutputPath().statIfFound();
     if (outputStat != null) {
-      stdoutDigest = digestUtil.compute(outErr.getOutputPath(), outputStat);
+      stdoutDigest =
+          DigestUtil.buildDigest(outErr.getOutputPath().getDigest(), outputStat.getSize());
       digestToFile.put(stdoutDigest, outErr.getOutputPath());
     }
   }
@@ -249,7 +254,7 @@ public class UploadManifest {
         continue;
       }
       if (statNoFollow.isFile() && !statNoFollow.isSpecialFile()) {
-        Digest digest = digestUtil.compute(file, statNoFollow);
+        Digest digest = digestUtil.compute(digestCacheKey(file), file, statNoFollow);
         addFile(digest, file, statNoFollow);
         continue;
       }
@@ -277,7 +282,7 @@ public class UploadManifest {
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           if (target.isAbsolute()) {
             // Symlink to file uploaded as a file.
-            addFile(digestUtil.compute(file, statFollow), file, statNoFollow);
+            addFile(digestUtil.compute(digestCacheKey(file), file, statFollow), file, statNoFollow);
           } else {
             // Symlink to file uploaded as a symlink.
             addFileSymbolicLink(file, target);
@@ -317,6 +322,11 @@ public class UploadManifest {
     return digestToFile;
   }
 
+  /** Returns a directory tree already serialized for this upload. */
+  Tree getDirectoryTree(Digest digest) throws IOException {
+    return Tree.parseFrom(checkNotNull(digestToBlobs.get(digest)));
+  }
+
   @Nullable
   public Digest getStdoutDigest() {
     return stdoutDigest;
@@ -345,6 +355,15 @@ public class UploadManifest {
             .build();
     result.addOutputDirectorySymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
+  }
+
+  /**
+   * Returns the key under which {@code DigestUtils} caches the digest of an output file. This is
+   * its exec path, under which the file's metadata is also computed once the action completes, so
+   * that one of the two lookups hits.
+   */
+  private PathFragment digestCacheKey(Path file) {
+    return remotePathResolver.localPathToExecPath(file.asFragment());
   }
 
   private void addFile(Digest digest, Path file, FileStatus statNoFollow) {
@@ -476,6 +495,15 @@ public class UploadManifest {
       return out.toByteString();
     }
 
+    // REAPI strings cannot represent arbitrary POSIX bytes. A replacement character would
+    // change a symlink target or collapse distinct directory entries into one name.
+    private static void checkPathEncoding(String path) throws IOException {
+      if (!Utf8.isWellFormed(StringUnsafe.getInternalStringBytes(path))) {
+        throw new IOException(
+            "Remote cache directory entries and symlink targets must be valid UTF-8");
+      }
+    }
+
     private void visit(Path path, Dirent.Type type) {
       try {
         if (type == Dirent.Type.FILE) {
@@ -485,6 +513,7 @@ public class UploadManifest {
         if (type == Dirent.Type.DIRECTORY) {
           visitAsDirectory(path);
           for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+            checkPathEncoding(dirent.getName());
             Path childPath = path.getChild(dirent.getName());
             Dirent.Type childType = dirent.getType();
             execute(() -> visit(childPath, childType));
@@ -501,6 +530,7 @@ public class UploadManifest {
           }
           if (statFollow == null || !target.isAbsolute()) {
             // Symlink uploaded as a symlink.
+            checkPathEncoding(target.getPathString());
             if (target.isAbsolute()) {
               checkAbsoluteSymlinkAllowed(path, target);
             }
@@ -536,7 +566,7 @@ public class UploadManifest {
       Path parentPath = path.getParentDirectory();
       // When called, the file is known to exist and is not a symlink.
       FileStatus stat = path.stat();
-      Digest digest = digestUtil.compute(path, stat);
+      Digest digest = digestUtil.compute(digestCacheKey(path), path, stat);
       FileNode node =
           FileNode.newBuilder()
               .setName(internalToUnicode(path.getBaseName()))

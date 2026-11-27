@@ -15,6 +15,7 @@
 package net.starlark.java.eval;
 
 import java.math.BigInteger;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
@@ -47,7 +48,7 @@ public abstract sealed class StarlarkInt implements StarlarkValue, Comparable<St
 
   // A cache of small integers >= LEAST_SMALLINT.
   private static final int LEAST_SMALLINT = -128;
-  private static final Int32[] smallints = new Int32[100_000];
+  private static final AtomicReferenceArray<Int32> smallints = new AtomicReferenceArray<>(100_000);
 
   static final StarlarkInt ZERO = StarlarkInt.of(0);
   private static final StarlarkInt ONE = StarlarkInt.of(1);
@@ -59,11 +60,13 @@ public abstract sealed class StarlarkInt implements StarlarkValue, Comparable<St
   /** Returns the Starlark int value that represents x. */
   public static StarlarkInt of(int x) {
     int index = x - LEAST_SMALLINT; // (may overflow)
-    if (0 <= index && index < smallints.length) {
-      Int32 xi = smallints[index];
+    if (0 <= index && index < smallints.length()) {
+      // Opaque access avoids a Java Memory Model data race without adding memory barrier overhead,
+      // and Int32's final field ensures safe publication.
+      Int32 xi = smallints.getOpaque(index);
       if (xi == null) {
         xi = new Int32(x);
-        smallints[index] = xi;
+        smallints.setOpaque(index, xi);
       }
       return xi;
     }
@@ -554,21 +557,8 @@ public abstract sealed class StarlarkInt implements StarlarkValue, Comparable<St
       long xl = x.toLongFast();
       long yl = y.toLongFast();
 
-      // Signed int128 multiplication, using Hacker's Delight 8-2
-      // (High-Order Half of 64-Bit Product) extended to 128 bits.
-      // TODO(adonovan): use Math.multiplyHigh when Java 9 becomes available.
-      long xlo = xl & 0xFFFFFFFFL;
-      long xhi = xl >> 32;
-      long ylo = yl & 0xFFFFFFFFL;
-      long yhi = yl >> 32;
-      long zlo = xlo * ylo;
-      long t = xhi * ylo + (zlo >>> 32);
-      long z1 = t & 0xFFFFFFFFL;
-      long z2 = t >> 32;
-      z1 += xlo * yhi;
-
-      // high and low arms of result
-      long z128hi = xhi * yhi + z2 + (z1 >> 32);
+      // High and low arms of the signed int128 product.
+      long z128hi = Math.multiplyHigh(xl, yl);
       long z128lo = xl * yl;
 
       // Check int128 result is within int64 range.

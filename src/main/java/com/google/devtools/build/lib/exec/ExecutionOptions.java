@@ -221,10 +221,12 @@ public abstract class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           """
-          When displaying subcommands (`--subcommands`) or printing the command line of a failed
-          action (`--verbose_failures`), expand the contents of param files. When enabled,
-          param file references like `@path/to/param_file` are replaced with the actual
-          arguments they contain.
+          When displaying subcommands (`--subcommands`), printing the command line of a failed
+          action (`--verbose_failures`) or writing the execution log
+          (`--execution_log_{compact,binary,json}_file`), expand the contents of param files.
+          When enabled, param file references like `@path/to/param_file` are replaced with
+          the actual arguments they contain. Spawns are still executed with param files,
+          and the execution log still records them as inputs.
           """)
   public abstract boolean getExpandParamFiles();
 
@@ -330,9 +332,10 @@ public abstract class ExecutionOptions extends OptionsBase {
           - `errors` to also print test logs for failed tests,
           - `all` to print summaries and logs for all tests and
           - `streamed` to output logs for all tests in real time (this will force tests to be
-            executed locally one at a time via `--test_strategy=exclusive`, disabling parallel
+            executed one at a time via `--test_strategy=exclusive`, disabling parallel
             execution and sharding. For parallel execution of multiple tests, use `errors` or
-            `all`).
+            `all`). With remote execution, output is streamed while a test runs only if the
+            remote executor supports live output streams.
           """)
   public abstract TestOutputFormat getTestOutput();
 
@@ -365,12 +368,13 @@ public abstract class ExecutionOptions extends OptionsBase {
       help =
           """
           Specifies the desired format of the test summary. Valid values are;
-          - `short` to list all tests that ran to completion.
-          - `short_uncached` to list tests that ran to completion, omitting cached tests.
+          - `short` to list all tests that ran to completion, omitting skipped tests.
+          - `short_uncached` to list tests that ran to completion, omitting cached and skipped
+            tests.
           - `terse` to list only failed and flaky tests.
           - `detailed` to list tests that ran to completion and their test cases.
           - `detailed_uncached` to list tests that ran to completion and their test cases,
-            omitting cached tests.
+            omitting cached and skipped tests.
           - `testcase` to print summary in test case resolution without detailed information about
             failed test cases.
           - `none` to omit the summary.
@@ -480,7 +484,10 @@ public abstract class ExecutionOptions extends OptionsBase {
               + "metadata instead of recomputing the digests from disk every time they are needed. "
               + "Setting this to 0 ensures correctness because not all file changes can be noted "
               + "from file metadata. When not 0, the number indicates the size of the cache as the "
-              + "number of file digests to be cached.")
+              + "number of file digests to be cached. Each cached digest takes roughly 100 bytes "
+              + "of heap. The cache is most effective when it can hold the digests of all files "
+              + "that a build digests, which includes source files and outputs of locally "
+              + "executed actions.")
   public abstract int getCacheSizeForComputedFileDigests();
 
   @Option(
@@ -493,14 +500,6 @@ public abstract class ExecutionOptions extends OptionsBase {
               + " has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
               + " aggressive RAM optimizations in some cases.")
   public abstract boolean getEnableCriticalPathProfiling();
-
-  @Option(
-      name = "experimental_stats_summary",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      defaultValue = "false",
-      help = "Enable a modernized summary of the build stats.")
-  public abstract boolean getStatsSummary();
 
   @Option(
       name = "execution_log_binary_file",

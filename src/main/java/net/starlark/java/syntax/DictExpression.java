@@ -66,7 +66,7 @@ public final class DictExpression extends Expression {
   private final int rbraceOffset;
 
   DictExpression(FileLocations locs, int lbraceOffset, List<Entry> entries, int rbraceOffset) {
-    super(locs, Kind.DICT_EXPR);
+    super(locs);
     this.lbraceOffset = lbraceOffset;
     this.entries = ImmutableList.copyOf(entries);
     this.rbraceOffset = rbraceOffset;

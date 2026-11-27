@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
@@ -148,7 +150,10 @@ public final class RemoteAnalysisCacheFactory {
     // were true so that we can reuse entries from the cache despite the
     // different visibility settings. This is safe as long as we don't cache
     // failures.
-    BuildOptions trimmedTopLevelOptions = trimConfigurations(topLevelOptions);
+    BuildOptions testTrimmedTopLevelOptions =
+        BuildView.getTopLevelConfigurationTrimmedOfTestOptions(topLevelOptions, env.getReporter());
+    BuildOptions trimmedTopLevelOptions = trimConfigurations(testTrimmedTopLevelOptions);
+    String untrimmedConfigurationChecksum = trimConfigurations(topLevelOptions).checksum();
 
     FrontierNodeVersion frontierNodeVersion =
         new FrontierNodeVersion(
@@ -159,8 +164,9 @@ public final class RemoteAnalysisCacheFactory {
             nullToEmpty(options.getAnalysisCacheKeyDistinguisherForTesting()),
             env.getUseFakeStampData(),
             workspaceInfoFromDiff.getSnapshot());
-    env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
     env.getRemoteAnalysisCachingEventListener().setClientId(clientId);
+    env.getRemoteAnalysisCachingEventListener()
+        .setUntrimmedConfigurationChecksum(untrimmedConfigurationChecksum);
     logger.atInfo().log(
         "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",
         frontierNodeVersion, workspaceInfoFromDiff.getEvaluatingVersion());
@@ -176,7 +182,11 @@ public final class RemoteAnalysisCacheFactory {
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     try {
       servicesSupplier.configure(
-          env.getOptions(), options.getMode(), clientId, env.getCommandId().toString());
+          env.getOptions(),
+          options.getMode(),
+          clientId,
+          env.getCommandId().toString(),
+          env.getOriginatingUser());
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
@@ -186,7 +196,8 @@ public final class RemoteAnalysisCacheFactory {
     var platformConfigurationProvider = new SettablePlatformConfigurationProvider();
 
     ListenableFuture<ObjectCodecs> objectCodecs =
-        createObjectCodecs(env, topLevelOptions, commandExecutor, platformConfigurationProvider);
+        createObjectCodecs(
+            env, testTrimmedTopLevelOptions, commandExecutor, platformConfigurationProvider);
 
     // Set up parameters for the metadata store, if needed
 
@@ -194,15 +205,16 @@ public final class RemoteAnalysisCacheFactory {
 
     if (skycacheMetadataParams != null) {
       skycacheMetadataParams.init(
-          workspaceInfoFromDiff.getEvaluatingVersion().getVal(),
-          String.format("%s-%s", BlazeVersionInfo.instance().getReleaseName(), blazeInstallMD5),
+          frontierNodeVersion.getEvaluatingVersion(),
+          frontierNodeVersion.getReleaseVersionAndInstallationHash(BlazeVersionInfo.instance()),
           topLevelTargets.stream().map(Label::toString).collect(toImmutableList()),
-          env.getUseFakeStampData(),
+          frontierNodeVersion.getUseFakeStampData(),
           userOptions,
           projectSclOptions);
-      skycacheMetadataParams.setConfigurationHash(trimmedTopLevelOptions.checksum());
+      skycacheMetadataParams.setConfigurationHash(
+          frontierNodeVersion.getConfigAndStarlarkSemanticsHash());
       skycacheMetadataParams.setOriginalConfigurationOptions(
-          getConfigurationOptionsAsStrings(topLevelOptions));
+          getConfigurationOptionsAsStrings(testTrimmedTopLevelOptions));
     }
 
     // Create the return values
@@ -231,6 +243,7 @@ public final class RemoteAnalysisCacheFactory {
             env.getReporter(),
             clientId,
             frontierNodeVersion,
+            untrimmedConfigurationChecksum,
             objectCodecs,
             compressionService,
             deps.getFingerprintValueServiceFuture(),
@@ -247,6 +260,7 @@ public final class RemoteAnalysisCacheFactory {
             analysisCacheInvalidator,
             topLevelTargets,
             options.getSkycacheMinimizeMemory(),
+            env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
             platformConfigurationProvider);
 
     // Bail out if needed
@@ -267,12 +281,12 @@ public final class RemoteAnalysisCacheFactory {
             RemoteAnalysisCacheDeps.createDisabled(),
             RemoteAnalysisCacheDeps.createDisabled());
       }
-      return new AnalysisDeps(manager, deps, deps);
-    } else if (options.getMode().serializesValues()) {
-      return new AnalysisDeps(manager, deps, deps);
-    } else {
+    } else if (!options.getMode().serializesValues()) {
       throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
     }
+
+    env.getRemoteAnalysisCachingEventListener().recordSkyValueVersion(frontierNodeVersion);
+    return new AnalysisDeps(manager, deps, deps);
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(
@@ -336,6 +350,7 @@ public final class RemoteAnalysisCacheFactory {
       ExtendedEventHandler eventHandler,
       ClientId clientId,
       FrontierNodeVersion frontierNodeVersion,
+      String untrimmedConfigurationChecksum,
       ListenableFuture<? extends ObjectCodecs> objectCodecs,
       CompressionService compressionService,
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
@@ -355,6 +370,7 @@ public final class RemoteAnalysisCacheFactory {
                 getDone(fingerprintValueService),
                 frontierNodeVersion,
                 clientId,
+                untrimmedConfigurationChecksum,
                 eventHandler,
                 eventListener,
                 commandExecutor),

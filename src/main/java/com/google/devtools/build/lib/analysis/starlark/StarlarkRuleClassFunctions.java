@@ -320,11 +320,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
             .add(
-                attr("$collect_coverage_script", LABEL)
+                attr(":collect_coverage_script", LABEL)
                     .cfg(
                         ExecutionTransitionFactory.createFactory(
                             DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
-                    .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
+                    .value(
+                        BaseRuleClasses.collectCoverageScriptAttribute(
+                            labelCache.get(
+                                toolsRepository
+                                    + BaseRuleClasses.DEFAULT_COLLECT_COVERAGE_SCRIPT_VALUE))))
             // Input files for test actions collecting code coverage
             .add(
                 attr(":coverage_support", LABEL)
@@ -370,9 +374,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   @Override
   public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
-    StarlarkProvider.Builder builder =
-        StarlarkProvider.builder(
-            thread.getCallerLocation(), thread.getSemantics(), thread.getTypeContext());
+    StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
     Starlark.toJavaOptional(doc, String.class)
         .map(Starlark::trimDocString)
         .ifPresent(builder::setDocumentation);
@@ -776,7 +778,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder = new RuleClass.Builder("", type, true, baseParent);
     }
 
-    builder.initializer(initializer, labelConverter);
+    if (initializer != null) {
+      builder.initializer(
+          initializer,
+          new LabelConverter(BazelModuleContext.ofInnermostBzlOrThrow(thread).packageContext()));
+    }
 
     builder.setDefaultExtendableAllowlist(
         ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
@@ -2076,7 +2082,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   static final AllowlistChecker FUNCTION_TRANSITION_ALLOWLIST_CHECKER =
       AllowlistChecker.builder()
           .setAllowlistAttr(FunctionSplitTransitionAllowlist.NAME)
-          .setErrorMessage("Non-allowlisted use of Starlark transition")
+          .setErrorMessage(FunctionSplitTransitionAllowlist.ERROR_MESSAGE)
           .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
           .build();
 

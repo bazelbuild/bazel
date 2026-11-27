@@ -128,6 +128,24 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
   }
 
+  public static final String DEFAULT_COLLECT_COVERAGE_SCRIPT_VALUE =
+      "//tools/test:collect_coverage";
+
+  // The attribute map returns the default value of the late-bound attribute itself.
+  @SerializationConstant @VisibleForSerialization
+  static final Resolver<CoverageConfiguration, Label> COLLECT_COVERAGE_SCRIPT_RESOLVER =
+      (rule, attributes, configuration) ->
+          configuration.isCodeCoverageEnabled()
+              ? attributes.get(":collect_coverage_script", BuildType.LABEL)
+              : null;
+
+  /** Resolves to the coverage wrapper only if coverage is collected. */
+  public static LabelLateBoundDefault<CoverageConfiguration> collectCoverageScriptAttribute(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        CoverageConfiguration.class, defaultValue, COLLECT_COVERAGE_SCRIPT_RESOLVER);
+  }
+
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
@@ -310,9 +328,6 @@ public class BaseRuleClasses {
           .add(
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          .add(
-              // TODO: b/148549967 - Remove for Bazel 9.0
-              attr("distribs", STRING_LIST).nonconfigurable("deprecated - no op"))
           // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(

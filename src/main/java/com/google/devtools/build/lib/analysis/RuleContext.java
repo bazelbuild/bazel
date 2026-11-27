@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetOwnerScope;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -387,11 +389,6 @@ public class RuleContext extends TargetContext
   @Nullable
   public Aspect getMainAspect() {
     return null;
-  }
-
-  /** Returns the workspace name for the rule. */
-  public String getWorkspaceName() {
-    return rule.getPackageMetadata().workspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -1063,29 +1060,39 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
+  /**
+   * Returns the name of the automatic exec group of the given toolchain type, or {@code null} if
+   * there is none. The toolchain type can be given as the label it was requested with or as the
+   * label of the actual type.
+   */
   @Nullable
-  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
-    ResolvedToolchainContext toolchainContext =
-        toolchainContexts.getToolchainContext(toolchainType.toString());
-    if (toolchainContext != null && toolchainContext.forToolchainType(toolchainType) != null) {
-      // Return early if name of the Automatic Exec Group (AEG) and toolchain type matches.
-      return toolchainContext;
+  public String getAutomaticExecGroup(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    if (toolchainContexts.hasToolchainContext(toolchainType.toString())) {
+      // Prefer an exact match.
+      return toolchainType.toString();
     }
 
     // Alias can be used for toolchains, in which case name of AEG will not match with the toolchain
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
-    String aliasName =
-        toolchainContexts.getExecGroupNames().stream()
-            .filter(DeclaredExecGroup::isAutomatic)
-            .filter(
-                name -> {
-                  ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
-                  return (context != null
-                      && context.requestedToolchainTypeLabels().containsKey(toolchainType));
-                })
-            .findFirst()
-            .orElse(null);
-    return aliasName == null ? null : toolchainContexts.getToolchainContext(aliasName);
+    for (String execGroup : toolchainContexts.getExecGroupNames()) {
+      if (DeclaredExecGroup.isAutomatic(execGroup)
+          && toolchainContexts
+              .getToolchainContext(execGroup)
+              .requestedToolchainTypeLabels()
+              .containsKey(toolchainType)) {
+        return execGroup;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
+    String execGroup = getAutomaticExecGroup(toolchainType);
+    return execGroup == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
   /**
@@ -1137,6 +1144,9 @@ public class RuleContext extends TargetContext
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
     if (requiredConfigFragments == null) {
       return null;
+    }
+    if (!shouldIncludeMakeVariablesInRequiredConfigFragments()) {
+      return requiredConfigFragments;
     }
 
     RequiredConfigFragmentsProvider.Builder merged = null;
@@ -1315,7 +1325,7 @@ public class RuleContext extends TargetContext
   public boolean verifyNestedSetCountLimit() {
     StarlarkSemantics semantics = getAnalysisEnvironment().getStarlarkSemantics();
     int limit = semantics.get(BuildLanguageOptions.NESTED_SET_COUNT_LIMIT);
-    int count = NestedSet.getCurrentTargetNestedSetCount();
+    int count = NestedSetOwnerScope.getCurrentNestedSetCount();
     if (limit <= 0 || count <= limit) {
       return true;
     }
@@ -1447,6 +1457,20 @@ public class RuleContext extends TargetContext
    */
   public boolean shouldIncludeRequiredConfigFragmentsProvider() {
     return requiredConfigFragments != null;
+  }
+
+  /**
+   * Returns {@code true} if Make variables accessed through {@code ctx.var} or Make variable
+   * substitution should be recorded as {@code --define}s in {@link
+   * RequiredConfigFragmentsProvider}.
+   */
+  public boolean shouldIncludeMakeVariablesInRequiredConfigFragments() {
+    return requiredConfigFragments != null
+        && getConfiguration()
+                .getOptions()
+                .get(CoreOptions.class)
+                .getIncludeRequiredConfigFragmentsProvider()
+            != CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE_STARLARK_ONLY;
   }
 
   @Override

@@ -174,7 +174,7 @@ public class BazelOutputServiceTest {
             /* lastBuildId= */ null);
     var unused =
         service.startBuild(
-            UUID.randomUUID(), "workspace", mock(EventHandler.class), /* finalizeActions= */ true);
+            UUID.randomUUID(), mock(EventHandler.class), /* finalizeActions= */ true);
     return service;
   }
 

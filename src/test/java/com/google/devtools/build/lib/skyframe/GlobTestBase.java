@@ -165,7 +165,8 @@ public abstract class GlobTestBase {
     skyFunctions.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(
+        SkyFunctions.FILE, new FileFunction(pkgLocator, directories, externalFilesHelper));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(
@@ -701,13 +702,13 @@ public abstract class GlobTestBase {
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
-            return realStat.getLastModifiedTime();
+          public long getLastModifiedTimeNanos() throws IOException {
+            return realStat.getLastModifiedTimeNanos();
           }
 
           @Override
-          public long getLastChangeTime() throws IOException {
-            return realStat.getLastChangeTime();
+          public long getLastChangeTimeNanos() throws IOException {
+            return realStat.getLastChangeTimeNanos();
           }
 
           @Override
@@ -879,13 +880,13 @@ public abstract class GlobTestBase {
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
-            return realStat.getLastModifiedTime();
+          public long getLastModifiedTimeNanos() throws IOException {
+            return realStat.getLastModifiedTimeNanos();
           }
 
           @Override
-          public long getLastChangeTime() throws IOException {
-            return realStat.getLastChangeTime();
+          public long getLastChangeTimeNanos() throws IOException {
+            return realStat.getLastChangeTimeNanos();
           }
 
           @Override

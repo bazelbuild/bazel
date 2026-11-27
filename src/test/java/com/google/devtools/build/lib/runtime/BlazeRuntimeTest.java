@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -23,13 +26,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.TraceProfilerService;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCollectorIdleTask;
+import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
@@ -58,6 +66,7 @@ import com.google.protobuf.StringValue;
 import java.io.FileDescriptor;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,7 +90,9 @@ public class BlazeRuntimeTest {
                   CommonCommandOptions.class,
                   KeepStateAfterBuildOption.class,
                   ClientOptions.class,
-                  BuildRequestOptions.class))
+                  BuildRequestOptions.class,
+                  CoreOptions.class,
+                  TestOptions.class))
           .build();
   private final Thread commandThread = mock(Thread.class);
   private final AtomicReference<String> shutdownReason = new AtomicReference<>();
@@ -224,21 +235,85 @@ public class BlazeRuntimeTest {
   }
 
   @Test
+  public void forcedGc_disabledByDefault() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
+    assertThat(options.getForcedGcInterval()).isEqualTo(Duration.ZERO);
+    runtime.beforeCommand(env, options);
+    var _ =
+        runtime.afterCommand(
+            /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success());
+  }
+
+  @Test
+  public void forcedGc_runsDuringCommandAndStopsAfterCommand() throws Exception {
+    TraceProfilerService mockProfiler = mock(TraceProfilerService.class);
+    Profiler.setTraceProfilerService(mockProfiler);
+    try {
+      CountDownLatch gcLatch = new CountDownLatch(1);
+      var builder =
+          new BlazeRuntime.Builder()
+              .setFileSystem(fs)
+              .setProductName("foo product")
+              .setServerDirectories(serverDirectories)
+              .setStartupOptionsProvider(mock(OptionsParsingResult.class))
+              .addBlazeService(new CompressionServiceImpl())
+              .setForcedGcAction(gcLatch::countDown);
+      BlazeRuntime runtime = builder.build();
+      CommandEnvironment env = createCommandEnvironment(runtime);
+
+      optionsParser.parse("--experimental_forced_gc_interval=1ms");
+      CommonCommandOptions options = optionsParser.getOptions(CommonCommandOptions.class);
+      runtime.beforeCommand(env, options);
+
+      assertThat(gcLatch.await(5, SECONDS)).isTrue();
+
+      var _ =
+          runtime.afterCommand(
+              /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success());
+      verify(mockProfiler, atLeastOnce()).profile(ProfilerTask.MANUAL_GC, "forced GC");
+    } finally {
+      Profiler.setTraceProfilerService(null);
+    }
+  }
+
+  @Test
+  public void forcedGc_skippedForInfoCommand() throws Exception {
+    CountDownLatch gcLatch = new CountDownLatch(1);
+    var builder =
+        new BlazeRuntime.Builder()
+            .setFileSystem(fs)
+            .setProductName("foo product")
+            .setServerDirectories(serverDirectories)
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
+            .addBlazeService(new CompressionServiceImpl())
+            .setForcedGcAction(gcLatch::countDown);
+    BlazeRuntime runtime = builder.build();
+    BlazeWorkspace workspace =
+        runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+    CommandEnvironment env =
+        createCommandEnvironment(
+            runtime, workspace, optionsParser, InfoCommand.class.getAnnotation(Command.class));
+
+    optionsParser.parse("--experimental_forced_gc_interval=1ms");
+    CommonCommandOptions options = optionsParser.getOptions(CommonCommandOptions.class);
+    runtime.beforeCommand(env, options);
+
+    assertThat(gcLatch.await(50, MILLISECONDS)).isFalse();
+
+    var _ =
+        runtime.afterCommand(
+            /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success());
+  }
+
+  @Test
   public void runfilesTreeUpdater_distinctAcrossCommandsSharingWorkspace() throws Exception {
     // Two commands sharing one workspace must still get distinct updaters. This pins the command
     // scope against a potential regression of scoping the updater to the long-lived workspace:
     // its dedup map never evicts, so a reused updater would skip restaging a tree that changed
     // between commands.
-    BlazeRuntime runtime =
-        createRuntime(
-            ImmutableList.of(
-                new BlazeModule() {
-                  @Override
-                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    builder.setRunfilesPrefix("_main");
-                  }
-                }),
-            ImmutableList.of());
+    BlazeRuntime runtime = createRuntime();
     BlazeWorkspace workspace =
         runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
     CommandEnvironment firstEnv = createCommandEnvironment(runtime, workspace);
@@ -607,12 +682,21 @@ public class BlazeRuntimeTest {
 
   private CommandEnvironment createCommandEnvironment(
       BlazeRuntime runtime, BlazeWorkspace workspace, OptionsParsingResult options) {
+    return createCommandEnvironment(
+        runtime, workspace, options, VersionCommand.class.getAnnotation(Command.class));
+  }
+
+  private CommandEnvironment createCommandEnvironment(
+      BlazeRuntime runtime,
+      BlazeWorkspace workspace,
+      OptionsParsingResult options,
+      Command command) {
     return new CommandEnvironment(
         runtime,
         workspace,
         mock(EventBus.class),
         commandThread,
-        VersionCommand.class.getAnnotation(Command.class),
+        command,
         options,
         InvocationPolicy.getDefaultInstance(),
         /* packageLocator= */ null,

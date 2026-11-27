@@ -1,0 +1,10 @@
+; Blake3MessageDigest and Rust FFI bindings call these functions through
+; java.lang.foreign, so they must be explicitly exported from windows_jni.dll.
+; TODO(chiwang): Automatically generate this .def file (and its bazel_* Rust
+; FFI exports) instead of maintaining the symbol list manually.
+EXPORTS
+    blake3_hasher_init
+    blake3_hasher_update
+    blake3_hasher_finalize
+    bazel_sleep_prevention_push
+    bazel_sleep_prevention_pop

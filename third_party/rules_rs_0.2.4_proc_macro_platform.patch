@@ -1,0 +1,89 @@
+diff --git a/rust/private/rust.bzl b/rust/private/rust.bzl
+--- a/rust/private/rust.bzl
++++ b/rust/private/rust.bzl
+@@ -67,6 +67,9 @@
+ # Setting path for per_crate_rustc_flag, used in transition definitions
+ _PER_CRATE_FLAG_SETTING = "@rules_rust//rust/settings:per_crate_rustc_flag"
+ 
++_PROC_MACRO_PLATFORM_SETTING = "@rules_rust//rust/settings:proc_macro_platform"
++_NO_PROC_MACRO_PLATFORM = Label("//rust/settings:no_proc_macro_platform")
++
+ def _toolchain_make_variables(ctx):
+     make_variables = {}
+     for toolchain_target in getattr(ctx.attr, "toolchains", []):
+@@ -1361,10 +1364,35 @@
+         """),
+ )
+ 
++def _rust_proc_macro_transition_impl(settings, attr):
++    per_crate_flags = [] if getattr(attr, "skip_per_crate_rustc_flags", False) else settings[_PER_CRATE_FLAG_SETTING]
++    proc_macro_platform = settings[_PROC_MACRO_PLATFORM_SETTING]
++    if proc_macro_platform and proc_macro_platform != _NO_PROC_MACRO_PLATFORM:
++        platforms = [proc_macro_platform]
++    else:
++        platforms = settings["//command_line_option:platforms"]
++    return {
++        "//command_line_option:platforms": platforms,
++        _PER_CRATE_FLAG_SETTING: per_crate_flags,
++    }
++
++_rust_proc_macro_transition = transition(
++    implementation = _rust_proc_macro_transition_impl,
++    inputs = [
++        "//command_line_option:platforms",
++        _PER_CRATE_FLAG_SETTING,
++        _PROC_MACRO_PLATFORM_SETTING,
++    ],
++    outputs = [
++        "//command_line_option:platforms",
++        _PER_CRATE_FLAG_SETTING,
++    ],
++)
++
+ rust_proc_macro = rule(
+     implementation = _rust_proc_macro_impl,
+     provides = COMMON_PROVIDERS,
+-    cfg = per_crate_flag_trim_transition,
++    cfg = _rust_proc_macro_transition,
+     attrs = {name: value for name, value in _COMMON_ATTRS.items() if name != "link_deps"} | {
+         "_allowlist_function_transition": attr.label(
+             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+diff --git a/rust/settings/BUILD.bazel b/rust/settings/BUILD.bazel
+--- a/rust/settings/BUILD.bazel
++++ b/rust/settings/BUILD.bazel
+@@ -31,6 +31,7 @@
+     "no_std",
+     "per_crate_rustc_flag",
+     "pipelined_compilation",
++    "proc_macro_platform",
+     "rename_first_party_crates",
+     "require_explicit_unstable_features",
+     "rustc_output_diagnostics",
+@@ -127,6 +128,8 @@
+ 
+ pipelined_compilation()
+ 
++proc_macro_platform()
++
+ rename_first_party_crates()
+ 
+ require_explicit_unstable_features()
+diff --git a/rust/settings/settings.bzl b/rust/settings/settings.bzl
+--- a/rust/settings/settings.bzl
++++ b/rust/settings/settings.bzl
+@@ -588,3 +588,15 @@
+         name = "skip_fission_for_rust",
+         build_setting_default = False,
+     )
++
++def proc_macro_platform():
++    """Optional platform override for compiling `rust_proc_macro` crates."""
++    native.filegroup(
++        name = "no_proc_macro_platform",
++    )
++    native.label_flag(
++        name = "proc_macro_platform",
++        build_setting_default = ":no_proc_macro_platform",
++        scope = "universal",
++        visibility = ["//visibility:public"],
++    )

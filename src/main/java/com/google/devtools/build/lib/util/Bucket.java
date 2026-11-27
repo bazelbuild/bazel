@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** A bucket of values. min is inclusive, max is exclusive. */
-@SkybridgeInterface
 public interface Bucket {
   long minInclusive();
 

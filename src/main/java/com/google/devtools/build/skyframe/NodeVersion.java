@@ -13,13 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /**
  * Encapsulates the two versions relevant to a {@link NodeEntry}: when it was last evaluated, and
  * when its value last changed.
  */
-@SkybridgeInterface
 public interface NodeVersion {
 
   /**

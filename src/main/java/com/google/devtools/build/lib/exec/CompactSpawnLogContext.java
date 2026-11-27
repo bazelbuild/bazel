@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
@@ -36,6 +35,8 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.ObjectToIntMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -61,7 +62,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CheckReturnValue;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -72,6 +72,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -153,7 +155,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
   private final CompressionService compressionService;
   private final PathFragment execRoot;
-  private final String workspaceName;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
@@ -161,17 +162,55 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final ExtendedEventHandler reporter;
   private final AtomicBoolean outputLoggingFailed = new AtomicBoolean(false);
 
-  // Maps a key identifying an entry into its ID.
+  /**
+   * Stands in for an entry in {@link #pendingEntries} while the entry is being computed.
+   *
+   * <p>Counted down once the entry has been written to the log or has failed to be computed.
+   *
+   * <p>We extend {@link CountDownLatch} directly with a primitive {@code int} ID instead of using a
+   * {@code Future<Integer>} to avoid extra allocations per attempt, and because waiting threads
+   * retry computing the entry when the computing thread fails or is interrupted, rather than
+   * rethrowing its exception.
+   */
+  private static final class PendingEntry extends CountDownLatch {
+    // The entry ID, or 0 if the entry failed to be computed. Must only be written before counting
+    // down and only be read after awaiting.
+    private int id;
+
+    PendingEntry() {
+      super(1);
+    }
+  }
+
+  // Maps a key identifying an entry that has been written to the log into its ID.
   // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
   // runfiles tree.
   // Only entries that are likely to be referenced by future entries are stored.
-  // Use a specialized map for minimal memory footprint.
-  @GuardedBy("this")
-  private final Object2IntOpenHashMap<Object> entryMap = new Object2IntOpenHashMap<>();
+  // The ID is only stored after the entry has been handed to the output stream, so that an ID
+  // obtained from this map always identifies an entry that precedes every entry written afterwards.
+  // The map holds an entry for every file, directory, symlink, runfiles tree and shared nested set
+  // mentioned in the build, which is millions of entries for a large build, and is looked up by
+  // every thread that logs a spawn. Use a specialized map for minimal memory footprint, whose
+  // lookups don't all contend for the same lock.
+  private final ObjectToIntMap<Object> entryIds = new ObjectToIntMap<>();
+
+  // Maps the key of an entry that is being computed into its PendingEntry, which lets other threads
+  // that need the same entry wait for it instead of computing it again.
+  // A key is only removed after the ID of its entry has been stored in entryIds, unless the entry
+  // failed to be computed. A thread that has added a key can thus tell from entryIds whether the
+  // entry was written in the meantime.
+  // Only holds the entries that are being computed at a given time, so its memory footprint
+  // doesn't matter.
+  private final ConcurrentHashMap<Object, PendingEntry> pendingEntries = new ConcurrentHashMap<>();
+
+  // Returned by entryIds for a key that it doesn't contain.
+  private static final int ABSENT = -1;
 
   // The next available entry ID.
+  // Guarded by the lock that is held while an entry with an ID is handed to the output stream, so
+  // that IDs are consecutive in the order in which entries appear in the log.
   @GuardedBy("this")
-  int nextEntryId = 1;
+  private int nextEntryId = 1;
 
   // Output stream to write to.
   private final MessageOutputStream<ExecLogEntry> outputStream;
@@ -180,18 +219,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       BufferedOutputStream out,
       String displayName,
       PathFragment execRoot,
-      String workspaceName,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
       CompressionService compressionService,
       UUID invocationId,
       ExtendedEventHandler reporter,
-      Predicate<Spawn> logSpawnPredicate)
+      Predicate<Spawn> logSpawnPredicate,
+      boolean expandParamFiles)
       throws IOException, InterruptedException {
-    super(logSpawnPredicate);
+    super(logSpawnPredicate, expandParamFiles);
     this.execRoot = execRoot;
-    this.workspaceName = workspaceName;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
@@ -211,14 +249,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   private void logInvocation() throws IOException, InterruptedException {
-    logEntryWithoutId(
-        () ->
-            ExecLogEntry.newBuilder()
-                .setInvocation(
-                    ExecLogEntry.Invocation.newBuilder()
-                        .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
-                        .setWorkspaceRunfilesDirectory(internalToUnicode(workspaceName))
-                        .setId(internalToUnicode(invocationId.toString()))));
+    logEntryWithoutId(() ->
+        ExecLogEntry.newBuilder()
+            .setInvocation(
+                ExecLogEntry.Invocation.newBuilder()
+                    .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
+                    .setWorkspaceRunfilesDirectory(
+                        internalToUnicode(LabelConstants.MAIN_REPO_DIR_NAME))
+                    .setId(internalToUnicode(invocationId.toString()))));
   }
 
   @Override
@@ -242,7 +280,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
-      builder.addAllArgs(Lists.transform(spawn.getArguments(), StringEncoding::internalToUnicode));
+      builder.addAllArgs(
+          Lists.transform(getLoggedArguments(spawn), StringEncoding::internalToUnicode));
       builder.addAllEnvVars(getEnvironmentVariables(spawn));
       Platform platform = getPlatform(spawn, remoteOptions);
       if (platform != null) {
@@ -346,8 +385,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         spawn.getInputFiles().asNestedSet(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ false,
-        "TestRunner".equals(spawn.getMnemonic()));
+        /* shared= */ false);
   }
 
   /**
@@ -359,12 +397,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logTools(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
-    return logInputSet(
-        spawn.getToolFiles(),
-        inputMetadataProvider,
-        fileSystem,
-        /* shared= */ true,
-        "TestRunner".equals(spawn.getMnemonic()));
+    return logInputSet(spawn.getToolFiles(), inputMetadataProvider, fileSystem, /* shared= */ true);
   }
 
   /**
@@ -372,7 +405,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    *
    * @param set the nested set
    * @param shared whether this nested set is likely to be a transitive member of other sets
-   * @param isTestRunnerSpawn whether this nested set is logged for a test runner spawn
    * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the nested set, or 0 if
    *     the nested set is empty.
    */
@@ -380,8 +412,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       NestedSet<? extends ActionInput> set,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
-      boolean shared,
-      boolean isTestRunnerSpawn)
+      boolean shared)
       throws IOException, InterruptedException {
     if (set.isEmpty()) {
       return 0;
@@ -395,12 +426,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           for (NestedSet<? extends ActionInput> transitive : set.getNonLeaves()) {
             checkState(!transitive.isEmpty());
             builder.addTransitiveSetIds(
-                logInputSet(
-                    transitive,
-                    inputMetadataProvider,
-                    fileSystem,
-                    /* shared= */ true,
-                    isTestRunnerSpawn));
+                logInputSet(transitive, inputMetadataProvider, fileSystem, /* shared= */ true));
           }
 
           for (ActionInput input : set.getLeaves()) {
@@ -412,11 +438,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                       runfilesTree,
                       inputMetadataProvider,
                       fileSystem,
-                      // Runfiles of non-test spawns are tool inputs and thus potentially reused
-                      // between spawns. Runfiles of test spawns are reused if the test is attempted
-                      // multiple times in the same build; in this case, the runfiles tree caches
-                      // its mapping.
-                      !isTestRunnerSpawn || runfilesTree.isMappingCached()));
+                      // Only share runfiles trees when their mapping is cached; otherwise the
+                      // mapping can vary per spawn and should be treated as unique.
+                      runfilesTree.isMappingCached()));
               continue;
             }
 
@@ -573,8 +597,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     return logEntry(
         shared ? runfilesTree.getExecPath().getPathString() : null,
         () -> {
-          Preconditions.checkState(workspaceName.equals(runfilesTree.getWorkspaceName()));
-
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
                   .setPath(internalToUnicode(runfilesTree.getExecPath().getPathString()));
@@ -586,10 +608,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                   fileSystem,
                   // The runfiles tree itself is shared, but the nested set is unique to the tree as
                   // it contains the executable.
-                  /* shared= */ false,
-                  // This value only matters for nested sets that may contain runfiles trees, but
-                  // these are never nested.
-                  /* isTestRunnerSpawn= */ false));
+                  /* shared= */ false));
           builder.setSymlinksId(
               logSymlinkEntries(
                   runfilesTree.getSymlinksForLogging(), inputMetadataProvider, fileSystem));
@@ -738,19 +757,15 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   /**
    * Ensures an entry is written to the log without an ID.
    *
+   * <p>No lock is required: every entry referenced by the entry was handed to the output stream
+   * before its ID was returned to the supplier, and the output stream preserves the order of
+   * writes.
+   *
    * @param supplier called to compute the entry; may cause other entries to be logged
    */
   private void logEntryWithoutId(ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntryWithoutId")) {
-      logEntryWithoutIdSynchronized(supplier);
-    }
-  }
-
-  private synchronized void logEntryWithoutIdSynchronized(ExecLogEntrySupplier supplier)
-      throws IOException, InterruptedException {
-    try (SilentCloseable c =
-        Profiler.instance().profile(SPAWN_LOG, "logEntryWithoutId/synchronized")) {
       outputStream.write(supplier.get().build());
     }
   }
@@ -761,7 +776,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * <p>If an entry with the same non-null key was previously added to the log, its recorded ID is
    * returned. Otherwise, the entry is computed, assigned an ID, and written to the log.
    *
-   * @param key the key, or null if the ID shouldn't be recorded
+   * <p>May be called concurrently. An entry is computed without holding a lock, so that threads
+   * logging unrelated entries don't wait for each other. If a thread requests an entry with the
+   * same non-null key as an entry that another thread is computing, it waits for that entry to be
+   * written instead of computing it again.
+   *
+   * @param key the deduplication key in {@link #entryIds}, or {@code null} for unshared entries
+   *     that still need an assigned ID so their parent entry can reference them, but should not be
+   *     deduplicated across spawns
    * @param supplier called to compute the entry; may cause other entries to be logged
    * @return the entry ID
    */
@@ -769,38 +791,90 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntry")) {
-      return logEntrySynchronized(key, supplier);
-    }
-  }
-
-  private synchronized int logEntrySynchronized(@Nullable Object key, ExecLogEntrySupplier supplier)
-      throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntry/synchronized")) {
       if (key == null) {
-        // No need to check for a previously added entry.
-        ExecLogEntry.Builder entry = supplier.get();
-        int id = nextEntryId++;
-        outputStream.write(entry.setId(id).build());
-        return id;
+        // Unshared entry (e.g. a spawn's top-level input set or param file): still needs an ID so
+        // its parent entry can reference it, but skip deduplication in entryIds/pendingEntries.
+        return writeEntryWithNewId(supplier.get());
       }
 
       checkState(key instanceof NestedSet.Node || key instanceof String);
 
-      // Check for a previously added entry.
-      int id = entryMap.getOrDefault(key, 0);
-      if (id != 0) {
+      while (true) {
+        // Check for a previously added entry.
+        int id = entryIds.get(key);
+        if (id != ABSENT) {
+          return id;
+        }
+        PendingEntry mine = new PendingEntry();
+        PendingEntry pending = pendingEntries.putIfAbsent(key, mine);
+        if (pending == null) {
+          // No other thread is computing the entry, so it is up to this thread to log it.
+          return computeAndWriteEntry(key, mine, supplier);
+        }
+
+        // Another thread is computing the entry: wait until it has been written.
+        // This can't deadlock: a thread only waits for entries referenced by the entry it is
+        // computing, and an entry never transitively references itself.
+        try (SilentCloseable c2 =
+            Profiler.instance().profile(SPAWN_LOG, "logEntry/waitForPendingEntry")) {
+          pending.await();
+        }
+        if (pending.id != 0) {
+          return pending.id;
+        }
+        // The other thread aborted before writing the entry (e.g. it was part of a cancelled
+        // branch under dynamic execution, or its spawn hit an IOException under --keep_going)
+        // so retry computing it here instead of failing this spawn with the other thread's error.
+      }
+    }
+  }
+
+  /**
+   * Computes a fresh entry, writes it to the log and records its ID, on behalf of the thread that
+   * has added the given {@link PendingEntry} to {@link #pendingEntries}.
+   */
+  private int computeAndWriteEntry(Object key, PendingEntry pending, ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    int id = 0;
+    try {
+      // Another thread may have written the entry after this thread looked for its ID and before
+      // this thread added the PendingEntry. Since that thread stored the ID before it removed its
+      // own PendingEntry, the ID is found now.
+      int writtenId = entryIds.get(key);
+      if (writtenId != ABSENT) {
+        id = writtenId;
         return id;
       }
 
-      // Compute a fresh entry and log it.
       // The following order of operations is crucial to ensure that this entry is preceded by any
-      // entries it references, which in turn ensures the log can be parsed in a single pass.
-      ExecLogEntry.Builder entry = supplier.get();
-      id = nextEntryId++;
-      entryMap.put(key, id);
-      outputStream.write(entry.setId(id).build());
+      // entries it references, which in turn ensures the log can be parsed in a single pass: the
+      // entry is written after the supplier has obtained an ID for every entry it references, and
+      // its own ID is made available to other threads after it has been written.
+      id = writeEntryWithNewId(supplier.get());
+      entryIds.put(key, id);
       return id;
+    } finally {
+      // Must come after the ID has been stored, so that a thread that doesn't find the PendingEntry
+      // finds the ID, and before the threads waiting for the entry are woken up, so that they
+      // don't find the PendingEntry again if the entry failed to be computed and they are to
+      // attempt to compute it themselves.
+      pendingEntries.remove(key, pending);
+      pending.id = id;
+      pending.countDown();
     }
+  }
+
+  /**
+   * Assigns the next ID to a fully computed entry and writes it to the log.
+   *
+   * <p>This is the only part of logging an entry that is mutually exclusive between threads, and it
+   * must not do more than is required to keep IDs consecutive in the order in which entries appear
+   * in the log.
+   */
+  private synchronized int writeEntryWithNewId(ExecLogEntry.Builder entry) throws IOException {
+    int id = nextEntryId++;
+    outputStream.write(entry.setId(id).build());
+    return id;
   }
 
   @Override

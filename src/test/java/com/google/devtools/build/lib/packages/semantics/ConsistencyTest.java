@@ -84,7 +84,7 @@ public class ConsistencyTest {
    */
   @Test
   public void serializationRoundTrip() throws Exception {
-    DynamicCodec codec = new DynamicCodec(buildRandomSemantics(new Random(2)).getClass());
+    DynamicCodec codec = DynamicCodec.create(buildRandomSemantics(new Random(2)).getClass());
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       StarlarkSemantics semantics = buildRandomSemantics(new Random(i));
       StarlarkSemantics deserialized =
@@ -154,7 +154,7 @@ public class ConsistencyTest {
         "--experimental_builtins_bzl_path=" + rand.nextDouble(),
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
-        "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
+        "--experimental_disable_build_prelude=" + rand.nextBoolean(),
         "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
@@ -173,6 +173,7 @@ public class ConsistencyTest {
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)]
                 .toString()
                 .toLowerCase(Locale.ROOT),
+        "--incompatible_existing_rules_default_omit_macro_internals=" + rand.nextBoolean(),
         "--incompatible_locations_prefers_executable=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
         "--incompatible_no_implicit_file_export=" + rand.nextBoolean(),
@@ -200,8 +201,7 @@ public class ConsistencyTest {
         .set(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH, String.valueOf(rand.nextDouble()))
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())
-        .setBool(
-            BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_BUILD_PRELUDE, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())
@@ -222,6 +222,9 @@ public class ConsistencyTest {
             BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
             BuildLanguageOptions.Utf8EnforcementMode.values()[
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)])
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS,
+            rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, rand.nextBoolean())

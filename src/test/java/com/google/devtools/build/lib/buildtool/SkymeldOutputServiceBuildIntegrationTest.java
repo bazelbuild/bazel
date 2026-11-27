@@ -52,10 +52,7 @@ public class SkymeldOutputServiceBuildIntegrationTest extends BuildIntegrationTe
 
                   @Override
                   public ModifiedFileSet startBuild(
-                      UUID buildId,
-                      String workspaceName,
-                      EventHandler eventHandler,
-                      boolean finalizeActions) {
+                      UUID buildId, EventHandler eventHandler, boolean finalizeActions) {
                     throw new IllegalStateException();
                   }
 

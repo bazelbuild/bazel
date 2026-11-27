@@ -109,7 +109,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(packageLocator, directories, externalFilesHelper))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -148,7 +150,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.INJECTED_MODULES.set(differencer, ImmutableMap.of());
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     RegistryFunction.MODULE_MIRRORS.set(differencer, ImmutableMap.of());
     RegistryFunction.WATCHED_REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -325,6 +327,12 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             pip, "rules_python++pip",
             myext, "dep++myext",
             myext2, "dep++myext2");
+    assertThat(value.getModuleExtensionForRepo(RepositoryName.create("dep++myext2+repo")))
+        .hasValue(myext2);
+    assertThat(value.getModuleExtensionForRepo(RepositoryName.create("dep++myext+repo+extra")))
+        .hasValue(myext);
+    assertThat(value.getModuleExtensionForRepo(RepositoryName.create("dep++myext3+repo")))
+        .isEmpty();
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(

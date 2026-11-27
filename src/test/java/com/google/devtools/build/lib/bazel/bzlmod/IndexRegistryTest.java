@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayInputStream;
@@ -92,7 +94,10 @@ public class IndexRegistryTest extends FoundationTestCase {
     downloadCache = new DownloadCache();
     HttpDownloader httpDownloader = new HttpDownloader();
     downloadManager = new DownloadManager(downloadCache, httpDownloader, httpDownloader, reporter);
-    registryFactory = new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+    registryFactory =
+        new RegistryFactoryImpl(
+            Suppliers.ofInstance(ImmutableMap.of()),
+            fileSystem.getPath(tempFolder.getRoot().getPath()));
   }
 
   @Test
@@ -281,13 +286,13 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/bar/2.0/patches/1.fix-this.patch", "sha256-lol",
                         server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
                             "sha256-kek"))
-                .setRemotePatchStrip(3)
                 .setOverlay(ImmutableMap.of())
                 .setRemoteModuleFile(
                     new ArchiveRepoSpecBuilder.RemoteFile(
                         sha256("module(name = \"bar\", version = \"2.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/bar/2.0/MODULE.bazel")))
+                .setRemotePatchStrip(3)
                 .build());
     assertThat(
             registry.getRepoSpec(
@@ -302,6 +307,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         "https://example.com/archive.jar?with=query"))
                 .setIntegrity("sha256-bleh")
                 .setStripPrefix("")
+                .setRemotePatches(ImmutableMap.of())
                 .setOverlay(
                     ImmutableMap.of(
                         "BUILD.bazel",
@@ -315,7 +321,145 @@ public class IndexRegistryTest extends FoundationTestCase {
                         sha256("module(name = \"baz\", version = \"3.0\")")
                             .toSubresourceIntegrity(),
                         ImmutableList.of(server.getUrl() + "/modules/baz/3.0/MODULE.bazel")))
-                .setRemotePatches(ImmutableMap.of())
+                .setRemotePatchStrip(0)
+                .build());
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_nonAscii() throws Exception {
+    server.serve(
+        "/régistry€/modules/foo/1.0/source.json",
+        """
+        {
+          "url": "https://example.com/café€.zip",
+          "mirror_urls": ["https://mirror.example/café€.zip"],
+          "integrity": "sha256-blah",
+          "strip_prefix": "café€-1.0",
+          "patches": {
+            "fïx.patch": "sha256-lol"
+          },
+          "overlay": {
+            "dïr/BUILD.bazel": "sha256-bleh-overlay"
+          }
+        }
+        """);
+    server.serve(
+        "/régistry€/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+    String registryUrl = unicodeToInternal(server.getUrl() + "/régistry€");
+    String moduleFileUrl = registryUrl + "/modules/foo/1.0/MODULE.bazel";
+
+    Registry registry =
+        registryFactory.createRegistry(
+            registryUrl,
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of(unicodeToInternal("https://my.mirror/ä")));
+    assertThat(registry.getUrl()).isEqualTo(registryUrl);
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
+        .isEqualTo(
+            ModuleFile.create(
+                "module(name = \"foo\", version = \"1.0\")".getBytes(UTF_8), moduleFileUrl));
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"),
+                ImmutableMap.of(
+                    moduleFileUrl,
+                    Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                reporter,
+                downloadManager))
+        .isEqualTo(
+            new ArchiveRepoSpecBuilder()
+                .setUrls(
+                    ImmutableList.of(
+                        unicodeToInternal("https://my.mirror/ä/example.com/café€.zip"),
+                        unicodeToInternal("https://example.com/café€.zip"),
+                        unicodeToInternal("https://mirror.example/café€.zip")))
+                .setIntegrity("sha256-blah")
+                .setStripPrefix(unicodeToInternal("café€-1.0"))
+                .setRemotePatches(
+                    ImmutableMap.of(
+                        registryUrl + unicodeToInternal("/modules/foo/1.0/patches/fïx.patch"),
+                        "sha256-lol"))
+                .setOverlay(
+                    ImmutableMap.of(
+                        unicodeToInternal("dïr/BUILD.bazel"),
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            "sha256-bleh-overlay",
+                            ImmutableList.of(
+                                registryUrl
+                                    + unicodeToInternal(
+                                        "/modules/foo/1.0/overlay/dïr/BUILD.bazel")))))
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"foo\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(moduleFileUrl)))
+                .setRemotePatchStrip(0)
+                .build());
+  }
+
+  @Test
+  public void testGetArchiveRepoSpec_workspaceRegistry() throws Exception {
+    tempFolder.newFolder("reg", "modules", "foo", "1.0", "patches");
+    tempFolder.newFolder("reg", "modules", "foo", "1.0", "overlay");
+    var moduleDir = tempFolder.getRoot().toPath().resolve("reg/modules/foo/1.0");
+    Files.writeString(
+        moduleDir.resolve("source.json"),
+        """
+        {
+          "url": "https://example.com/foo.zip",
+          "integrity": "sha256-blah",
+          "patches": {
+            "fix.patch": "sha256-lol"
+          },
+          "overlay": {
+            "BUILD.bazel": "sha256-bleh-overlay"
+          }
+        }
+        """);
+    Files.writeString(
+        moduleDir.resolve("MODULE.bazel"), "module(name = \"foo\", version = \"1.0\")");
+
+    Registry registry =
+        registryFactory.createRegistry(
+            "file:///%workspace%/reg",
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    assertThat(registry.getUrl()).isEqualTo("file:///%workspace%/reg");
+    // Registry files are fetched from the workspace.
+    var unused = registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager);
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"),
+                eventRecorder.getRecordedHashes(),
+                reporter,
+                downloadManager))
+        .isEqualTo(
+            new ArchiveRepoSpecBuilder()
+                .setUrls(ImmutableList.of("https://example.com/foo.zip"))
+                .setIntegrity("sha256-blah")
+                .setStripPrefix("")
+                .setRemotePatches(
+                    ImmutableMap.of(
+                        "file:///%workspace%/reg/modules/foo/1.0/patches/fix.patch", "sha256-lol"))
+                .setOverlay(
+                    ImmutableMap.of(
+                        "BUILD.bazel",
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            "sha256-bleh-overlay",
+                            ImmutableList.of(
+                                "file:///%workspace%/reg/modules/foo/1.0/overlay/BUILD.bazel"))))
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"foo\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of("file:///%workspace%/reg/modules/foo/1.0/MODULE.bazel")))
                 .setRemotePatchStrip(0)
                 .build());
   }
@@ -370,6 +514,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setCommit("4b6e647590213f253f2789ad9026df1d00f38c5d")
                 .setInitSubmodules(false)
                 .setVerbose(false)
+                .setAddPrefix("addedSubfolder")
                 .setRemoteModuleFile(
                     new ArchiveRepoSpecBuilder.RemoteFile(
                         sha256("module(name = \"foo\", version = \"1.0\")")
@@ -380,7 +525,6 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/foo/1.0/patches/foo.patch",
                         "sha256-totallyarealhash"))
                 .setRemotePatchStrip(1)
-                .setAddPrefix("addedSubfolder")
                 .build());
   }
 
@@ -562,9 +706,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setUrls(ImmutableList.of("https://mysite.com/thing?format=zip"))
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("")
-                .setArchiveType("zip")
                 .setRemotePatches(ImmutableMap.of())
-                .setRemotePatchStrip(0)
                 .setOverlay(ImmutableMap.of())
                 .setRemoteModuleFile(
                     new ArchiveRepoSpecBuilder.RemoteFile(
@@ -572,6 +714,8 @@ public class IndexRegistryTest extends FoundationTestCase {
                             .toSubresourceIntegrity(),
                         ImmutableList.of(
                             server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel")))
+                .setRemotePatchStrip(0)
+                .setArchiveType("zip")
                 .build());
   }
 
@@ -691,6 +835,33 @@ public class IndexRegistryTest extends FoundationTestCase {
                     server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel",
                     sha256("fake"),
                     sha256("original")));
+  }
+
+  @Test
+  public void testGetModuleFilePinnedNotFound() throws Exception {
+    downloadCache.setPath(scratch.dir("cache"));
+    server.start();
+
+    String url = server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel";
+    ModuleKey fooKey = createModuleKey("foo", "1.0");
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl() + "/myreg",
+            LockfileMode.UPDATE,
+            ImmutableMap.of(url, Optional.of(sha256("original"))),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    var e =
+        assertThrows(
+            IOException.class, () -> registry.getModuleFile(fooKey, reporter, downloadManager));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            ("Failed to fetch registry file %s recorded in MODULE.bazel.lock: GET returned 404 Not"
+                    + " Found. If this file was intentionally removed from the registry, delete"
+                    + " its entry from MODULE.bazel.lock and run `bazel mod deps`.")
+                .formatted(url));
   }
 
   @Test
@@ -886,6 +1057,43 @@ public class IndexRegistryTest extends FoundationTestCase {
                     server.getUrl() + "/bazel_registry.json",
                     sha256(maliciousRegistryJson),
                     sha256(registryJson)));
+  }
+
+  @Test
+  public void testBazelRegistryJsonPinnedNotFound() throws Exception {
+    downloadCache.setPath(scratch.dir("cache"));
+    String sourceJson = "{\"type\": \"local_path\", \"path\": \"../bar/project_x\"}";
+    server.serve("/modules/foo/1.0/source.json", sourceJson.getBytes(UTF_8));
+    server.start();
+
+    String registryJsonUrl = server.getUrl() + "/bazel_registry.json";
+    ModuleKey fooKey = createModuleKey("foo", "1.0");
+    ImmutableMap<String, Optional<Checksum>> emptyModuleHashes = ImmutableMap.of();
+    var knownFiles =
+        ImmutableMap.of(
+            registryJsonUrl,
+            Optional.of(sha256("{\"module_base_path\": \"/hello/foo\"}")),
+            server.getUrl() + "/modules/foo/1.0/source.json",
+            Optional.of(sha256(sourceJson)));
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            knownFiles,
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    var e =
+        assertThrows(
+            IOException.class,
+            () -> registry.getRepoSpec(fooKey, emptyModuleHashes, reporter, downloadManager));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            ("Failed to fetch registry file %s recorded in MODULE.bazel.lock: GET returned 404 Not"
+                    + " Found. If this file was intentionally removed from the registry, delete"
+                    + " its entry from MODULE.bazel.lock and run `bazel mod deps`.")
+                .formatted(registryJsonUrl));
   }
 
   @Test
@@ -1149,7 +1357,8 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   private static Checksum sha256(String content) throws Checksum.InvalidChecksumException {
     return Checksum.fromString(
-        DownloadCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
+        DownloadCache.KeyType.SHA256,
+        Hashing.sha256().hashBytes(StringUnsafe.getInternalStringBytes(content)).toString());
   }
 
   @Test

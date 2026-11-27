@@ -128,7 +128,7 @@ public final class Scratch {
   public Path file(String pathName, Charset charset, String... lines) throws IOException {
     Path file = newFile(pathName);
     FileSystemUtils.writeContent(file, charset, linesAsString(lines));
-    file.setLastModifiedTime(-1L);
+    file.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     return file;
   }
 
@@ -206,10 +206,11 @@ public final class Scratch {
    */
   public Path overwriteFile(String pathName, Charset charset, String... lines) throws IOException {
     Path oldFile = resolve(pathName);
-    long newMTime = oldFile.exists() ? oldFile.getLastModifiedTime() + 1 : -1;
+    long newMTime =
+        oldFile.exists() ? oldFile.getLastModifiedTimeNanos() + 1 : Path.NOW_SENTINEL_TIME;
     oldFile.delete();
     Path newFile = file(pathName, charset, lines);
-    newFile.setLastModifiedTime(newMTime);
+    newFile.setLastModifiedTimeNanos(newMTime);
     return newFile;
   }
 

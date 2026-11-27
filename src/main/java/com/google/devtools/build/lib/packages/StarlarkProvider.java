@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.bugreport.BugReport.sendNonFatalBugReport;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
@@ -24,7 +23,6 @@ import static com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue.isBui
 import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.Memoizat
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Keep;
+import com.google.errorprone.annotations.concurrent.LazyInit;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -138,12 +137,13 @@ public final class StarlarkProvider extends StarlarkType
    */
   @Nullable private AtomicReferenceArray<Class<?>> depsetTypePredictor;
 
-  // The Starlark supertype of the Info objects produced by this provider. This is a total struct
-  // for schemaful providers, and {@link Types.ANY_STRUCT} for schemaless providers.
-  private final Types.StructType structType;
+  // The Starlark supertype of the Info objects produced by this provider, computed lazily by
+  // getStructType() / getSupertypes() / getField(). This is a total struct for schemaful providers,
+  // and {@link Types.ANY_STRUCT} for schemaless providers.
+  @LazyInit @Nullable private transient Types.StructType structType;
 
-  // The Starlark type of the provider symbol itself.
-  private final StarlarkProviderType providerSymbolType;
+  // The Starlark type of the provider symbol itself, computed lazily by getStarlarkType().
+  @LazyInit @Nullable private transient StarlarkProviderType providerSymbolType;
 
   /**
    * Returns a new empty builder.
@@ -157,26 +157,13 @@ public final class StarlarkProvider extends StarlarkType
    * @param location the location of the Starlark definition for this provider (tests may use {@link
    *     Location#BUILTIN})
    */
-  public static Builder builder(
-      Location location, StarlarkSemantics starlarkSemantics, TypeContext typeContext) {
-    return new Builder(location, starlarkSemantics, typeContext);
-  }
-
-  @VisibleForTesting
   public static Builder builder(Location location) {
-    return new Builder(
-        location,
-        StarlarkSemantics.DEFAULT,
-        CallUtils.getBuiltinManager(StarlarkSemantics.DEFAULT));
+    return new Builder(location);
   }
 
   /** A builder which may be used to construct a StarlarkProvider. */
   public static final class Builder {
     private final Location location;
-
-    private final StarlarkSemantics starlarkSemantics;
-
-    private final TypeContext typeContext;
 
     @Nullable private String documentation;
 
@@ -184,11 +171,8 @@ public final class StarlarkProvider extends StarlarkType
 
     @Nullable private StarlarkCallable init;
 
-    private Builder(
-        Location location, StarlarkSemantics starlarkSemantics, TypeContext typeContext) {
+    private Builder(Location location) {
       this.location = location;
-      this.starlarkSemantics = starlarkSemantics;
-      this.typeContext = typeContext;
     }
 
     /**
@@ -247,14 +231,12 @@ public final class StarlarkProvider extends StarlarkType
 
     /** Builds an exported StarlarkProvider. */
     public StarlarkProvider buildExported(Key key) {
-      return new StarlarkProvider(
-          location, documentation, schema, init, key, starlarkSemantics, typeContext);
+      return new StarlarkProvider(location, documentation, schema, init, key);
     }
 
     /** Builds a unexported StarlarkProvider. */
     public StarlarkProvider buildWithIdentityToken(SymbolGenerator.Symbol<?> identityToken) {
-      return new StarlarkProvider(
-          location, documentation, schema, init, identityToken, starlarkSemantics, typeContext);
+      return new StarlarkProvider(location, documentation, schema, init, identityToken);
     }
   }
 
@@ -270,9 +252,7 @@ public final class StarlarkProvider extends StarlarkType
       @Nullable String documentation,
       @Nullable ImmutableMap<String, Optional<String>> schema,
       @Nullable StarlarkCallable init,
-      Object keyOrIdentityToken,
-      StarlarkSemantics starlarkSemantics,
-      TypeContext typeContext) {
+      Object keyOrIdentityToken) {
     this.location = location;
     this.documentation = documentation;
     if (schema != null) {
@@ -282,14 +262,8 @@ public final class StarlarkProvider extends StarlarkType
         fieldsBuilder.put(sortedFields.get(i), i);
       }
       this.fields = fieldsBuilder.buildOrThrow();
-      // TODO: #27370 - Allow specifying field types in Starlark.
-      this.structType =
-          Types.struct(
-              this.fields.keySet().stream()
-                  .collect(toImmutableMap(name -> name, name -> Types.ANY)));
     } else {
       this.fields = null;
-      this.structType = Types.ANY_STRUCT;
     }
     this.schema = schema;
     this.init = init;
@@ -297,7 +271,6 @@ public final class StarlarkProvider extends StarlarkType
     if (schema != null) {
       depsetTypePredictor = new AtomicReferenceArray<>(schema.size());
     }
-    this.providerSymbolType = new StarlarkProviderType(this, starlarkSemantics, typeContext);
   }
 
   @Override
@@ -712,15 +685,41 @@ public final class StarlarkProvider extends StarlarkType
 
   // StarlarkProvider as a Starlark type / type constructor (for Info objects)
 
+  private Types.StructType getStructType() {
+    Types.StructType result = structType;
+    if (result == null) {
+      // Concurrency note: we can update the structType reference without synchronization or making
+      // the field volatile because
+      // (1) all of a Types.StructType's state is in final fields that are initialized by its
+      // constructor (see JLS 17.5); and
+      // (2) we read structType only once before writing it back.
+      if (fields == null) {
+        result = Types.ANY_STRUCT;
+      } else {
+        // TODO: #27370 - Allow specifying field types in Starlark.
+        ImmutableMap.Builder<String, StarlarkType> fieldTypes =
+            ImmutableMap.builderWithExpectedSize(fields.size());
+        for (String name : fields.keySet()) {
+          fieldTypes.put(name, Types.ANY);
+        }
+        result = Types.struct(fieldTypes.buildOrThrow());
+      }
+      // Types.StructType is immutable and uses value equality, so we don't need need the first
+      // computation to deterministically win.
+      structType = result;
+    }
+    return result;
+  }
+
   @Override
   public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
-    return ImmutableList.of(structType);
+    return ImmutableList.of(getStructType());
   }
 
   @Nullable
   @Override
   public StarlarkType getField(String name, TypeContext context) {
-    return structType.getField(name);
+    return getStructType().getField(name);
   }
 
   @Override
@@ -748,7 +747,19 @@ public final class StarlarkProvider extends StarlarkType
    */
   @Override
   public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
-    return providerSymbolType;
+    StarlarkProviderType result = providerSymbolType;
+    if (result == null) {
+      // Concurrency note: same as for getStructType(), we can update the providerSymbolType
+      // reference without synchronization or making the field volatile because
+      // (1) all of a StarlarkProviderType's state is in final fields that are initialized by its
+      // constructor (see JLS 17.5); and
+      // (2) we read providerSymbolType only once before writing it back.
+      result = new StarlarkProviderType(this, semantics, CallUtils.getBuiltinManager(semantics));
+      // Same as for getStructType(): StarlarkProviderType is immutable and uses value equality, so
+      // we don't need need the first computation to deterministically win.
+      providerSymbolType = result;
+    }
+    return result;
   }
 
   /**
@@ -766,13 +777,19 @@ public final class StarlarkProvider extends StarlarkType
       if (provider.init != null) {
         this.callableType =
             provider.init.getCallableType(starlarkSemantics, typeContext).withReturnType(provider);
-      } else if (!provider.structType.equals(Types.ANY_STRUCT)) {
+      } else if (provider.fields != null) {
         // Schema, but no init callback - accept keyword-only params matching the fields schema.
-        ImmutableMap<String, StarlarkType> fieldTypes = provider.structType.getFields();
+        // TODO: #27370 - Use getStructType().getFields() once provider fields can be typed.
+        ImmutableList<String> fieldNames = provider.fields.keySet().asList();
+        ImmutableList.Builder<StarlarkType> paramTypes =
+            ImmutableList.builderWithExpectedSize(fieldNames.size());
+        for (int i = 0; i < fieldNames.size(); i++) {
+          paramTypes.add(Types.ANY);
+        }
         this.callableType =
             Types.generalCallable(
-                fieldTypes.keySet().asList(),
-                fieldTypes.values().asList(),
+                fieldNames,
+                paramTypes.build(),
                 /* numPositionalOnlyParameters= */ 0,
                 /* numPositionalParameters= */ 0,
                 /* mandatoryParams= */ ImmutableSet.of(),

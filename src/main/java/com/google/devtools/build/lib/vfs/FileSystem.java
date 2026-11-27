@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -162,7 +163,8 @@ public abstract class FileSystem {
    * <ul>
    *   <li>{@link #createSymbolicLink(PathFragment, PathFragment)}
    *   <li>{@link #getFileSize(PathFragment, boolean)} where {@code followSymlinks=false}
-   *   <li>{@link #getLastModifiedTime(PathFragment, boolean)} where {@code followSymlinks=false}
+   *   <li>{@link #getLastModifiedTimeNanos(PathFragment, boolean)} where {@code
+   *       followSymlinks=false}
    *   <li>{@link #readSymbolicLink(PathFragment)} where the link points to a non-existent file
    * </ul>
    *
@@ -321,21 +323,24 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the last modification time of the file denoted by {@code path}. See {@link
-   * Path#getLastModifiedTime(Symlinks)} for specification.
+   * Returns the last modification time of the file, in nanoseconds since the UNIX epoch, of the
+   * file denoted by {@code path}. See {@link Path#getLastModifiedTimeNanos(Symlinks)} for
+   * specification.
    *
    * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
    * returns false, this method will throw an {@link UnsupportedOperationException} if {@code
    * followSymLinks=false}.
    */
-  public abstract long getLastModifiedTime(PathFragment path, boolean followSymlinks)
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public abstract long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
       throws IOException;
 
   /**
-   * Sets the last modification time of the file denoted by {@code path}. See {@link
-   * Path#setLastModifiedTime} for specification.
+   * Sets the last modification time of the file, in nanoseconds since the UNIX epoch, of the file
+   * denoted by {@code path}. See {@link Path#setLastModifiedTimeNanos} for specification.
    */
-  public abstract void setLastModifiedTime(PathFragment path, long newTime) throws IOException;
+  @SuppressWarnings("GoodTime") // performance-sensitive
+  public abstract void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException;
 
   /**
    * Returns value of the given extended attribute name or null if attribute does not exist or file
@@ -885,10 +890,10 @@ public abstract class FileSystem {
     }
     String prefix = "";
     if (fileSystemException.getFile() != null) {
-      prefix = fileSystemException.getFile();
+      prefix = StringEncoding.platformToInternal(fileSystemException.getFile());
     }
     if (fileSystemException.getOtherFile() != null) {
-      prefix += " -> " + fileSystemException.getOtherFile();
+      prefix += " -> " + StringEncoding.platformToInternal(fileSystemException.getOtherFile());
     }
     return switch (e) {
       case AccessDeniedException unused -> {
@@ -912,7 +917,12 @@ public abstract class FileSystem {
       // FileSystemExceptions and are thus included in reasonToUnixError.
       case FileSystemException fse -> {
         String unixError = reasonToUnixError.get(fse.getReason());
-        yield unixError != null ? new IOException(prefix + unixError, e) : fileSystemException;
+        if (unixError != null) {
+          yield new IOException(prefix + unixError, e);
+        }
+        yield fse.getMessage() != null
+            ? new IOException(StringEncoding.platformToInternal(fse.getMessage()), e)
+            : fileSystemException;
       }
       default -> fileSystemException;
     };

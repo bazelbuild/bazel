@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -116,9 +118,9 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             subdir2.setExecutable(true);
             file.setExecutable(false);
 
-            subdir1.setLastModifiedTime(100);
-            subdir2.setLastModifiedTime(200);
-            file.setLastModifiedTime(300);
+            subdir1.setLastModifiedTimeNanos(100);
+            subdir2.setLastModifiedTimeNanos(200);
+            file.setLastModifiedTimeNanos(300);
 
             Path symlink = base.getRelative("symlink" + i);
             symlink.createSymbolicLink(file);
@@ -151,7 +153,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(subdir1.isReadable()).isTrue();
             assertThat(subdir1.isWritable()).isFalse();
             assertThat(subdir1.isExecutable()).isFalse();
-            assertThat(subdir1.getLastModifiedTime()).isEqualTo(100);
+            assertThat(subdir1.getLastModifiedTimeNanos()).isEqualTo(100);
 
             Path subdir2 = base.getRelative("subdir2_" + i);
             assertThat(subdir2.exists()).isTrue();
@@ -159,7 +161,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(subdir2.isReadable()).isFalse();
             assertThat(subdir2.isWritable()).isTrue();
             assertThat(subdir2.isExecutable()).isTrue();
-            assertThat(subdir2.getLastModifiedTime()).isEqualTo(200);
+            assertThat(subdir2.getLastModifiedTimeNanos()).isEqualTo(200);
 
             Path file = base.getRelative("somefile" + i);
             assertThat(file.exists()).isTrue();
@@ -167,7 +169,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(file.isReadable()).isTrue();
             assertThat(file.isWritable()).isFalse();
             assertThat(file.isExecutable()).isFalse();
-            assertThat(file.getLastModifiedTime()).isEqualTo(300);
+            assertThat(file.getLastModifiedTimeNanos()).isEqualTo(300);
             try (BufferedReader reader =
                 new BufferedReader(
                     new InputStreamReader(file.getInputStream(), Charset.defaultCharset()))) {
@@ -216,7 +218,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             file.setReadable(i % 2 == 0);
             file.setWritable(i % 3 == 0);
             file.setExecutable(i % 4 == 0);
-            file.setLastModifiedTime(i);
+            file.setLastModifiedTimeNanos(i);
             Path symlink = base.getRelative("symlink_" + threadId + "_" + i);
             symlink.createSymbolicLink(file);
           }
@@ -248,7 +250,7 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             assertThat(file.isReadable()).isEqualTo(i % 2 == 0);
             assertThat(file.isWritable()).isEqualTo(i % 3 == 0);
             assertThat(file.isExecutable()).isEqualTo(i % 4 == 0);
-            assertThat(file.getLastModifiedTime()).isEqualTo(i);
+            assertThat(file.getLastModifiedTimeNanos()).isEqualTo(i);
             if (file.isReadable()) {
               try (BufferedReader reader =
                   new BufferedReader(
@@ -416,6 +418,32 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     deep.getChild("link").createSymbolicLink(PathFragment.create("target"));
 
     assertThat(deep.getChild("link").getChild("file").stat().isFile()).isTrue();
+  }
+
+  @Test
+  public void testParentOfRootSymlink(@TestParameter({"/", "C:/"}) String rootStr)
+      throws Exception {
+    Path root =
+        testFS.getPath(
+            rootStr.equals("/")
+                ? PathFragment.create("/")
+                : PathFragment.createForOs(rootStr, OS.WINDOWS));
+    Path dir = root.getChild("dir");
+    dir.createDirectoryAndParents();
+    Path file = root.getChild("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    Path rootLink = root.getChild("link");
+    rootLink.createSymbolicLink(PathFragment.create(".."));
+    assertThat(rootLink.stat()).isEqualTo(root.stat());
+    assertThat(rootLink.getChild("file").exists()).isTrue();
+    assertThat(rootLink.resolveSymbolicLinks()).isEqualTo(root);
+
+    Path subdirLink = dir.getChild("link");
+    subdirLink.createSymbolicLink(PathFragment.create("../.."));
+    assertThat(subdirLink.stat()).isEqualTo(root.stat());
+    assertThat(subdirLink.getChild("file").exists()).isTrue();
+    assertThat(subdirLink.resolveSymbolicLinks()).isEqualTo(root);
   }
 
   @Test

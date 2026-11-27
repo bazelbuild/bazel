@@ -100,8 +100,6 @@ class UiStateTracker {
 
   private int sampleSize = 3;
 
-  private boolean newStatsSummary = false;
-
   protected String status;
   protected String additionalMessage = "";
   // Not null after the loading phase has completed.
@@ -433,10 +431,6 @@ class UiStateTracker {
     this.targetWidth = targetWidth;
   }
 
-  void setNewStatsSummary(boolean newStatsSummary) {
-    this.newStatsSummary = newStatsSummary;
-  }
-
   void mainRepoMappingComputationStarted() {
     status = "Computing main repo mapping";
     additionalMessage = "";
@@ -514,12 +508,10 @@ class UiStateTracker {
             .append(pluralize(" test", failedTests))
             .append(" FAILED");
       }
-      if (!newStatsSummary) {
-        completedStringBuilder
-            .append(", ")
-            .append(actionsCompleted)
-            .append(pluralize(" total action", actionsCompleted));
-      }
+      completedStringBuilder
+          .append(", ")
+          .append(actionsCompleted)
+          .append(pluralize(" total action", actionsCompleted));
       return Event.info(completedStringBuilder.toString());
     } else {
       ok = false;

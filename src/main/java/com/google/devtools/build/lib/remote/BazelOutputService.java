@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -106,7 +108,9 @@ public class BazelOutputService implements OutputService {
       RemoteRetrier retrier,
       ReferenceCountedChannel channel,
       @Nullable String lastBuildId) {
-    this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
+    this.outputBaseId =
+        DigestUtil.hashCodeToString(
+            md5().hashBytes(StringUnsafe.getInternalStringBytes(outputBase.getPathString())));
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestUtil.getDigestFunction();
@@ -156,7 +160,8 @@ public class BazelOutputService implements OutputService {
 
   private static PathFragment constructOutputPathTarget(
       PathFragment outputPathPrefix, StartBuildResponse response) throws AbruptExitException {
-    var outputPathSuffix = PathFragment.create(response.getOutputPathSuffix());
+    var outputPathSuffixString = unicodeToInternal(response.getOutputPathSuffix());
+    var outputPathSuffix = PathFragment.create(outputPathSuffixString);
     if (outputPathPrefix.isEmpty() && !outputPathSuffix.isAbsolute()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
@@ -165,9 +170,7 @@ public class BazelOutputService implements OutputService {
                       String.format(
                           "Expect StartBuildResponse.output_path_suffix to be an absolute path"
                               + " (because StartBuildRequest.output_path_prefix is empty), got %s.",
-                          outputPathSuffix.isEmpty()
-                              ? "an empty string"
-                              : response.getOutputPathSuffix()))
+                          outputPathSuffix.isEmpty() ? "an empty string" : outputPathSuffixString))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
     } else if (outputPathSuffix.isAbsolute()) {
@@ -178,7 +181,7 @@ public class BazelOutputService implements OutputService {
                       String.format(
                           "Expect StartBuildResponse.output_path_suffix to be a relative path, got"
                               + " %s.",
-                          response.getOutputPathSuffix()))
+                          outputPathSuffixString))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
     } else if (outputPathSuffix.containsUplevelReferences()) {
@@ -201,7 +204,7 @@ public class BazelOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
+      UUID buildId, EventHandler eventHandler, boolean finalizeActions)
       throws AbruptExitException, InterruptedException {
     checkState(this.buildId == null, "this.buildId must be null");
     this.buildId = buildId.toString();
@@ -212,8 +215,8 @@ public class BazelOutputService implements OutputService {
               FailureDetail.newBuilder()
                   .setMessage(
                       String.format(
-                          "--experimental_remote_output_service_path_prefix must be an absolute"
-                              + " path, got '%s'",
+                          "--experimental_remote_output_service_output_path_prefix must be an"
+                              + " absolute path, got '%s'",
                           outputPathPrefix))
                   .setExecution(Execution.newBuilder().setCode(Code.EXECUTION_UNKNOWN))
                   .build()));
@@ -230,12 +233,12 @@ public class BazelOutputService implements OutputService {
             .setArgs(
                 Any.pack(
                     StartBuildArgs.newBuilder()
-                        .setRemoteCache(remoteCache)
+                        .setRemoteCache(internalToUnicode(remoteCache))
                         .setInstanceName(remoteInstanceName)
                         .setDigestFunction(digestFunction)
                         .build()))
-            .setOutputPathPrefix(outputPathPrefix.toString())
-            .putOutputPathAliases(outputPath.toString(), ".")
+            .setOutputPathPrefix(internalToUnicode(outputPathPrefix.toString()))
+            .putOutputPathAliases(internalToUnicode(outputPath.toString()), ".")
             .build();
 
     StartBuildResponse response;
@@ -302,7 +305,7 @@ public class BazelOutputService implements OutputService {
         }
         request.addArtifacts(
             StageArtifactsRequest.Artifact.newBuilder()
-                .setPath(path)
+                .setPath(internalToUnicode(path))
                 .setLocator(
                     Any.pack(FileArtifactLocator.newBuilder().setDigest(file.digest()).build()))
                 .build());
@@ -458,7 +461,7 @@ public class BazelOutputService implements OutputService {
           requestSize += entrySize;
           builder.addArtifacts(
               FinalizeArtifactsRequest.Artifact.newBuilder()
-                  .setPath(path)
+                  .setPath(internalToUnicode(path))
                   .setLocator(Any.pack(FileArtifactLocator.newBuilder().setDigest(digest).build()))
                   .build());
         }
@@ -532,12 +535,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -580,12 +583,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last modified time");
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -628,12 +631,12 @@ public class BazelOutputService implements OutputService {
     }
 
     @Override
-    public long getLastModifiedTime() {
+    public long getLastModifiedTimeNanos() {
       return 0;
     }
 
     @Override
-    public long getLastChangeTime() {
+    public long getLastChangeTimeNanos() {
       throw new UnsupportedOperationException("Cannot get last change time");
     }
 
@@ -672,7 +675,7 @@ public class BazelOutputService implements OutputService {
         if (pathString == null) {
           unsupportedPathIndexSet.add(index);
         } else {
-          request.addPaths(pathString);
+          request.addPaths(internalToUnicode(pathString));
         }
         ++index;
       }
@@ -706,7 +709,8 @@ public class BazelOutputService implements OutputService {
         } else if (stat.hasSymlink()) {
           // TODO(chiwang): The target is currently unused by the call site, instead it resolves the
           //  symlink manually. Optimize it.
-          result.add(new BazelOutputServiceSymlink(stat.getSymlink().getTarget()));
+          result.add(
+              new BazelOutputServiceSymlink(unicodeToInternal(stat.getSymlink().getTarget())));
         } else if (stat.hasDirectory()) {
           result.add(new BazelOutputServiceDirectory());
         } else {
@@ -786,7 +790,10 @@ public class BazelOutputService implements OutputService {
         }
 
         var request =
-            BatchStatRequest.newBuilder().setBuildId(buildId).addPaths(pathString).build();
+            BatchStatRequest.newBuilder()
+                .setBuildId(buildId)
+                .addPaths(internalToUnicode(pathString))
+                .build();
         BatchStatResponse response;
         try {
           response = batchStat(request);

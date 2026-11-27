@@ -112,6 +112,10 @@ class TestBase(absltest.TestCase):
       # cache, which is shared with other tests and test attempts on CI. Tests
       # that exercise the repo contents cache opt in explicitly.
       f.write('common --repo_contents_cache=\n')
+
+      # Use BCR module mirror to avoid flaky network errors.
+      f.write('common --module_mirrors=https://bcr.cloudflaremirrors.com\n')
+
       if TestBase.IsDarwin() and _HasIpv6DefaultRoute():
         # Prefer IPv6 network on macOS only when an IPv6 default route exists.
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
@@ -167,7 +171,21 @@ class TestBase(absltest.TestCase):
     return version
 
   def AddBazelDep(self, module, path=''):
+    """Adds a bazel_dep using the module's default lockfile version.
+
+    Args:
+      module: The name of the module to add.
+      path: The directory containing the MODULE.bazel file to update.
+    """
     version = self.GetModuleVersionFromDefaultLockFile(module)
+    if module == 'rules_python' and not TestBase.IsWindows():
+      # Use host Python because CI test sandboxes cannot download the hermetic
+      # Python runtime.
+      with open(self._test_bazelrc, 'at') as f:
+        f.write(
+            'common'
+            ' --extra_toolchains=@@rules_python+//python/runtime_env_toolchains:all\n'
+        )
     self.ScratchFile(
         os.path.join(path, 'MODULE.bazel'),
         [

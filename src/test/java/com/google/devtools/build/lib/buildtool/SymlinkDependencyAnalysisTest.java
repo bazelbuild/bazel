@@ -52,11 +52,11 @@ public class SymlinkDependencyAnalysisTest extends BuildIntegrationTestCase {
     Path link = buildFile.getParentDirectory().getChild("link");
     link.createSymbolicLink(target);
 
-    target.setLastModifiedTime(10000);
+    target.setLastModifiedTimeNanos(10000);
     assertThat(buildAndReturnOutput()).isEqualTo("foo\n"); // first build
 
     write("symlink/target", "bar");
-    target.setLastModifiedTime(20000);
+    target.setLastModifiedTimeNanos(20000);
     assertThat(buildAndReturnOutput()).isEqualTo("bar\n"); // should do a rebuild
   }
 }

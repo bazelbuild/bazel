@@ -23,7 +23,7 @@ public final class FloatLiteral extends Expression {
   private final double value;
 
   FloatLiteral(FileLocations locs, int tokenOffset, int endOffset, double value) {
-    super(locs, Kind.FLOAT_LITERAL);
+    super(locs);
     this.tokenOffset = tokenOffset;
     this.endOffset = endOffset;
     this.value = value;

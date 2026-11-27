@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -544,7 +545,7 @@ public abstract class BuildIntegrationTestCase {
    * that may not have been initialized yet.
    */
   protected PathFragment getDesiredWorkspaceRelative() {
-    return PathFragment.create(TestConstants.WORKSPACE_NAME);
+    return PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME);
   }
 
   /**
@@ -711,10 +712,7 @@ public abstract class BuildIntegrationTestCase {
         "--noshow_progress",
 
         // Don't use ijars, because we don't have the executable in these tests
-        "--nouse_ijars",
-
-        // Disable system network usage collection so we don't need the SystemNetworkStatsService.
-        "--noexperimental_collect_system_network_usage");
+        "--nouse_ijars");
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
@@ -1453,7 +1451,7 @@ public abstract class BuildIntegrationTestCase {
                 Runfiles.preload()
                     .withSourceRepository("")
                     .rlocation(
-                        TestConstants.WORKSPACE_NAME
+                        LabelConstants.MAIN_REPO_DIR_NAME
                             + "/"
                             + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
     if (alsoWriteBuildFile) {

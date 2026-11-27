@@ -89,8 +89,6 @@ public final class SkyFunctions {
   // Non-hermetic because accesses package locator
   public static final SkyFunctionName TARGET_PATTERN_PHASE =
       SkyFunctionName.createNonHermetic("TARGET_PATTERN_PHASE");
-  static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
-      SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
   static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.createHermetic("RECURSIVE_PKG");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.createHermetic("CONFIGURED_TARGET");
@@ -178,8 +176,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName VENDOR_FILE = SkyFunctionName.createHermetic("VENDOR_FILE");
 
   public static final SkyFunctionName FLAG_SET = SkyFunctionName.createHermetic("FLAG_SET");
-  public static final SkyFunctionName BUILD_OPTIONS_SCOPE =
-      SkyFunctionName.createHermetic("BUILD_OPTIONS_SCOPE");
 
   public static Predicate<SkyKey> isSkyFunction(SkyFunctionName functionName) {
     return key -> key.functionName().equals(functionName);

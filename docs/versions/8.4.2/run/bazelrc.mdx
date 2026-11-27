@@ -49,7 +49,7 @@ before the command (`build`, `test`, etc).
     It is not an error if this file does not exist.
 
 4.  **The user-specified RC file**, if specified with
-    <code>--bazelrc=<var>file</var></code>
+    <code>--bazelrc=file</code>
 
     This flag is optional but can also be specified multiple times.
 
@@ -184,7 +184,7 @@ option arguments.
 In addition to setting option defaults, the rc file can be used to group options
 and provide a shorthand for common groupings. This is done by adding a `:name`
 suffix to the command. These options are ignored by default, but will be
-included when the option <code>--config=<var>name</var></code> is present,
+included when the option <code>--config=name</code> is present,
 either on the command line or in a `.bazelrc` file, recursively, even inside of
 another config definition. The options specified by `command:name` will only be
 expanded for applicable commands, in the precedence order described above.

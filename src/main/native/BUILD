@@ -30,7 +30,6 @@ filegroup(
         "//src/conditions:darwin": [
             "darwin/file_jni.cc",
             "darwin/fsevents.cc",
-            "darwin/sleep_prevention_jni.cc",
             "darwin/system_cpu_speed_monitor_jni.cc",
             "darwin/system_disk_space_monitor_jni.cc",
             "darwin/system_load_advisory_monitor_jni.cc",
@@ -62,15 +61,17 @@ cc_library(
 )
 
 cc_library(
+    name = "export",
+    hdrs = ["export.h"],
+    visibility = ["//src/main/native:__subpackages__"],
+)
+
+cc_library(
     name = "blake3_jni",
-    srcs = [
-        "blake3_jni.cc",
-        ":jni.h",
-        ":jni_md.h",
-    ],
-    includes = ["."],  # For jni headers.
+    srcs = ["blake3_jni.cc"],
     visibility = ["//src/main/native:__subpackages__"],
     deps = [
+        ":export",
         "@blake3",
     ],
     alwayslink = 1,
@@ -91,8 +92,18 @@ cc_binary(
     includes = ["."],  # For jni headers.
     linkopts = select({
         "//src/conditions:darwin": [
+            "-Wl,-framework,CoreFoundation",
             "-Wl,-framework,CoreServices",
             "-Wl,-framework,IOKit",
+        ],
+        "//src/conditions:linux": [
+            # Do not export the symbols of a statically linked C++ runtime (the
+            # hermetic LLVM toolchains link libc++ statically). Java only needs
+            # the JNI functions and the BAZEL_EXPORT functions. Without this,
+            # the linker keeps most of the runtime in the library.
+            "-Wl,--exclude-libs,libc++.a:libc++abi.a:libunwind.a",
+            "-ldl",
+            "-lpthread",
         ],
         "//conditions:default": [],
     }),
@@ -102,6 +113,7 @@ cc_binary(
         ":blake3_jni",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
+        "//src/rust/platform:sleep_prevention_ffi",
     ],
 )
 

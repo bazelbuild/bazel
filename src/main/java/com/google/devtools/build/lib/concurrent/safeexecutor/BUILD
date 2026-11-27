@@ -23,7 +23,6 @@ java_library(
     ],
     visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/flogger",
         "//third_party/java/guava:annotations",

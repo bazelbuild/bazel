@@ -158,6 +158,8 @@ def _jvm_import_external(repository_ctx):
         ")",
     ]))
 
+    return repository_ctx.repo_metadata(reproducible = True)
+
 def _should_fetch_sources_in_current_env(repository_ctx):
     return repository_ctx.os.environ.get(_FETCH_SOURCES_ENV_VAR, "true").lower() == "true"
 

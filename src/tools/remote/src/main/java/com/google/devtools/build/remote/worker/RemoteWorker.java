@@ -15,6 +15,7 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
+import static com.google.devtools.build.remote.worker.ExecutionServer.CLIENT_ENV;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.FINE;
 
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
@@ -123,8 +123,7 @@ public final class RemoteWorker {
     }
     return OS.getCurrent() == OS.WINDOWS
         ? new WindowsFileSystem(hashFunction, /* createSymbolicLinks= */ true)
-        : new UnixFileSystem(
-            hashFunction, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl());
+        : new UnixFileSystem(hashFunction, /* hashAttributeName= */ "");
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
@@ -245,7 +244,9 @@ public final class RemoteWorker {
       // For now, we use a temporary path if no work path was provided.
       workPath = fs.getPath("/tmp/remote-worker");
     }
-    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil);
+    LiveOutputStreams liveOutputStreams =
+        workerOptions.getLiveOutputStreams() ? new LiveOutputStreams() : null;
+    this.bsServer = new ByteStreamServer(cache, workPath, digestUtil, liveOutputStreams);
     this.casServer = new CasServer(cache);
 
     if (workerOptions.getWorkPath() != null) {
@@ -254,7 +255,13 @@ public final class RemoteWorker {
       workPath.createDirectoryAndParents();
       execServer =
           new ExecutionServer(
-              workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
+              workPath,
+              sandboxPath,
+              workerOptions,
+              cache,
+              operationsCache,
+              digestUtil,
+              liveOutputStreams);
     } else {
       execServer = null;
     }
@@ -268,7 +275,7 @@ public final class RemoteWorker {
       java.nio.file.Path markerFile =
           workerOptions.getFailureMarkerFile() == null
               ? null
-              : Paths.get(workerOptions.getFailureMarkerFile().getPathString());
+              : Paths.get(internalToPlatform(workerOptions.getFailureMarkerFile().getPathString()));
       interceptors.add(
           new FailFirstNInterceptor(
               workerOptions.getFailureCount(), workerOptions.getFailureMethod(), markerFile));
@@ -463,7 +470,7 @@ public final class RemoteWorker {
     Path sandboxPath = null;
     try {
       sandboxPath = fs.getPath(remoteWorkerOptions.getWorkPath()).getChild("linux-sandbox");
-      try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
+      try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathFile())) {
         ByteStreams.copy(sandbox, fos);
       }
       sandboxPath.setExecutable(true);
@@ -480,7 +487,7 @@ public final class RemoteWorker {
                 .buildForCommand(ImmutableList.of("true")),
             ImmutableMap.of(),
             sandboxPath.getParentDirectory().getPathFile(),
-            System.getenv());
+            CLIENT_ENV);
     try {
       cmdResult = cmd.execute();
     } catch (CommandException e) {

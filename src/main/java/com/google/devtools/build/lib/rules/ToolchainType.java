@@ -62,7 +62,6 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
           .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
           .advertiseStarlarkProvider(ToolchainTypeInfo.PROVIDER.id())
           .removeAttribute("licenses")
-          .removeAttribute("distribs")
           .removeAttribute(":action_listener")
           /*<!-- #BLAZE_RULE(toolchain_type).ATTRIBUTE(no_match_error) -->
           A custom error message to display when no matching toolchain is found for this type.

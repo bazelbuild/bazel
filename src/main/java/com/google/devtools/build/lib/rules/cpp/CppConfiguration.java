@@ -600,15 +600,6 @@ public final class CppConfiguration extends Fragment
     // "FDO state should not propagate to the exec configuration");
   }
 
-  @Override
-  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
-      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
-    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
-    if (!cppOptions.getOutputDirectoryTag().isEmpty()) {
-      ctx.addToMnemonic(cppOptions.getOutputDirectoryTag());
-    }
-  }
-
   /** Returns true if we should share identical native libraries between different targets. */
   public boolean shareNativeDeps() {
     return cppOptions.getShareNativeDeps();

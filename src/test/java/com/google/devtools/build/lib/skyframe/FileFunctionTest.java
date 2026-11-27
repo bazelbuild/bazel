@@ -118,6 +118,7 @@ public class FileFunctionTest {
   private Root pkgRoot;
   private Path outputBase;
   private Root outputBaseRoot;
+  @Nullable private Path repoContentsCachePath;
   private PathPackageLocator pkgLocator;
   private boolean fastDigest;
   private ManualClock manualClock;
@@ -155,7 +156,8 @@ public class FileFunctionTest {
             pkgRoot.asPath(),
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
-        ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
+        ExternalFilesHelper.createForTesting(
+            pkgLocatorRef, externalFileAction, directories, () -> repoContentsCachePath);
     differencer = new SequencedRecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -173,7 +175,9 @@ public class FileFunctionTest {
                 .put(
                     FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
-                .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef, directories))
+                .put(
+                    SkyFunctions.FILE,
+                    new FileFunction(pkgLocatorRef, directories, externalFilesHelper))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
@@ -436,6 +440,50 @@ public class FileFunctionTest {
   }
 
   @Test
+  public void testAbsoluteSymlinkToRepoContentsCacheEntry() throws Exception {
+    repoContentsCachePath = fs.getPath("/repo_contents_cache");
+    Path entry = repoContentsCachePath.getRelative("hash/uuid");
+    Root entryRoot = Root.fromPath(entry);
+    Path file = file(entry.getRelative("dir/file").getPathString(), "contents");
+    symlink("repo", entry.getPathString());
+    symlink("dir_link", entry.getRelative("dir").getPathString());
+    RootedPath repo = rootedPath("repo");
+    RootedPath dirLink = rootedPath("dir_link");
+    RootedPath fileViaRepo = rootedPath("repo/dir/file");
+    RootedPath realFile = RootedPath.toRootedPath(entryRoot, PathFragment.create("dir/file"));
+
+    MemoizingEvaluator evaluator = makeEvaluator();
+    EvaluationResult<FileValue> repoResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(repo)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(repoResult).hasNoError();
+    EvaluationResult<FileValue> dirLinkResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(dirLink)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(dirLinkResult).hasNoError();
+    assertThat(dirLinkResult.get(FileValue.key(dirLink)).realRootedPath(dirLink).getRoot())
+        .isSameInstanceAs(repoResult.get(FileValue.key(repo)).realRootedPath(repo).getRoot());
+    EvaluationResult<FileValue> fileResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(fileViaRepo)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(fileResult).hasNoError();
+    FileValue fileValue = fileResult.get(FileValue.key(fileViaRepo));
+    assertThat(fileValue.realRootedPath(fileViaRepo)).isEqualTo(realFile);
+    assertThat(filesSeen(evaluator))
+        .containsExactly(
+            rootedPath(""),
+            dirLink,
+            repo,
+            RootedPath.toRootedPath(entryRoot, PathFragment.EMPTY_FRAGMENT),
+            RootedPath.toRootedPath(entryRoot, PathFragment.create("dir")),
+            realFile);
+
+    FileSystemUtils.writeContentAsLatin1(file, "other contents");
+    differencer.invalidate(ImmutableList.of(FileStateValue.key(realFile)));
+    fileResult =
+        evaluator.evaluate(ImmutableList.of(FileValue.key(fileViaRepo)), EVALUATION_OPTIONS);
+    assertThatEvaluationResult(fileResult).hasNoError();
+    assertThat(fileResult.get(FileValue.key(fileViaRepo))).isNotEqualTo(fileValue);
+  }
+
+  @Test
   public void testSymlinkAsAncestor() throws Exception {
     file("a/b/c/d");
     symlink("f", "a/b/c");
@@ -537,9 +585,9 @@ public class FileFunctionTest {
           }
         });
     Path p = file("file");
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
     FileValue a = valueForPath(p);
-    p.setLastModifiedTime(1L);
+    p.setLastModifiedTimeNanos(1L);
     assertThat(valueForPath(p)).isEqualTo(a);
     FileSystemUtils.writeContentAsLatin1(p, "content");
     // Same digest, but now non-empty.
@@ -550,16 +598,16 @@ public class FileFunctionTest {
   public void testUnreadableFileWithNoFastDigest() throws Exception {
     Path p = file("unreadable");
     p.chmod(0);
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
 
     FileValue value = valueForPath(p);
     assertThat(value.exists()).isTrue();
     assertThat(value.getDigest()).isNull();
 
-    p.setLastModifiedTime(10L);
+    p.setLastModifiedTimeNanos(10L);
     assertThat(valueForPath(p)).isNotEqualTo(value);
 
-    p.setLastModifiedTime(0L);
+    p.setLastModifiedTimeNanos(0L);
     assertThat(valueForPath(p)).isEqualTo(value);
   }
 

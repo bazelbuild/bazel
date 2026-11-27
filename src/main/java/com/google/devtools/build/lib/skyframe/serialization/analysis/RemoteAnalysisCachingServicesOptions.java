@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Converters.NonNegativeIntegerConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -39,13 +38,21 @@ import java.time.Duration;
  * <p>A flag should be in the SC otherwise, as it offers simpler backwards compatibility.
  */
 @OptionsClass
-@ScOnly
 public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
+
+  @VisibleForTesting public static final int MAX_CPU_CONCURRENCY = 1024;
 
   /** A converter for integers that must be at least 1. */
   public static final class PositiveIntegerConverter extends RangeConverter {
     public PositiveIntegerConverter() {
       super(1, Integer.MAX_VALUE);
+    }
+  }
+
+  /** A converter for CPU concurrency bounded to {@code [0, MAX_CPU_CONCURRENCY]}. */
+  public static final class CpuConcurrencyConverter extends RangeConverter {
+    public CpuConcurrencyConverter() {
+      super(0, MAX_CPU_CONCURRENCY);
     }
   }
 
@@ -84,7 +91,11 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "4",
       converter = PositiveIntegerConverter.class,
-      help = "Target concurrency for remote analysis caching RPCs.")
+      help =
+          "Target concurrency for remote analysis caching read RPCs. Partial batches dispatch"
+              + " eagerly below this target; once reached, requests buffer until a full batch"
+              + " (--experimental_remote_analysis_cache_reader_max_batch_size) is ready and then"
+              + " dispatch immediately, so in-flight batches are not capped at this value.")
   public abstract int getConcurrency();
 
   @Option(
@@ -92,10 +103,11 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       defaultValue = "0",
-      converter = NonNegativeIntegerConverter.class,
+      converter = CpuConcurrencyConverter.class,
       help =
-          "Parallelism for CPU-bound remote analysis cache tasks. 0 auto-detects based on available"
-              + " processors.")
+          "Parallelism for CPU-bound remote analysis cache tasks (0 to "
+              + MAX_CPU_CONCURRENCY
+              + "). 0 auto-detects based on available processors.")
   public abstract int getCpuConcurrency();
 
   @Option(
@@ -120,7 +132,7 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       name = "experimental_remote_analysis_cache_deadline",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "20s",
+      defaultValue = "12s",
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
   public abstract Duration getDeadline();

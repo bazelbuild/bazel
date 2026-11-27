@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.skyframe.IntVersion;
 import java.util.Optional;
 import org.junit.Test;
@@ -66,5 +69,77 @@ public final class FrontierNodeVersionTest {
             "distinguisher",
             /* useFakeStampData= */ false,
             Optional.empty());
+  }
+
+  @Test
+  public void getConfigAndStarlarkSemanticsHash_includesTopLevelConfigAndStarlarkSemantics() {
+    var base =
+        new FrontierNodeVersion(
+            "checksum1",
+            HashCode.fromInt(1),
+            new byte[] {1, 2},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ false,
+            Optional.empty());
+    var differentTopLevelConfig =
+        new FrontierNodeVersion(
+            "checksum2",
+            HashCode.fromInt(1),
+            new byte[] {1, 2},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ false,
+            Optional.empty());
+    var differentStarlarkSemantics =
+        new FrontierNodeVersion(
+            "checksum1",
+            HashCode.fromInt(1),
+            new byte[] {3, 4},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ false,
+            Optional.empty());
+
+    assertThat(base.getConfigAndStarlarkSemanticsHash())
+        .isNotEqualTo(differentTopLevelConfig.getConfigAndStarlarkSemanticsHash());
+    assertThat(base.getConfigAndStarlarkSemanticsHash())
+        .isNotEqualTo(differentStarlarkSemantics.getConfigAndStarlarkSemanticsHash());
+  }
+
+  @Test
+  public void
+      getReleaseVersionAndInstallationHash_releasedBuild_includesReleaseNameAndInstallMd5() {
+    var version =
+        new FrontierNodeVersion(
+            "checksum",
+            HashCode.fromString("0123456789abcdef0123456789abcdef"),
+            new byte[] {1},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ true,
+            Optional.empty());
+    var blazeVersionInfo =
+        new BlazeVersionInfo(ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, "8.0.0"));
+
+    assertThat(version.getReleaseVersionAndInstallationHash(blazeVersionInfo))
+        .isEqualTo("release 8.0.0-0123456789abcdef0123456789abcdef");
+  }
+
+  @Test
+  public void getReleaseVersionAndInstallationHash_developmentBuild_usesDevelopmentVersionPrefix() {
+    var version =
+        new FrontierNodeVersion(
+            "checksum",
+            HashCode.fromString("0123456789abcdef0123456789abcdef"),
+            new byte[] {1},
+            IntVersion.of(1),
+            "distinguisher",
+            /* useFakeStampData= */ true,
+            Optional.empty());
+    var blazeVersionInfo = new BlazeVersionInfo(ImmutableMap.of());
+
+    assertThat(version.getReleaseVersionAndInstallationHash(blazeVersionInfo))
+        .isEqualTo("development version-0123456789abcdef0123456789abcdef");
   }
 }

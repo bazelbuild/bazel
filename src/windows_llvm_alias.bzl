@@ -17,15 +17,14 @@ An alias that cross-compiles its target for Windows with the hermetic LLVM
 toolchains, regardless of the host platform.
 
 This is equivalent to building the target with
-`--config=llvm --platforms=@llvm//platforms:windows_x86_64`.
+`--platforms=//:windows_x86_64`. The toolchains come from
+.bazelrc.
 """
 
 load("@with_cfg.bzl", "with_cfg")
 
-# Keep the toolchains in sync with the `llvm` config in .bazelrc.
 windows_llvm_alias, _windows_llvm_alias = (
     with_cfg(native.alias)
-        .set("platforms", [Label("@llvm//platforms:windows_x86_64")])
-        .extend("extra_toolchains", ["@llvm//toolchain:all", "//src:llvm_rc_toolchain"])
+        .set("platforms", [Label("//:windows_x86_64")])
         .build()
 )

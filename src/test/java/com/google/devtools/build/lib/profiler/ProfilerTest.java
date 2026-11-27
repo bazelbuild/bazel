@@ -46,7 +46,9 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -141,11 +143,14 @@ public final class ProfilerTest {
   @Test
   public void testProfilerActivation() throws Exception {
     assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.isProfiling(ProfilerTask.LOCAL_PARSE)).isFalse();
     var unused = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
     assertThat(profiler.isActive()).isTrue();
+    assertThat(profiler.isProfiling(ProfilerTask.LOCAL_PARSE)).isTrue();
 
     profiler.stop();
     assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.isProfiling(ProfilerTask.LOCAL_PARSE)).isFalse();
   }
 
   @Test
@@ -314,7 +319,7 @@ public final class ProfilerTest {
             });
 
     LocalResourceUsageCollectors localCollectors =
-        new LocalResourceUsageCollectors(null, null, workerProcessMetricsCollector, null, null);
+        new LocalResourceUsageCollectors(null, null, workerProcessMetricsCollector, null);
     localCollectors.addCollectors(
         /* collectWorkerDataInProfiler= */ true,
         /* collectLoadAverage= */ false,
@@ -775,6 +780,208 @@ public final class ProfilerTest {
 
     assertThat(profiler.isActive()).isFalse();
     assertThat(profiler.getTasksHistograms()).isEmpty();
+  }
+
+  @Test
+  public void testTaskHistograms_actionTaskDuration() throws Exception {
+    startUnbuffered(getAllProfilerTasks());
+    profiler.logActionTaskDuration(
+        profiler.nanoTimeMaybe(),
+        Duration.ofSeconds(10),
+        ProfilerTask.ACTION,
+        "foo action",
+        "Mnemonic",
+        "out",
+        "//pkg:target",
+        "cfg");
+    StatRecorder actionStatRecorder =
+        profiler.getTasksHistograms().stream().filter(r -> !r.isEmpty()).collect(onlyElement());
+    assertThat(actionStatRecorder.toString()).contains("'ACTION'");
+    assertThat(actionStatRecorder.toString()).contains("Count: 1");
+    assertThat(actionStatRecorder.toString()).contains("[8192..16384 ms]");
+    profiler.stop();
+  }
+
+  @Test
+  public void testTaskHistograms_notRecordedWhenDisabled() throws Exception {
+    profiler.start(
+        getAllProfilerTasks(),
+        /* stream= */ null,
+        /* format= */ null,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        /* recordAllDurations= */ false,
+        BlazeClock.instance(),
+        BlazeClock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ false);
+    long now = profiler.nanoTimeMaybe();
+    profiler.logSimpleTaskDuration(now, Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    profiler.logActionTaskDuration(
+        now,
+        Duration.ofSeconds(10),
+        ProfilerTask.ACTION,
+        "foo action",
+        "Mnemonic",
+        "out",
+        "//pkg:target",
+        "cfg");
+
+    assertThat(profiler.getTasksHistograms().stream().filter(r -> !r.isEmpty()).toList()).isEmpty();
+    profiler.stop();
+  }
+
+  @Test
+  public void testTaskHistograms_notRecordedWhenNotActive() throws Exception {
+    startUnbuffered(getAllProfilerTasks());
+    List<StatRecorder> activeHistograms = profiler.getTasksHistograms();
+    profiler.stop();
+
+    long now = profiler.nanoTimeMaybe();
+    profiler.logSimpleTask(now - 10_000_000L, now, ProfilerTask.HANDLE_GC_NOTIFICATION, "gc");
+    profiler.logSimpleTaskDuration(
+        now, Duration.ofSeconds(10), ProfilerTask.HANDLE_GC_NOTIFICATION, "inactive simple");
+    profiler.logActionTaskDuration(
+        now,
+        Duration.ofSeconds(10),
+        ProfilerTask.ACTION,
+        "inactive action",
+        "Mnemonic",
+        "out",
+        "//pkg:target",
+        "cfg");
+    profiler.logEvent(ProfilerTask.INFO, "inactive event");
+
+    // Only the INFO "Finishing" event emitted inside stop() before deactivation should be present.
+    StatRecorder onlyNonEmpty =
+        activeHistograms.stream().filter(r -> !r.isEmpty()).collect(onlyElement());
+    assertThat(onlyNonEmpty.toString()).contains("'INFO'");
+    assertThat(onlyNonEmpty.toString()).contains("Count: 1");
+  }
+
+  @Test
+  public void testNanoTimeMaybe_usesProfilerClockWhenActive() throws Exception {
+    ManualClock profilerClock = new ManualClock();
+    profilerClock.advanceMillis(clock.currentTimeMillis() + 123_456);
+    long blazeClockNanos = BlazeClock.nanoTime();
+    assertThat(profilerClock.nanoTime()).isNotEqualTo(blazeClockNanos);
+
+    profiler.start(
+        getAllProfilerTasks(),
+        /* stream= */ null,
+        /* format= */ null,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        /* recordAllDurations= */ false,
+        profilerClock,
+        profilerClock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+    assertThat(profiler.nanoTimeMaybe()).isEqualTo(profilerClock.nanoTime());
+
+    profiler.stop();
+    assertThat(profiler.nanoTimeMaybe()).isEqualTo(blazeClockNanos);
+  }
+
+  @Test
+  public void testLogSimpleTaskAndEvent_inactiveDoesNotReadClock() throws Exception {
+    TraceProfilerServiceImpl unstarted = new TraceProfilerServiceImpl();
+    unstarted.logSimpleTask(0L, ProfilerTask.INFO, "before start");
+    unstarted.logEvent(ProfilerTask.INFO, "before start");
+
+    AtomicInteger nanoTimeCalls = new AtomicInteger();
+    Clock countingClock =
+        new Clock() {
+          @Override
+          public long currentTimeMillis() {
+            return clock.currentTimeMillis();
+          }
+
+          @Override
+          public long nanoTime() {
+            nanoTimeCalls.incrementAndGet();
+            return clock.nanoTime();
+          }
+        };
+    profiler.start(
+        getAllProfilerTasks(),
+        /* stream= */ null,
+        /* format= */ null,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        /* recordAllDurations= */ false,
+        countingClock,
+        countingClock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+    profiler.stop();
+
+    int callsAfterStop = nanoTimeCalls.get();
+    profiler.logSimpleTask(0L, ProfilerTask.INFO, "inactive task");
+    assertThat(nanoTimeCalls.get()).isEqualTo(callsAfterStop);
+    profiler.logEvent(ProfilerTask.INFO, "inactive event");
+    assertThat(nanoTimeCalls.get()).isEqualTo(callsAfterStop);
+  }
+
+  @Test
+  public void testConcurrentLogTaskWithStartStopClear() throws Exception {
+    AtomicBoolean running = new AtomicBoolean(true);
+    CountDownLatch loggerStarted = new CountDownLatch(1);
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+
+    Thread loggerThread =
+        new Thread(() -> {
+          loggerStarted.countDown();
+          try {
+            while (running.get()) {
+              long now = profiler.nanoTimeMaybe();
+              profiler.logSimpleTask(now - 1_000_000L, now, ProfilerTask.INFO, "bg task");
+              profiler.logSimpleTask(now, ProfilerTask.VFS_STAT, "bg stat");
+              profiler.logActionTaskDuration(
+                  now,
+                  Duration.ofMillis(1),
+                  ProfilerTask.ACTION,
+                  "bg action",
+                  "Mnemonic",
+                  "out",
+                  "//pkg:target",
+                  "cfg");
+              profiler.logEvent(ProfilerTask.INFO, "bg event");
+              var _ = profiler.isProfiling(ProfilerTask.INFO);
+            }
+          } catch (Throwable t) {
+            failure.compareAndSet(null, t);
+          }
+        });
+    loggerThread.start();
+    assertThat(loggerStarted.await(10, TimeUnit.SECONDS)).isTrue();
+    try {
+      for (int i = 0; i < 50; i++) {
+        startUnbuffered(i % 2 == 0 ? getAllProfilerTasks() : ImmutableSet.of());
+        var _ = profiler.getTasksHistograms();
+        profiler.stop();
+        profiler.clear();
+      }
+    } finally {
+      running.set(false);
+      loggerThread.join(10_000);
+    }
+    assertThat(loggerThread.isAlive()).isFalse();
+    if (failure.get() != null) {
+      throw new AssertionError("Background logging thread failed", failure.get());
+    }
   }
 
   @Test

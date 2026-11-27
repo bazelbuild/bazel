@@ -14,39 +14,19 @@
 package net.starlark.java.syntax;
 
 /** Base class for all statements nodes in the AST. */
-public abstract class Statement extends Node {
+public abstract sealed class Statement extends Node
+    permits AssignmentStatement,
+        DefStatement,
+        ExpressionStatement,
+        FlowStatement,
+        ForStatement,
+        IfStatement,
+        LoadStatement,
+        ReturnStatement,
+        TypeAliasStatement,
+        VarStatement {
 
-  /**
-   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
-   * can be used in a switch/case.
-   */
-  public enum Kind {
-    ASSIGNMENT,
-    EXPRESSION,
-    FLOW,
-    FOR,
-    DEF,
-    IF,
-    LOAD,
-    RETURN,
-    TYPE_ALIAS,
-    VAR,
-  }
-
-  // Materialize kind as a field so its accessor can be non-virtual.
-  private final Kind kind;
-
-  Statement(FileLocations locs, Kind kind) {
+  Statement(FileLocations locs) {
     super(locs);
-    this.kind = kind;
-  }
-
-  /**
-   * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
-   * can be used in a switch/case.
-   */
-  // Final to avoid cost of virtual call (see #12967).
-  public final Kind kind() {
-    return kind;
   }
 }

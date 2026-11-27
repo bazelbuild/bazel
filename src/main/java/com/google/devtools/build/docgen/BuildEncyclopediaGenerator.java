@@ -18,7 +18,6 @@ import com.google.devtools.common.options.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParser;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collections;
 
 /**
  * The main class for the docgen project. The class checks the input arguments
@@ -34,9 +33,7 @@ public class BuildEncyclopediaGenerator {
             + "The link map file (-m), rule class provider (-p), and at least one input_dir\n"
             + "(-i) or binproto (--be_stardoc_proto) must be specified.\n"
             + "Single page (-1) and table-of-contents creation (-t) are mutually exclusive.\n");
-    System.err.println(
-        parser.describeOptionsWithDeprecatedCategories(
-            Collections.<String, String>emptyMap(), HelpVerbosity.LONG));
+    System.err.println(parser.describeOptions(HelpVerbosity.LONG));
   }
 
   private static void fail(Throwable e, boolean printStackTrace) {

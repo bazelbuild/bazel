@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -31,6 +33,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -245,8 +248,10 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       // Files.createDirectories will handle this case normally, but if the existing
       // file is a symlink to a directory then it still throws. Swallow this.
       if (!isDirectory(path, /* followSymlinks= */ true)) {
-        throw e;
+        throw translateNioToIoException(path, e);
       }
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
     }
   }
 
@@ -385,11 +390,12 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
+  public long getLastModifiedTimeNanos(PathFragment path, boolean followSymlinks)
+      throws IOException {
     File file = getIoFile(path);
     long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      return stat(path, followSymlinks).getLastModifiedTime();
+      return stat(path, followSymlinks).getLastModifiedTimeNanos();
     } finally {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, file.getPath());
     }
@@ -400,17 +406,20 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
   }
 
   @Override
-  public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    File file = getIoFile(path);
-    if (!file.setLastModified(
-        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime)) {
-      if (!file.exists()) {
-        throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
-      } else if (!file.getParentFile().canWrite()) {
-        throw new FileAccessException(path.getParentDirectory() + ERR_PERMISSION_DENIED);
-      } else {
-        throw new FileAccessException(path + ERR_PERMISSION_DENIED);
-      }
+  public void setLastModifiedTimeNanos(PathFragment path, long newTime) throws IOException {
+    try {
+      java.nio.file.Path nioPath = getNioPath(path);
+      Files.setLastModifiedTime(
+          nioPath,
+          newTime == Path.NOW_SENTINEL_TIME
+              ? FileTime.fromMillis(clock.currentTimeMillis())
+              : FileTime.from(newTime, NANOSECONDS));
+    } catch (IOException e) {
+      throw translateNioToIoException(path, e);
+    } catch (InvalidPathException e) {
+      FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      fnfe.initCause(e);
+      throw fnfe;
     }
   }
 
@@ -473,14 +482,14 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
           }
 
           @Override
-          public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
+          public long getLastModifiedTimeNanos() {
+            return attributes.lastModifiedTime().to(NANOSECONDS);
           }
 
           @Override
-          public long getLastChangeTime() {
+          public long getLastChangeTimeNanos() {
             // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
+            return attributes.lastModifiedTime().to(NANOSECONDS);
           }
 
           @Override
@@ -516,6 +525,8 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       throws IOException {
     try {
       Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
+    } catch (IOException e) {
+      throw translateNioToIoException(linkPath, e);
     } catch (InvalidPathException e) {
       throw new IOException(linkPath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR, e);
     }

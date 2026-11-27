@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
@@ -80,13 +81,18 @@ public class RepoOutputFormatter {
   private void printStarlark(String key, RepoDefinitionValue repoDefinition) {
     if (repoDefinition instanceof RepoDefinitionValue.Found repoDefValue) {
       printer.printf("## %s:\n", key);
-      printer.printf("# Located at: %s\n", getRepoRoot(repoDefValue.repoDefinition()));
+      printer.printf(
+          "# Located at: %s\n",
+          Starlark.repr(
+              getRepoRoot(repoDefValue.repoDefinition()).getPathString(),
+              StarlarkSemantics.DEFAULT));
       printStarlark(repoDefValue.repoDefinition());
     }
     if (repoDefinition instanceof RepoDefinitionValue.RepoOverride repoOverrideValue) {
       printer.printf(
-          "## %s:\nBuiltin or overridden repo located at: %s\n\n",
-          key, repoOverrideValue.repoPath());
+          "## %s:\n# Builtin or overridden repo located at: %s\n\n",
+          key,
+          Starlark.repr(repoOverrideValue.repoPath().getPathString(), StarlarkSemantics.DEFAULT));
     }
   }
 
@@ -128,7 +134,7 @@ public class RepoOutputFormatter {
   private void printProtoJson(String key, RepoDefinition repoDefinition) {
     Build.Repository serialized = serializeRepoDefinitionAsProto(key, repoDefinition);
     try {
-      printer.println(jsonPrinter.print(serialized));
+      printer.println(unicodeToInternal(jsonPrinter.print(serialized)));
     } catch (InvalidProtocolBufferException e) {
       throw new IllegalArgumentException(e);
     }

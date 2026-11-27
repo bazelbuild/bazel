@@ -13,20 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
-import com.google.devtools.build.lib.profiler.SystemNetworkStatsService.NetIoCounter;
+import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.net.NetworkInterface;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Collects and populates network metrics during an invocation. */
 public final class NetworkMetricsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final Splitter SPLITTER = Splitter.on(' ').omitEmptyStrings().trimResults();
+
+  static {
+    JniLoader.loadJni();
+  }
 
   /** The metrics collector (a static singleton instance). Inactive by default. */
   private static final NetworkMetricsCollector instance = new NetworkMetricsCollector();
@@ -51,12 +65,9 @@ public final class NetworkMetricsCollector {
     return NetworkMetrics.newBuilder().setSystemNetworkStats(systemNetworkStats.build()).build();
   }
 
+  @SuppressWarnings("GoodTime") // performance-sensitive
   @Nullable
-  public SystemNetworkUsages collectSystemNetworkUsages(
-      double deltaNanos, @Nullable SystemNetworkStatsService systemNetworkStatsService) {
-    if (systemNetworkStatsService == null) {
-      return null;
-    }
+  public SystemNetworkUsages collectSystemNetworkUsages(double deltaNanos) {
     if (loopbackInterfaceNames == null) {
       try {
         loopbackInterfaceNames = getLoopbackInterfaceNames();
@@ -67,7 +78,7 @@ public final class NetworkMetricsCollector {
 
     Map<String, NetIoCounter> nextNetworkIoCounters = null;
     try {
-      nextNetworkIoCounters = systemNetworkStatsService.getNetIoCounters();
+      nextNetworkIoCounters = getNetIoCounters();
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to get Net IO counters");
     }
@@ -151,6 +162,51 @@ public final class NetworkMetricsCollector {
       return bytesPerSecToMegabitsPerSec(bytesRecvPerSec());
     }
   }
+
+  /** Value class for network IO counters. */
+  @VisibleForTesting
+  record NetIoCounter(long bytesSent, long bytesRecv, long packetsSent, long packetsRecv) {}
+
+  /** Returns a map from network interface name to the respective I/O counters. */
+  @VisibleForTesting
+  static Map<String, NetIoCounter> getNetIoCounters() throws IOException {
+    HashMap<String, NetIoCounter> countersMap = new HashMap<>();
+    switch (OS.getCurrent()) {
+      case LINUX -> getNetIoCountersLinux(countersMap);
+      case DARWIN -> getNetIoCountersNative(countersMap);
+      default -> {}
+    }
+    return countersMap;
+  }
+
+  private static void getNetIoCountersLinux(Map<String, NetIoCounter> countersMap)
+      throws IOException {
+    List<String> lines = Files.readAllLines(Path.of("/proc/net/dev"), UTF_8);
+
+    // skip table header (first 2 lines)
+    for (String line : lines.subList(2, lines.size())) {
+      int colonAt = line.indexOf(':');
+      if (colonAt < 0) {
+        continue;
+      }
+      String name = line.substring(0, colonAt).strip();
+      long[] fields =
+          SPLITTER
+              .splitToStream(line.substring(colonAt + 1))
+              .mapToLong(Long::parseUnsignedLong)
+              .toArray();
+      if (fields.length > 9) {
+        long bytesRecv = fields[0];
+        long packetsRecv = fields[1];
+        long bytesSent = fields[8];
+        long packetsSent = fields[9];
+        countersMap.put(name, new NetIoCounter(bytesSent, bytesRecv, packetsSent, packetsRecv));
+      }
+    }
+  }
+
+  private static native void getNetIoCountersNative(Map<String, NetIoCounter> countersMap)
+      throws IOException;
 
   private static ImmutableSet<String> getLoopbackInterfaceNames() throws IOException {
     ImmutableSet.Builder<String> result = ImmutableSet.builder();

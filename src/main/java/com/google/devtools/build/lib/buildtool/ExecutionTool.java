@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -151,11 +152,12 @@ public class ExecutionTool {
   private boolean informedOutputServiceToStartTheBuild = false;
   private IncrementalPackageRoots incrementalPackageRoots;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request)
+  ExecutionTool(CommandEnvironment env, BuildRequest request, String actionExecutionSalt)
       throws AbruptExitException, InterruptedException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
+    this.actionExecutionSalt = Preconditions.checkNotNull(actionExecutionSalt);
 
     try {
       env.getExecRoot().createDirectoryAndParents();
@@ -186,8 +188,7 @@ public class ExecutionTool {
       }
     }
     actionContextRegistryBuilder.register(
-        SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(env.getOutputService(), env.getWorkspaceName()));
+        SymlinkTreeActionContext.class, new SymlinkTreeStrategy(env.getOutputService()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
@@ -197,7 +198,6 @@ public class ExecutionTool {
 
     this.prefetcher = executorBuilder.getActionInputPrefetcher();
     this.executorLifecycleListeners = executorBuilder.getExecutorLifecycleListeners();
-    this.actionExecutionSalt = executorBuilder.getActionExecutionSalt();
 
     // There are many different SpawnActions, and we want to control the action context they use
     // independently from each other, for example, to run genrules locally and Java compile action
@@ -251,6 +251,10 @@ public class ExecutionTool {
 
   TestActionContext getTestActionContext() {
     return actionContextRegistry.getContext(TestActionContext.class);
+  }
+
+  SpawnStrategyRegistry getSpawnStrategyRegistry() {
+    return spawnStrategyRegistry;
   }
 
   /**
@@ -331,7 +335,6 @@ public class ExecutionTool {
           actionExecutionSalt,
           env.getOptions().getOptions(UiOptions.class).getMaxStdoutErrBytes());
     }
-    skyframeExecutor.setSaltAndDeleteActionsIfChanged(actionExecutionSalt);
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
@@ -342,6 +345,7 @@ public class ExecutionTool {
           skyframeBuilder.getActionOutputDirectoryHelper());
     }
 
+    env.getBuildResultListener().setExecutionTimer(executionTimer);
     env.getEventBus()
         .register(
             new ExecutionProgressReceiverSetup(
@@ -439,23 +443,6 @@ public class ExecutionTool {
             request.getViewOptions().getDiscardAnalysisCache()
                 || !skyframeExecutor.tracksStateForIncrementality();
         if (shouldDiscardAnalysisCache) {
-          if (skyframeExecutor
-              .getRemoteAnalysisCacheReaderDepsProvider()
-              .mode()
-              .isRetrievalEnabled()) {
-            // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-            // during the logical execution phase. Discarding the analysis cache fully can lead to
-            // crashes.
-            //
-            // TODO: b/466388360 - consider alternatives
-            getReporter()
-                .handle(
-                    Event.warn(
-                        "Remote analysis caching is enabled. Performing only a partial analysis"
-                            + " cache discard."));
-          }
-        }
-        if (shouldDiscardAnalysisCache) {
           // Free memory by removing cache entries that aren't going to be needed.
           try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
             env.getSkyframeBuildView()
@@ -470,8 +457,7 @@ public class ExecutionTool {
             executorLifecycleListener.executionPhaseStarting(
                 actionGraph,
                 // If this supplier is ever consumed by more than one ActionContextProvider, it can
-                // be
-                // pulled out of the loop and made a memoizing supplier.
+                // be pulled out of the loop and made a memoizing supplier.
                 () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
                 skyframeExecutor.getEphemeralCheckIfOutputConsumed());
           }
@@ -529,10 +515,7 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
       modifiedOutputFiles =
           outputService.startBuild(
-              buildId,
-              env.getWorkspaceName(),
-              env.getReporter(),
-              request.getBuildOptions().getFinalizeActions());
+              buildId, env.getReporter(), request.getBuildOptions().getFinalizeActions());
       informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().getCheckOutputFiles()) {
@@ -822,7 +805,6 @@ public class ExecutionTool {
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       return OutputDirectoryLinksUtils.createOutputDirectoryLinks(
           buildRequestOptions,
-          env.getWorkspaceName(),
           env.getWorkspace(),
           env.getDirectories(),
           getReporter(),
@@ -975,7 +957,7 @@ public class ExecutionTool {
                 .setEnabled(options.getUseActionCache())
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
-                .setBustActionCachesTarget(options.getBustActionCachesTarget())
+                .setBustActionCachesTargets(options.getBustActionCachesTargets())
                 .build()),
         actionExecutionSalt,
         modifiedOutputFiles,

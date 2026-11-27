@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -31,6 +33,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -68,7 +71,6 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.profiler.SystemNetworkStatsService;
 import com.google.devtools.build.lib.profiler.TraceProfilerService.Format;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -87,7 +89,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.JniLinking;
 import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
-import com.google.devtools.build.lib.server.GrpcCommandServerService;
+import com.google.devtools.build.lib.server.GrpcCommandServer;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.server.PidFileWatcher;
@@ -151,7 +153,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -225,6 +229,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final boolean deleteOutputBaseOnShutdown;
   @Nullable private volatile String lastSymlinkPrefix = null;
 
+  private final Runnable forcedGcAction;
+
+  @Nullable private ScheduledExecutorService forcedGcExecutor;
+
   private BlazeRuntime(
       FileSystem fileSystem,
       UUID instanceId,
@@ -251,7 +259,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       RepositoryRemoteHelpersFactory repositoryRemoteHelpersFactory,
       InstrumentationOutputFactory instrumentationOutputFactory,
       FileSystemLock installBaseLock,
-      boolean deleteOutputBaseOnShutdown) {
+      boolean deleteOutputBaseOnShutdown,
+      Runnable forcedGcAction) {
     // Server state
     this.fileSystem = fileSystem;
     this.instanceId = instanceId;
@@ -285,6 +294,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.installBaseLock = installBaseLock;
     this.deleteOutputBaseOnShutdown = deleteOutputBaseOnShutdown;
     this.cgroupsInfo = VirtualCgroup.getInstance().cgroupsInfo();
+    this.forcedGcAction = forcedGcAction;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -363,7 +373,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     for (var dirent : dir.readdir(Symlinks.FOLLOW)) {
       if (dirent.getName().startsWith(prefix) && dirent.getName().endsWith(suffix)) {
         var path = dir.getChild(dirent.getName());
-        old.add(new PathAndMtime(path, path.stat().getLastModifiedTime()));
+        old.add(new PathAndMtime(path, path.stat().getLastModifiedTimeNanos()));
       }
     }
     old.sort(Comparator.comparingLong(PathAndMtime::mtime));
@@ -442,7 +452,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.
               && profilerTask != ProfilerTask.CRITICAL_PATH
-              && profilerTask != ProfilerTask.SKYFUNCTION) {
+              && profilerTask != ProfilerTask.SKYFUNCTION
+              && profilerTask != ProfilerTask.REPO_CONTENTS_CACHE) {
             profiledTasksBuilder.add(profilerTask);
           }
         }
@@ -480,8 +491,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
                     : null,
                 workerProcessMetricsCollector,
-                env.getLocalResourceManager(),
-                getBlazeService(SystemNetworkStatsService.class));
+                env.getLocalResourceManager());
 
         localResourceUsageCollectors.addCollectors(
             /* collectWorkerDataInProfiler= */ commandOptions.getCollectWorkerDataInProfiler(),
@@ -725,6 +735,42 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               options.getActionCacheGcThreshold() / 100.0f,
               options.getActionCacheGcMaxAge()));
     }
+
+    if (!env.getCommandName().equals("info")) {
+      startForcedGcExecutor(options.getForcedGcInterval());
+    }
+  }
+
+  private void startForcedGcExecutor(Duration interval) {
+    if (interval.isZero() || interval.isNegative()) {
+      return;
+    }
+    if (forcedGcExecutor != null) {
+      return;
+    }
+    forcedGcExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder().setNameFormat("forced-gc-thread").setDaemon(true).build());
+    var unused =
+        forcedGcExecutor.scheduleWithFixedDelay(
+            () -> {
+              try (var _ = Profiler.instance().profile(ProfilerTask.MANUAL_GC, "forced GC")) {
+                forcedGcAction.run();
+              }
+            },
+            interval.toMillis(),
+            interval.toMillis(),
+            MILLISECONDS);
+  }
+
+  public void stopForcedGcExecutor() {
+    if (forcedGcExecutor != null) {
+      forcedGcExecutor.shutdownNow();
+      try (var _ = Profiler.instance().profile("Joining forced GC thread")) {
+        Uninterruptibles.awaitTerminationUninterruptibly(forcedGcExecutor);
+      }
+      forcedGcExecutor = null;
+    }
   }
 
   @Override
@@ -805,6 +851,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @VisibleForTesting
   public BlazeCommandResult afterCommand(
       boolean forceKeepStateForTesting, CommandEnvironment env, BlazeCommandResult commandResult) {
+    stopForcedGcExecutor();
     this.env = null;
 
     // Remove any filters that the command might have added to the reporter.
@@ -1172,7 +1219,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               delayedJniLinkingError,
               /* abruptShutdownHandler= */ null);
       startupOptions = runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
-      policy = InvocationPolicyParser.parsePolicy(startupOptions.getInvocationPolicy());
+      policy =
+          InvocationPolicyParser.parsePolicy(
+              StringEncoding.internalToUnicode(startupOptions.getInvocationPolicy()));
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
@@ -1306,15 +1355,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         shutdownHooks.runLastAtExit(runtime::deleteOutputBase);
       }
 
-      GrpcCommandServerService grpcCommandServerService =
-          Preconditions.checkNotNull(runtime.getBlazeService(GrpcCommandServerService.class));
-
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
           runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
       CommandServer commandServer =
           CommandServer.create(
-              grpcCommandServerService.getGrpcCommandServer(),
+              new GrpcCommandServer(),
               dispatcher,
               shutdownHooks,
               pidFileWatcher,
@@ -1415,6 +1461,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     OptionsParsingResult options =
         parseStartupOptions(Iterables.concat(blazeModules, blazeServices), args);
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
+
+    // Install user-specified redactions before anything logs a command line.
+    SafeRequestLogging.setRedactedClientEnvNames(startupOptions.getRedactClientEnv());
 
     // Set up the failure detail path first, so that it can communicate problems with other flags
     // and module initialization.
@@ -1759,6 +1808,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private ActionKeyContext actionKeyContext;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     @Nullable private FileSystemLock installBaseLock;
+    private Runnable forcedGcAction = System::gc;
 
     @VisibleForTesting
     public BlazeRuntime build() throws AbruptExitException {
@@ -1877,7 +1927,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getRepositoryHelpersFactory(),
               serverBuilder.createInstrumentationOutputFactory(),
               installBaseLock,
-              deleteOutputBaseOnShutdown);
+              deleteOutputBaseOnShutdown,
+              forcedGcAction);
       BugReport.setRuntime(runtime);
       return runtime;
     }
@@ -1984,6 +2035,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     @VisibleForTesting
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    public Builder setForcedGcAction(Runnable forcedGcAction) {
+      this.forcedGcAction = Preconditions.checkNotNull(forcedGcAction);
       return this;
     }
 
@@ -2125,7 +2183,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       if (daemonizeExists) {
         try {
           AsyncDirectoryCleaner.spawnDaemonizedDeletion(
-              daemonize, tempPath.getParentDirectory(), tempPath.getBaseName(), System.getenv());
+              daemonize,
+              tempPath.getParentDirectory(),
+              tempPath.getBaseName(),
+              System.getenv().entrySet().stream()
+                  .collect(
+                      toImmutableMap(
+                          e -> StringEncoding.platformToInternal(e.getKey()),
+                          e -> StringEncoding.platformToInternal(e.getValue()))));
           return;
         } catch (CommandException e) {
           logger.atWarning().withCause(e).log(

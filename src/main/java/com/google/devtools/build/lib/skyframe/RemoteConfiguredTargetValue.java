@@ -209,6 +209,13 @@ public sealed class RemoteConfiguredTargetValue
       private ConfiguredTarget configuredTarget;
       private TargetData targetData;
 
+      /**
+       * Returns a new {@link RemoteConfiguredTargetValue} instance for every retrieval.
+       *
+       * <p>This is required because Skycache invalidation ({@link
+       * SkyframeExecutor#isLocallyDelegated}) relies on reference identity to distinguish locally
+       * delegated nodes from independently deserialized ones.
+       */
       @Override
       public RemoteConfiguredTargetValue call() {
         checkNotNull(configuredTarget);

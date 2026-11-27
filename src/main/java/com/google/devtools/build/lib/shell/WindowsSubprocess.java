@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.shell;
 import static com.google.devtools.build.lib.util.BazelCleaner.CLEANER;
 
 import com.google.common.base.Throwables;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.windows.WindowsProcesses;
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,7 +81,8 @@ public class WindowsSubprocess implements Subprocess {
 
       int result = WindowsProcesses.streamBytesAvailable(nativeStream);
       if (result == -1) {
-        throw new IOException(WindowsProcesses.streamGetLastError(nativeStream));
+        throw new IOException(
+            StringEncoding.platformToInternal(WindowsProcesses.streamGetLastError(nativeStream)));
       }
 
       return result;
@@ -108,7 +110,8 @@ public class WindowsSubprocess implements Subprocess {
         return -1; // EOF
       }
       if (result == -1) {
-        throw new IOException(WindowsProcesses.streamGetLastError(nativeStream));
+        throw new IOException(
+            StringEncoding.platformToInternal(WindowsProcesses.streamGetLastError(nativeStream)));
       }
 
       return result;
@@ -224,7 +227,9 @@ public class WindowsSubprocess implements Subprocess {
         // Error. There isn't a lot we can do -- the process is still alive but
         // WaitForSingleObject() failed for some odd reason. This should
         // basically never happen, but if it does... let's get a stack trace.
-        String errorMessage = WindowsProcesses.processGetLastError(nativeState.nativeProcess);
+        String errorMessage =
+            StringEncoding.platformToInternal(
+                WindowsProcesses.processGetLastError(nativeState.nativeProcess));
         throw new IllegalStateException(
             "Waiting for process "
                 + WindowsProcesses.getProcessPid(nativeState.nativeProcess)
@@ -244,7 +249,9 @@ public class WindowsSubprocess implements Subprocess {
     checkLiveness();
 
     int result = WindowsProcesses.getExitCode(nativeState.nativeProcess);
-    String error = WindowsProcesses.processGetLastError(nativeState.nativeProcess);
+    String error =
+        StringEncoding.platformToInternal(
+            WindowsProcesses.processGetLastError(nativeState.nativeProcess));
     if (!error.isEmpty()) {
       throw new IllegalStateException(error);
     }
@@ -310,7 +317,9 @@ public class WindowsSubprocess implements Subprocess {
       // I think the Windows API never returns 0 in dwNumberOfBytesWritten
       // Verify.verify(written != 0);
       if (written == -1) {
-        throw new IOException(WindowsProcesses.processGetLastError(nativeState.nativeProcess));
+        throw new IOException(
+            StringEncoding.platformToInternal(
+                WindowsProcesses.processGetLastError(nativeState.nativeProcess)));
       }
 
       remaining -= written;

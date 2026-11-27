@@ -23,6 +23,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.StarlarkType;
 
 /** Provides access to make variables from the current fragments. */
 @StarlarkBuiltin(
@@ -52,6 +53,11 @@ public interface TemplateVariableInfoApi extends StructApi {
   /** Provider for {@link TemplateVariableInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(
+          TemplateVariableInfoApi.Provider.class, TemplateVariableInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "TemplateVariableInfo",

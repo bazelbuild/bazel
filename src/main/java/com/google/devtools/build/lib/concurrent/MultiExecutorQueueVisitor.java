@@ -17,11 +17,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An implementation of MultiThreadPoolsQuiescingExecutor that has 2 ExecutorServices, one with a
@@ -29,9 +26,9 @@ import javax.annotation.concurrent.GuardedBy;
  * tasks.
  *
  * <p>With merged analysis and execution phases, this QueueVisitor is responsible for all 3 phases:
- * loading, analysis and execution. There's an additional 3rd pool for execution tasks. This is done
- * for performance reason: each of these phases has an optimal number of threads for its thread
- * pool.
+ * loading, analysis and execution. There's an additional 3rd pool for execution tasks, and an
+ * optional 4th non-priority pool for post-analysis tasks. This is done for performance reasons:
+ * each of these phases has an optimal number of threads and scheduling policy for its thread pool.
  *
  * <p>Created anew each build.
  */
@@ -40,18 +37,13 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   private final ExecutorService regularPoolExecutorService;
   private final ExecutorService cpuHeavyPoolExecutorService;
   @Nullable private final ExecutorService executionPhaseExecutorService;
-
-  // Whether execution phase tasks should be allowed to move forward.
-  private boolean executionPhaseTasksGoAhead;
-
-  @GuardedBy("this")
-  @Nullable
-  private List<QuiescingTask> queuedPendingGoAhead;
+  @Nullable private final ExecutorService postAnalysisPhaseExecutorService;
 
   private MultiExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
       @Nullable ExecutorService executionPhaseExecutorService,
+      @Nullable ExecutorService postAnalysisPhaseExecutorService,
       ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     super(
@@ -62,11 +54,18 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
     this.executionPhaseExecutorService = executionPhaseExecutorService;
-    this.executionPhaseTasksGoAhead = executionPhaseExecutorService == null;
-
-    if (executionPhaseExecutorService != null) {
-      queuedPendingGoAhead = new ArrayList<>();
-    }
+    this.postAnalysisPhaseExecutorService = postAnalysisPhaseExecutorService;
+    Preconditions.checkArgument(
+        ordersTasksByPriority() == ordersTasksByPriority(this.cpuHeavyPoolExecutorService),
+        "regular and CPU-heavy pools must agree on priority ordering");
+    Preconditions.checkArgument(
+        executionPhaseExecutorService == null
+            || !ordersTasksByPriority(executionPhaseExecutorService),
+        "execution-phase pool must not use priority ordering");
+    Preconditions.checkArgument(
+        postAnalysisPhaseExecutorService == null
+            || !ordersTasksByPriority(postAnalysisPhaseExecutorService),
+        "post-analysis pool must not use priority ordering");
   }
 
   public static MultiExecutorQueueVisitor createWithExecutorServices(
@@ -78,6 +77,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
         /* executionPhaseExecutorService= */ null,
+        /* postAnalysisPhaseExecutorService= */ null,
         exceptionHandlingMode,
         errorClassifier);
   }
@@ -85,34 +85,26 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   public static MultiExecutorQueueVisitor createWithExecutorServices(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
-      ExecutorService executionPhaseExecutorService,
+      @Nullable ExecutorService executionPhaseExecutorService,
+      @Nullable ExecutorService postAnalysisPhaseExecutorService,
       ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return new MultiExecutorQueueVisitor(
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
         executionPhaseExecutorService,
+        postAnalysisPhaseExecutorService,
         exceptionHandlingMode,
         errorClassifier);
   }
 
   @Override
-  public void execute(
-      Runnable runnable, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal) {
-    execute(wrapRunnable(runnable), threadPoolType, shouldStallAwaitingSignal);
+  public void execute(Runnable runnable, ThreadPoolType threadPoolType) {
+    execute(wrapRunnable(runnable), threadPoolType);
   }
 
   @Override
-  public void execute(
-      QuiescingTask task, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal) {
-    if (shouldStallAwaitingSignal && !executionPhaseTasksGoAhead) {
-      synchronized (this) {
-        if (!executionPhaseTasksGoAhead) {
-          Preconditions.checkNotNull(queuedPendingGoAhead).add(task);
-          return;
-        }
-      }
-    }
+  public void execute(QuiescingTask task, ThreadPoolType threadPoolType) {
     ExecutorService targetExecutor = getExecutorServiceByThreadPoolType(threadPoolType);
     incrementRemainingTasks();
     super.executeQuiescingTask(task, targetExecutor);
@@ -127,6 +119,10 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         Preconditions.checkNotNull(executionPhaseExecutorService);
         yield executionPhaseExecutorService;
       }
+      case POST_ANALYSIS -> {
+        Preconditions.checkNotNull(postAnalysisPhaseExecutorService);
+        yield postAnalysisPhaseExecutorService;
+      }
     };
   }
 
@@ -139,6 +135,9 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     internalShutdownExecutorService(cpuHeavyPoolExecutorService);
     if (executionPhaseExecutorService != null) {
       internalShutdownExecutorService(executionPhaseExecutorService);
+    }
+    if (postAnalysisPhaseExecutorService != null) {
+      internalShutdownExecutorService(postAnalysisPhaseExecutorService);
     }
   }
 
@@ -155,18 +154,12 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   }
 
   @Override
-  public void launchQueuedUpExecutionPhaseTasks() {
-    synchronized (this) {
-      executionPhaseTasksGoAhead = true;
-      for (QuiescingTask task : Preconditions.checkNotNull(queuedPendingGoAhead)) {
-        execute(task, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
-      }
-      queuedPendingGoAhead = null;
-    }
+  public boolean hasSeparatePoolForExecutionTasks() {
+    return executionPhaseExecutorService != null;
   }
 
   @Override
-  public boolean hasSeparatePoolForExecutionTasks() {
-    return executionPhaseExecutorService != null;
+  public boolean hasSeparatePoolForPostAnalysisTasks() {
+    return postAnalysisPhaseExecutorService != null;
   }
 }

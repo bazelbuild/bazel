@@ -48,7 +48,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(info.getPythonVersion()).isEqualTo("PY3");
   }
 
   @Test

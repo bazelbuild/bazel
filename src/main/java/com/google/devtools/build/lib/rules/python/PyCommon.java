@@ -34,9 +34,6 @@ import java.util.UUID;
 
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
-  /** Name of the version attribute. */
-  public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
-
   private PyCommon() {}
 
   // Public so that Starlark bindings can access it. Should only be called by PyStarlarkBuiltins.

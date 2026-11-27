@@ -14,8 +14,6 @@
 
 package net.starlark.java.eval;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,7 +31,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict.MapBackedDict;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.Types;
@@ -114,7 +111,7 @@ public abstract sealed class Dict<K, V>
         Mutability.Freezable,
         StarlarkIndexable,
         StarlarkIterable<K>
-    permits MapBackedDict, CompactImmutableDict {
+    permits Dict.MapBackedDict, CompactImmutableDict {
   public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.DICT_CONSTRUCTOR;
   }
@@ -131,15 +128,47 @@ public abstract sealed class Dict<K, V>
           ? Types.dict(Types.NEVER, Types.NEVER)
           : Types.dict(Types.ANY, Types.ANY);
     }
+    // Minimize temp allocations, since this method is called frequently.
+    var accumulator =
+        new BiConsumer<K, V>() {
+          @Nullable StarlarkType firstKeyType;
+          @Nullable ImmutableSet.Builder<StarlarkType> keyTypes;
+          @Nullable StarlarkType firstValueType;
+          @Nullable ImmutableSet.Builder<StarlarkType> valueTypes;
+
+          @Override
+          public void accept(K k, V v) {
+            StarlarkType kt = Starlark.getStarlarkTypePropagatingStackOverflow(k, semantics);
+            if (keyTypes != null) {
+              keyTypes.add(kt);
+            } else if (firstKeyType == null) {
+              firstKeyType = kt;
+            } else if (!kt.equals(firstKeyType)) {
+              keyTypes = ImmutableSet.builder();
+              keyTypes.add(firstKeyType);
+              keyTypes.add(kt);
+            }
+
+            StarlarkType vt = Starlark.getStarlarkTypePropagatingStackOverflow(v, semantics);
+            if (valueTypes != null) {
+              valueTypes.add(vt);
+            } else if (firstValueType == null) {
+              firstValueType = vt;
+            } else if (!vt.equals(firstValueType)) {
+              valueTypes = ImmutableSet.builder();
+              valueTypes.add(firstValueType);
+              valueTypes.add(vt);
+            }
+          }
+        };
+    forEach(accumulator);
     return Types.dict(
-        Types.union(
-            keySet().stream()
-                .map(k -> Starlark.getStarlarkType(k, semantics))
-                .collect(toImmutableSet())),
-        Types.union(
-            values().stream()
-                .map(v -> Starlark.getStarlarkType(v, semantics))
-                .collect(toImmutableSet())));
+        accumulator.keyTypes == null
+            ? accumulator.firstKeyType
+            : Types.union(accumulator.keyTypes.build()),
+        accumulator.valueTypes == null
+            ? accumulator.firstValueType
+            : Types.union(accumulator.valueTypes.build()));
   }
 
   /**
@@ -622,9 +651,7 @@ public abstract sealed class Dict<K, V>
   }
 
   /** Implementation backed by a (non-dict) {@link Map}. */
-  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
-  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
-  abstract static sealed class MapBackedDict<K, V> extends Dict<K, V> {
+  private abstract static sealed class MapBackedDict<K, V> extends Dict<K, V> {
     private Map<K, V> contents;
 
     private MapBackedDict(Map<K, V> contents) {
@@ -748,6 +775,11 @@ public abstract sealed class Dict<K, V>
     @Override
     public Collection<V> values() {
       return Collections.unmodifiableMap(contents).values();
+    }
+
+    @Override
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+      contents.forEach(action);
     }
 
     @Override
@@ -900,6 +932,15 @@ public abstract sealed class Dict<K, V>
     public Set<Map.Entry<K, V>> entrySet() {
       accessedKeys.addAll(super.keySet());
       return super.entrySet();
+    }
+
+    @Override
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+      super.forEach(
+          (k, v) -> {
+            accessedKeys.add(k);
+            action.accept(k, v);
+          });
     }
   }
 }

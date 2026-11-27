@@ -22,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
@@ -44,6 +45,7 @@ java_library(
         "//third_party/java/guava:concurrent",
         "//third_party/java/guava:primitives",
         "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

@@ -137,6 +137,10 @@ public interface ImportantOutputHandler extends ActionContext {
   void processTooLargeStdoutErr(Path stdoutErr)
       throws ImportantOutputException, InterruptedException;
 
+  /** Informs this handler of outputs from two executions of the same spawn whose outputs differ */
+  void processNonDeterministicOutputs(Collection<Path> outputs)
+      throws ImportantOutputException, InterruptedException;
+
   /** Represents artifacts that need to be regenerated via action rewinding. */
   record LostArtifacts(ImmutableSetMultimap<String, ActionInput> byDigest) {
 

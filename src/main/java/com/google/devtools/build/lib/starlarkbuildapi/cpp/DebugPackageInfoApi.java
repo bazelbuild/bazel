@@ -27,6 +27,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
+import net.starlark.java.syntax.StarlarkType;
 
 /** Wrapper for the native DebugPackageProvider. */
 @StarlarkBuiltin(
@@ -70,6 +71,10 @@ public interface DebugPackageInfoApi<FileT extends FileApi> extends StructApi {
   /** The provider implementing this can construct DebugPackageInfo objects. */
   @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(DebugPackageInfoApi.Provider.class, DebugPackageInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = NAME,

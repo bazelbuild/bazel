@@ -27,6 +27,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.syntax.StarlarkType;
 
 /**
  * Provider containing any additional environment variables for use when running executables, either
@@ -72,6 +73,11 @@ public interface RunEnvironmentInfoApi extends StructApi {
   /** Provider for {@link RunEnvironmentInfoApi}. */
   @StarlarkBuiltin(name = "Provider", category = DocCategory.PROVIDER, documented = false, doc = "")
   interface RunEnvironmentInfoApiProvider extends ProviderApi {
+
+    public static StarlarkType getStarlarkType() {
+      return new BuiltinProviderType(
+          RunEnvironmentInfoApiProvider.class, RunEnvironmentInfoApi.class);
+    }
 
     @StarlarkMethod(
         name = "RunEnvironmentInfo",

@@ -27,11 +27,13 @@ java_test(
         exclude = [
             "DependencySetWindowsTest.java",
             "DeterministicWriterTest.java",
+            "OptionsUtilsWindowsTest.java",
             "ResourceFileLoaderTest.java",
             "HeapOffsetHelperTest.java",
             "StringEncodingTest.java",
         ],
     ),
+    jvm_flags = ["--enable-native-access=ALL-UNNAMED"],
     tags = [
         "foundations",
         "no_windows",
@@ -51,7 +53,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
         "//src/main/java/com/google/devtools/build/lib/util:concurrency_meter",
@@ -74,8 +75,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util:thread_dump_analyzer",
         "//src/main/java/com/google/devtools/build/lib/util:value_or_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -155,11 +158,16 @@ java_test(
 # Tests windows specific path handling on Unix.
 java_library(
     name = "UtilWindowsTests_lib",
-    srcs = ["DependencySetWindowsTest.java"],
+    srcs = [
+        "DependencySetWindowsTest.java",
+        "OptionsUtilsWindowsTest.java",
+    ],
     resources = ["ResourceFileLoaderTest.message"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party/java/guava:collect",

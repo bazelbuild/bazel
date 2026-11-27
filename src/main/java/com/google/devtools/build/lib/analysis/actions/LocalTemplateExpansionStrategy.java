@@ -31,12 +31,23 @@ import java.io.IOException;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 
-/** Strategy to perform template expansion locally. */
+/**
+ * Strategy to perform template expansion locally and write the result with a given {@link
+ * FileWriteActionContext}.
+ */
 public class LocalTemplateExpansionStrategy implements TemplateExpansionContext {
   public static final Class<LocalTemplateExpansionStrategy> TYPE =
       LocalTemplateExpansionStrategy.class;
 
-  public static LocalTemplateExpansionStrategy INSTANCE = new LocalTemplateExpansionStrategy();
+  private final FileWriteActionContext fileWriteStrategy;
+
+  /**
+   * @param fileWriteStrategy the strategy with which to write the expanded template, independent of
+   *     the {@link FileWriteActionContext} selected for file write actions
+   */
+  public LocalTemplateExpansionStrategy(FileWriteActionContext fileWriteStrategy) {
+    this.fileWriteStrategy = fileWriteStrategy;
+  }
 
   @Override
   public ImmutableList<SpawnResult> expandTemplate(
@@ -50,13 +61,12 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
               templateMetadata.template(), templateMetadata.substitutions(), ctx.getPathResolver());
       DeterministicWriter deterministicWriter =
           out -> out.write(expandedTemplate.getBytes(ISO_8859_1));
-      return ctx.getContext(FileWriteActionContext.class)
-          .writeOutputToFile(
-              action,
-              ctx,
-              deterministicWriter,
-              templateMetadata.makeExecutable(),
-              /* isRemotable= */ true);
+      return fileWriteStrategy.writeOutputToFile(
+          action,
+          ctx,
+          deterministicWriter,
+          templateMetadata.makeExecutable(),
+          /* isRemotable= */ true);
     } catch (IOException | EvalException e) {
       throw new EnvironmentalExecException(
           e,
@@ -72,7 +82,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
    * public access to this method as it's unhealthy to evaluate the action result without the action
    * being executed.
    */
-  public String getExpandedTemplateUnsafe(
+  public static String getExpandedTemplateUnsafe(
       Template template, List<Substitution> substitutions, ArtifactPathResolver resolver)
       throws EvalException, IOException, InterruptedException {
     String templateString;

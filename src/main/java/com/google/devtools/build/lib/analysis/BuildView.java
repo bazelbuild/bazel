@@ -277,6 +277,19 @@ public class BuildView {
                           .build())
                   .build()));
     }
+    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
+      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
+        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
+      }
+      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
+          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
+        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
+        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
+      } else {
+        eventBus.post(new RemoteAnalysisCachingEnabledEvent());
+      }
+    }
+
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
@@ -290,31 +303,24 @@ public class BuildView {
               additionalConfigurationChangeEvent);
       BaselineConfigurations baselines =
           skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
-      topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
-
-      Label topLevelPlatform =
-          topLevelConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
 
       SettablePlatformConfigurationProvider platformConfigProvider =
           remoteAnalysisCachingDependenciesProvider.getPlatformConfigurationProvider();
       if (platformConfigProvider != null) {
+        Label topLevelPlatform =
+            skyframeExecutor.resolveTopLevelPlatform(eventHandler, targetOptions);
         platformConfigProvider.setOnce(
             new DefaultPlatformConfigurationProvider(
                 topLevelPlatform, baselines.targetBaseline(), baselines.execBaseline()));
       }
-    }
 
-    if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
-      try (SilentCloseable c = Profiler.instance().profile("skycache.metadataQuery")) {
-        remoteAnalysisCachingDependenciesProvider.queryMetadataAndMaybeBailout();
-      }
-      if (remoteAnalysisCachingDependenciesProvider.mode() != RemoteAnalysisCacheMode.OFF
-          && remoteAnalysisCachingDependenciesProvider.bailedOut()) {
-        remoteAnalysisCachingDependenciesProvider = RemoteAnalysisCacheManager.createDisabled();
-        remoteAnalysisCacheReaderDeps = RemoteAnalysisCacheDeps.createDisabled();
-      } else {
-        eventBus.post(new RemoteAnalysisCachingEnabledEvent());
-      }
+      // Set up remote analysis caching and invalidate stale deserialized nodes before creating the
+      // top-level configuration, because configuration creation can read cached platform targets.
+      skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
+          remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
+      skyframeExecutor.invalidateWithExternalService(eventHandler);
+
+      topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
 
     topLevelConfigurationTrimmedOfTestOptions =
@@ -355,10 +361,6 @@ public class BuildView {
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
             aspects, aspectsParameters, labelToTargetMap, topLevelConfig, eventHandler);
-
-    skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-        remoteAnalysisCachingDependenciesProvider, remoteAnalysisCacheReaderDeps);
-    skyframeExecutor.invalidateWithExternalService(eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
@@ -413,8 +415,7 @@ public class BuildView {
                 /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
                     .mode()
                     .isSyncUpload(),
-                buildDriverKeyTestContext,
-                buildRequestOptions.getSkymeldAnalysisOverlapPercentage());
+                buildDriverKeyTestContext);
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
@@ -653,7 +654,7 @@ public class BuildView {
           configuredTargets,
           aspects.values(),
           topLevelOptions,
-          buildRequestOptions.getAllHiddenOutputGroupResults(),
+          ImmutableSet.copyOf(buildRequestOptions.getExtraDefaultOutputGroups()),
           eventHandler);
     }
 
@@ -912,11 +913,15 @@ public class BuildView {
         if (target instanceof Rule rule) {
           if (isExclusive || TargetUtils.isExclusiveTestRule(rule)) {
             exclusiveTests.add(configuredTarget);
-          } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)
-              && TargetUtils.isLocalTestRule((Rule) target)) {
-            exclusiveTests.add(configuredTarget);
-          } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
-            exclusiveIfLocalTests.add(configuredTarget);
+          } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
+            // An "exclusive-if-local" test that can never run remotely (because it is pinned to
+            // local execution by its tags) must stay serialized. Only tests that are actually
+            // eligible for remote execution may later be promoted to parallel tests.
+            if (TargetUtils.isLocalTestRule(rule) || TargetUtils.isNoRemoteExecTestRule(rule)) {
+              exclusiveTests.add(configuredTarget);
+            } else {
+              exclusiveIfLocalTests.add(configuredTarget);
+            }
           } else {
             parallelTests.add(configuredTarget);
           }
@@ -1053,8 +1058,7 @@ public class BuildView {
             allTargetsToTest,
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            CoverageReportValue.COVERAGE_REPORT_KEY,
-            ruleClassProvider.getRunfilesPrefix());
+            CoverageReportValue.COVERAGE_REPORT_KEY);
     if (actionsWrapper == null) {
       return ImmutableSet.of();
     }

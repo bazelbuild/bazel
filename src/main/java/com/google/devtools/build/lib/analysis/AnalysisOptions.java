@@ -61,7 +61,8 @@ public abstract class AnalysisOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "When discarding the analysis cache due to a change in the build options, "
-              + "displays up to the given number of changed option names. "
+              + "displays up to the given number of changed option names along with their old "
+              + "and new values. "
               + "If the number given is -1, all changed options will be displayed.")
   public abstract int getMaxConfigChangesToShow();
 
@@ -160,4 +161,14 @@ public abstract class AnalysisOptions extends OptionsBase {
               + "*0.5`.",
       converter = CpuResourceConverter.class)
   public abstract int getOomSensitiveSkyFunctionsSemaphoreSize();
+
+  @Option(
+      name = "experimental_max_transitive_analysis_nodes",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Maximum number of transitive analysis nodes allowed for a single top-level target. If"
+              + " positive, the build fails if any top-level target exceeds this limit.")
+  public abstract long getMaxTransitiveAnalysisNodes();
 }

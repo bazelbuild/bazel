@@ -88,8 +88,30 @@ struct DIROrError {
   int error;
 };
 
-static void PostException(JNIEnv* env, const char* exception_classname,
-                          const std::string& message) {
+namespace {
+
+JavaVM* GetJavaVM(JNIEnv* env) {
+  static JavaVM* java_vm = nullptr;
+  static std::mutex java_vm_mtx;                  // NOLINT(build/c++11)
+  std::lock_guard<std::mutex> lock(java_vm_mtx);  // NOLINT(build/c++11)
+  if (env != nullptr) {
+    JavaVM* env_java_vm;
+    if (env->GetJavaVM(&env_java_vm) != 0) {
+      return nullptr;
+    }
+    if (java_vm == nullptr) {
+      java_vm = env_java_vm;
+    } else if (java_vm != env_java_vm) {
+      return nullptr;
+    }
+  }
+  return java_vm;
+}
+
+}  // namespace
+
+void PostException(JNIEnv* env, const char* exception_classname,
+                   const std::string& message) {
   jclass exception_class = env->FindClass(exception_classname);
   BAZEL_CHECK_NE(exception_class, nullptr) << exception_classname;
   jmethodID constructor =
@@ -106,6 +128,68 @@ static void PostException(JNIEnv* env, const char* exception_classname,
   if (!success) {
     BAZEL_LOG(FATAL) << "Failed to throw " << exception_classname
                      << " with message '" << message.c_str() << "'";
+  }
+}
+
+void PostAssertionError(JNIEnv* env, const std::string& message) {
+  PostException(env, "java/lang/AssertionError", message);
+}
+
+bool RegisterIntConsumerCallback(JNIEnv* env, jobject callback,
+                                 jobject* callback_global_ref,
+                                 const char* name) {
+  if (*callback_global_ref != nullptr) {
+    PostAssertionError(
+        env, std::string("Singleton ") + name + " callback already registered");
+    return false;
+  }
+
+  JavaVM* java_vm = GetJavaVM(env);
+  if (java_vm == nullptr) {
+    PostAssertionError(env, std::string("Unable to get javaVM registering ") +
+                                name + " callback");
+    return false;
+  }
+
+  *callback_global_ref = env->NewGlobalRef(callback);
+  if (*callback_global_ref == nullptr) {
+    PostAssertionError(env, std::string("Unable to create global ref for ") +
+                                name + " callback");
+    return false;
+  }
+  return true;
+}
+
+void PerformIntegerValueCallback(jobject int_consumer_object, int value) {
+  if (int_consumer_object == nullptr) {
+    return;
+  }
+  JavaVM* java_vm = GetJavaVM(nullptr);
+  BAZEL_CHECK_NE(java_vm, nullptr);
+  JNIEnv* java_env;
+  int status =
+      java_vm->GetEnv(reinterpret_cast<void**>(&java_env), JNI_VERSION_1_8);
+  bool attach_current_thread = false;
+  if (status == JNI_EDETACHED) {
+    attach_current_thread = true;
+  } else {
+    BAZEL_CHECK_EQ(status, JNI_OK);
+  }
+  if (attach_current_thread) {
+    BAZEL_CHECK_EQ(java_vm->AttachCurrentThread(
+                       reinterpret_cast<void**>(&java_env), nullptr),
+                   0);
+  }
+  jclass clazz = java_env->GetObjectClass(int_consumer_object);
+  BAZEL_CHECK_NE(clazz, nullptr);
+  // Java: IntConsumer#accept(int)
+  jmethodID method_id = java_env->GetMethodID(clazz, "accept", "(I)V");
+  BAZEL_CHECK_NE(method_id, nullptr);
+  java_env->CallVoidMethod(int_consumer_object, method_id, value);
+  java_env->DeleteLocalRef(clazz);
+
+  if (attach_current_thread) {
+    BAZEL_CHECK_EQ(java_vm->DetachCurrentThread(), JNI_OK);
   }
 }
 
@@ -170,10 +254,6 @@ void PostNativePosixFilesException(JNIEnv* env, int saved_errno,
   }
 }
 
-static void PostAssertionError(JNIEnv *env, const std::string& message) {
-  PostException(env, "java/lang/AssertionError", message);
-}
-
 // "TOSTRING" macro from: https://stackoverflow.com/a/240370
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
@@ -184,62 +264,12 @@ static void PostAssertionError(JNIEnv *env, const std::string& message) {
       std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") + \
           std::string(message))
 
-#define POST_ASSERTION_ERROR(env, message)                              \
-  PostAssertionError(                                                   \
-      env, std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") + \
-               std::string(message))
-
-static JavaVM *GetJavaVM(JNIEnv *env) {
-  static JavaVM *java_vm = nullptr;
-  static std::mutex java_vm_mtx;
-  std::lock_guard<std::mutex> lock(java_vm_mtx);
-  if (env != nullptr) {
-    JavaVM *env_java_vm;
-    jint value = env->GetJavaVM(&env_java_vm);
-    if (value != 0) {
-      return nullptr;
-    }
-    if (java_vm == nullptr) {
-      java_vm = env_java_vm;
-    } else if (java_vm != env_java_vm) {
-      return nullptr;
-    }
-  }
-  return java_vm;
-}
-
-static void PerformIntegerValueCallback(jobject intConsumerObject, int value) {
-  JavaVM *java_vm = GetJavaVM(nullptr);
-  JNIEnv *java_env;
-  int status = java_vm->GetEnv((void **)&java_env, JNI_VERSION_1_8);
-  bool attach_current_thread = false;
-  if (status == JNI_EDETACHED) {
-    attach_current_thread = true;
-  } else {
-    BAZEL_CHECK_EQ(status, JNI_OK);
-  }
-  if (attach_current_thread) {
-    BAZEL_CHECK_EQ(java_vm->AttachCurrentThread((void **)&java_env, nullptr),
-                   0);
-  }
-  jclass clazz = java_env->GetObjectClass(intConsumerObject);
-  BAZEL_CHECK_NE(clazz, nullptr);
-  // Java: IntConsumer#accept(int)
-  jmethodID method_id = java_env->GetMethodID(clazz, "accept", "(I)V");
-  BAZEL_CHECK_NE(method_id, nullptr);
-  java_env->CallVoidMethod(intConsumerObject, method_id, value);
-
-  if (attach_current_thread) {
-    BAZEL_CHECK_EQ(java_vm->DetachCurrentThread(), JNI_OK);
-  }
-}
-
 // TODO(bazel-team): split out all the FileSystem class's native methods
 // into a separate source file, fsutils.cc.
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readlink(
-    JNIEnv* env, jobject instance, jstring path) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(
+    JNIEnv* env, jclass clazz, jstring path) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return nullptr;
@@ -260,8 +290,10 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readlink(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_chmod(
-    JNIEnv* env, jobject instance, jstring path, jint mode) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_chmod(JNIEnv* env,
+                                                               jclass clazz,
+                                                               jstring path,
+                                                               jint mode) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return;
@@ -290,14 +322,16 @@ static void link_common(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_link(
-    JNIEnv* env, jobject instance, jstring oldpath, jstring newpath) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_link(JNIEnv* env,
+                                                              jclass clazz,
+                                                              jstring oldpath,
+                                                              jstring newpath) {
   link_common(env, oldpath, newpath, ::link);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_symlink(
-    JNIEnv* env, jobject instance, jstring oldpath, jstring newpath) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_symlink(
+    JNIEnv* env, jclass clazz, jstring oldpath, jstring newpath) {
   link_common(env, oldpath, newpath, ::symlink);
 }
 
@@ -305,7 +339,7 @@ namespace {
 
 static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
   static const jclass stat_class =
-      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl$StatImpl");
+      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFiles$Stat");
   static const jmethodID file_status_class_ctor =
       getConstructorID(env, stat_class, "(IJJJJ)V");
   return env->NewObject(
@@ -352,30 +386,30 @@ static jobject StatCommon(JNIEnv *env, jstring path,
 }  // namespace
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_stat(
-    JNIEnv* env, jobject instance, jstring path, jchar error_handling) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_stat(
+    JNIEnv* env, jclass clazz, jstring path, jchar error_handling) {
   return StatCommon(env, path, portable_stat, error_handling);
 }
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_lstat(
-    JNIEnv* env, jobject instance, jstring path, jchar error_handling) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_lstat(
+    JNIEnv* env, jclass clazz, jstring path, jchar error_handling) {
   return StatCommon(env, path, portable_lstat, error_handling);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_utimensat(
-    JNIEnv* env, jobject instance, jstring path, jboolean now, jlong millis) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
+    JNIEnv* env, jclass clazz, jstring path, jboolean now, jlong epoch_nanos) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return;
   }
-  // If `now` is true use the current time, otherwise use `millis`.
+  // If `now` is true use the current time, otherwise use `epoch_nanos`.
   // On Linux, if the current user has write permission but isn't the owner of
   // the file, atime and mtime may be simultaneously set to UTIME_NOW, but any
   // other combination is forbidden. For simplicity, always set both.
-  int64_t sec = millis / 1000;
-  int32_t nsec = (millis % 1000) * 1000000;
+  int64_t sec = epoch_nanos / 1'000'000'000;
+  int32_t nsec = epoch_nanos % 1'000'000'000;
   struct timespec times[2] = {
       {sec, now ? UTIME_NOW : nsec},
       {sec, now ? UTIME_NOW : nsec},
@@ -388,8 +422,10 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_utimensat(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_mkdir(
-    JNIEnv* env, jobject instance, jstring path, jint mode) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv* env,
+                                                               jclass clazz,
+                                                               jstring path,
+                                                               jint mode) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return false;
@@ -411,18 +447,17 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_mkdir(
 namespace {
 
 jobject NewDirent(JNIEnv* env, const struct dirent* e) {
-  static const jclass dirent_class =
-      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl$DirentImpl");
+  static const jclass dirent_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent");
   static const jmethodID dirent_ctor =
       getConstructorID(env, dirent_class,
                        "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
-                       "NativePosixFilesService$Dirent$Type;)V");
+                       "NativePosixFiles$Dirent$Type;)V");
   static const jclass type_class = getClass(
-      env,
-      "com/google/devtools/build/lib/unix/NativePosixFilesService$Dirent$Type");
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent$Type");
   static const char* field_sig =
       "Lcom/google/devtools/build/lib/unix/"
-      "NativePosixFilesService$Dirent$Type;";
+      "NativePosixFiles$Dirent$Type;";
   static const jobject type_file =
       getStaticObjectField(env, type_class, "FILE", field_sig);
   static const jobject type_directory =
@@ -479,8 +514,9 @@ jobject NewDirent(JNIEnv* env, const struct dirent* e) {
 }  // namespace
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readdir(
-    JNIEnv* env, jobject instance, jstring path) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv* env,
+                                                                 jclass clazz,
+                                                                 jstring path) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return nullptr;
@@ -531,7 +567,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readdir(
   }
 
   static const jclass dirent_class = getClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFilesService$Dirent");
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirent");
   jobjectArray dirent_array =
       env->NewObjectArray(dirents.size(), dirent_class, nullptr);
   if (dirent_array == nullptr && env->ExceptionOccurred()) {
@@ -545,8 +581,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readdir(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_rename(
-    JNIEnv* env, jobject instance, jstring oldpath, jstring newpath) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(
+    JNIEnv* env, jclass clazz, jstring oldpath, jstring newpath) {
   JStringLatin1Holder oldpath_chars(env, oldpath);
   JStringLatin1Holder newpath_chars(env, newpath);
   if (env->ExceptionOccurred()) {
@@ -562,8 +598,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_rename(
 }
 
 extern "C" JNIEXPORT bool JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_remove(
-    JNIEnv* env, jobject instance, jstring path) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv* env,
+                                                                jclass clazz,
+                                                                jstring path) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return false;
@@ -585,8 +622,10 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_remove(
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_mkfifo(
-    JNIEnv* env, jobject instance, jstring path, jint mode) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv* env,
+                                                                jclass clazz,
+                                                                jstring path,
+                                                                jint mode) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return;
@@ -920,8 +959,8 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_deleteTreesBelow(
-    JNIEnv* env, jobject instance, jstring path) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_deleteTreesBelow(
+    JNIEnv* env, jclass clazz, jstring path) {
   JStringLatin1Holder path_chars(env, path);
   if (env->ExceptionOccurred()) {
     return;
@@ -975,310 +1014,15 @@ static jbyteArray getxattr_common(JNIEnv *env,
 }  // namespace
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_getxattr(
-    JNIEnv* env, jobject instance, jstring path, jstring name) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_getxattr(
+    JNIEnv* env, jclass clazz, jstring path, jstring name) {
   return getxattr_common(env, path, name, portable_getxattr);
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_lgetxattr(
-    JNIEnv* env, jobject instance, jstring path, jstring name) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(
+    JNIEnv* env, jclass clazz, jstring path, jstring name) {
   return getxattr_common(env, path, name, portable_lgetxattr);
-}
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    pushDisableSleepNative
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_pushDisableSleepNative(
-    JNIEnv*, jclass) {
-  return portable_push_disable_sleep();
-}
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    popDisableSleepNative
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_popDisableSleepNative(
-    JNIEnv*, jclass) {
-  return portable_pop_disable_sleep();
-}
-
-jobject g_suspend_callback;
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    registerSuspensionNative
- * Signature: (Ljava/util/function/IntConsumer;)V
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerSuspensionNative(
-    JNIEnv* env, jobject local_object, jobject callback) {
-  if (g_suspend_callback != nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Singleton system suspension callback already registered");
-    return;
-  }
-
-  JavaVM *java_vm = GetJavaVM(env);
-  if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering system suspension callback");
-    return;
-  }
-
-  g_suspend_callback = env->NewGlobalRef(callback);
-  if (g_suspend_callback == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for system suspension callback");
-    return;
-  }
-  portable_start_suspend_monitoring();
-}
-
-void suspend_callback(SuspensionReason value) {
-  if (g_suspend_callback != nullptr) {
-    PerformIntegerValueCallback(g_suspend_callback, value);
-  }
-}
-
-jobject g_thermal_callback;
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    registerThermalNative
- * Signature: (Ljava/util/function/IntConsumer;)V
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerThermalNative(
-    JNIEnv* env, jobject local_object, jobject callback) {
-  if (g_thermal_callback != nullptr) {
-    POST_ASSERTION_ERROR(env, "Singleton thermal callback already registered");
-    return;
-  }
-
-  JavaVM *java_vm = GetJavaVM(env);
-  if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Unable to get javaVM registering thermal callback");
-    return;
-  }
-
-  g_thermal_callback = env->NewGlobalRef(callback);
-  if (g_thermal_callback == nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Unable to create global ref for thermal callback");
-    return;
-  }
-  portable_start_thermal_monitoring();
-}
-
-void thermal_callback(int value) {
-  if (g_thermal_callback != nullptr) {
-    PerformIntegerValueCallback(g_thermal_callback, value);
-  }
-}
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    thermalLoadNative
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_thermalLoadNative(
-    JNIEnv* env, jclass) {
-  return portable_thermal_load();
-}
-
-jobject g_system_load_advisory_callback;
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    registerLoadAdvisoryNative
- * Signature: (Ljava/util/function/IntConsumer;)V
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerLoadAdvisoryNative(
-    JNIEnv* env, jobject local_object, jobject callback) {
-  if (g_system_load_advisory_callback != nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Singleton system load advisory callback already registered");
-    return;
-  }
-
-  JavaVM *java_vm = GetJavaVM(env);
-  if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering system load advisory callback");
-    return;
-  }
-
-  g_system_load_advisory_callback = env->NewGlobalRef(callback);
-  if (g_system_load_advisory_callback == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for system load advisory callback");
-    return;
-  }
-  portable_start_system_load_advisory_monitoring();
-}
-
-void system_load_advisory_callback(int value) {
-  if (g_system_load_advisory_callback != nullptr) {
-    PerformIntegerValueCallback(g_system_load_advisory_callback, value);
-  }
-}
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    systemLoadAdvisoryNative
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemLoadAdvisoryNative(
-    JNIEnv* env, jclass) {
-  return portable_system_load_advisory();
-}
-
-jobject g_memory_pressure_callback;
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    registerMemoryPressureNative
- * Signature: (Ljava/util/function/IntConsumer;)V
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerMemoryPressureNative(
-    JNIEnv* env, jobject local_object, jobject callback) {
-  if (g_memory_pressure_callback != nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Singleton memory pressure callback already registered");
-    return;
-  }
-
-  JavaVM *java_vm = GetJavaVM(env);
-  if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering memory pressure callback");
-    return;
-  }
-
-  g_memory_pressure_callback = env->NewGlobalRef(callback);
-  if (g_memory_pressure_callback == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to create global ref for memory pressure callback");
-    return;
-  }
-  portable_start_memory_pressure_monitoring();
-}
-
-void memory_pressure_callback(MemoryPressureLevel level) {
-  if (g_memory_pressure_callback != nullptr) {
-    PerformIntegerValueCallback(g_memory_pressure_callback, level);
-  }
-}
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    systemMemoryPressureNative
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_systemMemoryPressureNative(
-    JNIEnv* env, jclass) {
-  return portable_memory_pressure();
-}
-
-jobject g_disk_space_callback;
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    registerDiskSpaceNative
- * Signature: (Ljava/util/function/IntConsumer;)V
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerDiskSpaceNative(
-    JNIEnv* env, jobject local_object, jobject callback) {
-  if (g_disk_space_callback != nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Singleton disk space callback already registered");
-    return;
-  }
-
-  JavaVM *java_vm = GetJavaVM(env);
-  if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(
-        env, "Unable to get javaVM registering disk space callback");
-    return;
-  }
-
-  g_disk_space_callback = env->NewGlobalRef(callback);
-  if (g_disk_space_callback == nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Unable to create global ref for disk space callback");
-    return;
-  }
-  portable_start_disk_space_monitoring();
-}
-
-void disk_space_callback(DiskSpaceLevel level) {
-  if (g_disk_space_callback != nullptr) {
-    PerformIntegerValueCallback(g_disk_space_callback, level);
-  }
-}
-
-jobject g_cpu_speed_callback;
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    registerCPUSpeedNative
- * Signature: (Ljava/util/function/IntConsumer;)V
- */
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_registerCPUSpeedNative(
-    JNIEnv* env, jobject local_object, jobject callback) {
-  if (g_cpu_speed_callback != nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Singleton cpu speed callback already registered");
-    return;
-  }
-
-  JavaVM *java_vm = GetJavaVM(env);
-  if (java_vm == nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Unable to get javaVM registering cpu speed callback");
-    return;
-  }
-
-  g_cpu_speed_callback = env->NewGlobalRef(callback);
-  if (g_cpu_speed_callback == nullptr) {
-    POST_ASSERTION_ERROR(env,
-                         "Unable to create global ref for cpu speed callback");
-    return;
-  }
-  portable_start_cpu_speed_monitoring();
-}
-
-void cpu_speed_callback(int speed) {
-  if (g_cpu_speed_callback != nullptr) {
-    PerformIntegerValueCallback(g_cpu_speed_callback, speed);
-  }
-}
-
-/*
- * Class: com.google.devtools.build.lib.platform.PlatformNativeDepsServiceImpl
- * Method:    cpuSpeedNative
- * Signature: ()I
- *
- * Returns 1-100 to represent CPU speed. Returns -1 in case of error.
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_PlatformNativeDepsServiceImpl_cpuSpeedNative(
-    JNIEnv* env, jclass) {
-  return portable_cpu_speed();
 }
 
 }  // namespace blaze_jni

@@ -111,7 +111,7 @@ public final class DiskCacheGarbageCollector {
       if (maxAge.isEmpty()) {
         return 0;
       }
-      return Instant.now().minus(maxAge.get()).toEpochMilli();
+      return Duration.between(Instant.EPOCH, Instant.now().minus(maxAge.get())).toNanos();
     }
   }
 
@@ -248,7 +248,7 @@ public final class DiskCacheGarbageCollector {
                   new Entry(
                       childPath.relativeTo(root).getPathString(),
                       status.getSize(),
-                      status.getLastModifiedTime());
+                      status.getLastModifiedTimeNanos());
               synchronized (entries) {
                 entries.add(entry);
               }
@@ -291,7 +291,7 @@ public final class DiskCacheGarbageCollector {
                 concurrentUpdate.set(true);
                 return;
               }
-              if (status.getLastModifiedTime() != entry.mtime()) {
+              if (status.getLastModifiedTimeNanos() != entry.mtime()) {
                 // The entry was likely accessed by a build since we statted it.
                 concurrentUpdate.set(true);
                 return;

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobValue;
@@ -411,11 +412,11 @@ class IncludeParser {
         if (hints == null) {
           hints = Sets.newTreeSet();
         }
-        String relativePath = m.replaceFirst(rule.findRoot);
-        if (!relativePath.startsWith(ALLOWED_PREFIX)) {
+        PathFragment relativePath = PathFragment.create(m.replaceFirst(rule.findRoot));
+        if (!relativePath.getPathString().startsWith(ALLOWED_PREFIX)) {
           logger.atWarning().log(
-              "Path %s to search after substitution does not start with %s",
-              relativePath, ALLOWED_PREFIX);
+              "Path %s to search after substitution and normalization does not start with %s",
+              relativePath.getPathString(), ALLOWED_PREFIX);
           continue;
         }
         Path root = sourceRoot.getRelative(relativePath);
@@ -515,8 +516,12 @@ class IncludeParser {
 
     /** The kind of inclusion. */
     final Kind kind;
+
     /** The relative path of the inclusion. */
     final PathFragment pathFragment;
+
+    /** Cached 31-bit non-zero basename hash; 0 means uncomputed. */
+    private volatile int baseNameHash;
 
     private Inclusion(PathFragment pathFragment, Kind kind) {
       this.kind = kind;
@@ -533,6 +538,15 @@ class IncludeParser {
 
     String getPathString() {
       return pathFragment.getPathString();
+    }
+
+    int getBaseNameHash() {
+      int cached = baseNameHash;
+      if (cached == 0) {
+        cached = IncludeScanningHeaderData.hashBaseName(pathFragment);
+        baseNameHash = cached; // NOMUTANTS -- Memoization only; recomputing returns an equal hash.
+      }
+      return cached;
     }
 
     @Override
@@ -823,6 +837,9 @@ class IncludeParser {
           break;
         } else if (chars[lineEnd] == '\\') {
           lineEnd++;
+          if (lineEnd == end) {
+            break;
+          }
           if (chars[lineEnd] == '\n') {
             lineEnd++;
           }

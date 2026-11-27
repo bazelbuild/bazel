@@ -144,7 +144,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
+            evaluatorContext
+                .getVisitor()
+                .enqueueEvaluation(skyKey, /* signalingDep= */ null, /* alreadyStarted= */ false);
             break;
           case DONE:
             // Scheduling above starts concurrent evaluation, so a key that is a dependency of an
@@ -695,6 +697,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.SKYFRAME_EVAL, "Parallel Evaluator evaluation")) {
       return doMutatingEvaluation(skyKeySet, doneBeforeEvaluation);
+    } catch (InterruptedException e) {
+      // Workers waiting for a fresh environment can outlive the evaluator's tasks.
+      stateCache.invalidateAll();
+      throw e;
     } finally {
       unnecessaryTemporaryStateDropperReceiver.onEvaluationFinished();
     }

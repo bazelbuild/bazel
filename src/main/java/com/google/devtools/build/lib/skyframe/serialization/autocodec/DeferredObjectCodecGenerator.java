@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.BUILDER_NAME;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.BUILDER_TYPE_NAME;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.CONSTRUCTOR_LOOKUP_NAME;
@@ -126,19 +127,29 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
       TypeElement encodedType,
       ImmutableList<FieldGenerator> fieldGenerators,
       MethodSpec.Builder constructor) {
-    // Adds constructor-scoped MethodHandles.Lookup variables named `CONSTRUCTOR_LOOKUP_NAME<N>`.
-    // <N> is the hierarchy level of the lookup.
+    // Adds constructor-scoped MethodHandles.Lookup variables named `CONSTRUCTOR_LOOKUP_NAME<N>`,
+    // where <N> is the hierarchy level of the lookup, for each hierarchy level accessed via
+    // VarHandle.
+    ImmutableSet<Integer> levels =
+        fieldGenerators.stream()
+            .filter(g -> g.getGetterName() == null)
+            .map(FieldGenerator::getHierarchyLevel)
+            .collect(toImmutableSet());
+    if (levels.isEmpty()) {
+      return;
+    }
     ImmutableList<TypeElement> lineage = getClassLineage(encodedType, env);
-    for (int i = 0; i < lineage.size(); i++) {
-      constructor.addStatement("$T $L", MethodHandles.Lookup.class, CONSTRUCTOR_LOOKUP_NAME + i);
+    for (int level : levels) {
+      constructor.addStatement(
+          "$T $L", MethodHandles.Lookup.class, CONSTRUCTOR_LOOKUP_NAME + level);
     }
     constructor.beginControlFlow("try");
-    for (int i = 0; i < lineage.size(); i++) {
+    for (int level : levels) {
       constructor.addStatement(
           "$L = $T.privateLookupIn($T.class, $T.lookup())",
-          CONSTRUCTOR_LOOKUP_NAME + i,
+          CONSTRUCTOR_LOOKUP_NAME + level,
           MethodHandles.class,
-          getErasure(lineage.get(i), env),
+          getErasure(lineage.get(level), env),
           MethodHandles.class);
     }
     constructor

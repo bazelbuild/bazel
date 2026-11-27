@@ -353,7 +353,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
       // Note that utime() on a symlink actually changes the mtime of its target.
       Path linkPath = getOutputPath(actionExecutionContext);
       if (linkPath.exists()) {
-        linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+        linkPath.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
         actionExecutionContext

@@ -42,7 +42,8 @@ class BlazeOptionHandlerTestHelper {
       List<Class<? extends OptionsBase>> optionsClasses,
       boolean allowResidue,
       @Nullable String aliasFlag,
-      boolean skipStarlarkPrefixes)
+      boolean skipStarlarkPrefixes,
+      InvocationPolicy invocationPolicy)
       throws Exception {
     parser = createOptionsParser(optionsClasses, allowResidue, aliasFlag, skipStarlarkPrefixes);
 
@@ -78,12 +79,7 @@ class BlazeOptionHandlerTestHelper {
             new MockBuildCommand(),
             MockBuildCommand.class.getAnnotation(Command.class),
             parser,
-            InvocationPolicy.getDefaultInstance());
-  }
-
-  public BlazeOptionHandlerTestHelper(
-      List<Class<? extends OptionsBase>> optionsClasses, boolean allowResidue) throws Exception {
-    this(optionsClasses, allowResidue, /* aliasFlag= */ null, /* skipStarlarkPrefixes= */ false);
+            invocationPolicy);
   }
 
   private static OptionsParser createOptionsParser(

@@ -26,10 +26,8 @@ import com.google.devtools.build.lib.skyframe.serialization.CodecHelpers;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.WildcardTypeName;
 import java.lang.invoke.VarHandle;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -247,54 +245,26 @@ abstract class DeferredObjectCodecFieldGenerators {
           };
     }
 
-    /**
-     * The generated codec has a {@code Class<?>} member variable with this name storing the class
-     * of the field.
-     */
-    private String getTypeMemberName() {
-      return getNamePrefix() + "_type";
-    }
-
-    @Override
-    void generateAdditionalMemberVariables(TypeSpec.Builder builder) {
-      builder.addField(
-          // Specifies Class<?> type.
-          ParameterizedTypeName.get(
-              ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
-          getTypeMemberName(),
-          Modifier.PRIVATE,
-          Modifier.FINAL);
-    }
-
-    @Override
-    void generateConstructorCode(MethodSpec.Builder constructor) {
-      constructor.addStatement(
-          "this.$L = $T.class.getDeclaredField(\"$L\").getType()",
-          getTypeMemberName(),
-          getParentName(),
-          getParameterName());
-    }
-
     @Override
     void generateSerializeCode(MethodSpec.Builder serialize) {
       serialize.addStatement(
-          "$T.$L.serialize(context, codedOut, $L, $L)",
+          "$T.$L.serialize(context, codedOut, $T.class, $L)",
           ArrayProcessor.class,
           processorName,
-          getTypeMemberName(),
+          getTypeName(),
           generateAccessor());
     }
 
     @Override
     void generateDeserializeCode(MethodSpec.Builder deserialize) {
       deserialize.addStatement(
-          "$L.$L = ($T) $T.$L.deserialize(context, codedIn, $L)",
+          "$L.$L = ($T) $T.$L.deserialize(context, codedIn, $T.class)",
           BUILDER_NAME,
           getParameterName(),
           getTypeName(),
           ArrayProcessor.class,
           processorName,
-          getTypeMemberName());
+          getTypeName());
     }
   }
 

@@ -2,6 +2,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load(":bootstrap_rust_toolchain.bzl", "windows_msvc_rust_toolchain_alias")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -141,7 +142,6 @@ sh_test(
         "@rules_java//toolchains:" + runtime,
     ],
 ) for (jdk, runtime) in [
-    (8, "jdk_8"),
     (11, "remote_jdk11"),
     (17, "remotejdk_17"),
     (21, "remotejdk_21"),
@@ -1021,23 +1021,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-# To run this test, ensure that maven_dependency_plugin() and
-# android_repositories() in WORKSPACE are uncommented.
-sh_test(
-    name = "maven_starlark_test",
-    size = "medium",
-    srcs = ["maven_starlark_test.sh"],
-    data = [
-        ":test-deps",
-        "//external:android_sdk_for_testing",
-        "@m2//:files",
-    ],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-)
-
 sh_test(
     name = "python_version_test",
     size = "medium",
@@ -1228,6 +1211,21 @@ sh_test(
     tags = ["no_windows"],
 )
 
+windows_msvc_rust_toolchain_alias(
+    name = "windows_msvc_rust_toolchain",
+    actual = "@rules_rust//rust/toolchain:current_rust_toolchain",
+    tags = ["manual"],
+)
+
+alias(
+    name = "bootstrap_rust_toolchain",
+    actual = select({
+        "//src/conditions:windows_x86_64": ":windows_msvc_rust_toolchain",
+        "//conditions:default": "@rules_rust//rust/toolchain:current_rust_toolchain",
+    }),
+    tags = ["manual"],
+)
+
 sh_test(
     name = "bazel_bootstrap_distfile_test",
     timeout = "eternal",
@@ -1237,6 +1235,7 @@ sh_test(
         "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
+        ":bootstrap_rust_toolchain",
         ":test-deps",
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
@@ -1245,6 +1244,7 @@ sh_test(
     ],
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+        "RUST_SYSROOT_SHORT": "$(RUST_SYSROOT_SHORT)",
     },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
@@ -1252,6 +1252,7 @@ sh_test(
         "no_presubmit",
     ],
     toolchains = [
+        ":bootstrap_rust_toolchain",
         "@rules_java//toolchains:remotejdk_25",
     ],
 )
@@ -1265,6 +1266,7 @@ sh_test(
         "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
+        ":bootstrap_rust_toolchain",
         ":test-deps",
         "//:bazel-distfile-tar",
         "//src:embedded_jdk_allmodules",
@@ -1273,6 +1275,7 @@ sh_test(
     ],
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+        "RUST_SYSROOT_SHORT": "$(RUST_SYSROOT_SHORT)",
     },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
@@ -1281,6 +1284,7 @@ sh_test(
         "no_windows",
     ],
     toolchains = [
+        ":bootstrap_rust_toolchain",
         "@rules_java//toolchains:remotejdk_25",
     ],
 )
@@ -1390,6 +1394,18 @@ sh_test(
         ":test-deps",
     ],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "combine_distfiles_to_tar_test",
+    size = "small",
+    srcs = ["combine_distfiles_to_tar_test.sh"],
+    data = [
+        "//:srcs",
+        "//src/test/shell:bashunit",
+    ],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(

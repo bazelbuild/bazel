@@ -66,6 +66,12 @@ filegroup(
     visibility = ["//src/test:__subpackages__"],
 )
 
+py_binary(
+    name = "merge_dist_lockfile",
+    srcs = ["merge_dist_lockfile.py"],
+    visibility = ["//:__pkg__"],
+)
+
 sh_test(
     name = "bazel_lockfile_merge_test",
     size = "small",
@@ -99,7 +105,7 @@ filegroup(
 py_binary(
     name = "generate_fish_completion",
     srcs = ["generate_fish_completion.py"],
-    deps = ["//third_party/py/abseil"],
+    deps = ["@bazel_pip_dev_deps//absl_py"],
 )
 
 genrule(

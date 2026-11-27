@@ -121,7 +121,7 @@ the setting of the `--output_base` or `--output_user_root` options.
 
 The Bazel output is quite easy to parse for many purposes. Two options that may
 be helpful for your script are `--noshow_progress` which suppresses progress
-messages, and <code>--show_result <var>n</var></code>, which controls whether or
+messages, and <code>--show_result n</code>, which controls whether or
 not "build up-to-date" messages are printed; these messages may be parsed to
 discover which targets were successfully built, and the location of the output
 files they created. Be sure to specify a very large value of _n_ if you rely on

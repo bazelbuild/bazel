@@ -19,6 +19,7 @@ filegroup(
 java_library(
     name = "util",
     srcs = [
+        "CaseInsensitiveFileSystem.java",
         "FileSystems.java",
         "FsApparatus.java",
     ],
@@ -28,14 +29,15 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party/java/guava:base",
     ],
 )
 

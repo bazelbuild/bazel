@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.shell;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -125,29 +125,18 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // Subprocesses fork from this platform thread to ensure the subprocess's parent is long lived,
   // which prevents actions from being killed erroneously. See the doc comment on
   // startOnPlatformThread for more details.
-  @VisibleForTesting
-  static final ExecutorService DEFAULT_FORK_EXECUTOR =
-      Executors.newSingleThreadExecutor(
-          runnable -> {
-            Thread thread = new Thread(runnable, "subprocess-fork");
-            thread.setDaemon(true);
-            return thread;
-          });
+  private static final ExecutorService FORK_EXECUTOR =
+      Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "subprocess-fork");
+        thread.setDaemon(true);
+        return thread;
+      });
 
   private final ReentrantLock lock = new ReentrantLock();
-  private final ExecutorService forkExecutor;
 
-  public static final JavaSubprocessFactory INSTANCE =
-      new JavaSubprocessFactory(DEFAULT_FORK_EXECUTOR);
+  public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
 
-  private JavaSubprocessFactory(ExecutorService forkExecutor) {
-    this.forkExecutor = forkExecutor;
-  }
-
-  @VisibleForTesting
-  static JavaSubprocessFactory createForTesting(ExecutorService forkExecutor) {
-    return new JavaSubprocessFactory(forkExecutor);
-  }
+  private JavaSubprocessFactory() {}
 
   // since we are a singleton, we represent an ideal global lock for
   // process invocations, which is required due to the following race condition:
@@ -168,7 +157,9 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   //
   // As a workaround, we use a lock around the fork.
   private Process start(ProcessBuilder builder) throws IOException {
-    lock.lock();
+    try (var _ = Profiler.instance().profile("wait for subprocess factory lock")) {
+      lock.lock();
+    }
     try {
       return startOnPlatformThread(builder);
     } catch (IOException e) {
@@ -180,7 +171,8 @@ public class JavaSubprocessFactory implements SubprocessFactory {
                 + " used at startup. Re-rerunning the blaze invocation should succeed.",
             e);
       }
-      throw e;
+      // The message contains the command line and working directory as platform strings.
+      throw new IOException(StringEncoding.platformToInternal(e.getMessage()), e);
     } finally {
       lock.unlock();
     }
@@ -201,7 +193,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
    * parent, builds can fail unexpectedly when actions take longer than 30 seconds.
    */
   private Process startOnPlatformThread(ProcessBuilder builder) throws IOException {
-    Future<Process> future = forkExecutor.submit(builder::start);
+    Future<Process> future = FORK_EXECUTOR.submit(builder::start);
     try {
       return Uninterruptibles.getUninterruptibly(future);
     } catch (ExecutionException e) {
@@ -221,25 +213,27 @@ public class JavaSubprocessFactory implements SubprocessFactory {
     builder.command(Lists.transform(params.getArgv(), StringEncoding::internalToPlatform));
     builder.environment().clear();
     (params.getEnv() != null ? params.getEnv() : params.getClientEnv())
-        .forEach(
-            (key, value) ->
-                builder
-                    .environment()
-                    .put(
-                        StringEncoding.internalToPlatform(key),
-                        StringEncoding.internalToPlatform(value)));
+        .forEach((key, value) ->
+            builder
+                .environment()
+                .put(
+                    StringEncoding.internalToPlatform(key),
+                    StringEncoding.internalToPlatform(value)));
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));
     builder.redirectError(getRedirect(params.getStderr(), params.getStderrFile()));
     builder.redirectErrorStream(params.redirectErrorStream());
     builder.directory(params.getWorkingDirectory());
 
-    // Deadline is now + given timeout.
+    Process process = start(builder);
+
+    // Compute the deadline after starting the process so that time spent waiting for the subprocess
+    // factory lock doesn't count towards the timeout.
     long deadlineMillis =
         params.getTimeoutMillis() > 0
             ? Math.addExact(System.currentTimeMillis(), params.getTimeoutMillis())
             : 0;
-    return new JavaSubprocess(start(builder), deadlineMillis);
+    return new JavaSubprocess(process, deadlineMillis);
   }
 
   /**

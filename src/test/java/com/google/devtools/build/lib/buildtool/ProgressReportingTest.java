@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.unix.NativePosixFilesServiceImpl;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -52,8 +51,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new UnixFileSystem(
-        DigestHashFunction.SHA256, /* hashAttributeName= */ "", new NativePosixFilesServiceImpl()) {
+    return new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "") {
       private void recordAccess(PathOp op, PathFragment path) {
         if (receiver != null) {
           receiver.accept(path, op);

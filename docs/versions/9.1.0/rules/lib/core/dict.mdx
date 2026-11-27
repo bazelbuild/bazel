@@ -15,7 +15,7 @@ d[0], d[2] = "a", "b"
 
 There are four ways to construct a dictionary:
 
-1. A dictionary expression `&lcub;k: v, ...&rcub;` yields a new dictionary with the specified key/value entries, inserted in the order they appear in the expression. Evaluation fails if any two key expressions yield the same value.- A dictionary comprehension `&lcub;k: v for vars in seq&rcub;` yields a new dictionary into which each key/value pair is inserted in loop iteration order. Duplicates are permitted: the first insertion of a given key determines its position in the sequence, and the last determines its associated value.
+1. A dictionary expression `{k: v, ...}` yields a new dictionary with the specified key/value entries, inserted in the order they appear in the expression. Evaluation fails if any two key expressions yield the same value.- A dictionary comprehension `{k: v for vars in seq}` yields a new dictionary into which each key/value pair is inserted in loop iteration order. Duplicates are permitted: the first insertion of a given key determines its position in the sequence, and the last determines its associated value.
 
      ```
      {k: v for k, v in (("a", 0), ("b", 1), ("a", 2))}  # {"a": 2, "b": 1}

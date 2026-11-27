@@ -38,7 +38,7 @@ public final class DefStatement extends Statement {
       ImmutableList<Parameter> parameters,
       @Nullable Expression returnType,
       ImmutableList<Statement> body) {
-    super(locs, Kind.DEF);
+    super(locs);
     this.defOffset = defOffset;
     this.identifier = identifier;
     this.typeParameters = typeParameters;
@@ -75,6 +75,21 @@ public final class DefStatement extends Statement {
   @Nullable
   public Expression getReturnType() {
     return returnType;
+  }
+
+  public boolean signatureHasTypeAnnotations() {
+    if (returnType != null) {
+      return true;
+    }
+    if (!typeParameters.isEmpty()) {
+      return true;
+    }
+    for (Parameter parameter : parameters) {
+      if (parameter.getType() != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void setResolvedFunction(Resolver.Function resolved) {

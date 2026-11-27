@@ -154,6 +154,8 @@ message FailureDetail {
     JniLinking jni_linking = 190;
   }
 
+  reserved 178;  // Deleted GoogleLicenseChecking
+
   reserved 102; // For internal use
   reserved 105; // For internal use
   reserved 109; // For internal use
@@ -169,7 +171,6 @@ message FailureDetail {
   reserved 165; // For internal use
   reserved 170 to 171; // For internal use
   reserved 176; // For internal use
-  reserved 178; // For internal use
   reserved 180; // For internal use
   reserved 187; // For internal use
   reserved 188; // For internal use

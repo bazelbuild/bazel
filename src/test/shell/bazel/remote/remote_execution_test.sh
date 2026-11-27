@@ -875,6 +875,85 @@ EOF
   # expect_not_log "Sleeping 3..."
 }
 
+function test_streamed_test_output() {
+  stop_worker
+  start_worker --live_output_streams
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "streaming",
+  srcs = ["streaming.sh"],
+)
+EOF
+  # The test only finishes once its first line has reached Bazel's output,
+  # which requires that line to be streamed while the test runs. The test
+  # runner merges stderr into the test log, so the stderr line is expected too.
+  cat > a/streaming.sh <<'EOF'
+#!/usr/bin/env bash
+echo "line before release"
+echo "stderr before release" >&2
+for i in {1..60}; do
+  if [[ -e "$RELEASE_FILE" ]]; then
+    echo "released"
+    exit 0
+  fi
+  sleep 1
+done
+echo "not released"
+exit 1
+EOF
+  chmod +x a/streaming.sh
+
+  local -r release_file="${TEST_TMPDIR}/release"
+  local -r output="${TEST_TMPDIR}/streamed_output"
+  rm -f "$release_file"
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --test_output=streamed \
+      --test_env=RELEASE_FILE="$release_file" \
+      //a:streaming >& "$output" &
+  local -r bazel_pid=$!
+
+  local streamed=0
+  for i in {1..60}; do
+    if grep -q "line before release" "$output"; then
+      streamed=1
+      touch "$release_file"
+      break
+    fi
+    sleep 1
+  done
+  local exit_code=0
+  wait "$bazel_pid" || exit_code=$?
+  cp "$output" "$TEST_log"
+  [[ "$streamed" == 1 ]] || fail "Test output was not streamed while the test ran"
+  [[ "$exit_code" == 0 ]] || fail "Expected the test to pass, got exit code $exit_code"
+  # The live output is reconciled with the final output, so nothing is repeated.
+  expect_log_once "line before release"
+  expect_log_once "stderr before release"
+  expect_log_once "released"
+  [[ "$(grep -c "line before release" bazel-testlogs/a/streaming/test.log)" == 1 ]] \
+      || fail "Expected the line exactly once in test.log"
+
+  # A remote cache hit has no live output. The cached log is shown once.
+  bazel clean >& "$TEST_log"
+  bazel test \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --test_output=streamed \
+      --test_env=RELEASE_FILE="$release_file" \
+      //a:streaming >& "$TEST_log" || fail "Expected the test to pass from the cache"
+  expect_log "remote cache hit"
+  expect_log_once "line before release"
+  expect_log_once "released"
+  [[ "$(grep -c "line before release" bazel-testlogs/a/streaming/test.log)" == 1 ]] \
+      || fail "Expected the line exactly once in the cached test.log"
+}
+
 function test_passed_env_user() {
   add_rules_shell "MODULE.bazel"
   mkdir -p a
@@ -2063,6 +2142,29 @@ sh_test(
 EOF
 }
 
+function setup_exclusive_if_local_test_case() {
+  local extra_tag="${1:-}"
+  local tags='"exclusive-if-local"'
+  if [[ -n "${extra_tag}" ]]; then
+    tags="${tags}, \"${extra_tag}\""
+  fi
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+  tags = [${tags}],
+)
+EOF
+}
+
 function test_exclusive_test_hit_remote_cache() {
   # Test that the exclusive test works with the remote cache.
   setup_exclusive_test_case
@@ -2115,6 +2217,33 @@ function test_exclusive_test_wont_remote_exec() {
 
   # test action + test xml generation
   expect_log "2.*-sandbox"
+}
+
+function test_exclusive_if_local_test_remote_exec() {
+  # Test that an exclusive-if-local test is allowed to run remotely in parallel
+  setup_exclusive_if_local_test_case
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation should run remotely, not on local
+  expect_log "2 remote\\."
+  expect_not_log "-sandbox"
+}
+
+function test_exclusive_if_local_test_no_remote_exec_runs_locally() {
+  # Test that an exclusive-if-local test that is also tagged no-remote-exec stays
+  # serialized (runs locally) even when remote execution is enabled.
+  setup_exclusive_if_local_test_case "no-remote-exec"
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # Because the test can't run remotely, it executes locally like an "exclusive" test
+  expect_log "2.*-sandbox"
+  expect_not_log "2 remote\\."
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

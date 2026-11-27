@@ -137,7 +137,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
   /**
    * Implements {@link RuleOrMacroClass#getDeclaringMacro} using {@link Target#getDeclaringMacro}.
    *
-   * <p>This method cannot be called for rules in deserialized packages.
+   * <p>This method cannot be called for rules in deserialized packages, or in packages (or package
+   * pieces) that have not yet finished loading.
    */
   @Override
   @Nullable
@@ -710,9 +711,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
    */
   @Override
   public RuleVisibility getDefaultVisibility() {
-    if (ruleClass.getName().equals("bind")) {
-      return RuleVisibility.PUBLIC; // bind rules are always public.
-    }
     // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
     // visibility settings properly (legacy code may have visibility settings that would break if
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
@@ -738,6 +736,12 @@ public class Rule extends RuleOrMacroInstance implements Target {
     }
     // Filter out labels like :__pkg__ and :__subpackages__.
     return Iterables.filter(rawLabels, label -> PackageSpecification.fromLabel(label) == null);
+  }
+
+  @Override
+  @Nullable
+  public Label getTransitiveVisibility() {
+    return getPackageDeclarations().getPackageArgs().transitiveVisibility();
   }
 
   @Override

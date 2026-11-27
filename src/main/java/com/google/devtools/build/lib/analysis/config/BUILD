@@ -18,7 +18,7 @@ java_library(
     name = "auto_cpu_converter",
     srcs = ["AutoCpuConverter.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:cpu",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/common/options",
     ],
@@ -70,6 +70,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
@@ -139,14 +140,6 @@ java_library(
     name = "compilation_mode",
     srcs = ["CompilationMode.java"],
     deps = ["//src/main/java/com/google/devtools/common/options"],
-)
-
-java_library(
-    name = "config_aware_aspect_builder",
-    srcs = ["ConfigAwareAspectBuilder.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
 )
 
 java_library(
@@ -254,7 +247,11 @@ java_library(
         ":core_options",
         ":starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_attribute_transition_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:split_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//third_party/java/guava:base",
@@ -305,9 +302,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -320,6 +315,8 @@ java_library(
         ":fragment",
         ":fragment_options",
         ":invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party/java/caffeine",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
@@ -349,6 +346,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
@@ -420,6 +418,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -544,6 +543,7 @@ java_library(
     name = "build_configuration_info",
     srcs = ["BuildConfigurationInfo.java"],
     deps = [
+        ":core_options",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
         "//third_party/java/auto:auto_value",

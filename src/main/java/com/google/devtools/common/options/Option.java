@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -28,7 +27,6 @@ import java.lang.annotation.Target;
  * <p>A number of checks are run on an Option's fields' values at compile time. See {@link
  * com.google.devtools.common.options.processor.OptionProcessor} for details.
  */
-@SkybridgeInterface
 @Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Option {
@@ -76,20 +74,6 @@ public @interface Option {
    * always use {@link OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
    */
   String defaultValue();
-
-  /**
-   * This category field is deprecated. Bazel is in the process of migrating all options to use the
-   * better defined enums in OptionDocumentationCategory and the tags in the option_filters.proto
-   * file. It will still be used for the usage documentation until a sufficient proportion of
-   * options are using the new system.
-   *
-   * <p>Please leave the old category field in existing options to minimize disruption to the Help
-   * output during the transition period. All uses of this field will be removed when transition is
-   * complete. This category field has no effect on the other fields below, having both set is not a
-   * problem.
-   */
-  @Deprecated
-  String category() default "misc";
 
   /**
    * Grouping categories used for usage documentation. See the enum's definition for details.

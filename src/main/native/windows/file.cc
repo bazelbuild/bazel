@@ -19,7 +19,6 @@
 #include "src/main/native/windows/file.h"
 
 #include <stdint.h>  // uint8_t
-#include <versionhelpers.h>
 #include <winbase.h>
 #include <windows.h>
 #include <winioctl.h>
@@ -45,21 +44,6 @@ namespace windows {
 
 using std::unique_ptr;
 using std::wstring;
-
-DWORD DetermineSymlinkPrivilegeFlag() {
-  DWORD val = 0;
-  DWORD valSize = sizeof(val);
-  // Check if developer mode is disabled
-  if (RegGetValueW(
-          HKEY_LOCAL_MACHINE,
-          L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
-          L"AllowDevelopmentWithoutDevLicense", RRF_RT_DWORD, nullptr, &val,
-          &valSize) != ERROR_SUCCESS ||
-      val == 0) {
-    return 0;
-  }
-  return SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
-}
 
 wstring AddUncPrefixMaybe(const wstring& path) {
   return path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())
@@ -529,14 +513,7 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   }
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
-                           symlinkPrivilegeFlag)) {
-    if (GetLastError() == ERROR_INVALID_PARAMETER) {
-      // We are on a version of Windows that does not support this flag.
-      // Retry without the flag and return to error handling if necessary.
-      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), 0)) {
-        return CreateSymlinkResult::kSuccess;
-      }
-    }
+                           SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
     *error = MakeErrorMessage(
         WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
         GetLastError() == ERROR_PRIVILEGE_NOT_HELD

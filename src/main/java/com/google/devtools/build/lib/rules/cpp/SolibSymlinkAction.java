@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -126,6 +126,13 @@ public final class SolibSymlinkAction extends AbstractAction {
       Fingerprint fp) {
     fp.addPath(symlink.getExecPath());
     fp.addPath(getPrimaryInput().getExecPath());
+  }
+
+  @Override
+  public String describeKey() {
+    return String.format(
+        "SolibSymlink\n  Symlink: %s\n  Target: %s\n",
+        symlink.getExecPathString(), getPrimaryInput().getExecPathString());
   }
 
   @Override
@@ -252,7 +259,8 @@ public final class SolibSymlinkAction extends AbstractAction {
     if (filename.length() <= MAX_FILENAME_LENGTH) {
       return filename;
     } else {
-      String hashedName = Hashing.sha256().hashString(filename, UTF_8).toString();
+      String hashedName =
+          Hashing.sha256().hashBytes(StringUnsafe.getInternalStringBytes(filename)).toString();
       String extension = Files.getFileExtension(filename);
       if (extension.isEmpty()) {
         return hashedName;

@@ -17,7 +17,6 @@ filegroup(
 java_library(
     name = "bucket",
     srcs = ["Bucket.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
@@ -44,6 +43,15 @@ java_library(
     name = "var_int",
     srcs = [
         "VarInt.java",
+    ],
+)
+
+java_library(
+    name = "cpu",
+    srcs = ["CPU.java"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -128,25 +136,7 @@ java_library(
 java_library(
     name = "debug-logger-configurator",
     srcs = ["DebugLoggerConfigurator.java"],
-)
-
-java_library(
-    name = "server_log_path_service",
-    srcs = ["ServerLogPathService.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
-)
-
-java_library(
-    name = "server_log_path_service_impl",
-    srcs = ["ServerLogPathServiceImpl.java"],
-    deps = [
-        ":server_log_path_service",
-        ":util",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
-    ],
+    deps = [":util"],
 )
 
 java_library(
@@ -179,6 +169,7 @@ java_library(
     deps = [
         ":command_failure_utils",
         ":os",
+        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/error_prone:annotations",
@@ -293,11 +284,9 @@ java_library(
     srcs = [
         "AnsiStrippingOutputStream.java",
         "BytesSink.java",
-        "CPU.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
-        "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
         "LatestObjectMetricExporter.java",
@@ -437,7 +426,6 @@ java_library(
     deps = [
         ":os",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//third_party/java/guava:base",
     ],
 )
 
@@ -471,14 +459,12 @@ java_library(
 java_library(
     name = "serialized_abrupt_exit_exception",
     srcs = ["SerializedAbruptExitException.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
     name = "exit_code",
     srcs = ["ExitCode.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/jsr305_annotations",
     ],

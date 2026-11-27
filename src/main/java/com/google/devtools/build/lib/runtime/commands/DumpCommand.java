@@ -806,14 +806,22 @@ public class DumpCommand implements BlazeCommand {
   private static BuildConfigurationKey getConfigurationKey(CommandEnvironment env, String hash) {
     if (hash == null) {
       // Use the target configuration
-      return env.getSkyframeBuildView().getBuildConfiguration().getKey();
+      BuildConfigurationValue configuration = env.getSkyframeBuildView().getBuildConfiguration();
+      if (configuration == null) {
+        env.getReporter().error(null, "No configuration available");
+        return null;
+      }
+      return configuration.getKey();
+    }
+
+    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    if (graph == null) {
+      env.getReporter().error(null, "No Skyframe graph available");
+      return null;
     }
 
     ImmutableList<BuildConfigurationKey> candidates =
-        env
-            .getSkyframeExecutor()
-            .getEvaluator()
-            .getInMemoryGraph()
+        graph
             .collectDoneValues(key -> key.functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
             .keySet()
             .stream()
@@ -839,6 +847,9 @@ public class DumpCommand implements BlazeCommand {
           String[] labelAndConfig = memoryMode.subject.split("@", 2);
           BuildConfigurationKey configurationKey =
               getConfigurationKey(env, labelAndConfig.length == 2 ? labelAndConfig[1] : null);
+          if (configurationKey == null) {
+            yield null;
+          }
           yield ConfiguredTargetKey.builder()
               .setConfigurationKey(configurationKey)
               .setLabel(Label.parseCanonical(labelAndConfig[0]))

@@ -28,7 +28,6 @@ public abstract class DebuggingOptions extends OptionsBase {
   @Option(
       name = "experimental_workspace_rules_log_file",
       defaultValue = "null",
-      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,

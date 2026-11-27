@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
@@ -657,7 +658,7 @@ swift_binary = rule(
         )
         """);
 
-    useConfiguration("--compilation_mode=fastbuild");
+    useConfiguration("--noincompatible_remove_ctx_objc_fragment", "--compilation_mode=fastbuild");
     ConfiguredTarget starlarkTarget =
         getConfiguredTarget("//test_starlark/objc_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
@@ -665,132 +666,6 @@ swift_binary = rule(
     Object compilationModeCopts = myInfo.getValue("compilation_mode_copts");
 
     assertThat((List<?>) compilationModeCopts).containsExactly("-O0", "-DDEBUG=1");
-  }
-
-  @Test
-  public void testUsesDebugEntitlementsIsTrueIfCompilationModeIsNotOpt() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/objc_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def test_rule_impl(ctx):
-            uses_device_debug_entitlements = ctx.fragments.objc.uses_device_debug_entitlements
-            return MyInfo(
-                uses_device_debug_entitlements = uses_device_debug_entitlements,
-            )
-
-        test_rule = rule(
-            implementation = test_rule_impl,
-            fragments = ["objc"],
-        )
-        """);
-
-    scratch.file("test_starlark/objc_starlark/a.m");
-    scratch.file(
-        "test_starlark/objc_starlark/BUILD",
-        """
-        load("//test_starlark/rule:objc_rules.bzl", "test_rule")
-
-        package(default_visibility = ["//visibility:public"])
-
-        test_rule(
-            name = "my_target",
-        )
-        """);
-
-    useConfiguration("--compilation_mode=dbg");
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/objc_starlark:my_target");
-
-    boolean usesDeviceDebugEntitlements =
-        (boolean) getMyInfoFromTarget(starlarkTarget).getValue("uses_device_debug_entitlements");
-    assertThat(usesDeviceDebugEntitlements).isTrue();
-  }
-
-  @Test
-  public void testUsesDebugEntitlementsIsFalseIfFlagIsExplicitlyFalse() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/objc_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def test_rule_impl(ctx):
-            uses_device_debug_entitlements = ctx.fragments.objc.uses_device_debug_entitlements
-            return MyInfo(
-                uses_device_debug_entitlements = uses_device_debug_entitlements,
-            )
-
-        test_rule = rule(
-            implementation = test_rule_impl,
-            fragments = ["objc"],
-        )
-        """);
-
-    scratch.file("test_starlark/objc_starlark/a.m");
-    scratch.file(
-        "test_starlark/objc_starlark/BUILD",
-        """
-        load("//test_starlark/rule:objc_rules.bzl", "test_rule")
-
-        package(default_visibility = ["//visibility:public"])
-
-        test_rule(
-            name = "my_target",
-        )
-        """);
-
-    useConfiguration("--compilation_mode=dbg", "--nodevice_debug_entitlements");
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/objc_starlark:my_target");
-
-    boolean usesDeviceDebugEntitlements =
-        (boolean) getMyInfoFromTarget(starlarkTarget).getValue("uses_device_debug_entitlements");
-    assertThat(usesDeviceDebugEntitlements).isFalse();
-  }
-
-  @Test
-  public void testUsesDebugEntitlementsIsFalseIfCompilationModeIsOpt() throws Exception {
-    scratch.file("test_starlark/rule/BUILD");
-    scratch.file(
-        "test_starlark/rule/objc_rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def test_rule_impl(ctx):
-            uses_device_debug_entitlements = ctx.fragments.objc.uses_device_debug_entitlements
-            return MyInfo(
-                uses_device_debug_entitlements = uses_device_debug_entitlements,
-            )
-
-        test_rule = rule(
-            implementation = test_rule_impl,
-            fragments = ["objc"],
-        )
-        """);
-
-    scratch.file("test_starlark/objc_starlark/a.m");
-    scratch.file(
-        "test_starlark/objc_starlark/BUILD",
-        """
-        load("//test_starlark/rule:objc_rules.bzl", "test_rule")
-
-        package(default_visibility = ["//visibility:public"])
-
-        test_rule(
-            name = "my_target",
-        )
-        """);
-
-    useConfiguration("--compilation_mode=opt");
-    ConfiguredTarget starlarkTarget =
-        getConfiguredTarget("//test_starlark/objc_starlark:my_target");
-
-    boolean usesDeviceDebugEntitlements =
-        (boolean) getMyInfoFromTarget(starlarkTarget).getValue("uses_device_debug_entitlements");
-    assertThat(usesDeviceDebugEntitlements).isFalse();
   }
 
   private ConfiguredTarget createObjcProviderStarlarkTarget(String... implLines) throws Exception {
@@ -1146,7 +1021,9 @@ swift_binary = rule(
 
   @Test
   public void testDisallowSDKFrameworkAttribute() throws Exception {
-    useConfiguration("--incompatible_disallow_sdk_frameworks_attributes");
+    useConfiguration(
+        "--incompatible_disallow_sdk_frameworks_attributes=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_disallow_sdk_frameworks_attributes=true");
 
     scratch.file(
         "test_starlark/apple_starlark/BUILD",
@@ -1176,7 +1053,9 @@ swift_binary = rule(
 
   @Test
   public void testDisallowWeakSDKFrameworksAttribute() throws Exception {
-    useConfiguration("--incompatible_disallow_sdk_frameworks_attributes");
+    useConfiguration(
+        "--incompatible_disallow_sdk_frameworks_attributes=true",
+        "--" + TestConstants.RULES_CC + ":incompatible_disallow_sdk_frameworks_attributes=true");
 
     scratch.file(
         "test_starlark/apple_starlark/BUILD",

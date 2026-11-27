@@ -762,16 +762,37 @@ public final class EvaluationTest {
           assertThat(module).isEqualTo("b.bzl");
           return b;
         });
-    EvalException ex =
+    SyntaxError.Exception cEx =
+        assertThrows(
+            SyntaxError.Exception.class,
+            () ->
+                Starlark.execFile(
+                    ParserInput.fromString("load('b.bzl', 'x')", "c.bzl"),
+                    Module.create(),
+                    cThread));
+    assertThat(cEx).hasMessageThat().contains("module 'b.bzl' does not contain symbol 'x'");
+
+    StarlarkThread dThread =
+        StarlarkThread.createTransient(
+            Mutability.create(),
+            // Disable static type checking to verify that the error is also caught at eval-time
+            StarlarkSemantics.builder()
+                .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, false)
+                .build());
+    dThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("b.bzl");
+          return b;
+        });
+    EvalException dEx =
         assertThrows(
             EvalException.class,
             () ->
                 Starlark.execFile(
                     ParserInput.fromString("load('b.bzl', 'x')", "c.bzl"),
-                    FileOptions.DEFAULT,
                     Module.create(),
-                    cThread));
-    assertThat(ex).hasMessageThat().contains("file 'b.bzl' does not contain symbol 'x'");
+                    dThread));
+    assertThat(dEx).hasMessageThat().contains("file 'b.bzl' does not contain symbol 'x'");
   }
 
   @Test
@@ -875,10 +896,27 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void typeAliasStatement_evalsAsNoop() throws Exception {
-    ev.setFileOptions(FileOptions.builder().allowTypeSyntax(true).build());
-    ev.new Scenario().setUp("type X = int").testLookup("X", null);
-    ev.new Scenario().setUp("Y = 'foo'; type Y = bool").testLookup("Y", "foo");
+  public void typeAliasStatement_evalsAsNoop_iffTypeResolverDisabled() throws Exception {
+    StarlarkSemantics semanticsWithoutTypeResolver =
+        StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, false)
+            .build();
+
+    ev.new Scenario(semanticsWithoutTypeResolver).setUp("type X = int").testLookup("X", null);
+    ev.new Scenario(semanticsWithoutTypeResolver)
+        .setUp("Y = 'foo'; type Y = bool")
+        .testLookup("Y", "foo");
+
+    StarlarkSemantics semanticsWithTypeResolver =
+        StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING, true)
+            .build();
+
+    ev.new Scenario(semanticsWithTypeResolver)
+        .setUp("type X = int")
+        .testIsInstanceOf("X", TypeConstructorValue.class);
+    ev.new Scenario(semanticsWithTypeResolver)
+        .testIfErrorContains("'Y' redeclared at top level", "Y = 'foo'; type Y = bool");
   }
 
   @Test

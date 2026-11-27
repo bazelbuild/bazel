@@ -15,10 +15,7 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
@@ -99,6 +96,7 @@ public class MultiExecutorQueueVisitorTest {
             regular,
             cpuHeavy,
             executionPhase,
+            /* postAnalysisPhaseExecutorService= */ null,
             ExceptionHandlingMode.KEEP_GOING,
             ErrorClassifier.DEFAULT);
 
@@ -123,35 +121,124 @@ public class MultiExecutorQueueVisitorTest {
   }
 
   @Test
-  public void testLaunchQueuedUpExecutionPhaseTasks() {
+  public void testGetExecutorServiceByThreadPoolType_postAnalysis() {
     ExecutorService regular = mock(ExecutorService.class);
     ExecutorService cpuHeavy = mock(ExecutorService.class);
     ExecutorService executionPhase = mock(ExecutorService.class);
+    ExecutorService postAnalysis = mock(ExecutorService.class);
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
             regular,
             cpuHeavy,
             executionPhase,
+            postAnalysis,
             ExceptionHandlingMode.KEEP_GOING,
             ErrorClassifier.DEFAULT);
 
-    Runnable runnable = mock(Runnable.class);
-    QuiescingTask task =
-        new QuiescingTask(queueVisitor) {
-          @Override
-          public void runCore() {}
-        };
+    assertThat(queueVisitor.hasSeparatePoolForPostAnalysisTasks()).isTrue();
+    assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.POST_ANALYSIS))
+        .isEqualTo(postAnalysis);
+    queueVisitor.shutdownExecutorService(/* catastrophe= */ null);
+    verify(postAnalysis).shutdown();
+  }
 
-    queueVisitor.execute(
-        runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ true);
-    queueVisitor.execute(
-        task, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ true);
+  @Test
+  public void testGetExecutorServiceByThreadPoolType_postAnalysisWithoutExecutor_throwsNPE() {
+    ExecutorService regular = mock(ExecutorService.class);
+    ExecutorService cpuHeavy = mock(ExecutorService.class);
 
-    verify(executionPhase, never()).execute(any(Runnable.class));
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
-    queueVisitor.launchQueuedUpExecutionPhaseTasks();
+    assertThat(queueVisitor.hasSeparatePoolForPostAnalysisTasks()).isFalse();
+    assertThrows(
+        NullPointerException.class,
+        () -> queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.POST_ANALYSIS));
+  }
 
-    verify(executionPhase, times(2)).execute(any(Runnable.class));
+  @Test
+  public void testOrdersTasksByPriority() {
+    ExecutorService regularPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "regular-priority");
+    ExecutorService cpuHeavyPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "cpu-priority");
+    ExecutorService executionDefault =
+        AbstractQueueVisitor.createExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "execution-default");
+
+    MultiExecutorQueueVisitor queueVisitor =
+        MultiExecutorQueueVisitor.createWithExecutorServices(
+            regularPriority,
+            cpuHeavyPriority,
+            executionDefault,
+            /* postAnalysisPhaseExecutorService= */ null,
+            ExceptionHandlingMode.KEEP_GOING,
+            ErrorClassifier.DEFAULT);
+    try {
+      assertThat(queueVisitor.ordersTasksByPriority()).isTrue();
+    } finally {
+      queueVisitor.shutdownExecutorService(/* catastrophe= */ null);
+    }
+  }
+
+  @Test
+  public void testOrdersTasksByPriority_invalidPoolCombinations_throws() {
+    ExecutorService regularPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "regular-priority");
+    ExecutorService cpuHeavyPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "cpu-priority");
+    ExecutorService executionPriority =
+        AbstractQueueVisitor.createPriorityExecutorService(
+            /* parallelism= */ 1, /* poolName= */ "execution-priority");
+    ExecutorService nonPriority = mock(ExecutorService.class);
+
+    try {
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  regularPriority,
+                  nonPriority,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  nonPriority,
+                  cpuHeavyPriority,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  regularPriority,
+                  cpuHeavyPriority,
+                  executionPriority,
+                  /* postAnalysisPhaseExecutorService= */ null,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              MultiExecutorQueueVisitor.createWithExecutorServices(
+                  regularPriority,
+                  cpuHeavyPriority,
+                  nonPriority,
+                  executionPriority,
+                  ExceptionHandlingMode.KEEP_GOING,
+                  ErrorClassifier.DEFAULT));
+    } finally {
+      regularPriority.shutdown();
+      cpuHeavyPriority.shutdown();
+      executionPriority.shutdown();
+    }
   }
 }

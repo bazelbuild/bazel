@@ -79,7 +79,9 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
 
     skyFunctions =
         ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-            .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
+            .put(
+                SkyFunctions.FILE,
+                new FileFunction(packageLocator, directories, externalFilesHelper))
             .put(
                 FileStateKey.FILE_STATE,
                 new FileStateFunction(
@@ -213,7 +215,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     String oldDigest = getTreeDigest("/");
 
     // We don't digest mtimes so this shouldn't affect anything.
-    scratch.resolve("c").setLastModifiedTime(2024L);
+    scratch.resolve("c").setLastModifiedTimeNanos(2024L);
     assertThat(getTreeDigest("/")).isEqualTo(oldDigest);
   }
 

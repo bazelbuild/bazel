@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** The result of a top-level targets lookup. */
-@SkybridgeInterface
 public interface LookupTopLevelTargetsResult {
   /**
    * Corresponds to

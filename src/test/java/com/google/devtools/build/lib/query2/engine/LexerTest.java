@@ -36,7 +36,29 @@ public final class LexerTest {
   }
 
   private Lexer.Token[] scan(String input) throws QuerySyntaxException {
-    return Lexer.scan(input).toArray(new Lexer.Token[0]);
+    Lexer.Token[] tokens;
+    try {
+      tokens = Lexer.scan(input).toArray(new Lexer.Token[0]);
+    } catch (QuerySyntaxException e) {
+      QuerySyntaxException eWithPlaceholders =
+          assertThrows(
+              QuerySyntaxException.class, () -> Lexer.scan(input, /* allowPlaceholders= */ true));
+      assertThat(eWithPlaceholders).hasMessageThat().isEqualTo(e.getMessage());
+      throw e;
+    }
+    Lexer.Token[] tokensWithPlaceholders = scanWithPlaceholders(input);
+    assertThat(tokensWithPlaceholders).hasLength(tokens.length);
+    for (int i = 0; i < tokens.length; i++) {
+      assertThat(tokensWithPlaceholders[i].kind).isEqualTo(tokens[i].kind);
+      assertThat(tokensWithPlaceholders[i].word).isEqualTo(tokens[i].word);
+      assertThat(tokensWithPlaceholders[i].startOffset).isEqualTo(tokens[i].startOffset);
+      assertThat(tokensWithPlaceholders[i].endOffset).isEqualTo(tokens[i].endOffset);
+    }
+    return tokens;
+  }
+
+  private Lexer.Token[] scanWithPlaceholders(String input) throws QuerySyntaxException {
+    return Lexer.scan(input, /* allowPlaceholders= */ true).toArray(new Lexer.Token[0]);
   }
 
   @Test
@@ -164,5 +186,71 @@ public final class LexerTest {
     assertThat(tokens[11].kind).isEqualTo(Lexer.TokenKind.COMMA);
     assertThat(tokens[12].kind).isEqualTo(Lexer.TokenKind.WORD);
     assertThat(tokens[13].kind).isEqualTo(Lexer.TokenKind.RPAREN);
+  }
+
+  @Test
+  public void testPlaceholdersTokenizedWithOffsetsWhenEnabled() throws QuerySyntaxException {
+    String input =
+        "deps(@(foo))+@(_bar_2) + '@(foo)' + \"@(bar)\" + @foo + @foo//:bar + @//pkg:target"
+            + " + //pkg:.*@4";
+    Lexer.Token[] tokens = scanWithPlaceholders(input);
+    assertThat(asString(tokens))
+        .isEqualTo(
+            "deps ( @(foo) ) + @(_bar_2) + @(foo) + @(bar) + @foo + @foo//:bar + @//pkg:target"
+                + " + //pkg:.*@4 EOF");
+
+    assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.PLACEHOLDER);
+    assertThat(tokens[2].word).isEqualTo("foo");
+    assertThat(input.substring(tokens[2].startOffset, tokens[2].endOffset)).isEqualTo("@(foo)");
+
+    assertThat(tokens[5].kind).isEqualTo(Lexer.TokenKind.PLACEHOLDER);
+    assertThat(tokens[5].word).isEqualTo("_bar_2");
+    assertThat(input.substring(tokens[5].startOffset, tokens[5].endOffset)).isEqualTo("@(_bar_2)");
+
+    // Quoted @(foo) strings, unquoted @repo / @// labels, and internal @ characters remain WORDs.
+    assertThat(tokens[7].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[7].word).isEqualTo("@(foo)");
+    assertThat(tokens[9].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[9].word).isEqualTo("@(bar)");
+    assertThat(tokens[11].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[11].word).isEqualTo("@foo");
+    assertThat(tokens[13].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[13].word).isEqualTo("@foo//:bar");
+    assertThat(tokens[15].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[15].word).isEqualTo("@//pkg:target");
+    assertThat(tokens[17].kind).isEqualTo(Lexer.TokenKind.WORD);
+    assertThat(tokens[17].word).isEqualTo("//pkg:.*@4");
+
+    // "placeholder" itself is not a reserved keyword.
+    Lexer.Token[] wordTokens = scan("placeholder");
+    assertThat(wordTokens[0].kind).isEqualTo(Lexer.TokenKind.WORD);
+  }
+
+  @Test
+  public void testPlaceholderOffsetsAfterUnicodeCharacters() throws QuerySyntaxException {
+    String input = "'//:äöü🌱' + @(target_set)";
+    Lexer.Token[] tokens = scanWithPlaceholders(input);
+    assertThat(tokens[2].kind).isEqualTo(Lexer.TokenKind.PLACEHOLDER);
+    assertThat(tokens[2].word).isEqualTo("target_set");
+    assertThat(input.substring(tokens[2].startOffset, tokens[2].endOffset))
+        .isEqualTo("@(target_set)");
+  }
+
+  @Test
+  public void testInvalidPlaceholdersThrowWhenEnabled() {
+    for (String badPlaceholder :
+        new String[] {
+          "@()", "@(123)", "@(foo-bar)", "@(foo:bar)", "@(//foo)", "@(@foo)", "@($foo)", "@( foo )"
+        }) {
+      QuerySyntaxException e =
+          assertThrows(QuerySyntaxException.class, () -> scanWithPlaceholders(badPlaceholder));
+      assertThat(e).hasMessageThat().isEqualTo("invalid placeholder '" + badPlaceholder + "'");
+    }
+
+    for (String unclosedPlaceholder : new String[] {"@(", "@(foo", "@(foo\n)", "@((foo))"}) {
+      QuerySyntaxException e =
+          assertThrows(QuerySyntaxException.class, () -> scanWithPlaceholders(unclosedPlaceholder));
+      assertThat(e).hasMessageThat().startsWith("unclosed placeholder '@(");
+    }
   }
 }

@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.UPON_CONFIGURED_OBJECT_CREATION;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
+import static com.google.devtools.build.lib.skyframe.SkyframeExecutor.isAnalysisPhaseActionLookupKey;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoade
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -138,6 +140,12 @@ import javax.annotation.Nullable;
  */
 public final class SkyframeBuildView {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /**
+   * The maximum length of an option value shown when reporting which options caused the analysis
+   * cache to be discarded. Longer values (e.g. of list-valued options) are truncated.
+   */
+  private static final int MAX_OPTION_VALUE_LENGTH_TO_SHOW = 100;
 
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
@@ -247,13 +255,27 @@ public final class SkyframeBuildView {
       return "Build options have changed";
     }
 
+    // Each entry is the option name followed by its old and new values, e.g.
+    // "--compilation_mode ('fastbuild' -> 'opt')".
     ImmutableList<String> relevantDifferences =
         Streams.concat(
-                diff.getChangedStarlarkOptions().stream().map(Label::getCanonicalForm),
-                nativeCacheInvalidatingDifferences.stream().map(OptionDefinition::getOptionName))
-            .map(s -> "--" + s)
+                diff.getChangedStarlarkOptions().stream()
+                    .map(label ->
+                        describeOptionChange(
+                            label.getCanonicalForm(),
+                            describeStarlarkOptionValue(oldOptions, label),
+                            describeStarlarkOptionValue(newOptions, label))),
+                nativeCacheInvalidatingDifferences.stream()
+                    .map(definition ->
+                        describeOptionChange(
+                            definition.getOptionName(),
+                            describeOptionValue(diff.getFirst().get(definition)),
+                            describeOptionValue(
+                                Iterables.getOnlyElement(diff.getSecond().get(definition))))))
             // Sorting the list to ensure that (if truncated through maxDifferencesToShow) the
-            // options in the message remain stable.
+            // options in the message remain stable. Every entry starts with the option name
+            // followed by a space, which sorts before any character that can appear in a name, so
+            // this orders the entries by option name.
             .sorted()
             .collect(toImmutableList());
 
@@ -275,6 +297,30 @@ public final class SkyframeBuildView {
           Joiner.on(", ").join(relevantDifferences.subList(0, relevantDifferences.size() - 1)),
           Iterables.getLast(relevantDifferences));
     }
+  }
+
+  private static String describeOptionChange(String name, String oldValue, String newValue) {
+    return String.format("--%s (%s -> %s)", name, oldValue, newValue);
+  }
+
+  /**
+   * Describes the value of a Starlark option, which is absent from the {@link BuildOptions} if it
+   * is set to its default value.
+   */
+  private static String describeStarlarkOptionValue(BuildOptions options, Label buildSetting) {
+    Object value = options.getStarlarkOptions().get(buildSetting);
+    return value == null ? "<default>" : describeOptionValue(value);
+  }
+
+  private static String describeOptionValue(@Nullable Object value) {
+    if (value == null) {
+      return "null";
+    }
+    String description = value.toString();
+    if (description.length() > MAX_OPTION_VALUE_LENGTH_TO_SHOW) {
+      description = description.substring(0, MAX_OPTION_VALUE_LENGTH_TO_SHOW) + "...";
+    }
+    return "'" + description + "'";
   }
 
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
@@ -637,8 +683,7 @@ public final class SkyframeBuildView {
       QuiescingExecutors executors,
       boolean shouldDiscardAnalysisCache,
       boolean shouldClearSyscallCache,
-      BuildDriverKeyTestContext buildDriverKeyTestContext,
-      int skymeldAnalysisOverlapPercentage)
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws InterruptedException,
           ViewCreationFailedException,
           BuildFailedException,
@@ -709,8 +754,6 @@ public final class SkyframeBuildView {
         AnalysisOperationWatcher.createAndRegisterWithEventBus(
             topLevelKeys,
             eventBus,
-            /* lowerThresholdToSignalForExecution= */ (float)
-                (topLevelKeys.size() * skymeldAnalysisOverlapPercentage / 100.0),
             /* finisher= */ () -> {
               buildResultListener.stopAnalysisTimer();
               analysisFinishedCallback(
@@ -722,10 +765,6 @@ public final class SkyframeBuildView {
                   /* shouldClearSyscallCache= */ shouldClearSyscallCache,
                   /* measuredAnalysisTime= */ buildResultListener.getAnalysisPhaseTimeInMillis(),
                   /* conflictCheckingMode= */ conflictCheckingMode);
-            },
-            /* executionGoAheadCallback= */ () -> {
-              buildResultListener.setExecutionTimer(Stopwatch.createStarted());
-              executor.launchQueuedUpExecutionPhaseTasks();
             })) {
 
       try {
@@ -1128,7 +1167,8 @@ public final class SkyframeBuildView {
     return exclusiveTests.build();
   }
 
-  private static TestType determineTestTypeImpl(
+  @VisibleForTesting
+  static TestType determineTestTypeImpl(
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
       Label label,
@@ -1146,7 +1186,10 @@ public final class SkyframeBuildView {
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
         || TargetUtils.isExclusiveTestRule(rule)
-        || (TargetUtils.isExclusiveIfLocalTestRule(rule) && TargetUtils.isLocalTestRule(rule))) {
+        || (TargetUtils.isExclusiveIfLocalTestRule(rule)
+            && (TargetUtils.isLocalTestRule(rule) || TargetUtils.isNoRemoteExecTestRule(rule)))) {
+      // An "exclusive-if-local" test that can never run remotely (because it is pinned to local
+      // execution by its tags) is treated like an ordinary "exclusive" test.
       fromExplicitFlagOrTag = TestType.EXCLUSIVE;
     } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
@@ -1154,10 +1197,8 @@ public final class SkyframeBuildView {
       fromExplicitFlagOrTag = TestType.PARALLEL;
     }
 
-    if ((fromExplicitFlagOrTag == TestType.EXCLUSIVE
-            && buildDriverKeyTestContext.forceExclusiveTestsInParallel())
-        || (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
-            && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel())) {
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE
+        && buildDriverKeyTestContext.forceExclusiveTestsInParallel()) {
       eventHandler.handle(
           Event.warn(
               label
@@ -1166,6 +1207,13 @@ public final class SkyframeBuildView {
                   + ", but --test_strategy="
                   + buildDriverKeyTestContext.getTestStrategy()
                   + " forces parallel test execution."));
+      return TestType.PARALLEL;
+    }
+    // A remote-eligible "exclusive-if-local" test is allowed to run in parallel when remote
+    // execution is enabled. This is the expected behavior of the tag rather than a forced override,
+    // so (unlike the "exclusive" case above) no warning is emitted.
+    if (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
+        && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel()) {
       return TestType.PARALLEL;
     }
     return fromExplicitFlagOrTag;
@@ -1419,7 +1467,10 @@ public final class SkyframeBuildView {
                 (BzlLoadValue)
                     analysisEnvironment
                         .getSkyframeEnv()
-                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+            configuration == null
+                ? StarlarkBuildSettingsDetailsValue.EMPTY
+                : configuration.starlarkFlagDetails());
     if (starlarkExecTransition == null) {
       return null;
     }
@@ -1498,7 +1549,7 @@ public final class SkyframeBuildView {
 
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
-      if (skyKey instanceof ActionLookupKey) {
+      if (isAnalysisPhaseActionLookupKey(skyKey)) {
         // If the value was just dirtied and not deleted, then it may not be truly invalid, since
         // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
         // is provisional--if the key is later evaluated and the value found to be clean, then we
@@ -1514,9 +1565,11 @@ public final class SkyframeBuildView {
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         @Nullable GroupedDeps directDeps) {
-      // We tolerate any action lookup keys here, although we only expect configured targets,
-      // aspects, and the workspace status value.
-      if (!(skyKey instanceof ActionLookupKey)) {
+      // We tolerate any analysis-phase action lookup keys here, although we only expect configured
+      // targets, aspects, and the workspace status value. Execution-phase
+      // ActionTemplateExpansionKeys also implement ActionLookupKey (to own their expanded actions)
+      // and can be evaluated before analysis completes under Skymeld, so they must be excluded.
+      if (!isAnalysisPhaseActionLookupKey(skyKey)) {
         return;
       }
       if (!state.versionChanged()) {
@@ -1568,6 +1621,7 @@ public final class SkyframeBuildView {
       actionCount.set(0);
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
+      actionCountByMnemonic.clear();
     }
   }
 

@@ -15,16 +15,19 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static java.util.Comparator.comparing;
 
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import java.util.Comparator;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +38,10 @@ import javax.annotation.Nullable;
 public final class PlatformUtils {
 
   private static void sortPlatformProperties(Platform.Builder builder) {
+    // Internal strings sort by UTF-8 bytes, which is the code point order required by the REAPI.
     List<Platform.Property> properties =
-        Ordering.from(Comparator.comparing(Platform.Property::getName))
+        Ordering.from(
+                comparing(Platform.Property::getName, comparing(StringEncoding::unicodeToInternal)))
             .sortedCopy(builder.getPropertiesList());
     builder.clearProperties();
     builder.addAllProperties(properties);
@@ -67,26 +72,23 @@ public final class PlatformUtils {
     return getPlatformProto(spawn, remoteOptions, ImmutableMap.of());
   }
 
-  private static boolean shouldProducePlatformProto(
-      Spawn spawn,
-      SortedMap<String, String> defaultExecProperties,
-      Map<String, String> additionalProperties) {
-    PlatformInfo executionPlatform = spawn.getExecutionPlatform();
-    if (executionPlatform != null) {
-      if (!executionPlatform.execProperties().isEmpty()) {
-        return true;
-      }
-    }
-    if (!spawn.getCombinedExecProperties().isEmpty()) {
-      return true;
-    }
-    if (!defaultExecProperties.isEmpty()) {
-      return true;
-    }
-    if (!additionalProperties.isEmpty()) {
-      return true;
-    }
-    return false;
+  /**
+   * Returns whether the exec property with the given key is an execution requirement that only
+   * affects how Bazel itself schedules, caches or runs a spawn.
+   */
+  private static boolean isBazelOnlyExecutionRequirement(String key) {
+    // Requirements on the execution environment, such as "requires-*", "block-*" and
+    // "resources:*", are kept since remote executors may honor them.
+    return key.startsWith("no-")
+        || key.startsWith("supports-")
+        || key.startsWith("disable-")
+        || key.equals(ExecutionRequirements.LOCAL)
+        || key.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC);
+  }
+
+  private static Map<String, String> withoutBazelOnlyExecutionRequirements(
+      Map<String, String> execProperties) {
+    return Maps.filterKeys(execProperties, key -> !isBazelOnlyExecutionRequirement(key));
   }
 
   @Nullable
@@ -97,39 +99,31 @@ public final class PlatformUtils {
         remoteOptions != null
             ? remoteOptions.getRemoteDefaultExecProperties()
             : ImmutableSortedMap.of();
-
-    if (!shouldProducePlatformProto(spawn, defaultExecProperties, additionalProperties)) {
-      // Execution platform is null or functionally empty
-      return null;
-    }
+    Map<String, String> combinedExecProperties =
+        withoutBazelOnlyExecutionRequirements(spawn.getCombinedExecProperties());
+    Map<String, String> platformExecProperties =
+        spawn.getExecutionPlatform() != null
+            ? withoutBazelOnlyExecutionRequirements(spawn.getExecutionPlatform().execProperties())
+            : ImmutableMap.of();
 
     Map<String, String> properties = new HashMap<>();
-    if (!spawn.getCombinedExecProperties().isEmpty()) {
+    if (!combinedExecProperties.isEmpty()) {
       // Apply default exec properties if the execution platform does not already set
       // exec_properties
-      if (spawn.getExecutionPlatform() == null
-          || spawn.getExecutionPlatform().execProperties().isEmpty()) {
+      if (platformExecProperties.isEmpty()) {
         properties.putAll(defaultExecProperties);
-        properties.putAll(spawn.getCombinedExecProperties());
-      } else {
-        properties = spawn.getCombinedExecProperties();
       }
-    } else if (spawn.getExecutionPlatform() != null) {
-      properties.putAll(spawn.getExecutionPlatform().execProperties());
+      properties.putAll(combinedExecProperties);
+    } else if (!platformExecProperties.isEmpty()) {
+      properties.putAll(platformExecProperties);
+    } else {
+      properties.putAll(defaultExecProperties);
     }
+    properties.putAll(additionalProperties);
 
     if (properties.isEmpty()) {
-      properties = defaultExecProperties;
-    }
-
-    if (!additionalProperties.isEmpty()) {
-      if (properties.isEmpty()) {
-        properties = additionalProperties;
-      } else {
-        // Merge the two maps.
-        properties = new HashMap<>(properties);
-        properties.putAll(additionalProperties);
-      }
+      // Execution platform is null or functionally empty
+      return null;
     }
 
     Platform.Builder platformBuilder = Platform.newBuilder();

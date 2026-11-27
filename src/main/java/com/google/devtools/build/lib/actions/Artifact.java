@@ -499,23 +499,6 @@ public abstract sealed class Artifact
   public abstract PathFragment getRootRelativePath();
 
   /**
-   * Returns the fully-qualified package path to this artifact. By "fully-qualified", it means the
-   * returned path is prefixed with "external/<repository name>" if this artifact is in an external
-   * repository.
-   *
-   * <p>Do not call this method just because you need a path prefixed with the "external/<repository
-   * name>" fragment for external repository artifacts. {@link * Artifact#getOutputDirRelativePath}
-   * is the right one to use in almost all cases.
-   *
-   * @deprecated This method is only to be used for $(location) and getOutputDirRelativePath
-   *     implementations.
-   */
-  @Deprecated
-  public PathFragment getPathForLocationExpansion() {
-    return getRootRelativePath();
-  }
-
-  /**
    * Returns the path to this artifact relative to an output directory, e.g. the bin directory. Note
    * that this is available on every Artifact type, including source artifacts. As a matter of fact,
    * one of its most common use cases is to construct a derived artifact's output path out of a
@@ -657,20 +640,12 @@ public abstract sealed class Artifact
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
   public final PathFragment getRunfilesPath() {
+    if (root.isSourceRoot() && root.isExternal()) {
+      // Keep the repository segment instead of stripping and rebuilding it.
+      return LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(execPath.subFragment(1));
+    }
     PathFragment relativePath = getRootRelativePath();
-    // Runfile paths for external artifacts should be prefixed with "../<repo name>".
-    if (root.isSourceRoot()) {
-      if (root.isExternal()) {
-        // External source artifacts have their repo name as the 2nd level directory name in their
-        // exec paths, i.e. external/<repo name>/..., while their root-relative paths are already
-        // relative to the repo root.
-        String repoName = execPath.getSegment(1);
-        relativePath =
-            LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX
-                .getRelative(repoName)
-                .getRelative(relativePath);
-      }
-    } else if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+    if (!root.isSourceRoot() && relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Root-relative paths of external derived artifacts are already prefixed with
       // "external/<repo name>". Just replace "external" with "..".
       relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
@@ -682,6 +657,22 @@ public abstract sealed class Artifact
   @Override
   public final String getRunfilesPathString() {
     return getRunfilesPath().getPathString();
+  }
+
+  /**
+   * Returns the path of this artifact relative to the root of a runfiles tree, which is the path
+   * runfiles libraries accept.
+   */
+  public final PathFragment getRlocationPath() {
+    PathFragment runfilesPath = getRunfilesPath();
+    return runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+        ? runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+        : PathFragment.create(LabelConstants.MAIN_REPO_DIR_NAME).getRelative(runfilesPath);
+  }
+
+  @Override
+  public final String getRlocationPathString() {
+    return getRlocationPath().getPathString();
   }
 
   public final String prettyPrint() {
@@ -791,11 +782,6 @@ public abstract sealed class Artifact
     @Override
     public PathFragment getRootRelativePath() {
       return getRoot().isExternal() ? getExecPath().subFragment(2) : getExecPath();
-    }
-
-    @Override
-    public PathFragment getPathForLocationExpansion() {
-      return getExecPath();
     }
 
     @Override

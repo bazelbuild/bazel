@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * A utility class that allows us to store reverse dependencies in a memory-efficient way. At the
@@ -144,16 +145,7 @@ abstract class ReverseDepsUtility {
 
   static void removeReverseDepsMatching(
       IncrementalInMemoryNodeEntry entry, Set<SkyKey> deletedKeys) {
-    consolidateData(entry);
-    ImmutableCollection<SkyKey> currentReverseDeps =
-        consolidateAndGetReverseDeps(entry, /* checkConsistency= */ true);
-    var remainingReverseDeps = new ArrayList<SkyKey>(currentReverseDeps.size());
-    for (SkyKey reverseDep : currentReverseDeps) {
-      if (!deletedKeys.contains(reverseDep)) {
-        remainingReverseDeps.add(reverseDep);
-      }
-    }
-    writeReverseDeps(entry, remainingReverseDeps);
+    consolidateData(entry, deletedKeys);
   }
 
   static ImmutableCollection<SkyKey> consolidateAndGetReverseDeps(
@@ -292,75 +284,94 @@ abstract class ReverseDepsUtility {
   }
 
   static void consolidateData(IncrementalInMemoryNodeEntry entry) {
+    consolidateData(entry, /* deletedKeys= */ null);
+  }
+
+  private static void consolidateData(
+      IncrementalInMemoryNodeEntry entry, @Nullable Set<SkyKey> deletedKeys) {
     List<Object> dataToConsolidate = entry.getReverseDepsDataToConsolidateForReverseDepsUtil();
-    if (dataToConsolidate == null) {
+    if (dataToConsolidate == null && deletedKeys == null) {
       return;
     }
     entry.setReverseDepsDataToConsolidateForReverseDepsUtil(null);
     var raw = entry.getReverseDepsRawForReverseDepsUtil();
     if (isSingleReverseDep(raw)) {
-      Preconditions.checkState(
-          dataToConsolidate.size() == 1,
-          "dataToConsolidate not size 1 even though only one rdep: %s %s %s",
-          dataToConsolidate,
-          raw,
-          entry);
-      Object keyToConsolidate = Iterables.getOnlyElement(dataToConsolidate);
-      SkyKey key = KeyToConsolidate.key(keyToConsolidate);
-      Preconditions.checkState(getOpToStoreBare(entry) == Op.CHECK, entry);
-      switch (KeyToConsolidate.op(keyToConsolidate, Op.CHECK)) {
-        case REMOVE:
-          entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
+      if (dataToConsolidate != null) {
+        Preconditions.checkState(
+            dataToConsolidate.size() == 1,
+            "dataToConsolidate not size 1 even though only one rdep: %s %s %s",
+            dataToConsolidate,
+            raw,
+            entry);
+        Object keyToConsolidate = Iterables.getOnlyElement(dataToConsolidate);
+        SkyKey key = KeyToConsolidate.key(keyToConsolidate);
+        Preconditions.checkState(getOpToStoreBare(entry) == Op.CHECK, entry);
+        switch (KeyToConsolidate.op(keyToConsolidate, Op.CHECK)) {
+          case REMOVE:
+            entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
           // Fall through to check.
-        case CHECK:
-          Preconditions.checkState(key.equals(raw), "%s %s %s", keyToConsolidate, raw, entry);
-          break;
-        case ADD:
-          throw new IllegalStateException(
-              "Shouldn't delay add if only one element: "
-                  + keyToConsolidate
-                  + ", "
-                  + raw
-                  + ", "
-                  + entry);
+          case CHECK:
+            Preconditions.checkState(key.equals(raw), "%s %s %s", keyToConsolidate, raw, entry);
+            break;
+          case ADD:
+            throw new IllegalStateException(
+                "Shouldn't delay add if only one element: "
+                    + keyToConsolidate
+                    + ", "
+                    + raw
+                    + ", "
+                    + entry);
+        }
+      }
+      if (deletedKeys != null && deletedKeys.contains(raw)) {
+        entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
       }
       return;
     }
     List<SkyKey> reverseDepsAsList = multipleAsList(raw);
+    if (reverseDepsAsList.isEmpty() && dataToConsolidate == null) {
+      return;
+    }
     Set<SkyKey> reverseDepsAsSet = getReverseDepsSet(entry, reverseDepsAsList);
 
-    Preconditions.checkState(getOpToStoreBare(entry) == Op.CHECK, entry);
-    for (Object keyToConsolidate : dataToConsolidate) {
-      SkyKey key = KeyToConsolidate.key(keyToConsolidate);
-      switch (KeyToConsolidate.op(keyToConsolidate, Op.CHECK)) {
-        case CHECK:
-          Preconditions.checkState(
-              reverseDepsAsSet.contains(key),
-              "%s %s %s %s",
-              keyToConsolidate,
-              reverseDepsAsSet,
-              dataToConsolidate,
-              entry);
-          break;
-        case REMOVE:
-          Preconditions.checkState(
-              reverseDepsAsSet.remove(key),
-              "%s %s %s %s",
-              keyToConsolidate,
-              raw,
-              dataToConsolidate,
-              entry);
-          break;
-        case ADD:
-          Preconditions.checkState(
-              reverseDepsAsSet.add(key),
-              "%s %s %s %s",
-              keyToConsolidate,
-              raw,
-              dataToConsolidate,
-              entry);
-          break;
+    if (dataToConsolidate != null) {
+      Preconditions.checkState(getOpToStoreBare(entry) == Op.CHECK, entry);
+      for (Object keyToConsolidate : dataToConsolidate) {
+        SkyKey key = KeyToConsolidate.key(keyToConsolidate);
+        switch (KeyToConsolidate.op(keyToConsolidate, Op.CHECK)) {
+          case CHECK:
+            Preconditions.checkState(
+                reverseDepsAsSet.contains(key),
+                "%s %s %s %s",
+                keyToConsolidate,
+                reverseDepsAsSet,
+                dataToConsolidate,
+                entry);
+            break;
+          case REMOVE:
+            Preconditions.checkState(
+                reverseDepsAsSet.remove(key),
+                "%s %s %s %s",
+                keyToConsolidate,
+                raw,
+                dataToConsolidate,
+                entry);
+            break;
+          case ADD:
+            Preconditions.checkState(
+                reverseDepsAsSet.add(key),
+                "%s %s %s %s",
+                keyToConsolidate,
+                raw,
+                dataToConsolidate,
+                entry);
+            break;
+        }
       }
+    }
+    // Filter before storing the compact representation, reusing the set that checked pending ops.
+    if (deletedKeys != null) {
+      reverseDepsAsSet.removeAll(deletedKeys);
     }
     writeReverseDeps(entry, reverseDepsAsSet);
   }

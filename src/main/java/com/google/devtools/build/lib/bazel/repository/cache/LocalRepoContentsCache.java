@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,7 +108,7 @@ public final class LocalRepoContentsCache {
     /** Updates the mtime of the recorded inputs file, to delay GC for this entry. */
     public void touch() {
       try {
-        recordedInputsFile.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+        recordedInputsFile.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
       } catch (IOException e) {
         // swallow the exception. it's not a huge deal.
       }
@@ -226,10 +227,20 @@ public final class LocalRepoContentsCache {
         try {
           Preconditions.checkState(path != null);
           runGc(maxAge);
-          // Empty the trash dir outside the lock. No one is reading from these files, so it should
-          // be safe. At worst, multiple servers performing GC will try to delete the same files,
-          // but whatever.
-          path.getChild(TRASH_PATH).deleteTreesBelow();
+          // Another server may stage the marker file of a repo in the trash dir while moving the
+          // repo into the cache, which only requires the shared lock. Trash entries have unique
+          // names, so deleting only those listed under the exclusive lock leaves such a marker
+          // file alone.
+          Collection<Path> trashEntries;
+          try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
+            trashEntries = path.getChild(TRASH_PATH).getDirectoryEntries();
+          }
+          for (Path trashEntry : trashEntries) {
+            if (Thread.interrupted()) {
+              throw new InterruptedException();
+            }
+            trashEntry.deleteTree();
+          }
         } catch (IOException e) {
           throw new IdleTaskException(e);
         }
@@ -238,11 +249,11 @@ public final class LocalRepoContentsCache {
   }
 
   private void runGc(Duration maxAge) throws InterruptedException, IOException {
-    path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    path.setLastModifiedTimeNanos(Path.NOW_SENTINEL_TIME);
     Instant cutoff =
         maxAge.isZero()
             ? Instant.MIN
-            : Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
+            : Instant.ofEpochSecond(0, path.getLastModifiedTimeNanos()).minus(maxAge);
     Path trashDir = ensureTrashDir();
     HashFunction sha256 = DigestHashFunction.SHA256.getHashFunction();
 
@@ -273,7 +284,8 @@ public final class LocalRepoContentsCache {
           // created
           // when multiple Bazel servers fetch the same repo at the same time. The servers that have
           // their referenced entry deleted will roll over to the next entry on the next build.
-          if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
+          if (Instant.ofEpochSecond(0, recordedInputsFile.getLastModifiedTimeNanos())
+                  .isBefore(cutoff)
               || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
             recordedInputsFile.delete();
             var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
@@ -287,7 +299,7 @@ public final class LocalRepoContentsCache {
 
   private static long getLastModifiedTimeOrZero(Path path) {
     try {
-      return path.getLastModifiedTime();
+      return path.getLastModifiedTimeNanos();
     } catch (IOException e) {
       // If we can't read the mtime from the entry, it's broken and treated as outdated.
       return 0L;

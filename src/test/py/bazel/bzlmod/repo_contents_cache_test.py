@@ -19,11 +19,15 @@ import json
 import os
 import pathlib
 import shutil
+import subprocess
 import tempfile
 import time
 
 from absl.testing import absltest
 from src.test.py.bazel import test_base
+from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
+from src.test.py.bazel.bzlmod.test_utils import integrity
+from src.test.py.bazel.bzlmod.test_utils import read
 
 
 class RepoContentsCacheTest(test_base.TestBase):
@@ -349,6 +353,122 @@ class RepoContentsCacheTest(test_base.TestBase):
     self.RunBazel(['clean', '--expunge'], cwd=dir_a)
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_a)
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testCacheHitAcrossWorkspacesWithWorkspaceRegistry(self):
+    # Two checkouts of a workspace that contains a registry.
+    dir_a = self.ScratchDir('a')
+    patch_file = self.ScratchFile(
+        'aaa.patch',
+        [
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0"',
+            '+    lib_name="aaa@1.0 (remotely patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
+            ' }',
+        ],
+    )
+    overlay_file = self.ScratchFile('overlay.txt', ['overlaid'])
+    BazelRegistry(os.path.join(dir_a, 'registry')).createShModule(
+        'aaa',
+        '1.0',
+        patches=[patch_file],
+        patch_strip=1,
+        overlay={'overlay.txt': overlay_file},
+    )
+    self.ScratchFile(
+        'a/MODULE.bazel', ['bazel_dep(name = "aaa", version = "1.0")']
+    )
+    self.ScratchFile('a/BUILD.bazel')
+    # On Windows, %workspace% is C:/..., so file:///%workspace% is
+    # file:///C:/...
+    self.ScratchFile(
+        'a/.bazelrc',
+        [
+            'common --registry=file:///%workspace%/registry',
+            'common --registry=https://bcr.bazel.build',
+        ],
+    )
+    dir_b = self.Path('b')
+    shutil.copytree(dir_a, dir_b)
+
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_a)
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_b)
+
+    repo_dir_a = self.repoDir('aaa', cwd=dir_a)
+    repo_dir_b = self.repoDir('aaa', cwd=dir_b)
+    self.assertRepoCached(repo_dir_a)
+    self.assertEqual(os.path.realpath(repo_dir_a), os.path.realpath(repo_dir_b))
+    with open(os.path.join(repo_dir_b, 'aaa.sh')) as f:
+      self.assertIn('(remotely patched)', f.read())
+    self.assertTrue(os.path.exists(os.path.join(repo_dir_b, 'overlay.txt')))
+
+  def testCacheHitAcrossWorkspacesWithWorkspaceRegistry_gitRepository(self):
+    # Two checkouts of a workspace that contains a registry with a module
+    # backed by a git repository outside the workspace.
+    dir_a = self.ScratchDir('a')
+    registry = BazelRegistry(os.path.join(dir_a, 'registry'))
+    git_dir = self.Path('aaa_git')
+    shutil.move(str(registry.generateShSource('aaa', '1.0')), git_dir)
+    for args in [
+        ['init'],
+        ['config', 'user.email', 'example@bazel-dev.org'],
+        ['config', 'user.name', 'example'],
+        ['add', '--all'],
+        ['commit', '-m', 'Initialize'],
+    ]:
+      subprocess.check_output(['git'] + args, cwd=git_dir)
+    commit = subprocess.check_output(
+        ['git', 'rev-parse', 'HEAD'], cwd=git_dir, universal_newlines=True
+    ).strip()
+    patch_file = self.ScratchFile(
+        'a/registry/modules/aaa/1.0/patches/aaa.patch',
+        [
+            '--- a/aaa.sh',
+            '+++ b/aaa.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_aaa {',
+            '     caller_name="${1}"',
+            '-    lib_name="aaa@1.0"',
+            '+    lib_name="aaa@1.0 (remotely patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
+            ' }',
+        ],
+    )
+    registry.createGitRepoModule(
+        'aaa',
+        '1.0',
+        git_dir,
+        commit=commit,
+        patches={'aaa.patch': integrity(read(patch_file))},
+        patch_strip=1,
+    )
+    self.ScratchFile(
+        'a/MODULE.bazel', ['bazel_dep(name = "aaa", version = "1.0")']
+    )
+    self.ScratchFile('a/BUILD.bazel')
+    self.ScratchFile(
+        'a/.bazelrc',
+        [
+            'common --registry=file:///%workspace%/registry',
+            'common --registry=https://bcr.bazel.build',
+        ],
+    )
+    dir_b = self.Path('b')
+    shutil.copytree(dir_a, dir_b)
+
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_a)
+    self.RunBazel(['build', '@aaa//:lib_aaa'], cwd=dir_b)
+
+    repo_dir_a = self.repoDir('aaa', cwd=dir_a)
+    repo_dir_b = self.repoDir('aaa', cwd=dir_b)
+    self.assertRepoCached(repo_dir_a)
+    self.assertEqual(os.path.realpath(repo_dir_a), os.path.realpath(repo_dir_b))
+    with open(os.path.join(repo_dir_b, 'aaa.sh')) as f:
+      self.assertIn('(remotely patched)', f.read())
 
   def testGc_singleServer_gcAfterCacheHit(self):
     self.ScratchFile(
@@ -789,6 +909,65 @@ class RepoContentsCacheTest(test_base.TestBase):
     # With --windows_enable_symlinks, real symlinks are created and detected
     # by the replanting logic, so cross-repo symlinks prevent caching.
     self.doTestCachedRepoWithSymlinks(expect_cross_repo_cached=False)
+
+  def testCachedRepoWithCopiedFiles(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('data.txt', ['one'])
+    self.ScratchFile('tool.sh', ['#!/bin/sh'], executable=True)
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "filegroup(name=\'haha\','
+                " srcs=['data.txt', 'tool.sh'])\")"
+            ),
+            (
+                '  rctx.copy(Label("@//:data.txt"), "data.txt", executable ='
+                ' False)'
+            ),
+            '  rctx.copy(Label("@//:tool.sh"), "tool.sh")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    # Copies of files in the main repo don't prevent caching.
+    repo_dir = self.repoDir('my_repo')
+    self.assertRepoCached(repo_dir)
+    self.assertFalse(os.path.islink(os.path.join(repo_dir, 'data.txt')))
+    self.AssertFileContentContains(os.path.join(repo_dir, 'data.txt'), 'one')
+    if not self.IsWindows():
+      self.assertFalse(os.access(os.path.join(repo_dir, 'data.txt'), os.X_OK))
+      self.assertTrue(os.access(os.path.join(repo_dir, 'tool.sh'), os.X_OK))
+
+    # Change a copied file: not cached
+    self.ScratchFile('data.txt', ['two'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    repo_dir = self.repoDir('my_repo')
+    self.assertRepoCached(repo_dir)
+    self.AssertFileContentContains(os.path.join(repo_dir, 'data.txt'), 'two')
+
+    # Change back to the previous content: cached (even after expunging)
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('data.txt', ['one'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.AssertFileContentContains(
+        os.path.join(self.repoDir('my_repo'), 'data.txt'), 'one'
+    )
 
 
 if __name__ == '__main__':

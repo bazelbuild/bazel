@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFuncti
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRoot;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -100,20 +99,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private static class State implements SerializableSkyKeyComputeState {
-    @Nullable // initialized lazily
-    private RetrievalContext retrievalContext = null;
-
-    @Override
-    public RetrievalContext getRetrievalContext() {
-      if (retrievalContext == null) {
-        retrievalContext = new RetrievalContext();
-      }
-
-      return retrievalContext;
-    }
-  }
-
   public ArtifactFunction(
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
@@ -146,7 +131,8 @@ public final class ArtifactFunction implements SkyFunction {
     if (remoteCachingDependencies.mode().isRetrievalEnabled()
         && !remoteCachingDependencies.getSkycacheAnalysisOnly()
         && !actionExecutor.shouldSkipRetrieval(derivedArtifact.getGeneratingActionKey())) {
-      switch (retrieveRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
+      switch (retrieveRemoteSkyValue(
+          artifact, env, remoteCachingDependencies, SerializableSkyKeyComputeState::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:

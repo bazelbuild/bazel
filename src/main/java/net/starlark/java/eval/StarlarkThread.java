@@ -48,7 +48,8 @@ import net.starlark.java.syntax.TypeTagger;
  * further computation because it can no longer create mutable values. (This is occasionally
  * valuable in tests.)
  */
-public final class StarlarkThread {
+public final class StarlarkThread
+    implements net.starlark.java.eval.PrintHandler.StarlarkThreadInfo {
 
   /** The mutability of values created by this thread. */
   private final Mutability mutability;
@@ -270,7 +271,7 @@ public final class StarlarkThread {
   private final boolean allowRecursion;
 
   /** PrintHandler for Starlark print statements. */
-  private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
+  private net.starlark.java.eval.PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
   /** Loader for Starlark load statements. Null if loading is disallowed. */
   @Nullable private Loader loader = null;
@@ -297,7 +298,7 @@ public final class StarlarkThread {
       if (profiler != null) {
         // Associate the current OS thread with this evaluation's CPU tick counter.
         // (Save the previous association so we can restore it later.)
-        this.savedCpuTicks = CpuProfiler.setCpuTicksForCurrentThread(cpuTicks);
+        this.savedCpuTicks = profiler.setCpuTicksForCurrentThread(cpuTicks);
       }
     }
 
@@ -349,7 +350,7 @@ public final class StarlarkThread {
       // unregister it from the profiler.
       if (last == 0) {
         // Restore the previous association (in case of reentrant evaluation).
-        CpuProfiler.setCpuTicksForCurrentThread(this.savedCpuTicks);
+        profiler.setCpuTicksForCurrentThread(this.savedCpuTicks);
         this.savedCpuTicks = null;
         this.profiler = null;
       }
@@ -380,18 +381,27 @@ public final class StarlarkThread {
   }
 
   /**
-   * A PrintHandler determines how a Starlark thread deals with print statements. It is invoked by
-   * the built-in {@code print} function. Its default behavior is to write the message to standard
-   * error, preceded by the location of the print statement, {@code thread.getCallerLocation()}.
+   * Transitional alias for {@link net.starlark.java.eval.PrintHandler} while callers migrate to the
+   * top-level interface.
    */
   @FunctionalInterface
-  public interface PrintHandler {
+  public interface PrintHandler extends net.starlark.java.eval.PrintHandler {
     void print(StarlarkThread thread, String msg);
+
+    @Override
+    default void print(StarlarkThreadInfo thread, String msg) {
+      print((StarlarkThread) thread, msg);
+    }
   }
 
   /** Returns the PrintHandler for Starlark print statements. */
-  PrintHandler getPrintHandler() {
+  net.starlark.java.eval.PrintHandler getPrintHandler() {
     return printHandler;
+  }
+
+  /** Sets the behavior of Starlark print statements executed by this thread. */
+  public void setPrintHandler(net.starlark.java.eval.PrintHandler h) {
+    this.printHandler = Preconditions.checkNotNull(h);
   }
 
   /** Sets the behavior of Starlark print statements executed by this thread. */
@@ -399,7 +409,8 @@ public final class StarlarkThread {
     this.printHandler = Preconditions.checkNotNull(h);
   }
 
-  private static void defaultPrintHandler(StarlarkThread thread, String msg) {
+  private static void defaultPrintHandler(
+      net.starlark.java.eval.PrintHandler.StarlarkThreadInfo thread, String msg) {
     System.err.println(thread.getCallerLocation() + ": " + msg);
   }
 
@@ -461,6 +472,7 @@ public final class StarlarkThread {
    * a built-in function, this is the location of the call expression that called the built-in. It
    * returns BUILTIN if called with fewer than two frames (such as within a test).
    */
+  @Override
   public Location getCallerLocation() {
     return toplevel() ? Location.BUILTIN : frame(1).loc;
   }

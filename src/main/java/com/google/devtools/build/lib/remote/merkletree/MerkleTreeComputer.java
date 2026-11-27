@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -85,6 +86,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -184,7 +186,6 @@ public final class MerkleTreeComputer {
   @Nullable private final MerkleTreeUploader merkleTreeUploader;
   private final String buildRequestId;
   private final String commandId;
-  private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
   private final TaskDeduplicator<InFlightCacheKey, InFlightAttributes, MerkleTree.RootOnly>
@@ -195,13 +196,11 @@ public final class MerkleTreeComputer {
       DigestUtil digestUtil,
       @Nullable MerkleTreeUploader remoteExecutionCache,
       String buildRequestId,
-      String commandId,
-      String workspaceName) {
+      String commandId) {
     this.digestUtil = digestUtil;
     this.merkleTreeUploader = remoteExecutionCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
-    this.workspaceName = workspaceName;
     var emptyBlob = new byte[0];
     this.emptyDigest = digestUtil.compute(emptyBlob);
     this.emptyTree =
@@ -384,7 +383,8 @@ public final class MerkleTreeComputer {
             spawnExecutionContext,
             metadata,
             CachePolicy.REMOTE_CACHE_ONLY,
-            CachePolicy.NO_CACHE);
+            // Inputs missing from the remote cache may be uploaded from the disk cache.
+            CachePolicy.DISK_CACHE_ONLY);
     try {
       return getFromFuture(
           build(
@@ -577,6 +577,7 @@ public final class MerkleTreeComputer {
                 /* Digest | FileArtifactValue */ Object,
                 /* byte[] | ActionInput | DeterministicWriter */ Object>(
                 MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
+    byte[][] discardScratch = blobPolicy == BlobPolicy.DISCARD ? new byte[1][] : null;
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
@@ -627,7 +628,7 @@ public final class MerkleTreeComputer {
         }
         inputBytes +=
             unwindDirectoryStack(
-                directoryStack, currentParentString, commonPrefixLength, blobPolicy, blobs);
+                directoryStack, currentParentString, commonPrefixLength, discardScratch, blobs);
         for (int end = newParentString.length();
             end > commonPrefixLength;
             end = max(0, newParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1))) {
@@ -732,8 +733,12 @@ public final class MerkleTreeComputer {
         default -> {
           // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
           // arise from exploded source directories, repository rules or tests.
-          var resolvedPath = artifactPathResolver.toPath(input);
-          var digest = digestUtil.compute(resolvedPath, resolvedPath.stat());
+          var inputPath = artifactPathResolver.toPath(input);
+          // The path of a PathActionInput in the input root isn't an exec path.
+          var digest =
+              input instanceof PathActionInput
+                  ? digestUtil.compute(inputPath, inputPath.stat())
+                  : digestUtil.compute(input.getExecPath(), inputPath, inputPath.stat());
           addFile(currentDirectory, name, digest, nodeProperties);
           if (blobPolicy != BlobPolicy.DISCARD && digest.getSizeBytes() != 0) {
             blobs.putIfAbsent(digest, input);
@@ -749,14 +754,11 @@ public final class MerkleTreeComputer {
             directoryStack,
             currentParent.getPathString(),
             /* targetLength= */ 0,
-            blobPolicy,
+            discardScratch,
             blobs);
 
-    byte[] rootDirectoryBlob = directoryStack.pop().build().toByteArray();
-    Digest rootDirectoryBlobDigest = digestUtil.compute(rootDirectoryBlob);
-    if (blobPolicy != BlobPolicy.DISCARD && rootDirectoryBlobDigest.getSizeBytes() != 0) {
-      blobs.putIfAbsent(rootDirectoryBlobDigest, rootDirectoryBlob);
-    }
+    Digest rootDirectoryBlobDigest =
+        computeDirectoryDigest(directoryStack.pop().build(), discardScratch, blobs);
     inputBytes += rootDirectoryBlobDigest.getSizeBytes();
     if (blobPolicy == BlobPolicy.DISCARD) {
       // Make sure that we didn't unnecessarily retain any blobs.
@@ -774,15 +776,12 @@ public final class MerkleTreeComputer {
       Deque<Directory.Builder> directoryStack,
       String currentParentString,
       int targetLength,
-      BlobPolicy blobPolicy,
+      @Nullable byte[][] discardScratch,
       @Nullable Map<Object, Object> blobs) {
     long addedBytes = 0;
     for (int end = currentParentString.length(); end > targetLength; ) {
-      byte[] directoryBlob = directoryStack.pop().build().toByteArray();
-      Digest directoryBlobDigest = digestUtil.compute(directoryBlob);
-      if (blobPolicy != BlobPolicy.DISCARD && directoryBlobDigest.getSizeBytes() != 0) {
-        blobs.putIfAbsent(directoryBlobDigest, directoryBlob);
-      }
+      Digest directoryBlobDigest =
+          computeDirectoryDigest(directoryStack.pop().build(), discardScratch, blobs);
       addedBytes += directoryBlobDigest.getSizeBytes();
       int start = currentParentString.lastIndexOf(PathFragment.SEPARATOR_CHAR, end - 1) + 1;
       checkNotNull(directoryStack.peek())
@@ -794,6 +793,36 @@ public final class MerkleTreeComputer {
       end = max(0, start - 1);
     }
     return addedBytes;
+  }
+
+  private Digest computeDirectoryDigest(
+      Directory directory, @Nullable byte[][] discardScratch, @Nullable Map<Object, Object> blobs) {
+    if (discardScratch == null) {
+      byte[] directoryBlob = directory.toByteArray();
+      Digest digest = digestUtil.compute(directoryBlob);
+      if (digest.getSizeBytes() != 0) {
+        blobs.putIfAbsent(digest, directoryBlob);
+      }
+      return digest;
+    }
+    int size = directory.getSerializedSize();
+    if (size == 0) {
+      return emptyDigest;
+    }
+    if (discardScratch[0] == null || discardScratch[0].length < size) {
+      discardScratch[0] = new byte[size];
+    }
+    byte[] buf = discardScratch[0];
+    // Bound the stream to size so that checkNoSpaceLeft ignores spare capacity in buf.
+    CodedOutputStream out = CodedOutputStream.newInstance(buf, 0, size);
+    try {
+      directory.writeTo(out);
+    } catch (IOException e) {
+      // writeTo throws only when the declared size does not match the bytes written.
+      throw new IllegalStateException(e);
+    }
+    out.checkNoSpaceLeft();
+    return digestUtil.compute(buf, 0, size);
   }
 
   private <T> ListenableFuture<ImmutableMap<T, MerkleTree.RootOnly>> precomputeSubTrees(
@@ -916,7 +945,7 @@ public final class MerkleTreeComputer {
             mappedExecPath);
     var fullPath =
         mappedExecPath
-            .getChild(workspaceName)
+            .getChild(LabelConstants.MAIN_REPO_DIR_NAME)
             .getRelative(artifactAtCanonicalLocation.getRunfilesPath());
     boolean isTool = isToolInput.test(fullPath);
     // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -

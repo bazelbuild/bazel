@@ -12,8 +12,7 @@ common:remote_shared --google_default_credentials
 common:remote_shared --jobs=100
 common:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 
-# Configuration to build and test Bazel on RBE on Ubuntu 20.04
-common:ubuntu2404 --extra_toolchains=@rbe_ubuntu2404//config:cc-toolchain
+# Configuration to build and test Bazel on RBE on Ubuntu 24.04
 common:ubuntu2404 --extra_execution_platforms=//:rbe_ubuntu2404_platform,//:rbe_ubuntu2404_highcpu_platform
 common:ubuntu2404 --host_platform=//:rbe_ubuntu2404_platform
 common:ubuntu2404 --platforms=//:rbe_ubuntu2404_platform
@@ -31,12 +30,43 @@ common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_wi
 # Build Bazel with the hermetic LLVM toolchains from the `llvm` module instead
 # of the auto-configured host toolchain. Combine with --platforms to
 # cross-compile, e.g.:
-#   bazel build --config=llvm --platforms=@llvm//platforms:linux_x86_64 //src:bazel
-#   bazel build --config=llvm --platforms=@llvm//platforms:windows_x86_64 //src:bazel
-#   bazel build --config=llvm --platforms=@llvm//platforms:macos_aarch64 //src:bazel
-# Keep in sync with //src:windows_llvm_alias.bzl.
-common:llvm --extra_toolchains=@llvm//toolchain:all
-common:llvm --extra_toolchains=//src:llvm_rc_toolchain
+#   bazel build --platforms=@llvm//platforms:linux_x86_64 //src:bazel
+#   bazel build --platforms=//:windows_x86_64 //src:bazel
+#   bazel build --platforms=@llvm//platforms:macos_aarch64 //src:bazel
+common --extra_toolchains=@llvm//toolchain:all
+common --extra_toolchains=//src:llvm_rc_toolchain
+
+# Enables the `linux` and `windows` configs below on these hosts.
+common --enable_platform_specific_config
+
+# On Linux, build against the oldest glibc that the LLVM toolchains support, so
+# that the binaries run on old distributions. See //:linux_host_platform.
+common:linux --host_platform=//:linux_host_platform
+
+# On Windows, pair the hermetic MinGW LLVM toolchain with `windows-gnullvm` Rust
+# and shorten platform output dir names to keep generated Rust sysroot `.rlib`
+# paths under Windows's 260-character MAX_PATH limit. Compile Rust proc-macros
+# for MSVC (matching the MSVC-hosted `rustc.exe`) using the host Visual Studio
+# toolchain.
+common:windows --extra_execution_platforms=//:windows_host_platform
+common:windows --host_platform=//:windows_host_platform
+common:windows --extra_toolchains=//:windows_x86_64_msvc_cc_toolchain,//:windows_arm64_msvc_cc_toolchain
+common:windows --@rules_rust//rust/settings:proc_macro_platform=//:windows_msvc_host_platform
+common:windows --experimental_override_name_platform_in_output_dir=//:windows_host_platform=w
+common:windows --experimental_override_name_platform_in_output_dir=//:windows_msvc_host_platform=wm
+common:windows --experimental_override_name_platform_in_output_dir=//:windows_arm64=wa
+
+# With the LLVM toolchains, layering_check reports errors for generated headers
+# of grpc when the build runs on a Windows host (still the case with llvm
+# 0.8.27).
+# TODO: Remove once this is fixed.
+common:windows --features=-layering_check
+common:windows --host_features=-layering_check
+
+# The Bazel client only talks to the server via 127.0.0.1/[::1], so it never
+# needs a DNS resolver. Disable gRPC's c-ares based resolver to avoid building
+# c-ares.
+common --define=grpc_no_ares=true
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
@@ -61,12 +91,13 @@ common --host_features=external_include_paths
 # Build protoc from source instead of using the prebuilt binary so we can apply patches.
 common --@com_google_protobuf//bazel/flags:prefer_prebuilt_protoc=false
 
-# Enable Java 25 language features and compile for a Java 25 runtime.
+# Enable Java 25 language features and compile for a Java 25 runtime, but run on the version of
+# the embedded JDK.
 # Keep in sync with //:java_toolchain_%d.
 # LINT.IfChange
 common --java_language_version=25
 common --tool_java_language_version=25
-common --java_runtime_version=remotejdk_25
+common --java_runtime_version=remotejdk_27
 common --tool_java_runtime_version=remotejdk_25
 # LINT.ThenChange(//BUILD)
 # Reduce the amount of warnings shown due to the deprecation of most Unsafe

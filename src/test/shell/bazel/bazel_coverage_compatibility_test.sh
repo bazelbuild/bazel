@@ -83,7 +83,8 @@ EOF
 # for https://github.com/bazelbuild/bazel/issues/15385.
 function test_sh_test_coverage() {
   set_up_sh_test_coverage
-  bazel coverage --test_output=all --combined_report=lcov //:all &>$TEST_log \
+  bazel coverage --test_output=all --test_summary=detailed \
+    --combined_report=lcov //:all &>$TEST_log \
     || fail "Coverage for //:all failed"
   expect_log "INFO: Build completed successfully"
   expect_log "//:compatible_test .* PASSED"
@@ -94,7 +95,8 @@ function test_sh_test_coverage() {
 # Validates that coverage correctly handles all tests being incompatible.
 function test_sh_test_coverage() {
   set_up_sh_test_coverage
-  bazel coverage --test_output=all --combined_report=lcov //all_incompatible:all &>$TEST_log \
+  bazel coverage --test_output=all --test_summary=detailed \
+    --combined_report=lcov //all_incompatible:all &>$TEST_log \
     || fail "Coverage for //:all failed"
   expect_log "INFO: Build completed successfully"
   expect_log "//all_incompatible:incompatible1_test .* SKIPPED"

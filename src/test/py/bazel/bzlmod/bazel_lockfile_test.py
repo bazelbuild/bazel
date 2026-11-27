@@ -62,8 +62,9 @@ class BazelLockfileTest(test_base.TestBase):
     os.remove(self.Path('MODULE.bazel.lock'))
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     output_base = pathlib.Path(stdout[0].strip())
+    self.hidden_lockfile = output_base.joinpath('MODULE.bazel.lock')
     try:
-      os.remove(output_base.joinpath('MODULE.bazel.lock'))
+      os.remove(self.hidden_lockfile)
     except FileNotFoundError:
       pass
 
@@ -1361,6 +1362,115 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('I am running the extension', stderr)
     self.assertIn('I have changed now!', stderr)
 
+  def testModuleExtensionWithCopiedFile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
+            '    ctx.copy(Label("//:hello.txt"), "copy/hello.txt")',
+            '    print(ctx.read("copy/hello.txt"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
+
+    # Update file and rerun
+    self.ScratchFile('hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
+
+  def testModuleExtensionWithCopiedDirectory(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
+            (
+                '    src ='
+                ' ctx.path(Label("//:BUILD.bazel")).dirname.get_child("dir")'
+            ),
+            '    ctx.copy(src, "copy")',
+            '    print(ctx.read("copy/sub/hello.txt"))',
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    self.ScratchFile('dir/sub/hello.txt', ['I will not stay the same.'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
+
+    # Update a file in the directory and rerun
+    self.ScratchFile('dir/sub/hello.txt', ['I have changed now!'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
+
+    # Add a file to the directory and rerun after a shutdown
+    self.RunBazel(['shutdown'])
+    self.ScratchFile('dir/sub/new.txt')
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+
   def testModuleExtensionModifyingWatchedFile(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/29114: an
     # extension that reads a file, modifies it and then reads it again must not
@@ -2521,6 +2631,179 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertNotIn('ran the extension!', stderr)
     self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
+  def testExtensionRepoMappingChange_tagDefault(self):
+    # Same as above, except that the label is the default of the tag attribute.
+    self.main_registry.createShModule('foo', '1.0')
+    self.main_registry.createShModule('bar', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="repo_name")',
+            'bazel_dep(name="bar",version="1.0")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'ext.tag()',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load("@repo//:defs.bzl", "STR")',
+            'print("STR="+STR)',
+            'filegroup(name="lol")',
+        ],
+    )
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD")',
+            '  rctx.file("defs.bzl", "STR = " + repr(str(rctx.attr.value)))',
+            'repo = repository_rule(_repo_impl,attrs={"value":attr.label()})',
+            'def _ext_impl(mctx):',
+            '  print("ran the extension!")',
+            '  repo(name = "repo", value = mctx.modules[0].tags.tag[0].label)',
+            'tag = tag_class(',
+            '  attrs = {',
+            '    "label": attr.label(default = "@repo_name//:lib_foo"),',
+            '  },',
+            ')',
+            'ext = module_extension(_ext_impl, tag_classes={"tag": tag})',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    self.assertNotIn('ran the extension!', '\n'.join(stderr))
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    # Now, for something spicy: let repo_name point to bar and change nothing
+    # else. The extension should rerun despite the lockfile being present, and
+    # no usages or .bzl files having changed.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'ext.tag()',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('ran the extension!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    # More spicy! change the repo_name of foo, but nothing else.
+    # The extension should NOT rerun, since it never used the @other_name repo
+    # mapping.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="other_name")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'ext.tag()',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('ran the extension!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
+  def testExtensionRepoMappingChange_repoRuleStringAttr(self):
+    # Same as above, except that the label is passed to the repo rule as a
+    # string. Labels of other repos generated by the extension don't use the
+    # repo mapping of the .bzl file.
+    self.main_registry.createShModule('foo', '1.0')
+    self.main_registry.createShModule('bar', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="repo_name")',
+            'bazel_dep(name="bar",version="1.0")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load("@repo//:defs.bzl", "STR")',
+            'print("STR="+STR)',
+            'filegroup(name="lol")',
+        ],
+    )
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD")',
+            '  rctx.file("defs.bzl", "STR = " + repr(str(rctx.attr.value)))',
+            'repo = repository_rule(_repo_impl,attrs={"value":attr.label()})',
+            'def _ext_impl(mctx):',
+            '  print("ran the extension!")',
+            '  repo(name = "repo", value = "@repo_name//:lib_foo")',
+            '  repo(name = "other", value = "@other//:lib_foo")',
+            'ext = module_extension(_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    self.assertNotIn('ran the extension!', '\n'.join(stderr))
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    # Now, for something spicy: let repo_name point to bar and change nothing
+    # else. The extension should rerun despite the lockfile being present, and
+    # no usages or .bzl files having changed.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('ran the extension!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    # More spicy! change the repo_name of foo, but nothing else.
+    # The extension should NOT rerun, since it never used the @other_name repo
+    # mapping.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="other_name")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('ran the extension!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
   def testExtensionRepoMappingChange_loadsAndRepoRelativeLabels(self):
     # Regression test for #20721; same test as above, except that the call to
     # Label() in ext.bzl is now moved to @{foo,bar}//:defs.bzl and doesn't
@@ -2762,16 +3045,28 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(lockfile_contents)
       self.assertNotIn('//:extension.bzl%ext', lockfile['moduleExtensions'])
 
-    # Error mode may populate the hidden cache, without changing the workspace
-    # lockfile. The cached result must survive a server restart.
-    _, _, stderr = self.RunBazel(
-        ['build', '@repo//:all', '--lockfile_mode=error']
-    )
+    # Error mode may populate the hidden cache without changing the workspace
+    # lockfile. The cached result must survive a warm build and a server
+    # restart.
+    args = [
+        'build',
+        '@repo//:all',
+        '--lockfile_mode=error',
+        '--experimental_check_output_files=false',
+    ]
+    _, _, stderr = self.RunBazel(args)
     self.assertIn('evaluating reproducible extension', ''.join(stderr))
+
+    # A warm build must read the new cache rather than rewrite the same data.
+    # Set a distinguishable timestamp even on file systems with coarse mtimes.
+    os.utime(self.hidden_lockfile, (100, 200))
+    before = self.hidden_lockfile.stat().st_mtime_ns
+    _, _, stderr = self.RunBazel(args)
+    self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
+    self.assertEqual(self.hidden_lockfile.stat().st_mtime_ns, before)
+
     self.RunBazel(['shutdown'])
-    _, _, stderr = self.RunBazel(
-        ['build', '@repo//:all', '--lockfile_mode=error']
-    )
+    _, _, stderr = self.RunBazel(args)
     self.assertNotIn('evaluating reproducible extension', ''.join(stderr))
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       self.assertEqual(lockfile_contents, f.read())
@@ -3363,6 +3658,61 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
     self.assertIn('Unicode test: äöüÄÖÜß🌱', ''.join(stderr))
+
+  def testUnicodeFacts(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(implementation = impl)',
+            'def _mod_ext_impl(ctx):',
+            '    if "äöü€🌱" in ctx.facts:',
+            '        print("Fact: " + ctx.facts["äöü€🌱"])',
+            '    else:',
+            '        print("Fetching facts")',
+            '    repo_rule(name = "hello")',
+            '    return ctx.extension_metadata(',
+            '        reproducible = True,',
+            '        facts = {"äöü€🌱": "ÄÖÜ€🌱"},',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Fetching facts', ''.join(stderr))
+    with open(self.Path('MODULE.bazel.lock'), 'r', encoding='utf-8') as f:
+      lockfile = f.read()
+    self.assertIn('"äöü€🌱": "ÄÖÜ€🌱"', lockfile)
+
+    # Clean out the hidden lockfile to ensure that the extension is evaluated
+    # again with the facts from the lockfile.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=error']
+    )
+    self.assertIn('Fact: ÄÖÜ€🌱', ''.join(stderr))
+
+    # Facts written with JSON escapes, e.g. by a merge tool, are read
+    # correctly.
+    with open(self.Path('MODULE.bazel.lock'), 'w', encoding='utf-8') as f:
+      f.write(
+          lockfile.replace(
+              '"ÄÖÜ€🌱"', '"\\u00c4\\u00d6\\u00dc\\u20ac\\ud83c\\udf31"'
+          )
+      )
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    self.assertIn('Fact: ÄÖÜ€🌱', ''.join(stderr))
 
   def testFactsInReproducibleExtension(self):
     self.ScratchFile(

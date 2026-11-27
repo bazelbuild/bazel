@@ -14,23 +14,6 @@ filegroup(
 )
 
 java_test(
-    name = "ComparingTransitionTest",
-    srcs = ["ComparingTransitionTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:comparing_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party/java/guava:collect",
-        "//third_party/java/junit",
-        "//third_party/java/truth",
-    ],
-)
-
-java_test(
     name = "ComposingTransitionFactoryTest",
     srcs = ["ComposingTransitionFactoryTest.java"],
     deps = [

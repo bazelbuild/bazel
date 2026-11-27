@@ -1,7 +1,28 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 package(default_visibility = ["//src:__subpackages__"])
+
+cc_library(
+    name = "seccomp_exec",
+    srcs = ["seccomp_exec.cc"],
+    hdrs = ["seccomp_exec.h"],
+)
+
+cc_test(
+    name = "seccomp_exec_test",
+    srcs = ["seccomp_exec_test.cc"],
+    target_compatible_with = select({
+        "//src/conditions:linux_x86_64": [],
+        "//src/conditions:linux_aarch64": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":seccomp_exec",
+        "@com_google_googletest//:gtest",
+    ],
+)
 
 cc_binary(
     name = "daemonize",
@@ -13,6 +34,7 @@ cc_binary(
     deps = [
         ":logging",
         ":process-tools",
+        ":seccomp_exec",
     ],
 )
 

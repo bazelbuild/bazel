@@ -108,8 +108,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
         "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skymetal:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module:srcs",
@@ -270,8 +270,6 @@ genrule(
     cmd = (
         "cat $(location //docs:command-line-reference-prefix.html) > $@ && " +
         "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
-        # TODO(#11179): Remove when the stub template fix is released.
-        "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
@@ -279,7 +277,6 @@ genrule(
         "help everything-as-html >> $@ 2>$${TMP}/stderr && " +
         "cat $(location //docs:command-line-reference-suffix.html) >> $@"
     ),
-    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],

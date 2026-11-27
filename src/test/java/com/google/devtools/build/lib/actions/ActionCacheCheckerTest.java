@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ConstantMetadataArtifact;
@@ -123,11 +124,11 @@ public final class ActionCacheCheckerTest {
   }
 
   private ActionCacheChecker createActionCacheChecker(boolean storeOutputMetadata) {
-    return createActionCacheChecker(storeOutputMetadata, /* bustActionCachesTarget= */ null);
+    return createActionCacheChecker(storeOutputMetadata, ImmutableSet.of());
   }
 
   private ActionCacheChecker createActionCacheChecker(
-      boolean storeOutputMetadata, @Nullable Label bustActionCachesTarget) {
+      boolean storeOutputMetadata, ImmutableSet<Label> bustActionCachesTargets) {
     return new ActionCacheChecker(
         cache,
         new FakeArtifactResolverBase(),
@@ -137,7 +138,7 @@ public final class ActionCacheCheckerTest {
         ActionCacheChecker.CacheConfig.builder()
             .setEnabled(true)
             .setStoreOutputMetadata(storeOutputMetadata)
-            .setBustActionCachesTarget(bustActionCachesTarget)
+            .setBustActionCachesTargets(bustActionCachesTargets)
             .build());
   }
 
@@ -497,7 +498,8 @@ public final class ActionCacheCheckerTest {
   @Test
   public void bustActionCaches_skipsCacheHitForMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
-    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true, target);
+    cacheChecker =
+        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action = new WriteEmptyOutputAction(createActionOwner(target), output);
 
@@ -511,13 +513,47 @@ public final class ActionCacheCheckerTest {
   @Test
   public void bustActionCaches_acceptsCacheHitForNonMatchingTarget() throws Exception {
     Label target = Label.parseCanonicalUnchecked("//pkg:target");
-    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true, target);
+    cacheChecker =
+        createActionCacheChecker(/* storeOutputMetadata= */ true, ImmutableSet.of(target));
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action =
         new WriteEmptyOutputAction(
             createActionOwner(Label.parseCanonicalUnchecked("//pkg:other")), output);
 
     doTestCached(action, MissReason.NOT_CACHED);
+  }
+
+  @Test
+  public void bustActionCaches_multipleTargets() throws Exception {
+    Label target1 = Label.parseCanonicalUnchecked("//pkg:target1");
+    Label target2 = Label.parseCanonicalUnchecked("//pkg:target2");
+    Label other = Label.parseCanonicalUnchecked("//pkg:other");
+    cacheChecker =
+        createActionCacheChecker(
+            /* storeOutputMetadata= */ true, ImmutableSet.of(target1, target2));
+    Action action1 =
+        new WriteEmptyOutputAction(
+            createActionOwner(target1), createArtifact(artifactRoot, "bin/out1"));
+    Action action2 =
+        new WriteEmptyOutputAction(
+            createActionOwner(target2), createArtifact(artifactRoot, "bin/out2"));
+    Action otherAction =
+        new WriteEmptyOutputAction(
+            createActionOwner(other), createArtifact(artifactRoot, "bin/other"));
+
+    runAction(action1);
+    runAction(action1);
+    runAction(action2);
+    runAction(action2);
+    runAction(otherAction);
+    runAction(otherAction);
+
+    assertStatistics(
+        1,
+        new MissDetailsBuilder()
+            .set(MissReason.UNCONDITIONAL_EXECUTION, 4)
+            .set(MissReason.NOT_CACHED, 1)
+            .build());
   }
 
   @Test
@@ -1786,6 +1822,136 @@ public final class ActionCacheCheckerTest {
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataRemoteOutput_cachedAndInjected() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata = createRemoteMetadata("content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
+
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, metadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataRemoteOutput_untrusted_notCached()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    FileArtifactValue metadata = createRemoteMetadata("content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    OutputChecker outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustCachedMetadata(output, metadata)).thenReturn(false);
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore,
+        outputChecker);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+    verify(outputChecker).shouldTrustCachedMetadata(output, metadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataProxyOutput_modifiedContent_cachedAndInjected()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    ProxyFileArtifactValue originalMetadata = createProxyMetadata(output, "content");
+    Action action = new InjectOutputFileMetadataAction(output, originalMetadata, originalMetadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getProxyOutputs()).containsExactly(output.getExecPathString());
+
+    // Modified content on disk should still be an action cache hit for constant metadata, with the
+    // updated proxy metadata injected.
+    ProxyFileArtifactValue updatedMetadata = createProxyMetadata(output, "changed");
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenReturn(updatedMetadata);
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    // Hide the local metadata from the OutputMetadataStore, emulating an action file system.
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(fakeOutputMetadataStore.fileMetadata).containsExactly(output, updatedMetadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_constantMetadataProxyOutput_missing_notCached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    ConstantMetadataArtifact output =
+        ConstantMetadataArtifact.create(
+            artifactRoot, PathFragment.create("bin/volatile"), NULL_ARTIFACT_OWNER);
+    ProxyFileArtifactValue metadata = createProxyMetadata(output, "content");
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    when(proxyMetadataFactory.createProxyMetadata(output)).thenThrow(new IOException("missing"));
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.fileMetadata.put(output, null);
+
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* actionExecutionSalt= */ "",
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+    verify(proxyMetadataFactory).createProxyMetadata(output);
   }
 
   /**

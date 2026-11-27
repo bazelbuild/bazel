@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.CPU_CONSTRAINT_SETTING;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -27,6 +28,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -57,9 +60,13 @@ public final class BuildConfigurationFunction implements SkyFunction {
     BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
 
     BuildOptions targetOptions = key.getOptions();
-    Optional<BuildOptions> baselineOptions = getBaselineOptions(env, targetOptions);
-    if (baselineOptions == null) {
-      return null;
+    BaselineOptionsValue.Key baselineKey = baselineOptionsKey(targetOptions);
+    BuildOptions baselineOptions = null;
+    if (baselineKey != null) {
+      baselineOptions = getBaselineOptions(env, baselineKey);
+      if (baselineOptions == null) {
+        return null;
+      }
     }
 
     String platformCpu = getPlatformCpu(env, targetOptions);
@@ -67,12 +74,19 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return null;
     }
 
+    StarlarkBuildSettingsDetailsValue starlarkFlagDetails =
+        getStarlarkFlagDetails(env, targetOptions);
+    if (starlarkFlagDetails == null) {
+      return null;
+    }
+
     try {
       var configurationValue =
           BuildConfigurationValue.create(
               targetOptions,
-              baselineOptions.orElse(null),
+              baselineOptions,
               platformCpu,
+              starlarkFlagDetails,
               // Arguments below this are server-global.
               directories,
               ruleClassProvider,
@@ -81,6 +95,32 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return configurationValue;
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
+    }
+  }
+
+  /**
+   * Resolves the details of the configuration's Starlark build settings, such as their scopes.
+   *
+   * @return null if Skyframe deps need loading.
+   */
+  @Nullable
+  private static StarlarkBuildSettingsDetailsValue getStarlarkFlagDetails(
+      Environment env, BuildOptions targetOptions)
+      throws InterruptedException, BuildConfigurationFunctionException {
+    CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
+    StarlarkBuildSettingsDetailsValue.Key key =
+        StarlarkBuildSettingsDetailsValue.keyForStarlarkOptions(
+            targetOptions.getStarlarkOptions(),
+            coreOptions == null ? ImmutableSet.of() : coreOptions.getHostFlagAliases());
+    if (key == null) {
+      return StarlarkBuildSettingsDetailsValue.EMPTY;
+    }
+    try {
+      return (StarlarkBuildSettingsDetailsValue)
+          env.getValueOrThrow(key, TransitionException.class);
+    } catch (TransitionException e) {
+      throw new BuildConfigurationFunctionException(
+          new InvalidConfigurationException(e.getMessage(), e));
     }
   }
 
@@ -117,18 +157,14 @@ public final class BuildConfigurationFunction implements SkyFunction {
   }
 
   /**
-   * Determine the baseline options to use for tracking changes.
-   *
-   * <p>Returns {@code null} if a Skyframe restart is needed, or an {@link Optional} with either the
-   * baseline options to use, or none if there is no valid baseline.
+   * Returns the key of the {@link BaselineOptionsValue} that the output directory mnemonic of a
+   * configuration with {@code targetOptions} is computed against, or {@code null} for the no-config
+   * configuration, which has none.
    */
   @Nullable
-  private static Optional<BuildOptions> getBaselineOptions(
-      Environment env, BuildOptions targetOptions)
-      throws InterruptedException, BuildConfigurationFunctionException {
-
+  public static BaselineOptionsValue.Key baselineOptionsKey(BuildOptions targetOptions) {
     if (targetOptions.hasNoConfig()) {
-      return Optional.empty();
+      return null;
     }
 
     CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
@@ -139,20 +175,28 @@ public final class BuildConfigurationFunction implements SkyFunction {
         && coreOptions.usePlatformInOutputDir(platformOptions.computeTargetPlatform())) {
       newPlatform = platformOptions.computeTargetPlatform();
     }
+    return BaselineOptionsValue.key(
+        coreOptions.getIsExec(),
+        !targetOptions.contains(TestConfiguration.TestOptions.class),
+        newPlatform);
+  }
 
+  /**
+   * Returns the baseline options for {@code baselineKey}, or {@code null} if a Skyframe restart is
+   * needed.
+   */
+  @Nullable
+  private static BuildOptions getBaselineOptions(
+      Environment env, BaselineOptionsValue.Key baselineKey)
+      throws InterruptedException, BuildConfigurationFunctionException {
     try {
       var baselineOptionsValue =
           (BaselineOptionsValue)
-              env.getValueOrThrow(
-                  BaselineOptionsValue.key(
-                      coreOptions.getIsExec(),
-                      !targetOptions.contains(TestConfiguration.TestOptions.class),
-                      newPlatform),
-                  StarlarkExecTransitionLoadingException.class);
+              env.getValueOrThrow(baselineKey, StarlarkExecTransitionLoadingException.class);
       if (baselineOptionsValue == null) {
         return null;
       }
-      return Optional.of(baselineOptionsValue.toOptions());
+      return baselineOptionsValue.toOptions();
     } catch (StarlarkExecTransitionLoadingException e) {
       throw new BuildConfigurationFunctionException(new InvalidConfigurationException(e));
     }

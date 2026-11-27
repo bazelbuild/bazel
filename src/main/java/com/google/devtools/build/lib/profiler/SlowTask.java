@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** A task that was very slow. */
-@SkybridgeInterface
 @SuppressWarnings("GoodTime")
 public interface SlowTask extends Comparable<SlowTask> {
   long durationNanos();

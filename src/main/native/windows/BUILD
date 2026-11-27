@@ -28,14 +28,6 @@ cc_library(
         "file.h",
         "util.h",
     ],
-    # RegGetValueW. This package is embedded into @bazel_tools, so it can't use
-    # the conditions in //src/conditions.
-    linkopts = select({
-        "@rules_cc//cc/compiler:clang": ["-ladvapi32"],
-        "@rules_cc//cc/compiler:gcc": ["-ladvapi32"],
-        "@rules_cc//cc/compiler:mingw-gcc": ["-ladvapi32"],
-        "//conditions:default": ["-DEFAULTLIB:advapi32.lib"],
-    }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/cpp:__subpackages__",
@@ -68,26 +60,32 @@ cc_binary(
         "jni-util.cc",
         "jni-util.h",
         "processes-jni.cc",
-        "sleep_prevention_jni.cc",
-        "system_cpu_speed_monitor_jni.cc",
-        "system_disk_space_monitor_jni.cc",
-        "system_load_advisory_monitor_jni.cc",
-        "system_memory_pressure_jni.cc",
-        "system_network_stats.cc",
-        "system_suspension_monitor_jni.cc",
-        "system_thermal_monitor_jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],
+    linkopts = select({
+        # System libraries needed on Windows:
+        #   kernel32: SetThreadExecutionState
+        #   ntdll, synchronization: Rust libstd (passed directly because
+        #       rules_rs v0.2.4 omits them from msvc stdlib_linkflags)
+        "//src/conditions:windows_msvc_like": [
+            "kernel32.lib",
+            "ntdll.lib",
+            "synchronization.lib",
+        ],
+        "//conditions:default": [],
+    }),
     linkshared = 1,
     target_compatible_with = ["@platforms//os:windows"],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/jni:__pkg__",
     ],
+    win_def_file = "windows_jni.def",
     deps = [
         ":lib-file",
         ":lib-process",
         "//src/main/native:blake3_jni",
+        "//src/rust/platform:sleep_prevention_ffi",
     ],
 )
 

@@ -151,7 +151,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
                           case StarlarkList<?> list when list.isEmpty() -> Types.list(Types.NEVER);
                           case Dict<?, ?> dict when dict.isEmpty() ->
                               Types.dict(Types.NEVER, Types.NEVER);
-                          default -> Starlark.getStarlarkType(v, semantics);
+                          default -> Starlark.getStarlarkTypePropagatingStackOverflow(v, semantics);
                         })
                 .collect(toImmutableSet())));
   }

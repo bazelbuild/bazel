@@ -479,7 +479,11 @@ public final class Label
    * Label.parse*(x.getUnambiguousCanonicalForm(), ...).equals(x)}).
    */
   public String getUnambiguousCanonicalForm() {
-    return getRepository().getNameWithAt() + "//" + getPackageName() + ":" + name;
+    RepositoryName repository = getRepository();
+    if (repository.isVisible()) {
+      return "@@" + repository.getName() + "//" + getPackageName() + ":" + name;
+    }
+    return repository.getNameWithAt() + "//" + getPackageName() + ":" + name;
   }
 
   /**

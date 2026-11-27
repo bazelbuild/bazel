@@ -32,35 +32,40 @@ public class CleanCommandRecommendsAsyncTest {
 
   private final boolean asyncOnCommandLine;
   private final OS os;
+  private final boolean allowServerSubprocesses;
   private final boolean expectSuggestion;
   private static final String EXPECTED_SUGGESTION = "Use --async";
 
   public CleanCommandRecommendsAsyncTest(
-      boolean asyncOnCommandLine, OS os, boolean expectSuggestion) throws Exception {
+      boolean asyncOnCommandLine, OS os, boolean allowServerSubprocesses, boolean expectSuggestion)
+      throws Exception {
     this.asyncOnCommandLine = asyncOnCommandLine;
     this.os = os;
+    this.allowServerSubprocesses = allowServerSubprocesses;
     this.expectSuggestion = expectSuggestion;
   }
 
-  @Parameters(name = "async={0} on OS {1}")
+  @Parameters(name = "async={0} on OS {1} allowSubprocesses={2}")
   public static Iterable<Object[]> data() {
     return Arrays.asList(
         new Object[][] {
           // When --async is provided, don't expect --async to be suggested.
-          {/* asyncOnCommandLine= */ true, OS.LINUX, false},
-          {/* asyncOnCommandLine= */ true, OS.WINDOWS, false},
-          {/* asyncOnCommandLine= */ true, OS.DARWIN, false},
-          {/* asyncOnCommandLine= */ true, OS.FREEBSD, false},
-          {/* asyncOnCommandLine= */ true, OS.OPENBSD, false},
-          {/* asyncOnCommandLine= */ true, OS.UNKNOWN, false},
+          {/* asyncOnCommandLine= */ true, OS.LINUX, true, false},
+          {/* asyncOnCommandLine= */ true, OS.LINUX, false, false},
+          {/* asyncOnCommandLine= */ true, OS.WINDOWS, true, false},
+          {/* asyncOnCommandLine= */ true, OS.DARWIN, true, false},
+          {/* asyncOnCommandLine= */ true, OS.FREEBSD, true, false},
+          {/* asyncOnCommandLine= */ true, OS.OPENBSD, true, false},
+          {/* asyncOnCommandLine= */ true, OS.UNKNOWN, true, false},
 
           // When --async is not provided, expect the suggestion on platforms that support it.
-          {/* asyncOnCommandLine= */ false, OS.LINUX, true},
-          {/* asyncOnCommandLine= */ false, OS.WINDOWS, false},
-          {/* asyncOnCommandLine= */ false, OS.DARWIN, true},
-          {/* asyncOnCommandLine= */ false, OS.FREEBSD, true},
-          {/* asyncOnCommandLine= */ false, OS.OPENBSD, true},
-          {/* asyncOnCommandLine= */ false, OS.UNKNOWN, false},
+          {/* asyncOnCommandLine= */ false, OS.LINUX, true, true},
+          {/* asyncOnCommandLine= */ false, OS.LINUX, false, false},
+          {/* asyncOnCommandLine= */ false, OS.WINDOWS, true, false},
+          {/* asyncOnCommandLine= */ false, OS.DARWIN, true, true},
+          {/* asyncOnCommandLine= */ false, OS.FREEBSD, true, true},
+          {/* asyncOnCommandLine= */ false, OS.OPENBSD, true, true},
+          {/* asyncOnCommandLine= */ false, OS.UNKNOWN, true, false},
         });
   }
 
@@ -71,8 +76,9 @@ public class CleanCommandRecommendsAsyncTest {
     reporter.addHandler(storedEventHandler);
 
     boolean async =
-        CleanCommand.canUseAsync(this.asyncOnCommandLine, /* expunge= */ false, os, reporter);
-    if (os == OS.WINDOWS || os == OS.UNKNOWN) {
+        CleanCommand.canUseAsync(
+            this.asyncOnCommandLine, /* expunge= */ false, os, allowServerSubprocesses, reporter);
+    if (os == OS.WINDOWS || os == OS.UNKNOWN || !allowServerSubprocesses) {
       assertThat(async).isFalse();
     }
 

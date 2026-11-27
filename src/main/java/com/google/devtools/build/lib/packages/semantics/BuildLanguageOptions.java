@@ -179,12 +179,15 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract List<String> getExperimentalCcStarlarkApiEnabledPackages();
 
   @Option(
-      name = "experimental_enable_android_migration_apis",
+      name = "experimental_disable_build_prelude",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to true, enables the APIs required to support the Android Starlark migration.")
-  public abstract boolean getExperimentalEnableAndroidMigrationApis();
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Disable the implicit //tools/build_rules:prelude_bazel for BUILD files in every"
+              + " repository. Use explicit load() statements for symbols from the prelude.")
+  public abstract boolean getExperimentalDisableBuildPrelude();
 
   @Option(
       name = "experimental_enable_first_class_macros",
@@ -204,7 +207,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
               + " [`use_extension`](https://bazel.build/rules/lib/globals/module#use_extension)"
               + " function.")
   public abstract boolean getExperimentalIsolatedExtensionUsages();
-
 
   @Option(
       name = "incompatible_stop_exporting_build_file_path",
@@ -327,7 +329,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   @Option(
       name = "incompatible_disallow_empty_glob",
       defaultValue = DISALLOW_EMPTY_GLOB_DEFAULT,
-      category = "incompatible changes",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -594,7 +595,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.NON_CONFIGURABLE},
       help =
-          "A comma-separated list of flags that cannot be used in transitions inputs or outputs.")
+          "A comma-separated list of flags that cannot be used in transitions inputs or outputs, "
+              + "PROJECT.scl files, platform definitions, or platform mappings.")
   public abstract ImmutableList<String> getIncompatibleDisableTransitionsOn();
 
   @Option(
@@ -687,7 +689,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_static_type_checking",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -698,7 +700,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_starlark_dynamic_type_checking",
-      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPE_CHECKING,
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -828,6 +830,17 @@ public abstract class BuildLanguageOptions extends OptionsBase {
               + " UTF-8 byte arrays, matching Bazel's internal string encoding.")
   public abstract boolean getInternalStarlarkUtf8ByteStrings();
 
+  @Option(
+      name = "incompatible_existing_rules_default_omit_macro_internals",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, the omit_macro_internals parameter of native.existing_rules() will default to"
+              + " True.")
+  public abstract boolean getIncompatibleExistingRulesDefaultOmitMacroInternals();
+
   /** An enum for specifying different modes for UTF-8 checking of Starlark files. */
   public enum Utf8EnforcementMode {
     OFF,
@@ -927,9 +940,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, getExperimentalBzlVisibility())
             .setBool(ALLOW_EXPERIMENTAL_LOADS, getAllowExperimentalLoads())
             .setBool(CHECK_BZL_VISIBILITY, getCheckBzlVisibility())
-            .setBool(
-                EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
-                getExperimentalEnableAndroidMigrationApis())
+            .setBool(EXPERIMENTAL_DISABLE_BUILD_PRELUDE, getExperimentalDisableBuildPrelude())
             .setBool(
                 EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
                 getExperimentalSinglePackageToolchainBinding())
@@ -1037,7 +1048,10 @@ public abstract class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM, getRepositoryCtxExecuteWasm())
             .setBool(
                 EXPERIMENTAL_REPOSITORY_CTX_WASM_COMPILATION, getRepositoryCtxWasmCompilation())
-            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, getForceStarlarkStackTrace());
+            .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, getForceStarlarkStackTrace())
+            .setBool(
+                INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS,
+                getIncompatibleExistingRulesDefaultOmitMacroInternals());
   }
 
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
@@ -1129,8 +1143,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public static final String ALLOW_EXPERIMENTAL_LOADS = "-allow_experimental_loads";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
-  public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
-      "-experimental_enable_android_migration_apis";
+  public static final String EXPERIMENTAL_DISABLE_BUILD_PRELUDE =
+      "-experimental_disable_build_prelude";
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
@@ -1211,6 +1225,8 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-incompatible_resolve_select_keys_eagerly";
   public static final String INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS =
       "-incompatible_symbolic_macro_strict_attrs";
+  public static final String INCOMPATIBLE_EXISTING_RULES_DEFAULT_OMIT_MACRO_INTERNALS =
+      "-incompatible_existing_rules_default_omit_macro_internals";
 
   // non-booleans
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_DISABLE_TRANSITIONS_OPTIONS =

@@ -14,18 +14,33 @@
 package com.google.devtools.build.lib.compress;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 /** A {@link BlazeService} providing access to compression libraries. */
-@SkybridgeInterface
 public interface CompressionService extends BlazeService {
 
-  /** Returns an {@link InputStream} that decompresses the given {@link InputStream} using zstd. */
+  /**
+   * Returns an {@link InputStream} that decompresses the given {@link InputStream} using zstd.
+   *
+   * <p>Callers must close the returned stream to release native zstd resources.
+   */
   InputStream newZstdInputStream(InputStream inputStream) throws IOException;
 
-  /** Returns an {@link OutputStream} that compresses the given {@link OutputStream} using zstd. */
+  /**
+   * Returns an {@link OutputStream} that compresses the given {@link OutputStream} using zstd.
+   *
+   * <p>Callers must close the returned stream to flush the zstd frame and release native zstd
+   * resources.
+   */
   OutputStream newZstdOutputStream(OutputStream outputStream) throws IOException;
+
+  /**
+   * Compresses {@code input} into a single zstd frame at {@code level}.
+   *
+   * <p>Unlike {@link #newZstdOutputStream}, the input size is known up front, so zstd tunes its
+   * parameters to it. The output is readable by {@link #newZstdInputStream}.
+   */
+  byte[] compressZstd(byte[] input, int level) throws IOException;
 }

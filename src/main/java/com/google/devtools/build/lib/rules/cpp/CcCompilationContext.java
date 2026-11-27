@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -94,8 +95,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-I" (possibly empty but
    * never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getIncludeDirs() {
     return getPathFragmentList("includes");
@@ -105,8 +105,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-iquote" (possibly empty
    * but never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getQuoteIncludeDirs() {
     return getPathFragmentList("quote_includes");
@@ -116,8 +115,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of include directories to be added with "-isystem" (possibly empty
    * but never null). This includes the include dirs from the transitive deps closure of the target.
    * This list does not contain duplicates. All fragments are either absolute or relative to the
-   * exec root (see {@link
-   * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getSystemIncludeDirs() {
     return getPathFragmentList("system_includes");
@@ -137,7 +135,7 @@ public final class CcCompilationContext {
    * Returns the immutable list of external include directories (possibly empty but never null).
    * This includes the include dirs from the transitive deps closure of the target. This list does
    * not contain duplicates. All fragments are either absolute or relative to the exec root (see
-   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot()}).
    */
   public ImmutableList<PathFragment> getExternalIncludeDirs() {
     return getPathFragmentList("external_includes");
@@ -218,54 +216,68 @@ public final class CcCompilationContext {
 
   /** Helper class for creating include scanning header data. */
   public static class IncludeScanningHeaderDataHelper {
+    enum TreeArtifactHandleResult {
+      MISSING,
+      EMPTY,
+      ADDED,
+    }
+
     private IncludeScanningHeaderDataHelper() {}
 
-    public static void handleArtifact(
+    static boolean handleArtifact(
         Artifact artifact,
         Map<PathFragment, Artifact> pathToLegalArtifact,
-        ArrayList<Artifact> treeArtifacts) {
+        List<Artifact> treeArtifacts) {
       if (artifact.isTreeArtifact()) {
         treeArtifacts.add(artifact);
-        return;
+        return false;
       }
       pathToLegalArtifact.put(artifact.getExecPath(), artifact);
+      return !artifact.isSourceArtifact();
     }
 
     /**
-     * Enter the TreeArtifactValues in each TreeArtifact into pathToLegalArtifact. Returns true on
-     * success.
+     * Enters the {@link TreeArtifactValue}s in each {@code TreeArtifact} into {@code
+     * pathToLegalArtifact} and reports whether any tree children were registered.
      *
-     * <p>If a TreeArtifact's value is missing, returns false, and leave pathToLegalArtifact
-     * unmodified.
+     * <p>If a {@code TreeArtifact}'s value is missing, returns {@link
+     * TreeArtifactHandleResult#MISSING} and leaves {@code pathToLegalArtifact} unmodified.
      */
-    public static boolean handleTreeArtifacts(
+    static TreeArtifactHandleResult handleTreeArtifacts(
         Environment env,
         Map<PathFragment, Artifact> pathToLegalArtifact,
-        ArrayList<Artifact> treeArtifacts)
+        List<Artifact> treeArtifacts)
         throws InterruptedException {
       if (treeArtifacts.isEmpty()) {
-        return true;
+        return TreeArtifactHandleResult.EMPTY;
       }
       SkyframeLookupResult result = env.getValuesAndExceptions(treeArtifacts);
       if (env.valuesMissing()) {
-        return false;
+        return TreeArtifactHandleResult.MISSING;
       }
+      boolean addedAny = false;
       for (Artifact treeArtifact : treeArtifacts) {
         SkyValue value = result.get(treeArtifact);
         if (value == null) {
           BugReport.sendBugReport(
               new IllegalStateException(
                   "Some value from " + treeArtifacts + " was missing, this should never happen"));
-          return false;
+          return TreeArtifactHandleResult.MISSING;
         }
         checkState(
             value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
-        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
-          pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
-        }
+        addedAny |= registerTreeArtifactChildren((TreeArtifactValue) value, pathToLegalArtifact);
       }
-      return true;
+      return addedAny ? TreeArtifactHandleResult.ADDED : TreeArtifactHandleResult.EMPTY;
+    }
+
+    private static boolean registerTreeArtifactChildren(
+        TreeArtifactValue treeArtifactValue, Map<PathFragment, Artifact> pathToLegalArtifact) {
+      ImmutableSortedSet<TreeFileArtifact> children = treeArtifactValue.getChildren();
+      for (TreeFileArtifact treeFileArtifact : children) {
+        pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
+      }
+      return !children.isEmpty();
     }
   }
 
@@ -276,21 +288,24 @@ public final class CcCompilationContext {
    * <p>This is factored out into its own method not only to reduce code duplication below, but also
    * to improve JIT optimization for this performance-sensitive region.
    */
-  private static void handleHeadersForIncludeScanning(
+  private static boolean handleHeadersForIncludeScanning(
       ImmutableList<Artifact> headers,
       Map<PathFragment, Artifact> pathToLegalArtifact,
-      ArrayList<Artifact> treeArtifacts,
+      List<Artifact> treeArtifacts,
       boolean isModule,
       Set<Artifact> modularHeaders) {
+    boolean hasGeneratedHeaders = false;
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (int i = 0; i < headers.size(); i++) {
       Artifact a = headers.get(i);
-      IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalArtifact, treeArtifacts);
+      hasGeneratedHeaders |=
+          IncludeScanningHeaderDataHelper.handleArtifact(a, pathToLegalArtifact, treeArtifacts);
       if (isModule) {
         modularHeaders.add(a);
       }
     }
+    return hasGeneratedHeaders;
   }
 
   /**
@@ -302,7 +317,7 @@ public final class CcCompilationContext {
       Environment env, boolean usePic, boolean createModularHeaders) throws InterruptedException {
     HeaderInfo headerInfo = getHeaderInfo();
     Collection<HeaderInfo> transitiveHeaderInfos = headerInfo.getTransitiveCollection();
-    ArrayList<Artifact> treeArtifacts = new ArrayList<>();
+    List<Artifact> treeArtifacts = new ArrayList<>();
     // Summing transitive header lists over-allocates due to duplicate exported deps, and large
     // maps prematurely promote to Old Gen (b/569269228). Estimate capacity from the deduplicated
     // library count and cap it.
@@ -319,44 +334,57 @@ public final class CcCompilationContext {
         createModularHeaders
             ? CompactHashSet.createWithExpectedSize(Math.min(transitiveInfoCount * 2, 2048))
             : CompactHashSet.create();
+    boolean hasGeneratedHeaders = false;
     // Not using range-based for loops here and below as the additional overhead of the
     // ImmutableList iterators has shown up in profiles.
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
-      handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.modularPublicHeaders,
-          pathToLegalArtifact,
-          treeArtifacts,
-          isModule,
-          modularHeaders);
-      handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.modularPrivateHeaders,
-          pathToLegalArtifact,
-          treeArtifacts,
-          isModule,
-          modularHeaders);
-      handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.separateModuleHeaders,
-          pathToLegalArtifact,
-          treeArtifacts,
-          isModule,
-          modularHeaders);
-      handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.textualHeaders,
-          pathToLegalArtifact,
-          treeArtifacts,
-          /* isModule= */ false,
-          null);
+      hasGeneratedHeaders |=
+          handleHeadersForIncludeScanning(
+              transitiveHeaderInfo.modularPublicHeaders,
+              pathToLegalArtifact,
+              treeArtifacts,
+              isModule,
+              modularHeaders);
+      hasGeneratedHeaders |=
+          handleHeadersForIncludeScanning(
+              transitiveHeaderInfo.modularPrivateHeaders,
+              pathToLegalArtifact,
+              treeArtifacts,
+              isModule,
+              modularHeaders);
+      hasGeneratedHeaders |=
+          handleHeadersForIncludeScanning(
+              transitiveHeaderInfo.separateModuleHeaders,
+              pathToLegalArtifact,
+              treeArtifacts,
+              isModule,
+              modularHeaders);
+      hasGeneratedHeaders |=
+          handleHeadersForIncludeScanning(
+              transitiveHeaderInfo.textualHeaders,
+              pathToLegalArtifact,
+              treeArtifacts,
+              /* isModule= */ false,
+              null);
     }
-    if (!IncludeScanningHeaderDataHelper.handleTreeArtifacts(
-        env, pathToLegalArtifact, treeArtifacts)) {
-      return null;
+    if (!treeArtifacts.isEmpty()) {
+      IncludeScanningHeaderDataHelper.TreeArtifactHandleResult treeResult =
+          IncludeScanningHeaderDataHelper.handleTreeArtifacts(
+              env, pathToLegalArtifact, treeArtifacts);
+      if (treeResult == IncludeScanningHeaderDataHelper.TreeArtifactHandleResult.MISSING) {
+        return null;
+      }
+      if (treeResult == IncludeScanningHeaderDataHelper.TreeArtifactHandleResult.ADDED) {
+        hasGeneratedHeaders = true;
+      }
     }
     removeArtifactsFromSet(modularHeaders, headerInfo.modularPublicHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.modularPrivateHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.separateModuleHeaders);
-    return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
+    return new IncludeScanningHeaderData.Builder(
+        pathToLegalArtifact, modularHeaders, hasGeneratedHeaders);
   }
 
   /**

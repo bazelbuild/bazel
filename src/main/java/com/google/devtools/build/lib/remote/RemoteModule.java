@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -24,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -335,7 +337,6 @@ public final class RemoteModule extends BlazeModule {
             actionContextProvider.getRemoteExecutionClient(),
             buildRequestId,
             invocationId,
-            env.getWorkspaceName(),
             remoteOptions.getRemoteInstanceName(),
             remoteOptions.getRemoteAcceptCached(),
             remoteOptions.getRemoteUploadLocalResults(),
@@ -370,13 +371,13 @@ public final class RemoteModule extends BlazeModule {
    * --experimental_remote_cache_eviction_retries}), {@code attemptNumber} is greater than 1 and the
    * log written by the previous attempt is still at {@code path}. Truncating it would discard the
    * log of the very attempt that hit the cache eviction, which is exactly the one worth debugging.
-   * Instead, rename the existing file to {@code <path>.<previous attempt number>} so every
-   * attempt's log is preserved. See https://github.com/bazelbuild/bazel/issues/18695.
+   * Rename regular logs to {@code <path>.<previous attempt number>} to preserve each attempt. Leave
+   * special files such as named pipes in place so their readers receive every attempt.
    */
   @VisibleForTesting
   static AsynchronousMessageOutputStream<LogEntry> openRpcLogFile(Path path, int attemptNumber)
       throws IOException {
-    if (attemptNumber > 1 && path.exists()) {
+    if (attemptNumber > 1 && path.exists() && !path.isSpecialFile()) {
       path.renameTo(
           path.getParentDirectory().getChild(path.getBaseName() + "." + (attemptNumber - 1)));
     }
@@ -554,13 +555,16 @@ public final class RemoteModule extends BlazeModule {
             ? ImmutableList.copyOf(remoteOptions.getRemoteDownloadRegex())
             : ImmutableList.of();
 
+    boolean executes = env.getCommand().buildPhase().executes();
     remoteOutputChecker =
         new RemoteOutputChecker(
             env.getCommandName(),
             remoteOptions.getRemoteOutputsMode(),
             downloadRegexes,
-            lastRemoteOutputChecker);
-    remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+            executes ? lastRemoteOutputChecker : null);
+    if (executes) {
+      remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+    }
 
     env.getEventBus().register(this);
     String invocationId = env.getCommandId().toString();
@@ -596,7 +600,7 @@ public final class RemoteModule extends BlazeModule {
               CredentialHelperEnvironment.newBuilder()
                   .setEventReporter(env.getReporter())
                   .setWorkspacePath(env.getWorkspace())
-                  .setClientEnvironment(env::getClientEnv)
+                  .setClientEnvironment(Suppliers.ofInstance(env.getClientEnv()))
                   .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                   .build(),
               credentialModule.getCredentialCache(),
@@ -670,7 +674,7 @@ public final class RemoteModule extends BlazeModule {
           new BazelOutputService(
               env.getOutputBase(),
               env::getExecRoot,
-              () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
+              () -> env.getDirectories().getOutputPath(),
               digestUtil,
               remoteOptions.getRemoteCache(),
               remoteOptions.getRemoteInstanceName(),
@@ -841,8 +845,16 @@ public final class RemoteModule extends BlazeModule {
               retryScheduler,
               circuitBreaker,
               () -> rpcLogFile);
+      // Reading live output is best effort, so its failures must not trip the circuit breaker.
+      RemoteRetrier outputStreamRetrier =
+          new RemoteRetrier(
+              remoteOptions,
+              RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
       RemoteExecutionClient remoteExecutor =
-          new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
+          new GrpcRemoteExecutor(
+              execChannel.retain(), callCredentialsProvider, execRetrier, outputStreamRetrier);
       execChannel.release();
       RemoteExecutionCache remoteCache =
           new RemoteExecutionCache(
@@ -1091,6 +1103,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void afterCommand() {
     Preconditions.checkNotNull(blockWaitingModule, "blockWaitingModule must not be null");
+    Preconditions.checkNotNull(env, "env must not be null");
 
     // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as
     // otherwise we might interfere with asynchronous remote downloads that are in progress.
@@ -1114,8 +1127,10 @@ public final class RemoteModule extends BlazeModule {
     if (remoteOutputChecker != null) {
       remoteOutputChecker.clearPreviousCommand();
     }
-    lastRemoteOutputChecker = remoteOutputChecker;
-    lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
+    if (env.getCommand().buildPhase().executes()) {
+      lastRemoteOutputChecker = remoteOutputChecker;
+    }
+    lastBuildId = env.getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteHelpersFactoryDelegate.reset();
@@ -1192,6 +1207,7 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     actionContextProvider.registerSpawnCache(registryBuilder);
+    actionContextProvider.registerFileWriteStrategies(registryBuilder);
 
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
@@ -1298,8 +1314,15 @@ public final class RemoteModule extends BlazeModule {
         env.getEventBus().register(outputService);
       }
     }
+  }
 
-    builder.setActionExecutionSalt(computeActionExecutionSalt(remoteOptions));
+  @Override
+  @Nullable
+  public String getActionExecutionSalt(CommandEnvironment env, BuildRequest request) {
+    if (actionContextProvider == null) {
+      return null;
+    }
+    return computeActionExecutionSalt(remoteOptions);
   }
 
   @VisibleForTesting
@@ -1321,18 +1344,6 @@ public final class RemoteModule extends BlazeModule {
     // shouldn't be too bad, as we don't expect the defaults to change very often.
     fp.addStringMap(
         remoteOptions != null ? remoteOptions.getRemoteDefaultExecProperties() : ImmutableMap.of());
-
-    // When switching cache endpoints/instances across invocations, cached remote actions reference
-    // blobs stored in the previous cache instance which cannot be downloaded from the new cache
-    // instance. See https://github.com/bazelbuild/bazel/issues/23780.
-    if (remoteOptions != null) {
-      fp.addNullableString(remoteOptions.getRemoteCache());
-      fp.addNullableString(remoteOptions.getRemoteExecutor());
-      fp.addNullableString(remoteOptions.getRemoteDownloader());
-      fp.addNullableString(remoteOptions.getRemoteInstanceName());
-      fp.addNullableString(remoteOptions.getRemoteBytestreamUriPrefix());
-      fp.addNullableString(remoteOptions.getRemoteProxy());
-    }
 
     return fp.hexDigestAndReset();
   }
@@ -1475,7 +1486,9 @@ public final class RemoteModule extends BlazeModule {
     try {
       if (remoteOptions.getRemoteCache() != null
           && Ascii.toLowerCase(remoteOptions.getRemoteCache()).startsWith("http://")
-          && !credentials.getRequestMetadata(new URI(remoteOptions.getRemoteCache())).isEmpty()) {
+          && !credentials
+              .getRequestMetadata(new URI(internalToUnicode(remoteOptions.getRemoteCache())))
+              .isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.
         credentialHelperEnvironment
             .eventReporter()

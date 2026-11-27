@@ -258,6 +258,11 @@ cc_binary(
   srcs = ["foo.cc"],
   deps = [":bar"],
 )
+cc_binary(
+  name = "foo_pruned",
+  srcs = ["foo_pruned.cc"],
+  deps = [":bar"],
+)
 cc_library(
   name = "bar",
   hdrs = ["used.h", "useless.h"],
@@ -267,6 +272,7 @@ EOF
 #include "used.h"
 int main() { used(); return 0; }
 EOF
+  cp "$pkg/foo.cc" "$pkg/foo_pruned.cc"
   cat > "$pkg/used.h" <<'EOF'
 inline void used() {}
 EOF
@@ -319,13 +325,11 @@ EOF
     return 0
   fi
 
-  bazel clean
-
   # Test --noinclude_pruned_inputs before build.
   # Expect used.h and useless.h to be considered inputs.
 
   bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
+    "mnemonic(CppCompile,//$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -333,13 +337,13 @@ EOF
   assert_contains "Inputs:.*useless.h" output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*used.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_nonempty_file output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*useless.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_nonempty_file output
@@ -347,10 +351,10 @@ EOF
   # Test --noinclude_pruned_inputs after build.
   # Expect used.h to be considered an input, but not useless.h.
 
-  bazel build "//$pkg:foo" || fail "Expected success"
+  bazel build "//$pkg:foo_pruned" || fail "Expected success"
 
   bazel aquery --noinclude_pruned_inputs \
-    "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
+    "mnemonic(CppCompile,//$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -358,13 +362,13 @@ EOF
   assert_not_contains "Inputs:.*useless.h" output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*used.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_nonempty_file output
 
   bazel aquery --noinclude_pruned_inputs \
-    "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    "inputs(.*useless.h, //$pkg:foo_pruned)" > output 2> "$TEST_log" \
     || fail "Expected success"
 
   assert_empty_file output
@@ -2054,9 +2058,7 @@ EOF
   fi
 }
 
-# TODO(bazel-team): The non-text aquery output formats don't correctly handle
-# non-ASCII fields (input/output paths, environment variables, etc).
-function DISABLED_test_unicode_textproto() {
+function test_unicode_textproto() {
   # Bazel relies on the JVM for filename encoding, and can only support
   # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
   if ! is_windows; then
@@ -2089,6 +2091,83 @@ EOF
 
   assert_contains 'label: "input-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
   assert_contains 'label: "output-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
+}
+
+function test_unicode_jsonproto() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! is_windows; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "mkdir -p ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = glob(["input-*.txt"]),
+    outs = ["output-ünïcödë.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  # ${pkg}/input-ünïcödë.txt
+  unicode=$'\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab'
+  touch "${pkg}/input-${unicode}.txt"
+
+  bazel aquery --output=jsonproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "\"label\": \"input-${unicode}.txt\"" output
+  assert_contains "\"label\": \"output-${unicode}.txt\"" output
+}
+
+function test_unicode_summary_and_text() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! is_windows; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "mkdir -p ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = glob(["input-*.txt"]),
+    outs = ["output-ünïcödë.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  # ${pkg}/input-ünïcödë.txt
+  unicode=$'\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab'
+  touch "${pkg}/input-${unicode}.txt"
+
+  # Each . in the filter matches a single non-ASCII character.
+  bazel aquery --output=summary --platform_suffix="${unicode}" \
+    "inputs('.*/input-.n.c.d.\.txt', //$pkg:bar)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "-${unicode}: 1$" output
+
+  bazel aquery --output=text --platform_suffix="${unicode}" "//$pkg:bar" \
+    > output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Configuration: .*-${unicode}$" output
 }
 
 function test_aquery_test_suite() {

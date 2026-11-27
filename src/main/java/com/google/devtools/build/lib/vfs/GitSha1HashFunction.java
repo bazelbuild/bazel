@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.hash.Funnel;
 import com.google.common.hash.HashCode;
@@ -25,6 +24,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.hash.PrimitiveSink;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -38,7 +38,7 @@ public final class GitSha1HashFunction implements HashFunction {
   private Hasher newInitializedHasher(int blobSize) {
     Hasher hasher = SHA1.newHasher();
     hasher.putBytes(header);
-    hasher.putString(Integer.toString(blobSize), UTF_8);
+    hasher.putBytes(StringUnsafe.getInternalStringBytes(Integer.toString(blobSize)));
     hasher.putByte((byte) 0);
     return hasher;
   }

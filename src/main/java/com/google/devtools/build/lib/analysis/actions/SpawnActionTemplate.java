@@ -448,13 +448,17 @@ public final class SpawnActionTemplate extends ActionKeyComputer
           env,
           executionInfo,
           progressMessage,
-          mnemonic,
-          /* outputPathsMode= */ OutputPathsMode.OFF);
+          mnemonic);
     }
 
     @Override
     protected CommandLineLimits getCommandLineLimits() {
       return CommandLineLimits.UNLIMITED;
+    }
+
+    @Override
+    protected OutputPathsMode getOutputPathsMode() {
+      return OutputPathsMode.OFF;
     }
 
     private static final class Builder extends SpawnAction.Builder {
