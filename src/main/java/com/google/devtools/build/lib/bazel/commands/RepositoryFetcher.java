@@ -33,6 +33,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** Fetches repositories for commands. */
@@ -90,7 +91,7 @@ final class RepositoryFetcher {
           e != null && e.getMessage() != null
               ? e.getMessage()
               : "Unexpected error during repository fetching.";
-      throw new RepositoryFetcherException(errorMessage);
+      throw new RepositoryFetcherException(errorMessage, e);
     }
     return evaluationResult;
   }
@@ -104,7 +105,7 @@ final class RepositoryFetcher {
       try {
         reposnames.add(getRepositoryName(repo));
       } catch (LabelSyntaxException | EvalException | InvalidArgumentException e) {
-        throw new RepositoryFetcherException("Invalid repo name: " + e.getMessage());
+        throw new RepositoryFetcherException("Invalid repo name: " + e.getMessage(), e);
       }
     }
     return reposnames.build();
@@ -134,8 +135,8 @@ final class RepositoryFetcher {
   }
 
   static class RepositoryFetcherException extends Exception {
-    public RepositoryFetcherException(String message) {
-      super(message);
+    RepositoryFetcherException(String message, @Nullable Exception cause) {
+      super(message, cause);
     }
   }
 }
