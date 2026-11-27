@@ -101,7 +101,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       return;
     }
     Preconditions.checkState(entry.isDone(), entry);
-    SkyValue value = entry.getValue();
     Version valueVersion = entry.getVersion();
     Preconditions.checkState(
         valueVersion.atMost(evaluatorContext.getGraphVersion()),
@@ -109,9 +108,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         valueVersion,
         evaluatorContext.getGraphVersion());
 
+    SkyValue value = null;
     ErrorInfo error = null;
     SkyValue valueMaybeWithMetadata = entry.getValueMaybeWithMetadata();
     if (valueMaybeWithMetadata != null) {
+      value = ValueWithMetadata.justValue(valueMaybeWithMetadata);
       replay(ValueWithMetadata.getEvents(valueMaybeWithMetadata));
       error = ValueWithMetadata.getMaybeErrorInfo(valueMaybeWithMetadata);
     }
@@ -524,22 +525,20 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           catastrophe,
           bubbleErrorInfo);
       haveKeys = true;
-      SkyValue unwrappedValue =
+      SkyValue valueMaybeWithMetadata =
           maybeGetValueFromError(
               skyKey, graph.get(null, Reason.PRE_OR_POST_EVALUATION, skyKey), bubbleErrorInfo);
-      ValueWithMetadata valueWithMetadata =
-          unwrappedValue == null ? null : ValueWithMetadata.wrapWithMetadata(unwrappedValue);
       // Cycle checking: if there is a cycle, evaluation cannot progress, therefore,
       // the final values will not be in DONE state when the work runs out.
-      if (valueWithMetadata == null) {
+      if (valueMaybeWithMetadata == null) {
         // Don't look for cycles if the build failed for a known reason.
         if (bubbleErrorInfo == null) {
           cycleRoots.add(skyKey);
         }
         continue;
       }
-      SkyValue value = valueWithMetadata.getValue();
-      ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
+      SkyValue value = ValueWithMetadata.justValue(valueMaybeWithMetadata);
+      ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(valueMaybeWithMetadata);
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
       if (errorInfo != null && !evaluatorContext.keepGoing(skyKey)) {
         // value will be null here unless the value was already built on a prior keepGoing build.
