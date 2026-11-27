@@ -144,6 +144,62 @@ EOF
   assert_cache_stats "miss count" 1  # volatile-status.txt
 }
 
+function test_cache_computed_file_digests_used_without_execution() {
+  # Module extensions compute the digests of the files they watch while loading.
+  # A server that never executes actions should cache these digests, too.
+  cat >> MODULE.bazel <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "repo")
+EOF
+  touch BUILD
+  cat > ext.bzl <<'EOF'
+def _repo_impl(rctx):
+    rctx.file("BUILD", "filegroup(name = 'repo')")
+
+_repo = repository_rule(_repo_impl)
+
+def _ext_impl(mctx):
+    mctx.read(Label("//:unchanged.txt"))
+    mctx.read(Label("//:touched.txt"))
+    _repo(name = "repo")
+
+ext = module_extension(_ext_impl)
+EOF
+  echo unchanged > unchanged.txt
+  echo touched > touched.txt
+
+  bazel query @repo//:repo >>"${TEST_log}" 2>&1 || fail "Should query"
+  # Touching a watched file without changing its contents makes Bazel compute
+  # the digests of all files watched by the extension again.
+  touch touched.txt
+  bazel query @repo//:repo >>"${TEST_log}" 2>&1 || fail "Should query"
+
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
+  grep "Cache stats for finished command" "${java_log}" >"${TEST_log}" || true
+  # The digest of unchanged.txt is reused.
+  expect_log "hit count=[1-9]"
+}
+
+function test_cache_computed_file_digests_resized_without_execution() {
+  echo 'filegroup(name = "fg")' > BUILD
+
+  bazel query //:fg >>"${TEST_log}" 2>&1 || fail "Should query"
+  # query loads but doesn't execute, so it resizes the cache before any
+  # execution phase.
+  bazel query --cache_computed_file_digests=100 //:fg >>"${TEST_log}" 2>&1 \
+      || fail "Should query"
+  # info doesn't load and thus doesn't resize the cache.
+  bazel info >>"${TEST_log}" 2>&1 || fail "Should run"
+
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
+  grep "Reconfiguring cache with size=" "${java_log}" >"${TEST_log}" || true
+  expect_log_n "Reconfiguring cache with size=100" 1
+  tail -n 1 "${TEST_log}" | grep -q "size=100" \
+      || fail "Cache should not have been resized after query"
+}
+
 function DISABLED_test_cache_computed_file_digests_uncaught_changes() {
   # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
   local timestamp=201703151112.13  # Fixed timestamp to mark our file with.

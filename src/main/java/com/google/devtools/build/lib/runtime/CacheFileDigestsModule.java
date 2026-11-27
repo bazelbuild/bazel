@@ -16,16 +16,41 @@ package com.google.devtools.build.lib.runtime;
 
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Enables the caching of file digests in {@link DigestUtils}. */
 public class CacheFileDigestsModule extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /** Options for the computed file digest cache. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
+    @Option(
+        name = "cache_computed_file_digests",
+        defaultValue = "50000",
+        converter = Converters.NonNegativeIntegerConverter.class,
+        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If greater than 0, configures Bazel to cache file digests in memory based on their "
+                + "metadata instead of recomputing the digests from disk every time they are "
+                + "needed. Setting this to 0 ensures correctness because not all file changes can "
+                + "be noted from file metadata. When not 0, the number indicates the size of the "
+                + "cache as the number of file digests to be cached. Each cached digest takes "
+                + "roughly 100 bytes of heap. The cache is most effective when it can hold the "
+                + "digests of all files that a build digests, which includes source files and "
+                + "outputs of locally executed actions.")
+    public abstract int getCacheSizeForComputedFileDigests();
+  }
 
   /** Stats gathered at the beginning of a command, to compute deltas on completion. */
   private CacheStats stats;
@@ -51,17 +76,31 @@ public class CacheFileDigestsModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    if (lastKnownCacheSize == null
-        || options.getCacheSizeForComputedFileDigests() != lastKnownCacheSize) {
-      logger.atInfo().log(
-          "Reconfiguring cache with size=%d", options.getCacheSizeForComputedFileDigests());
-      DigestUtils.configureCache(options.getCacheSizeForComputedFileDigests());
-      lastKnownCacheSize = options.getCacheSizeForComputedFileDigests();
-    }
+  public ImmutableList<Class<? extends OptionsBase>> getCommonCommandOptions() {
+    return ImmutableList.of(Options.class);
+  }
 
-    if (options.getCacheSizeForComputedFileDigests() == 0) {
+  @Override
+  public void beforeCommand(CommandEnvironment env) {
+    // Every command that loads computes the digests of files watched by repository rules and
+    // module extensions, even if it doesn't execute anything. Resizing discards the cache, so
+    // commands that don't load, such as info, keep the current size.
+    int cacheSize = env.getOptions().getOptions(Options.class).getCacheSizeForComputedFileDigests();
+    if (lastKnownCacheSize == null
+        || (env.getCommand().buildPhase().loads() && cacheSize != lastKnownCacheSize)) {
+      configureCache(cacheSize);
+    }
+    startStats();
+  }
+
+  private void configureCache(int cacheSize) {
+    logger.atInfo().log("Reconfiguring cache with size=%d", cacheSize);
+    DigestUtils.configureCache(cacheSize);
+    lastKnownCacheSize = cacheSize;
+  }
+
+  private void startStats() {
+    if (lastKnownCacheSize == 0) {
       stats = null;
       logger.atInfo().log("Disabled cache");
     } else {
@@ -77,7 +116,7 @@ public class CacheFileDigestsModule extends BlazeModule {
       Preconditions.checkNotNull(newStats, "The cache is enabled so we must get some stats back");
       logStats("Accumulated cache stats after command", newStats);
       logStats("Cache stats for finished command", newStats.minus(stats));
-      stats = null; // Silence stats until next command that uses the executor.
+      stats = null; // Silence stats until the next command.
     }
   }
 }

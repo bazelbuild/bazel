@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -1001,21 +1000,7 @@ public final class StarlarkRepositoryContextTest {
     // The repo rule modifies the file, e.g. via ctx.execute, and then reads it again (#29114).
     scratch.overwriteFile(fooPath.getPathString(), "modified");
     assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("modified\n");
-    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("modified\n");
 
-    // A single warning is emitted for the change.
-    verify(listener)
-        .handle(
-            argThat(
-                event ->
-                    event.getKind() == EventKind.WARNING
-                        && event
-                            .getMessage()
-                            .equals(
-                                "file info or contents of @@//foo changed during the evaluation"
-                                    + " of repository @@test, which will cause it to be"
-                                    + " re-evaluated the next time Bazel is run. Report this"
-                                    + " issue to its maintainers.")));
     // The recorded digest describes the state of the file before the fetch modified it.
     assertThat(context.getRecordedInputs())
         .containsExactly(

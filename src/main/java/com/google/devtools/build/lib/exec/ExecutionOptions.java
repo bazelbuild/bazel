@@ -474,23 +474,6 @@ public abstract class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
-      name = "cache_computed_file_digests",
-      defaultValue = "50000",
-      converter = Converters.NonNegativeIntegerConverter.class,
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If greater than 0, configures Bazel to cache file digests in memory based on their "
-              + "metadata instead of recomputing the digests from disk every time they are needed. "
-              + "Setting this to 0 ensures correctness because not all file changes can be noted "
-              + "from file metadata. When not 0, the number indicates the size of the cache as the "
-              + "number of file digests to be cached. Each cached digest takes roughly 100 bytes "
-              + "of heap. The cache is most effective when it can hold the digests of all files "
-              + "that a build digests, which includes source files and outputs of locally "
-              + "executed actions.")
-  public abstract int getCacheSizeForComputedFileDigests();
-
-  @Option(
       name = "experimental_enable_critical_path_profiling",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

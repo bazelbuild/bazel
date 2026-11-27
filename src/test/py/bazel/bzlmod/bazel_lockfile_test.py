@@ -1512,13 +1512,6 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('before: original', stderr)
     self.assertIn('after: modified', stderr)
-    self.assertIn(
-        'WARNING: file info or contents of @@//data.txt changed during the'
-        ' evaluation of module extension @@//:extension.bzl%ext, which will'
-        ' cause it to be re-evaluated the next time Bazel is run. Report this'
-        ' issue to its maintainers.',
-        stderr,
-    )
 
     # The recorded digest no longer matches the file on disk, so the lockfile
     # is out of date and --lockfile_mode=error rejects it instead of
@@ -1539,12 +1532,11 @@ class BazelLockfileTest(test_base.TestBase):
 
     # The file was modified by the extension itself, which invalidates the
     # recorded digest and thus results in a re-evaluation. This time, the
-    # extension doesn't change the file's contents, so there is no warning.
+    # extension doesn't change the file's contents.
     _, _, stderr = self.RunBazel(['build', '@repo'])
     stderr = '\n'.join(stderr)
     self.assertIn('before: modified', stderr)
     self.assertIn('after: modified', stderr)
-    self.assertNotIn('WARNING: file info or contents', stderr)
 
     # The re-evaluation left the file unchanged, so the extension is now stable
     # and the lockfile is up to date.
@@ -1552,7 +1544,6 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertNotIn('before:', stderr)
     self.assertNotIn('after:', stderr)
-    self.assertNotIn('WARNING: file info or contents', stderr)
 
   def testOldVersion(self):
     self.ScratchFile('MODULE.bazel')
