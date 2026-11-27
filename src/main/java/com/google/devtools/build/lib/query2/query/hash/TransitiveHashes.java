@@ -32,9 +32,9 @@ import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -265,12 +265,6 @@ public final class TransitiveHashes {
       try {
         writeProvenance(provenance, graph.values(), edges, includeEdges);
       } catch (IOException e) {
-        // A failed optional export must not discard the regular hash output.
-        try {
-          Files.deleteIfExists(provenance);
-        } catch (IOException suppressed) {
-          e.addSuppressed(suppressed);
-        }
         progress.accept("Could not write query hash provenance: " + e.getMessage());
       }
     }
@@ -288,6 +282,27 @@ public final class TransitiveHashes {
   private static void writeProvenance(
       Path output, Collection<State<Label>> graph, List<State<Label>> edges, boolean includeEdges)
       throws IOException {
+    Path parent = output.toAbsolutePath().getParent();
+    if (parent == null || Files.isDirectory(output)) {
+      throw new IOException("Cannot write query hash provenance to directory " + output);
+    }
+    Path temp = Files.createTempFile(parent, ".bazel-query-provenance-", ".tmp");
+    try {
+      writeProvenanceFile(temp, graph, edges, includeEdges);
+      Files.move(temp, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException e) {
+      try {
+        Files.deleteIfExists(temp);
+      } catch (IOException cleanupFailure) {
+        e.addSuppressed(cleanupFailure);
+      }
+      throw e;
+    }
+  }
+
+  private static void writeProvenanceFile(
+      Path file, Collection<State<Label>> graph, List<State<Label>> edges, boolean includeEdges)
+      throws IOException {
     if (includeEdges) {
       int index = 0;
       for (State<Label> state : graph) {
@@ -295,14 +310,14 @@ public final class TransitiveHashes {
       }
     }
     try (var out =
-        new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(output), 128 << 10))) {
+        new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(file), 128 << 10))) {
       out.writeInt(0x53444731); // SDG1
       out.writeInt(includeEdges ? 1 : 0);
       out.writeInt(graph.size());
       for (State<Label> state : graph) {
-        byte[] label = state.key.getUnambiguousCanonicalForm().getBytes(StandardCharsets.UTF_8);
-        out.writeInt(label.length);
-        out.write(label);
+        String label = state.key.getUnambiguousCanonicalForm();
+        out.writeInt(label.length());
+        out.writeBytes(label); // Bazel internal strings store one byte per character.
         byte[] direct = state.directHash;
         out.writeBoolean(direct != null);
         if (direct != null) {

@@ -65,6 +65,8 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -304,8 +306,6 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     EvaluationContext orderedEvaluationContext =
         evaluationContext.builder().setOrderedRootResults(true).build();
     Stopwatch skyframeTime = Stopwatch.createUnstarted();
-    String provenance = env.getClientEnv().get("BAZEL_QUERY_HASH_PROVENANCE");
-    boolean provenanceEdges = "1".equals(env.getClientEnv().get("BAZEL_QUERY_HASH_PROVENANCE_EDGES"));
     TransitiveHashes.Result result =
         TransitiveHashes.compute(
             labels,
@@ -325,8 +325,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             message -> env.getReporter().handle(Event.progress(message)),
             queryOptions.getQueryHashFailureImpact(),
             queryOptions.getQueryBatchDirectRuleHashes(),
-            provenance == null || provenance.isEmpty() ? null : Path.of(provenance),
-            provenanceEdges);
+            getHashProvenancePath(env, queryOptions),
+            "1".equals(env.getClientEnv().get("BAZEL_QUERY_HASH_PROVENANCE_EDGES")));
     CountingOutputStream binary = null;
     if (catalog instanceof StreamedProtoOutputFormatter) {
       binary = new CountingOutputStream(out);
@@ -429,6 +429,32 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
                 .setMessage(message)
                 .setQuery(Query.newBuilder().setCode(Code.BUILD_FILE_ERROR))
                 .build()));
+  }
+
+  @Nullable
+  private static Path getHashProvenancePath(CommandEnvironment env, QueryOptions options) {
+    String value = env.getClientEnv().get("BAZEL_QUERY_HASH_PROVENANCE");
+    if (value == null || value.isEmpty()) {
+      return null;
+    }
+    try {
+      var cwd = env.getWorkingDirectory();
+      Path path = cwd.getRelative(value).getPathFile().toPath();
+      String outputFile = options.getOutputFile();
+      if (outputFile != null && !outputFile.isEmpty()) {
+        Path primary = cwd.getRelative(outputFile).getPathFile().toPath();
+        if (path.equals(primary) || (Files.exists(path) && Files.isSameFile(path, primary))) {
+          env.getReporter()
+              .handle(Event.warn("Skipping query hash provenance at --output_file: " + path));
+          return null;
+        }
+      }
+      return path;
+    } catch (IOException | InvalidPathException e) {
+      env.getReporter()
+          .handle(Event.warn("Could not resolve query hash provenance: " + e.getMessage()));
+      return null;
+    }
   }
 
   /**

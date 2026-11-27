@@ -1661,6 +1661,67 @@ function test_generate_hashes() {
     || fail "Expected the hash of //hashes:b to change"
 }
 
+function test_generate_hashes_provenance() {
+  mkdir -p provenance
+  cat > provenance/BUILD <<'EOF'
+filegroup(name = "root", srcs = [":café"])
+filegroup(name = "café", tags = ["original"])
+EOF
+  local -a query=(query --experimental_generate_hashes //provenance:root)
+  bazel "${query[@]}" > provenance/expected 2> "$TEST_log" || fail "Expected a hash"
+  cd provenance
+  local output="résumé.sdg"
+  echo previous > "$output"
+  BAZEL_QUERY_HASH_PROVENANCE="$output" BAZEL_QUERY_HASH_PROVENANCE_EDGES=1 \
+    bazel "${query[@]}" > actual 2> "$TEST_log" || fail "Expected provenance"
+  cmp expected actual || fail "Writing provenance changed the query output"
+  sed 's/"original"/"edited"/' BUILD > BUILD.next
+  mv BUILD.next BUILD
+  BAZEL_QUERY_HASH_PROVENANCE=edited.sdg BAZEL_QUERY_HASH_PROVENANCE_EDGES=0 \
+    bazel "${query[@]}" > edited 2> "$TEST_log" || fail "Expected provenance without edges"
+  grep -Eq '^//provenance:root [0-9a-f]{64}$' edited || fail "Expected an updated root hash"
+  [[ "$(<edited)" != "$(<expected)" ]] || fail "Editing the leaf did not change the root hash"
+
+  python3 - "$output" edited.sdg <<'PYTHON' || fail "Incorrect hash provenance"
+import struct
+import sys
+
+def read_provenance(path, has_edges):
+    with open(path, "rb") as src:
+        def uint32():
+            return struct.unpack(">I", src.read(4))[0]
+
+        assert src.read(4) == b"SDG1" and uint32() == has_edges and uint32() == 2
+        digests, edges = {}, {}
+        for _ in range(2):
+            label = src.read(uint32()).decode("utf-8")
+            assert src.read(1) == b"\x01"
+            digests[label] = src.read(32)
+            assert len(digests[label]) == 32
+            if has_edges:
+                edges[label] = [uint32() for _ in range(uint32())]
+        assert not src.read(1)
+    labels = list(digests)
+    return digests, {label: [labels[i] for i in deps] for label, deps in edges.items()}
+
+root, leaf = "@@//provenance:root", "@@//provenance:café"
+before, edges = read_provenance(sys.argv[1], True)
+after, no_edges = read_provenance(sys.argv[2], False)
+assert edges == {root: [leaf], leaf: []} and not no_edges
+assert before[root] == after[root] and before[leaf] != after[leaf]
+PYTHON
+  mkdir destination
+  BAZEL_QUERY_HASH_PROVENANCE=destination bazel "${query[@]}" > actual 2> "$TEST_log" \
+    || fail "Expected query to succeed when provenance cannot be written"
+  [[ -d destination ]] || fail "Writing provenance deleted the destination directory"
+  cmp edited actual || fail "A provenance write failure changed the query output"
+
+  BAZEL_QUERY_HASH_PROVENANCE="$output" bazel "${query[@]}" --output_file="$output" \
+    > actual 2> "$TEST_log" || fail "Expected query output in the shared destination"
+  cmp edited "$output" || fail "Provenance replaced the requested query output"
+  [[ ! -s actual ]] || fail "Expected --output_file to capture the query output"
+}
+
 function test_generate_hashes_with_target_metadata() {
   mkdir -p hashed_catalog
   cat > hashed_catalog/repo.bzl <<'EOF'
