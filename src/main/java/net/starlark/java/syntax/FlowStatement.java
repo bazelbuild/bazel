@@ -25,7 +25,7 @@ public final class FlowStatement extends Statement {
    * @param flowKind The specific kind of flow control statement (break, continue, or pass)
    */
   FlowStatement(FileLocations locs, TokenKind flowKind, int offset) {
-    super(locs, Kind.FLOW);
+    super(locs);
     this.flowKind = flowKind;
     this.offset = offset;
   }

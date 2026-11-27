@@ -22,7 +22,7 @@ public final class DotExpression extends Expression {
   private final Identifier field;
 
   DotExpression(FileLocations locs, Expression object, int dotOffset, Identifier field) {
-    super(locs, Kind.DOT);
+    super(locs);
     this.object = object;
     this.dotOffset = dotOffset;
     this.field = field;
