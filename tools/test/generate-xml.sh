@@ -109,11 +109,33 @@ fi
 
 test_name="${TEST_BINARY#./}"
 test_name="${test_name#../}"
+test_status="${BAZEL_TEST_STATUS:-}"
+case "${test_status}" in
+  PASSED|FAILED|TIMEOUT|INCOMPLETE|REMOTE_FAILURE|FLAKY|NO_STATUS|FAILED_TO_BUILD|BLAZE_HALTED_BEFORE_TESTING)
+    ;;
+  *)
+    if (( EXIT_CODE == 0 )); then
+      test_status="PASSED"
+    else
+      test_status="FAILED"
+    fi
+    ;;
+esac
 errors=0
 error_msg=""
-if (( $EXIT_CODE != 0 )); then
+if [[ "${test_status}" == "TIMEOUT" ]]; then
   errors=1
-  error_msg="<error message=\"exited with error code $EXIT_CODE\"></error>"
+  if (( EXIT_CODE != 0 )); then
+    error_msg="<error message=\"exited with error code ${EXIT_CODE}\" type=\"timeout\"></error>"
+  else
+    error_msg="<error message=\"timed out\" type=\"timeout\"></error>"
+  fi
+elif (( EXIT_CODE != 0 )); then
+  errors=1
+  error_msg="<error message=\"exited with error code ${EXIT_CODE}\"></error>"
+elif [[ "${test_status}" != "PASSED" ]]; then
+  errors=1
+  error_msg="<error message=\"test failed (${test_status})\"></error>"
 fi
 
 # Ensure that test shards have unique names in the xml output.
@@ -128,6 +150,10 @@ FAILED=0
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="${test_name}" tests="1" failures="0" errors="${errors}">
+    <properties>
+      <property name="bazel.xml.generator" value="fallback"/>
+      <property name="bazel.test.status" value="${test_status}"/>
+    </properties>
     <testcase name="${test_name}" classname="" status="run" duration="${DURATION_IN_SECONDS}" time="${DURATION_IN_SECONDS}">${error_msg}</testcase>
       <system-out>
 Generated test.log (if the file is not UTF-8, then this may be unreadable):

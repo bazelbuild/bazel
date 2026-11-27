@@ -1708,15 +1708,49 @@ bool GetTestName(std::wstring* result) {
   return true;
 }
 
-std::string CreateErrorTag(int exit_code) {
-  if (exit_code != 0) {
-    std::stringstream ss;
+bool IsValidTestStatus(const std::string& status) {
+  return status == "PASSED" || status == "FAILED" || status == "TIMEOUT" ||
+         status == "INCOMPLETE" || status == "REMOTE_FAILURE" ||
+         status == "FLAKY" || status == "NO_STATUS" ||
+         status == "FAILED_TO_BUILD" ||
+         status == "BLAZE_HALTED_BEFORE_TESTING";
+}
+
+bool GetTestStatus(int exit_code, std::string* result) {
+  std::wstring status;
+  if (!GetEnv(L"BAZEL_TEST_STATUS", &status)) {
+    LogError(__LINE__);
+    return false;
+  }
+  std::string acp_status;
+  if (!status.empty() && !WcsToAcp(status, &acp_status)) {
+    LogError(__LINE__, status.c_str());
+    return false;
+  }
+  if (IsValidTestStatus(acp_status)) {
+    *result = acp_status;
+  } else {
+    *result = (exit_code == 0) ? "PASSED" : "FAILED";
+  }
+  return true;
+}
+
+std::string CreateErrorTag(int exit_code, const std::string& test_status) {
+  std::stringstream ss;
+  if (test_status == "TIMEOUT") {
+    if (exit_code != 0) {
+      ss << "<error message=\"exited with error code " << exit_code
+         << "\" type=\"timeout\"></error>";
+    } else {
+      ss << "<error message=\"timed out\" type=\"timeout\"></error>";
+    }
+  } else if (exit_code != 0) {
     ss << "<error message=\"exited with error code " << exit_code
        << "\"></error>";
-    return ss.str();
-  } else {
-    return std::string();
+  } else if (test_status != "PASSED") {
+    ss << "<error message=\"test failed (" << test_status << ")\"></error>";
   }
+  return ss.str();
 }
 
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
@@ -1737,8 +1771,13 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
   });
 
   std::wstring test_name;
-  int errors = (exit_code == 0) ? 0 : 1;
-  std::string error_msg = CreateErrorTag(exit_code);
+  std::string test_status;
+  if (!GetTestStatus(exit_code, &test_status)) {
+    LogError(__LINE__);
+    return false;
+  }
+  int errors = (exit_code != 0 || test_status != "PASSED") ? 1 : 0;
+  std::string error_msg = CreateErrorTag(exit_code, test_status);
   if (!GetTestName(&test_name)) {
     LogError(__LINE__);
     return false;
@@ -1776,6 +1815,12 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
           "<testsuite name=\""
        << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
        << "\">\n"
+          "<properties>\n"
+          "<property name=\"bazel.xml.generator\" value=\"fallback\"/>\n"
+          "<property name=\"bazel.test.status\" value=\""
+       << test_status
+       << "\"/>\n"
+          "</properties>\n"
           "<testcase name=\""
        << acp_test_name << "\" classname=\"\" status=\"run\" duration=\""
        << duration.seconds << "\" time=\"" << duration.seconds << "\">"

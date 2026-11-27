@@ -454,10 +454,17 @@ The initial environment block shall be composed as follows:
     <td><code>XML_OUTPUT_FILE</code></td>
     <td>
       Location to which test actions should write a test result XML output file.
-      Otherwise, Bazel generates a default XML output file wrapping the test log
-      as part of the test action. The XML schema is based on the
+      Otherwise, Bazel generates a default fallback XML output file wrapping the
+      test log as part of the test action. The XML schema is based on the
       <a href="https://github.com/windyroad/JUnit-Schema/blob/1.0.0/JUnit.xsd"
         class="external">JUnit test result schema</a>.
+      Bazel-generated fallback XML includes a <code>&lt;properties&gt;</code>
+      element under <code>&lt;testsuite&gt;</code> with
+      <code>bazel.xml.generator="fallback"</code> and
+      <code>bazel.test.status</code> set to the attempt outcome (such as
+      <code>PASSED</code>, <code>FAILED</code>, or <code>TIMEOUT</code>), and
+      sets <code>type="timeout"</code> on the <code>&lt;error&gt;</code> element
+      when the attempt timed out.
     </td>
     <td>optional</td>
   </tr>
