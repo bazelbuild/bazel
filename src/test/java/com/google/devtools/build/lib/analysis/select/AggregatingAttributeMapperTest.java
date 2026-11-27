@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,6 +58,12 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
           MockRule.define(
               "rule_with_no_default",
               (builder, env) -> builder.add(attr("attribute", BuildType.LABEL).allowedFileTypes()));
+
+  private static final MockRule RULE_WITH_STRING_DICT =
+      () ->
+          MockRule.define(
+              "rule_with_string_dict",
+              (builder, env) -> builder.add(attr("entries", Types.STRING_DICT)));
 
   private static final MockRule RULE_WITH_COMPUTED_DEFAULT =
       () ->
@@ -95,6 +103,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(RULE_WITH_DEFAULT)
             .addRuleDefinition(RULE_WITH_NO_DEFAULT)
+            .addRuleDefinition(RULE_WITH_STRING_DICT)
             .addRuleDefinition(RULE_WITH_COMPUTED_DEFAULT);
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
@@ -246,6 +255,32 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
                 Label.parseCanonicalUnchecked("//a:x1.sh"),
                 Label.parseCanonicalUnchecked("//a:y1.sh"),
                 Label.parseCanonicalUnchecked("//a:z2.sh")));
+  }
+
+  /**
+   * Tests that {@link AggregatingAttributeMapper#getConcatenatedSelectorListsOfCollectionType}
+   * concatenates each select's dict branches, a later branch replacing an earlier one's entry.
+   */
+  @Test
+  public void testGetConcatenatedSelectorListsOfCollectionTypeForDict() throws Exception {
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            """
+            rule_with_string_dict(
+                name = "myrule",
+                entries = select({
+                    "//conditions:a": {"k": "a", "only_a": "x"},
+                    "//conditions:default": {"k": "default"},
+                }) | {"k": "b"},
+            )
+            """);
+    assertThat(
+            AggregatingAttributeMapper.of(rule)
+                .getConcatenatedSelectorListsOfCollectionType("entries", Types.STRING_DICT))
+        .containsExactly(ImmutableMap.of("k", "default", "only_a", "x"), ImmutableMap.of("k", "b"))
+        .inOrder();
   }
 
   /**
