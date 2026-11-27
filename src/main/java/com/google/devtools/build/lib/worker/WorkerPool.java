@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
 
 /**
@@ -62,6 +63,10 @@ public interface WorkerPool {
    * @return a set of worker ids that were successfully evicted.
    */
   ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
+      throws InterruptedException;
+
+  /** Evicts specified workers and records the supplied reason. */
+  ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict, Status evictionStatus)
       throws InterruptedException;
 
   /** Returns the idle workers in the pool (note that these workers can still become active). */
