@@ -23,8 +23,8 @@ import javax.lang.model.type.TypeKind;
 
 /** Common {@link DeferredObjectCodec} building constants and helper methods. */
 final class DeferredObjectCodecConstants {
-  /** Name of constructor scoped variable holding the {@link MethodHandles.Lookup} instance. */
-  static final String CONSTRUCTOR_LOOKUP_NAME = "lookup";
+  /** Prefix for static-initializer variables holding {@link MethodHandles.Lookup} instances. */
+  static final String LOOKUP_NAME = "lookup";
 
   /** Class name for the codec's {@link DeferredObjectCodec.DeferredValue} implementation. */
   static final String BUILDER_TYPE_NAME = "Builder";

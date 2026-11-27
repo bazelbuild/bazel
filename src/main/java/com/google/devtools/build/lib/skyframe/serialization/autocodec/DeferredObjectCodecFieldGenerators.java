@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.BUILDER_NAME;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.BUILDER_TYPE_NAME;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.CONSTRUCTOR_LOOKUP_NAME;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.LOOKUP_NAME;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.makeSetterName;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.resolveBaseArrayComponentType;
@@ -191,15 +191,17 @@ abstract class DeferredObjectCodecFieldGenerators {
     }
 
     @Override
-    final void generateHandleMember(TypeSpec.Builder classBuilder, MethodSpec.Builder constructor) {
+    final void generateStaticHandle(
+        TypeSpec.Builder classBuilder, CodeBlock.Builder staticInitializer) {
       switch (accessor) {
         case GetterName unused -> {} // Using a getter. No VarHandle needed.
         case FieldType fieldType -> {
-          classBuilder.addField(VarHandle.class, getHandleName(), Modifier.PRIVATE, Modifier.FINAL);
-          constructor.addStatement(
-              "this.$L = $L.findVarHandle($T.class, $S, $T.class)",
+          classBuilder.addField(
+              VarHandle.class, getHandleName(), Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL);
+          staticInitializer.addStatement(
+              "$L = $L.findVarHandle($T.class, $S, $T.class)",
               getHandleName(),
-              CONSTRUCTOR_LOOKUP_NAME + getHierarchyLevel(),
+              LOOKUP_NAME + getHierarchyLevel(),
               getParentName(),
               getParameterName(),
               fieldType.typeName());

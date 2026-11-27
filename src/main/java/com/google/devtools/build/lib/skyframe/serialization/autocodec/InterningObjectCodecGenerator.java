@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.protobuf.CodedInputStream;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
@@ -70,10 +71,26 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
       TypeElement encodedType,
       ExecutableElement internMethod,
       AutoCodecAnnotation annotation,
-      List<? extends FieldGenerator> unusedFieldGenerators) {
+      List<? extends FieldGenerator> fieldGenerators) {
     TypeName encodedTypeName = getErasure(encodedType, env);
     classBuilder.superclass(
         ParameterizedTypeName.get(ClassName.get(InterningObjectCodec.class), encodedTypeName));
+
+    classBuilder.addMethod(
+        MethodSpec.constructorBuilder()
+            .addStatement(
+                "int runtimeFieldCount = $T.getSerializableFieldCount($T.class)",
+                RuntimeHelpers.class,
+                encodedTypeName)
+            .beginControlFlow("if (runtimeFieldCount != $L)", fieldGenerators.size())
+            .addStatement(
+                "throw new IllegalStateException(\"$T's AutoCodec expected $L fields, but there"
+                    + " were \" + runtimeFieldCount + \" serializable fields at runtime. See"
+                    + " b/319301818 for explanation and workaround.\")",
+                encodedTypeName,
+                fieldGenerators.size())
+            .endControlFlow()
+            .build());
 
     // Defines the `InterningObjectCodec.intern` implementation.
     VariableElement param = getOnlyElement(internMethod.getParameters());
@@ -88,24 +105,13 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
   }
 
   @Override
-  void generateConstructorPreamble(
+  void generateStaticInitializerPreamble(
       TypeElement encodedType,
       ImmutableList<FieldGenerator> fieldGenerators,
-      MethodSpec.Builder constructor) {
-    TypeName encodedTypeName = getErasure(encodedType, env);
-    constructor.addStatement(
-        "int runtimeFieldCount = $T.getSerializableFieldCount($T.class)",
-        RuntimeHelpers.class,
-        encodedTypeName);
-    constructor
-        .beginControlFlow("if (runtimeFieldCount != $L)", fieldGenerators.size())
-        .addStatement(
-            "throw new IllegalStateException(\"$T's AutoCodec expected $L fields, but there were"
-                + " \" + runtimeFieldCount + \" serializable fields at runtime. See"
-                + " b/319301818 for explanation and workaround.\")",
-            encodedTypeName,
-            fieldGenerators.size())
-        .endControlFlow();
+      CodeBlock.Builder staticInitializer) {
+    // No Lookup preamble needed: unlike DeferredObjectCodecGenerator (which creates VarHandles via
+    // privateLookupIn), InterningObjectCodecFieldGenerators initializes Unsafe field offsets
+    // directly via Class.getDeclaredField in the static initializer.
   }
 
   /** Initializes the {@link InterningObjectCodec#deserializeInterned} method. */
@@ -133,11 +139,11 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
 
   @Override
   void addImplementationToEndOfMethods(
-      MethodSpec.Builder constructor,
+      CodeBlock.Builder staticInitializer,
       MethodSpec.Builder deserialize,
       ImmutableList<FieldGenerator> fieldGenerators) {
     if (!fieldGenerators.isEmpty()) {
-      constructor
+      staticInitializer
           .nextControlFlow("catch ($T e)", NoSuchFieldException.class)
           .addStatement("throw new $T(e)", AssertionError.class)
           .endControlFlow();

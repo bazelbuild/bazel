@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.BUILDER_NAME;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.BUILDER_TYPE_NAME;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.CONSTRUCTOR_LOOKUP_NAME;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.LOOKUP_NAME;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.makeGetterName;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.DeferredObjectCodecConstants.makeSetterName;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.findRelationWithGenerics;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperat
 import com.google.protobuf.CodedInputStream;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
@@ -123,39 +124,27 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
   }
 
   @Override
-  void generateConstructorPreamble(
+  void generateStaticInitializerPreamble(
       TypeElement encodedType,
       ImmutableList<FieldGenerator> fieldGenerators,
-      MethodSpec.Builder constructor) {
-    // Adds constructor-scoped MethodHandles.Lookup variables named `CONSTRUCTOR_LOOKUP_NAME<N>`,
-    // where <N> is the hierarchy level of the lookup, for each hierarchy level accessed via
-    // VarHandle.
+      CodeBlock.Builder staticInitializer) {
+    // Adds static-initializer-scoped MethodHandles.Lookup variables named `LOOKUP_NAME<N>`, where
+    // <N> is the hierarchy level of the lookup, for each hierarchy level accessed via VarHandle.
     ImmutableSet<Integer> levels =
         fieldGenerators.stream()
             .filter(g -> g.getGetterName() == null)
             .map(FieldGenerator::getHierarchyLevel)
             .collect(toImmutableSet());
-    if (levels.isEmpty()) {
-      return;
-    }
     ImmutableList<TypeElement> lineage = getClassLineage(encodedType, env);
     for (int level : levels) {
-      constructor.addStatement(
-          "$T $L", MethodHandles.Lookup.class, CONSTRUCTOR_LOOKUP_NAME + level);
-    }
-    constructor.beginControlFlow("try");
-    for (int level : levels) {
-      constructor.addStatement(
-          "$L = $T.privateLookupIn($T.class, $T.lookup())",
-          CONSTRUCTOR_LOOKUP_NAME + level,
+      staticInitializer.addStatement(
+          "$T $L = $T.privateLookupIn($T.class, $T.lookup())",
+          MethodHandles.Lookup.class,
+          LOOKUP_NAME + level,
           MethodHandles.class,
           getErasure(lineage.get(level), env),
           MethodHandles.class);
     }
-    constructor
-        .nextControlFlow("catch ($T e)", IllegalAccessException.class)
-        .addStatement("throw new $T(e)", IllegalStateException.class)
-        .endControlFlow();
   }
 
   /** Initializes the {@link DeferredObjectCodec#deserializeDeferred} method. */
@@ -174,14 +163,14 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
 
   @Override
   void addImplementationToEndOfMethods(
-      MethodSpec.Builder constructor,
+      CodeBlock.Builder staticInitializer,
       MethodSpec.Builder deserialize,
       ImmutableList<FieldGenerator> fieldGenerators) {
     if (fieldGenerators.stream().anyMatch(g -> g.getGetterName() == null)) {
-      // There are fields not retrieved by getters. The per-field section of the constructor
+      // There are fields not retrieved by getters. The per-field section of the static initializer
       // performs reflective operations to obtain handles to the variables. These are enclosed in a
       // common try-catch block.
-      constructor
+      staticInitializer
           .nextControlFlow(
               "catch ($T|$T e)", NoSuchFieldException.class, IllegalAccessException.class)
           .addStatement("throw new $T(e)", AssertionError.class)

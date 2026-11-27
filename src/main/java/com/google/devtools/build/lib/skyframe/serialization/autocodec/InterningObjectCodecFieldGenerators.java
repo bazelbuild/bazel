@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor;
 import com.google.devtools.build.lib.skyframe.serialization.CodecHelpers;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
@@ -101,10 +102,12 @@ abstract class InterningObjectCodecFieldGenerators {
     }
 
     @Override
-    final void generateHandleMember(TypeSpec.Builder classBuilder, MethodSpec.Builder constructor) {
-      classBuilder.addField(long.class, getHandleName(), Modifier.PRIVATE, Modifier.FINAL);
-      constructor.addStatement(
-          "this.$L = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
+    final void generateStaticHandle(
+        TypeSpec.Builder classBuilder, CodeBlock.Builder staticInitializer) {
+      classBuilder.addField(
+          long.class, getHandleName(), Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL);
+      staticInitializer.addStatement(
+          "$L = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           getHandleName(),
           UnsafeProvider.class,
           getParentName(),
@@ -143,20 +146,18 @@ abstract class InterningObjectCodecFieldGenerators {
     }
 
     @Override
-    void generateAdditionalMemberVariables(TypeSpec.Builder builder) {
-      builder.addField(
+    void generateAuxiliaryStaticMembers(
+        TypeSpec.Builder classBuilder, CodeBlock.Builder staticInitializer) {
+      classBuilder.addField(
           // Specifies Class<?> type.
           ParameterizedTypeName.get(
               ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
           getTypeMemberName(),
           Modifier.PRIVATE,
+          Modifier.STATIC,
           Modifier.FINAL);
-    }
-
-    @Override
-    void generateConstructorCode(MethodSpec.Builder constructor) {
-      constructor.addStatement(
-          "this.$L = $T.class.getDeclaredField(\"$L\").getType()",
+      staticInitializer.addStatement(
+          "$L = $T.class.getDeclaredField(\"$L\").getType()",
           getTypeMemberName(),
           getParentName(),
           getParameterName());

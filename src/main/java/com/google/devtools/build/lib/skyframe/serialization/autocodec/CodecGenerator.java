@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Typ
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -47,25 +48,24 @@ abstract class CodecGenerator {
     performAdditionalCodecInitialization(
         classBuilder, encodedType, instantiator, annotation, fieldGenerators);
 
-    MethodSpec.Builder constructor = initializeConstructor(encodedType, fieldGenerators);
+    CodeBlock.Builder staticInitializer = initializeStaticInitializer(encodedType, fieldGenerators);
     MethodSpec.Builder serialize = initializeSerializeMethodBuilder(encodedType, annotation, env);
     MethodSpec.Builder deserialize = initializeDeserializeMethod(encodedTypeName);
 
     for (FieldGenerator generator : fieldGenerators) {
-      generator.generateHandleMember(classBuilder, constructor);
-      generator.generateAdditionalMemberVariables(classBuilder);
-      generator.generateConstructorCode(constructor);
+      generator.generateStaticHandle(classBuilder, staticInitializer);
+      generator.generateAuxiliaryStaticMembers(classBuilder, staticInitializer);
       generator.generateSerializeCode(serialize);
       generator.generateDeserializeCode(deserialize);
     }
 
-    addImplementationToEndOfMethods(constructor, deserialize, fieldGenerators);
+    addImplementationToEndOfMethods(staticInitializer, deserialize, fieldGenerators);
 
-    return classBuilder
-        .addMethod(constructor.build())
-        .addMethod(serialize.build())
-        .addMethod(deserialize.build())
-        .build();
+    if (!staticInitializer.isEmpty()) {
+      classBuilder.addStaticBlock(staticInitializer.build());
+    }
+
+    return classBuilder.addMethod(serialize.build()).addMethod(deserialize.build()).build();
   }
 
   /** Creates {@link FieldGenerator} instances that generate code for serialized fields. */
@@ -84,32 +84,31 @@ abstract class CodecGenerator {
       AutoCodecAnnotation annotation,
       List<? extends FieldGenerator> fieldGenerators);
 
-  abstract void generateConstructorPreamble(
+  abstract void generateStaticInitializerPreamble(
       TypeElement encodedType,
       ImmutableList<FieldGenerator> fieldGenerators,
-      MethodSpec.Builder constructor);
+      CodeBlock.Builder staticInitializer);
 
   /** Initializes the method that performs deserialization work. */
   abstract MethodSpec.Builder initializeDeserializeMethod(TypeName typeName);
 
   /** Adds field-independent code at the end of methods after per-field code is added. */
   abstract void addImplementationToEndOfMethods(
-      MethodSpec.Builder constructor,
+      CodeBlock.Builder staticInitializer,
       MethodSpec.Builder deserialize,
       ImmutableList<FieldGenerator> fieldGenerators);
 
-  /** Initializes the (mostly) field-independent parts of the constructor. */
-  private final MethodSpec.Builder initializeConstructor(
+  /** Initializes the (mostly) field-independent parts of the static initializer. */
+  private CodeBlock.Builder initializeStaticInitializer(
       TypeElement encodedType, ImmutableList<FieldGenerator> fieldGenerators) {
-    MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
-    generateConstructorPreamble(encodedType, fieldGenerators, constructor);
-
+    CodeBlock.Builder staticInitializer = CodeBlock.builder();
     if (fieldGenerators.stream().anyMatch(g -> g.getGetterName() == null)) {
-      // If there are any fields not retrieved by getters, the per-field section of the constructor
-      // will perform reflective operations to obtain handles to the variables. These are enclosed
-      // in a common try-catch block.
-      constructor.beginControlFlow("try");
+      // If there are any fields not retrieved by getters, the per-field section of the static
+      // initializer performs reflective operations to obtain handles to the variables. These are
+      // enclosed in a common try-catch block.
+      staticInitializer.beginControlFlow("try");
+      generateStaticInitializerPreamble(encodedType, fieldGenerators, staticInitializer);
     }
-    return constructor;
+    return staticInitializer;
   }
 }
