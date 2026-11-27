@@ -22,6 +22,7 @@
 set -euo pipefail
 
 DLL="$1"
+RUST_DLL="${2:-}"
 
 function fail() {
   echo >&2 "ERROR: $*"
@@ -108,8 +109,11 @@ cp -f "$JAVAINCLUDES/win32/jni_md.h" "$JNI_HEADERS_DIR/"
 
 BASH_BIN="$(command -v bash)" || fail "bash not found"
 BASH_WIN="$(cygpath -a -w "${BASH_BIN}")"
-RUST_LIB_WIN="$(cygpath -a -w "${VSTEMP}/rust_ffi.lib")"
-RUST_LINK_FLAGS_WIN="$(cygpath -a -w "${VSTEMP}/rust_link_flags.txt")"
+RUST_DLL_STEP=""
+if [[ -n "${RUST_DLL}" ]]; then
+  RUST_DLL_WIN="$(cygpath -a -w "${RUST_DLL}")"
+  RUST_DLL_STEP="@\"${BASH_WIN}\" scripts/bootstrap/build_rust_ffi.sh windows \"${RUST_DLL_WIN}\""$'\n'"@if errorlevel 1 exit /b 1"
+fi
 
 # CL.EXE needs a bunch of environment variables whose official location is a
 # batch file. We can't make that have an effect on a bash instance, so
@@ -125,16 +129,8 @@ cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @$pwd_drive
 @cd "$abs_pwd"
 @set TMP=$(cygpath -a -w "${VSTEMP}")
-@"${BASH_WIN}" scripts/bootstrap/build_rust_ffi.sh windows "${RUST_LIB_WIN}" "${RUST_LINK_FLAGS_WIN}"
-@if errorlevel 1 exit /b 1
-@if exist "${RUST_LIB_WIN}" goto link_with_rust
+${RUST_DLL_STEP}
 @CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . /I ${JNI_HEADERS_DIR} ${SOURCES[*]} /link /DEFAULTLIB:advapi32.lib
-@exit /b %errorlevel%
-:link_with_rust
-@setlocal enabledelayedexpansion
-@set "RUST_LINK_ARGS="
-@for /f "usebackq delims=" %%f in ("${RUST_LINK_FLAGS_WIN}") do @set "RUST_LINK_ARGS=!RUST_LINK_ARGS! %%f"
-@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . /I ${JNI_HEADERS_DIR} ${SOURCES[*]} "${RUST_LIB_WIN}" /link /DEFAULTLIB:advapi32.lib !RUST_LINK_ARGS!
 @exit /b %errorlevel%
 EOF
 

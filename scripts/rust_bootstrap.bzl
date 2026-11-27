@@ -80,7 +80,7 @@ def _rust_bootstrap_aspect_impl(target, ctx):
 
     if CrateInfo in target:
         crate_info = target[CrateInfo]
-    elif TestCrateInfo in target:
+    elif TestCrateInfo in target and target[TestCrateInfo].crate.type not in ("staticlib", "cdylib"):
         crate_info = target[TestCrateInfo].crate
     else:
         transitive_crates = [

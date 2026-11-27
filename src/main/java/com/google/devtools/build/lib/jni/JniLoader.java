@@ -40,12 +40,15 @@ public final class JniLoader {
       switch (OS.getCurrent()) {
         case LINUX, FREEBSD, OPENBSD, UNKNOWN -> {
           loadLibrary("main/native/libunix_jni.so");
+          loadLibrary("main/native/librust_ffi.so");
         }
         case DARWIN -> {
           loadLibrary("main/native/libunix_jni.dylib");
+          loadLibrary("main/native/librust_ffi.dylib");
         }
         case WINDOWS -> {
           loadLibrary("main/native/windows/windows_jni.dll");
+          loadLibrary("main/native/rust_ffi.dll");
         }
       }
       jniLoadError = null;

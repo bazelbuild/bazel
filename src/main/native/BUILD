@@ -1,6 +1,9 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+load(":rust_ffi.bzl", "RUST_FFI_DEPS")
 
 copy_file(
     name = "copy_link_jni_md_header",
@@ -77,6 +80,36 @@ cc_library(
     alwayslink = 1,
 )
 
+write_file(
+    name = "rust_ffi_rs",
+    out = "rust_ffi.rs",
+    content = [
+        "extern crate {} as _;".format(dep.rsplit(":", 1)[1].replace("-", "_"))
+        for dep in RUST_FFI_DEPS
+    ] + [""],
+)
+
+# Aggregates server Rust FFI crates into a standalone cdylib so rustc drives
+# the Rust link step (avoiding rules_rust's strong default allocator_library
+# colliding with a custom #[global_allocator] on stable Rust) and automatically
+# exports all `#[unsafe(no_mangle)] pub extern "C"` symbols across platforms.
+rust_shared_library(
+    name = "rust_ffi",
+    srcs = [":rust_ffi_rs"],
+    cc_runtime_linkage = "static",
+    rustc_flags = select({
+        # System libraries omitted from rules_rs v0.2.4's msvc stdlib_linkflags.
+        "//src/conditions:windows_msvc_like": [
+            "-lkernel32",
+            "-lntdll",
+            "-lsynchronization",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
+    deps = RUST_FFI_DEPS,
+)
+
 cc_binary(
     name = "libunix_jni.so",
     srcs = [
@@ -92,7 +125,6 @@ cc_binary(
     includes = ["."],  # For jni headers.
     linkopts = select({
         "//src/conditions:darwin": [
-            "-Wl,-framework,CoreFoundation",
             "-Wl,-framework,CoreServices",
             "-Wl,-framework,IOKit",
         ],
@@ -102,8 +134,6 @@ cc_binary(
             # the JNI functions and the BAZEL_EXPORT functions. Without this,
             # the linker keeps most of the runtime in the library.
             "-Wl,--exclude-libs,libc++.a:libc++abi.a:libunwind.a",
-            "-ldl",
-            "-lpthread",
         ],
         "//conditions:default": [],
     }),
@@ -113,7 +143,6 @@ cc_binary(
         ":blake3_jni",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
-        "//src/rust/platform:sleep_prevention_ffi",
     ],
 )
 

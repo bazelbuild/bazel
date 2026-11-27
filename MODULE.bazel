@@ -73,6 +73,11 @@ rules_rust.patch(
         # (https://github.com/bazelbuild/bazel/pull/32811) or rules_rs supports
         # a windows-gnullvm exec toolchain.
         "//third_party:rules_rs_0.2.4_proc_macro_platform.patch",
+        # Declares `lib*.dll.a` instead of `*.dll.lib` as the Windows GNU/gnullvm
+        # cdylib import library output to match rustc's `--out-implib=`.
+        # TODO: Remove once rules_rs picks up a rules_rust fix or Windows builds
+        # switch to the MSVC ABI (https://github.com/bazelbuild/bazel/pull/32811).
+        "//third_party:rules_rs_0.2.4_cdylib_windows_gnu_implib.patch",
     ],
     strip = 1,
 )

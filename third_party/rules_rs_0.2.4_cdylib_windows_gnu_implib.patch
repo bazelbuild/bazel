@@ -1,0 +1,19 @@
+diff --git a/rust/private/rustc.bzl b/rust/private/rustc.bzl
+--- a/rust/private/rustc.bzl
++++ b/rust/private/rustc.bzl
+@@ -2386,9 +2386,12 @@
+     # interface library that rustc generates in the output files.
+     interface_library = None
+     if rust_toolchain.target_os == "windows" and crate_info.type == "cdylib":
+-        # Rustc generates the import library with a `.dll.lib` extension rather than the usual `.lib` one that msvc
+-        # expects (see https://github.com/rust-lang/rust/pull/29520 for more context).
+-        interface_library = ctx.actions.declare_file(crate_info.output.basename + ".lib", sibling = crate_info.output)
++        # Rustc generates `.dll.lib` on MSVC targets (see https://github.com/rust-lang/rust/pull/29520)
++        # and `lib*.dll.a` on GNU/gnullvm targets (via `--out-implib=`).
++        if rust_toolchain.target_abi == "msvc":
++            interface_library = ctx.actions.declare_file(crate_info.output.basename + ".lib", sibling = crate_info.output)
++        else:
++            interface_library = ctx.actions.declare_file("lib" + crate_info.output.basename + ".a", sibling = crate_info.output)
+         outputs.append(interface_library)
+ 
+     # The action might generate extra output that we don't want to include in the `DefaultInfo` files.

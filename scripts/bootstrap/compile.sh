@@ -173,27 +173,37 @@ function build_jni() {
 
   log "Building JNI library..."
 
-  local output
+  local output rust_output
   if [[ $PLATFORM == "windows" ]]; then
     output="${output_dir}/classes/main/native/windows/windows_jni.dll"
+    rust_output="${output_dir}/classes/main/native/rust_ffi.dll"
   elif [[ $PLATFORM == "darwin" ]]; then
     output="${output_dir}/classes/main/native/libunix_jni.dylib"
+    rust_output="${output_dir}/classes/main/native/librust_ffi.dylib"
   else
     output="${output_dir}/classes/main/native/libunix_jni.so"
+    rust_output="${output_dir}/classes/main/native/librust_ffi.so"
   fi
 
   local -r tmp_output="${NEW_TMPDIR}/jni/$(basename "${output}")"
+  local -r tmp_rust_output="${NEW_TMPDIR}/jni/$(basename "${rust_output}")"
   mkdir -p "$(dirname "$tmp_output")"
   mkdir -p "$(dirname "$output")"
+  mkdir -p "$(dirname "$rust_output")"
 
   if [[ $PLATFORM == "windows" ]]; then
-    scripts/bootstrap/build_windows_jni.sh "$tmp_output"
+    scripts/bootstrap/build_windows_jni.sh "$tmp_output" "$tmp_rust_output"
   else
     scripts/bootstrap/build_unix_jni.sh "$JAVA_HOME" "$PLATFORM" "$tmp_output"
+    scripts/bootstrap/build_rust_ffi.sh "$PLATFORM" "$tmp_rust_output"
   fi
 
   cp "$tmp_output" "$output"
   chmod 0555 "$output"
+  if [[ -f "$tmp_rust_output" ]]; then
+    cp "$tmp_rust_output" "$rust_output"
+    chmod 0555 "$rust_output"
+  fi
 }
 
 # Create the deploy JAR

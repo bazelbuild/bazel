@@ -15,14 +15,12 @@
 # limitations under the License.
 
 # Compiles first-party server Rust FFI crates listed in a generated manifest
-# under derived/rust_bootstrap/<platform>.sh into a static library and writes
-# the linker flags needed to retain and export all bazel_* symbols.
+# under derived/rust_bootstrap/<platform>.sh into a shared library (`cdylib`).
 
 set -euo pipefail
 
 PLATFORM="$1"
 OUT="$2"
-LINK_FLAGS_OUT="$3"
 
 MANIFEST_DIR="${RUST_BOOTSTRAP_DIR:-derived/rust_bootstrap}"
 MANIFEST="${MANIFEST_DIR}/${PLATFORM}.sh"
@@ -42,7 +40,6 @@ trap 'rm -rf "${TMPDIR_RS}"' EXIT
 if [[ "${PLATFORM}" == "windows" ]]; then
   TMPDIR_OUT="$(cygpath -m "${TMPDIR_RS}")"
   OUT="$(cygpath -m "${OUT}")"
-  LINK_FLAGS_OUT="$(cygpath -m "${LINK_FLAGS_OUT}")"
   CODEGEN_FLAGS=(-C target-feature=+crt-static)
 else
   TMPDIR_OUT="${TMPDIR_RS}"
@@ -141,8 +138,8 @@ fi
 "${RUSTC_BIN}" \
   ${RUSTC_SYSROOT_ARGS[@]+"${RUSTC_SYSROOT_ARGS[@]}"} \
   --edition=2024 \
-  --crate-type=staticlib \
-  --crate-name=rust_ffi \
+  --crate-type=cdylib \
+  --crate-name=rust_ffi_umbrella \
   -C opt-level=2 \
   -C embed-bitcode=no \
   "${CODEGEN_FLAGS[@]}" \
@@ -150,24 +147,3 @@ fi
   "${UMBRELLA_EXTERNS[@]}" \
   "${TMPDIR_OUT}/umbrella.rs" \
   -o "${OUT}"
-
-: > "${LINK_FLAGS_OUT}"
-if [[ "${PLATFORM}" == "windows" ]]; then
-  printf '%s\n' \
-    kernel32.lib ntdll.lib synchronization.lib userenv.lib ws2_32.lib dbghelp.lib \
-    >> "${LINK_FLAGS_OUT}"
-  awk '{ gsub(/\r/, ""); if ($1 ~ /^bazel_[A-Za-z0-9_]+$/) print "/EXPORT:" $1 }' \
-    src/main/native/windows/windows_jni.def >> "${LINK_FLAGS_OUT}"
-else
-  case "${PLATFORM}" in
-    darwin) sym_flag="-Wl,-u,_" ;;
-    *) sym_flag="-Wl,-u," ;;
-  esac
-  (nm -gP "${OUT}" 2>/dev/null || true) \
-    | awk -v p="${sym_flag}" '$2 == "T" { s = $1; sub(/^_/, "", s); if (s ~ /^bazel_[A-Za-z0-9_]+$/) print p s }' \
-    | sort -u >> "${LINK_FLAGS_OUT}"
-  if [[ ! -s "${LINK_FLAGS_OUT}" ]]; then
-    echo >&2 "ERROR: Found no exported bazel_* symbols in ${OUT}"
-    exit 1
-  fi
-fi

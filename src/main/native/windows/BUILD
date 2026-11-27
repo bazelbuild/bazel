@@ -63,18 +63,6 @@ cc_binary(
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],
-    linkopts = select({
-        # System libraries needed on Windows:
-        #   kernel32: SetThreadExecutionState
-        #   ntdll, synchronization: Rust libstd (passed directly because
-        #       rules_rs v0.2.4 omits them from msvc stdlib_linkflags)
-        "//src/conditions:windows_msvc_like": [
-            "kernel32.lib",
-            "ntdll.lib",
-            "synchronization.lib",
-        ],
-        "//conditions:default": [],
-    }),
     linkshared = 1,
     target_compatible_with = ["@platforms//os:windows"],
     visibility = [
@@ -85,7 +73,6 @@ cc_binary(
         ":lib-file",
         ":lib-process",
         "//src/main/native:blake3_jni",
-        "//src/rust/platform:sleep_prevention_ffi",
     ],
 )
 

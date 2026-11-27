@@ -20,13 +20,6 @@ JAVA_HOME="$1"
 PLATFORM="$2"
 OUT="$3"
 
-RUST_TMPDIR="$(mktemp -d)"
-trap 'rm -rf "${RUST_TMPDIR}"' EXIT
-RUST_LIB="${RUST_TMPDIR}/librust_ffi.a"
-RUST_LINK_FLAGS="${RUST_TMPDIR}/rust_link_flags.txt"
-
-scripts/bootstrap/build_rust_ffi.sh "${PLATFORM}" "${RUST_LIB}" "${RUST_LINK_FLAGS}"
-
 # Source files common to all platforms.
 # Omit blake3, which would require an external dependency.
 SOURCES=(
@@ -37,7 +30,6 @@ SOURCES=(
 
 # Compiler flags common to all platforms.
 FLAGS=("-std=c++17" "-I." "-I${JAVA_HOME}/include" "-fPIC" "-shared")
-LIBS=()
 
 # Platform-specific source files and compiler flags.
 case "$PLATFORM" in
@@ -49,7 +41,6 @@ darwin)
   SOURCES+=(src/main/native/darwin/*.cc)
   FLAGS+=(
     "-I${JAVA_HOME}/include/darwin"
-    "-Wl,-framework,CoreFoundation"
     "-Wl,-framework,CoreServices"
     "-Wl,-framework,IOKit"
   )
@@ -64,19 +55,4 @@ freebsd)
   ;;
 esac
 
-if [[ -f "${RUST_LIB}" ]]; then
-  LIBS+=("${RUST_LIB}")
-  while IFS= read -r flag || [[ -n "${flag}" ]]; do
-    [[ -n "${flag}" ]] && FLAGS+=("${flag}")
-  done < "${RUST_LINK_FLAGS}"
-  case "$PLATFORM" in
-    linux) LIBS+=("-ldl" "-lpthread") ;;
-    freebsd|openbsd) LIBS+=("-lpthread") ;;
-  esac
-fi
-
-if [[ ${#LIBS[@]} -gt 0 ]]; then
-  c++ "${FLAGS[@]}" "${SOURCES[@]}" "${LIBS[@]}" -o "$OUT"
-else
-  c++ "${FLAGS[@]}" "${SOURCES[@]}" -o "$OUT"
-fi
+c++ "${FLAGS[@]}" "${SOURCES[@]}" -o "$OUT"

@@ -16,8 +16,8 @@ cc_library(
     name = "darwin_frameworks",
     linkopts = select({
         "@platforms//os:macos": [
-            "-framework CoreFoundation",
-            "-framework IOKit",
+            "-Wl,-framework,CoreFoundation",
+            "-Wl,-framework,IOKit",
         ],
         "//conditions:default": [],
     }),
