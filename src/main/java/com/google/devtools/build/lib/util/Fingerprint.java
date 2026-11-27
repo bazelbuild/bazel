@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathCommandLineItem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
@@ -268,13 +270,45 @@ public final class Fingerprint implements BytesSink {
   /** Appends a {@link Path} to the fingerprint message. */
   @CanIgnoreReturnValue
   public Fingerprint addPath(Path input) {
-    addString(input.getPathString());
+    return addPath(input.asFragment());
+  }
+
+  /**
+   * Appends a {@link PathFragment} to the fingerprint message.
+   *
+   * <p>Equivalent to {@code addString(input.getPathString())}, but doesn't allocate the path
+   * string.
+   */
+  @CanIgnoreReturnValue
+  public Fingerprint addPath(PathFragment input) {
+    try {
+      codedOut.writeUInt32NoTag(input.getPathStringLength());
+    } catch (IOException e) {
+      throw new IllegalStateException("failed to write path", e);
+    }
+    input.forEachPathStringChunk(
+        (bytes, offset, length) -> {
+          try {
+            codedOut.write(bytes, offset, length);
+          } catch (IOException e) {
+            throw new IllegalStateException("failed to write path", e);
+          }
+        });
     return this;
   }
 
-  /** Appends a {@link PathFragment} to the fingerprint message. */
-  public Fingerprint addPath(PathFragment input) {
-    return addString(input.getPathString());
+  /**
+   * Appends the {@linkplain CommandLineItem#expandToCommandLine(Object) command line expansion} of
+   * {@code item} to the fingerprint message.
+   *
+   * <p>Equivalent to {@code addString(CommandLineItem.expandToCommandLine(item))}, but doesn't
+   * allocate the expansion of a {@link PathCommandLineItem}.
+   */
+  @CanIgnoreReturnValue
+  public Fingerprint addCommandLineItem(Object item) {
+    return item instanceof PathCommandLineItem pathItem
+        ? addPath(pathItem.getCommandLinePath())
+        : addString(CommandLineItem.expandToCommandLine(item));
   }
 
   /**

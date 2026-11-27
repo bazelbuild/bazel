@@ -491,7 +491,7 @@ public class CustomCommandLine extends AbstractCommandLine {
             }
           } else {
             for (int i = 0; i < count; ++i) {
-              fingerprint.addString(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+              fingerprint.addCommandLineItem(arguments.get(argi++));
             }
           }
         }
@@ -573,7 +573,7 @@ public class CustomCommandLine extends AbstractCommandLine {
       fingerprint.addUUID(FORMAT_UUID);
       fingerprint.addString((String) arguments.get(argi++));
       for (int i = 0; i < argCount; ++i) {
-        fingerprint.addString(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+        fingerprint.addCommandLineItem(arguments.get(argi++));
       }
       return argi;
     }
@@ -627,7 +627,7 @@ public class CustomCommandLine extends AbstractCommandLine {
       if (arg instanceof RepositoryMapping mainRepoMapping) {
         arg = ((Label) arguments.get(argi++)).getDisplayForm(mainRepoMapping);
       }
-      fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
+      fingerprint.addCommandLineItem(arg);
       return argi;
     }
   }
@@ -1386,12 +1386,12 @@ public class CustomCommandLine extends AbstractCommandLine {
         actionKeyContext.addNestedSetToFingerprint(fingerprint, (NestedSet<Object>) arg);
       } else if (arg instanceof Iterable) {
         for (Object value : (Iterable<Object>) arg) {
-          fingerprint.addString(CommandLineItem.expandToCommandLine(value));
+          fingerprint.addCommandLineItem(value);
         }
       } else if (arg instanceof ArgvFragment argvFragment) {
         i = argvFragment.addToFingerprint(arguments, i, actionKeyContext, fingerprint);
       } else {
-        fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
+        fingerprint.addCommandLineItem(arg);
       }
     }
   }

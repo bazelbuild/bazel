@@ -358,7 +358,7 @@ public final class Actions {
         PathFragment pathJ = artifactJ.getExecPath();
         // Check length first so that we only detect strict prefix conflicts. Equal exec paths are
         // possible from shared actions.
-        if (pathJ.getPathString().length() > pathI.getPathString().length()
+        if (pathJ.getPathStringLength() > pathI.getPathStringLength()
             && pathJ.startsWith(pathI)
             && !isRunfilesArtifactPair(artifactI, artifactJ)) {
           ActionAnalysisMetadata actionI =

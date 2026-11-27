@@ -22,7 +22,7 @@ public final class Artifacts {
   private Artifacts() {}
 
   private static void addToFingerprint(Fingerprint fp, Artifact artifact) {
-    fp.addString(artifact.getExecPathString());
+    fp.addPath(artifact.getExecPath());
   }
 
   // TODO(bazel-team): Add option to sort collection of artifacts before adding to fingerprint?

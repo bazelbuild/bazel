@@ -114,7 +114,8 @@ public interface PathMapper {
    * <p>Implementations should provide a more efficient implementation that avoids allocations.
    */
   default int computeExecPathLengthDiff(DerivedArtifact artifact) {
-    return artifact.getExecPathString().length() - getMappedExecPathString(artifact).length();
+    return artifact.getExecPath().getPathStringLength()
+        - map(artifact.getExecPath()).getPathStringLength();
   }
 
   /**
