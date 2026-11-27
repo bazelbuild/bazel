@@ -64,9 +64,17 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
 is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
 # Bazel sets HOME to the (possibly relative) value of TEST_TMPDIR by default.
-# Users can override it via --test_env=HOME=... or --test_env=HOME and unset it
-# via --test_env==HOME, in which case it is left alone.
-if [[ -n "${HOME:-}" ]] && ! is_absolute "$HOME"; then
+# Users can override it via --test_env=HOME=... or --test_env=HOME. If they
+# remove it via --test_env==HOME and the execution environment doesn't provide
+# one either, use the home directory of the current user like a login shell or
+# container runtime would.
+if [[ -z "${HOME+x}" ]]; then
+  # With HOME unset, bash looks up the home directory in the user database.
+  user_home=~
+  if is_absolute "$user_home"; then
+    export HOME="$user_home"
+  fi
+elif [[ -n "$HOME" ]] && ! is_absolute "$HOME"; then
   HOME="$PWD/$HOME"
 fi
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
