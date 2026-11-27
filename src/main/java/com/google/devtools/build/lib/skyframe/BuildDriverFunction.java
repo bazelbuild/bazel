@@ -22,6 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -261,7 +262,9 @@ public class BuildDriverFunction implements SkyFunction {
                   configuredTarget,
                   buildConfigurationValue,
                   buildDriverKey.isExplicitlyRequested(),
-                  buildDriverKey.shouldSkipIncompatibleExplicitTargets());
+                  buildDriverKey.shouldSkipIncompatibleExplicitTargets(),
+                  buildDriverKey.shouldSkipIncompatibleWildcardTargets(),
+                  buildDriverKey.getErrorOnIncompatibleTargetsWithTags());
           if (isConfiguredTargetCompatible == null) {
             return null;
           }
@@ -534,7 +537,9 @@ public class BuildDriverFunction implements SkyFunction {
       ConfiguredTarget configuredTarget,
       BuildConfigurationValue buildConfigurationValue,
       boolean isExplicitlyRequested,
-      boolean skipIncompatibleExplicitTargets)
+      boolean skipIncompatibleExplicitTargets,
+      boolean skipIncompatibleWildcardTargets,
+      ImmutableList<String> errorOnIncompatibleTargetsWithTags)
       throws InterruptedException, TargetCompatibilityCheckException {
 
     if (!state.checkedForPlatformCompatibility) {
@@ -544,7 +549,13 @@ public class BuildDriverFunction implements SkyFunction {
               env.getListener(),
               /* eagerlyThrowError= */ true,
               isExplicitlyRequested,
-              skipIncompatibleExplicitTargets);
+              skipIncompatibleExplicitTargets,
+              skipIncompatibleWildcardTargets,
+              errorOnIncompatibleTargetsWithTags,
+              label -> getTarget(env, label));
+      if (platformCompatibility == null) {
+        return null;
+      }
       state.checkedForPlatformCompatibility = true;
       switch (platformCompatibility) {
         case INCOMPATIBLE_EXPLICIT:
