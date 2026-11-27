@@ -39,7 +39,6 @@ import build.bazel.remote.execution.v2.NodeProperty;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
@@ -609,7 +608,7 @@ public final class MerkleTreeComputer {
         lastSourceDirPath = null;
       }
       ActionInput input = getInput.apply(rawInput);
-      if (!isParentDirectory(currentParent, path)) {
+      if (!path.isChildOf(currentParent)) {
         PathFragment newParent = checkNotNull(path.getParentDirectory());
         String currentParentString = currentParent.getPathString();
         String newParentString = newParent.getPathString();
@@ -1178,19 +1177,6 @@ public final class MerkleTreeComputer {
       builder.setNodeProperties(nodeProperties);
     }
     directory.addFiles(builder.build());
-  }
-
-  /** Equivalent to {@code parent.equals(path.getParentDirectory())} for relative paths. */
-  @VisibleForTesting
-  static boolean isParentDirectory(PathFragment parent, PathFragment path) {
-    String pathString = path.getPathString();
-    if (pathString.isEmpty()) {
-      return false;
-    }
-    int lastSeparator = pathString.lastIndexOf(PathFragment.SEPARATOR_CHAR);
-    int parentLength = max(lastSeparator, 0);
-    String parentString = parent.getPathString();
-    return parentString.length() == parentLength && pathString.startsWith(parentString);
   }
 
   private static ImmutableSortedMap<PathFragment, ActionInput> explodeDirectory(

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
@@ -34,6 +35,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -200,6 +202,22 @@ public final class PathFragmentTest {
     assertThrows(IllegalArgumentException.class, () -> pf.getChild("/y"));
     assertThrows(IllegalArgumentException.class, () -> pf.getChild("y/"));
     assertThrows(IllegalArgumentException.class, () -> pf.getChild(""));
+  }
+
+  @Test
+  public void testIsChildOfMatchesGetParentDirectory() {
+    ImmutableList<PathFragment> fragments =
+        Stream.of("", "a", "ab", "a/b", "a/bc", "ab/c", "a/b/c", "a/b/d", "b/a", "/", "/a", "/ab",
+                "/a/b", "/a/bc", "/b/a")
+            .map(PathFragment::create)
+            .collect(toImmutableList());
+    for (PathFragment parent : fragments) {
+      for (PathFragment path : fragments) {
+        assertWithMessage("%s is child of %s", path, parent)
+            .that(path.isChildOf(parent))
+            .isEqualTo(parent.equals(path.getParentDirectory()));
+      }
+    }
   }
 
   @Test

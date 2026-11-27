@@ -367,6 +367,21 @@ public abstract sealed class PathFragment
   }
 
   /**
+   * Returns whether {@code parent} is equal to {@link #getParentDirectory()}.
+   *
+   * <p>This operation does not allocate.
+   */
+  public boolean isChildOf(PathFragment parent) {
+    int driveStrLength = getDriveStrLength();
+    if (normalizedPath.length() == driveStrLength) {
+      return false;
+    }
+    int parentLength = Math.max(normalizedPath.lastIndexOf(SEPARATOR_CHAR), driveStrLength);
+    return parent.normalizedPath.length() == parentLength
+        && normalizedPath.startsWith(parent.normalizedPath);
+  }
+
+  /**
    * Returns the {@link PathFragment} relative to the base {@link PathFragment}.
    *
    * <p>For example, <code>
