@@ -1362,6 +1362,52 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('I am running the extension', stderr)
     self.assertIn('I have changed now!', stderr)
 
+  def testModuleExtensionWatchesMultiplePaths(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local = use_repo_rule('
+            '"@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
+            'local(name = "other", path = "other")',
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "watched")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('present.txt', ['initial'])
+    self.ScratchFile('other/MODULE.bazel', ['module(name = "other")'])
+    self.ScratchFile('other/BUILD.bazel')
+    self.ScratchFile('other/watched.txt', ['initial'])
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'target\')")',
+            '_repo = repository_rule(implementation=_repo_impl)',
+            'def _ext_impl(ctx):',
+            '    root = ctx.path(Label("//:BUILD.bazel")).dirname',
+            '    present = root.get_child("present.txt")',
+            '    ctx.watch()',
+            '    missing = str(root.get_child("missing.txt"))',
+            '    ctx.watch(present, missing, Label("@other//:watched.txt"))',
+            '    print("batch watch executed")',
+            '    _repo(name="watched")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+    query = ['query', '@watched//:target']
+    _, _, stderr = self.RunBazel(query)
+    self.assertIn('batch watch executed', ''.join(stderr))
+
+    self.ScratchFile('unrelated.txt')
+    _, _, stderr = self.RunBazel(query)
+    self.assertNotIn('batch watch executed', ''.join(stderr))
+
+    for path in ('present.txt', 'missing.txt', 'other/watched.txt'):
+      self.ScratchFile(path, ['updated'])
+      _, _, stderr = self.RunBazel(query)
+      self.assertIn('batch watch executed', ''.join(stderr))
+
   def testModuleExtensionWithCopiedFile(self):
     self.ScratchFile(
         'MODULE.bazel',

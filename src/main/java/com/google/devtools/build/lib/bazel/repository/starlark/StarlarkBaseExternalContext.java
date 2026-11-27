@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
@@ -109,6 +110,7 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
@@ -272,7 +274,13 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @Nullable
   protected String getValueAndRecordInput(RepoRecordedInput input)
       throws InterruptedException, NeedsSkyframeRestartException, IOException {
-    var maybeValue = input.getValue(env, directories);
+    return recordInput(input, input.getValue(env, directories));
+  }
+
+  @CanIgnoreReturnValue
+  @Nullable
+  private String recordInput(RepoRecordedInput input, MaybeValue maybeValue)
+      throws NeedsSkyframeRestartException, IOException {
     if (env.valuesMissing()) {
       throw new NeedsSkyframeRestartException();
     }
@@ -1784,8 +1792,8 @@ Strip the given number of leading components from file paths on extraction. Only
       case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
       case Label label -> getPathFromLabel(label, /* materialize= */ true, thread);
       case StarlarkPath starlarkPath -> starlarkPath;
-      // This can never happen because we check it in the Starlark interpreter.
-      default -> throw new IllegalArgumentException("expected string or label for path");
+      default ->
+          throw Starlark.errorf("expected a string, Label, or path, got %s", Starlark.type(path));
     };
   }
 
@@ -1972,8 +1980,8 @@ Strip the given number of leading components from file paths on extraction. Only
       name = "watch",
       doc =
           """
-          Tells Bazel to watch for changes to the given path, whether or not it exists, or \
-          whether it's a file or a directory. Any changes to the file or directory will \
+          Tells Bazel to watch for changes to the given paths, whether or not they exist, or \
+          whether they are files or directories. A change to any watched path will \
           invalidate this repository or module extension, and cause it to be refetched or \
           re-evaluated next time.<p>"Changes" include changes to the contents of the file \
           (if the path is a file); if the path was a file but is now a directory, or vice \
@@ -1985,20 +1993,39 @@ Strip the given number of leading components from file paths on extraction. Only
           result in an error. A module extension attempting to watch a path outside the \
           current Bazel workspace will also result in an error.
           """,
-      parameters = {
-        @Param(
-            name = "path",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = Label.class),
-              @ParamType(type = StarlarkPath.class)
-            },
-            doc = "Path of the file to watch."),
-      },
+      extraPositionals =
+          @Param(
+              name = "paths",
+              doc =
+                  "The paths to watch, each a <code>string</code>, <code>Label</code>, or"
+                      + " <code>path</code>."),
       useStarlarkThread = true)
-  public void watchForStarlark(Object path, StarlarkThread thread)
+  public void watchForStarlark(Tuple paths, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    maybeWatch(getPath(path, thread), ShouldWatch.YES);
+    if (paths.isEmpty()) {
+      return;
+    }
+    if (paths.size() == 1) {
+      maybeWatch(getPath(paths.get(0), thread), ShouldWatch.YES);
+      return;
+    }
+    var inputs = LinkedHashMap.<RepoRecordedInput.File, SkyKey>newLinkedHashMap(paths.size());
+    for (Object path : paths) {
+      var input =
+          new RepoRecordedInput.File(
+              toRepoCacheFriendlyPath(getPath(path, thread).getPath(), ShouldWatch.YES));
+      inputs.computeIfAbsent(input, file -> file.getSkyKey(directories));
+    }
+    var results = env.getValuesAndExceptions(inputs.values());
+    try {
+      for (var entry : inputs.entrySet()) {
+        var input = entry.getKey();
+        var key = entry.getValue();
+        recordInput(input, input.toMarkerValue(key, results.get(key)));
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   // Create parent directories for the given path

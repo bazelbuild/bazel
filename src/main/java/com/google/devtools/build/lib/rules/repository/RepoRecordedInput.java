@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -542,13 +543,17 @@ public abstract sealed class RepoRecordedInput {
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
-      var fileValue = (FileValue) env.getValue(skyKey);
-      if (fileValue == null) {
+      return toMarkerValue(skyKey, env.getValue(skyKey));
+    }
+
+    /** Converts the {@link FileValue} for {@code skyKey} into this file's marker value. */
+    public MaybeValue toMarkerValue(SkyKey skyKey, @Nullable SkyValue value) {
+      if (value == null) {
         return MaybeValue.VALUES_MISSING;
       }
       try {
         return new MaybeValue.Valid(
-            fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
+            fileValueToMarkerValue((RootedPath) skyKey.argument(), (FileValue) value));
       } catch (IOException e) {
         return new MaybeValue.Invalid("failed to stat %s: %s".formatted(path, e.getMessage()));
       }

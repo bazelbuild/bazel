@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -72,6 +73,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.protobuf.ByteString;
 import java.io.File;
 import java.io.IOException;
@@ -91,6 +93,7 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
@@ -227,6 +230,27 @@ public final class StarlarkRepositoryContextTest {
         ImmutableMap.of("FOO", "BAR"),
         starlarkSemantics,
         /* repoRemoteExecutor= */ null);
+  }
+
+  @Test
+  public void watchReadsEachDistinctFileFromTheBatch() throws Exception {
+    setUpRepo("repo");
+    var first = FileValue.key(RootedPath.toRootedPath(root, PathFragment.create("first")));
+    var second = FileValue.key(RootedPath.toRootedPath(root, PathFragment.create("second")));
+    var missingFile = Mockito.mock(FileValue.class);
+    var results = Mockito.mock(SkyframeLookupResult.class);
+    when(environment.getValuesAndExceptions(any())).thenReturn(results);
+    when(results.get(first)).thenReturn(missingFile);
+    when(results.get(second)).thenReturn(missingFile);
+
+    context.watchForStarlark(Tuple.of("/wsRoot/first", "/wsRoot/second", "/wsRoot/first"), thread);
+
+    verify(environment)
+        .getValuesAndExceptions(
+            argThat(keys -> ImmutableList.copyOf(keys).equals(ImmutableList.of(first, second))));
+    verify(environment, never()).getValue(argThat(key -> key instanceof FileKey));
+    verify(results).get(first);
+    verify(results).get(second);
   }
 
   @Test
