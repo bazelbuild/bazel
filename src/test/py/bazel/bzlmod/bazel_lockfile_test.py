@@ -3196,6 +3196,47 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@repo'])
     self.assertNotIn('I see:', '\n'.join(stderr))
 
+  def testFirstChangedWatchedFileIsReported(self):
+    for i in range(50):
+      self.ScratchFile('data/%02d.txt' % i, [str(i)])
+    self.ScratchFile('data/BUILD.bazel')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    for f in %s:'
+            % repr(['//data:%02d.txt' % i for i in range(50)]),
+            '        ctx.read(Label(f))',
+            '    repo_rule(name="repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+    self.RunBazel(['build', '@repo'])
+
+    # Watched files are digested in parallel, but the reported change must
+    # still be the first one in the order in which the files were watched.
+    self.ScratchFile('data/41.txt', ['changed'])
+    self.ScratchFile('data/07.txt', ['changed'])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--lockfile_mode=error', '@repo'], allow_failure=True
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertIn('file info or contents of @@//data/07.txt changed', stderr)
+    self.assertNotIn('41.txt', stderr)
+
   def testPathReaddirOutsideWorkspaceDoesNotWatchDirents(self):
     outside_dir = pathlib.Path(tempfile.mkdtemp(dir=self._temp))
     scratchFile(outside_dir.joinpath('whatever'), ['repo'])
