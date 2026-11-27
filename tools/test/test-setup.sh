@@ -131,21 +131,33 @@ function rlocation() {
     # If the file exists in the $TEST_SRCDIR then just use it.
     echo "$TEST_SRCDIR/$1"
   elif [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
-    # If a runfiles manifest file exists then use it.
-    if [[ "$1" == *" "* || "$1" == *$'\n'* || "$1" == *\\* ]]; then
-      # Such a path is escaped in the manifest, on a line that starts with a
-      # space. Same scheme as rules_shell's runfiles.bash.
-      local key="${1//\\/\\b}"
+    # If a runfiles manifest file exists then use it, the way rules_shell's
+    # runfiles.bash does. A path that contains a space or a newline is listed
+    # on a line that starts with a space, with each backslash, space and
+    # newline escaped as \b, \s and \n, and each backslash and newline in the
+    # target escaped as \b and \n. Any other path is listed as is, unless its
+    # target contains a newline. Like rules_shell, this does not handle that
+    # case, which here would take a newline in the output base.
+    local key="$1" escaped=""
+    if [[ "$1" == *" "* || "$1" == *$'\n'* ]]; then
+      # Backslashes first, so that the ones added by the other escapes stay.
+      key="${key//\\/\\b}"
       key="${key// /\\s}"
       key="${key//$'\n'/\\n}"
-      key="$(echo -n "$key" | sed 's/[.[\*^$]/\\&/g')"
-      local target
-      target="$(grep -m1 "^ $key " "$RUNFILES_MANIFEST_FILE" | cut -d' ' -f3-)"
-      target="${target//\\n/$'\n'}"
-      echo "${target//\\b/\\}"
-    else
-      echo "$(grep "^$1 " "$RUNFILES_MANIFEST_FILE" | sed 's/[^ ]* //')"
+      key=" $key"
+      escaped=1
     fi
+    local pattern target
+    pattern="$(printf '%s' "$key" | sed 's/[.[\*^$]/\\&/g')"
+    target="$(grep -m1 "^$pattern " "$RUNFILES_MANIFEST_FILE")"
+    target="${target:${#key}+1}"
+    if [[ -n "$escaped" ]]; then
+      # \n first, so that "\bn", an escaped backslash followed by an n, does
+      # not turn into a newline.
+      target="${target//\\n/$'\n'}"
+      target="${target//\\b/\\}"
+    fi
+    echo "$target"
   fi
 }
 
