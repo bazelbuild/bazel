@@ -123,19 +123,23 @@ final class PathCanonicalizer {
 
     DirectoryNode node = getRootNode(path);
     Iterable<String> segments = path.segments();
-    int segmentIndex = 0;
+    String pathString = path.getPathString();
+    int segmentStart = path.getDriveStrLength();
 
     // Loop invariants:
-    // - `segmentIndex` is the index of the current `segment` relative to the start of `path`. The
-    //   first segment has index 0.
-    // - `path` is the absolute path to canonicalize. If `segmentIndex` > 0, `path` is already
-    //    canonical up to and including `segmentIndex` - 1.
-    // - `node` is the trie node corresponding to the `path` prefix ending with `segmentIndex` - 1,
-    //   or to the root path when `segmentIndex` is 0.
+    // - `segmentStart` is the offset of the current `segment` in `pathString`.
+    // - `path` is the absolute path to canonicalize. It is already canonical up to the separator
+    //   before the current `segment`.
+    // - `node` is the trie node corresponding to the `path` prefix ending before the current
+    //   `segment`, or to the root path for the first segment.
     for (String segment : segments) {
+      int segmentEnd = segmentStart + segment.length();
       Node nextNode = node.get(segment);
       if (nextNode == null) {
-        PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
+        PathFragment naivePath =
+            segmentEnd == pathString.length()
+                ? path
+                : PathFragment.createAlreadyNormalized(pathString.substring(0, segmentEnd));
         FileStatus status = resolver.statIfFound(naivePath);
         if (status == null) {
           throw new FileNotFoundException(naivePath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR);
@@ -161,15 +165,20 @@ final class PathCanonicalizer {
 
           // Compute the path obtained by resolving the symlink.
           // Note that path normalization already handles uplevel references.
-          PathFragment newPath;
+          PathFragment resolvedPrefix;
           if (targetPath.isAbsolute()) {
-            newPath = targetPath.getRelative(path.subFragment(segmentIndex + 1));
+            resolvedPrefix = targetPath;
           } else {
-            newPath =
-                path.subFragment(0, segmentIndex)
-                    .getRelative(targetPath)
-                    .getRelative(path.subFragment(segmentIndex + 1));
+            // Drop the separator before `segment`, unless the parent is the root itself.
+            int parentEnd = Math.max(segmentStart - 1, path.getDriveStrLength());
+            resolvedPrefix =
+                PathFragment.createAlreadyNormalized(pathString.substring(0, parentEnd))
+                    .getRelative(targetPath);
           }
+          PathFragment newPath =
+              segmentEnd == pathString.length()
+                  ? resolvedPrefix
+                  : appendNormalized(resolvedPrefix, pathString.substring(segmentEnd + 1));
 
           // For absolute symlinks, we must start over.
           // For relative symlinks, it would have been possible to restart after the already
@@ -178,18 +187,30 @@ final class PathCanonicalizer {
         }
         case DirectoryNode directoryNode -> {
           node = directoryNode;
-          segmentIndex++;
+          segmentStart = segmentEnd + 1;
         }
         case NonDirectoryNode ignored -> {
-          if (segmentIndex + 1 < path.segmentCount()) {
-            throw new FileNotFoundException(path.getPathString() + ERR_NOT_A_DIRECTORY);
+          if (segmentEnd < pathString.length()) {
+            throw new FileNotFoundException(pathString + ERR_NOT_A_DIRECTORY);
           }
-          segmentIndex++;
+          segmentStart = segmentEnd + 1;
         }
       }
     }
 
     return path;
+  }
+
+  /**
+   * Returns the normalized absolute path {@code base} followed by {@code suffix}, which must be a
+   * non-empty suffix of a normalized absolute path and thus has no "." or ".." segments.
+   */
+  private static PathFragment appendNormalized(PathFragment base, String suffix) {
+    String basePath = base.getPathString();
+    return PathFragment.createAlreadyNormalized(
+        basePath.length() == base.getDriveStrLength()
+            ? basePath + suffix
+            : basePath + PathFragment.SEPARATOR_CHAR + suffix);
   }
 
   /**

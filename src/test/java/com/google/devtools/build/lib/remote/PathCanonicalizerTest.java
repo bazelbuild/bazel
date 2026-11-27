@@ -90,6 +90,13 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testAbsoluteSymlinkToRootDirectory() throws Exception {
+    createSymlink("/a/b", "/");
+    createNonSymlink("/c/d");
+    assertSuccess("/a/b/c/d", "/c/d");
+  }
+
+  @Test
   public void testAbsoluteSymlinkToDifferentDrive() throws Exception {
     assumeTrue(OS.getCurrent() == OS.WINDOWS);
     createSymlink("C:/a/b", "D:/e/f");
@@ -102,6 +109,13 @@ public final class PathCanonicalizerTest {
     createSymlink("/a/b", "c");
     createNonSymlink("/a/c");
     assertSuccess("/a/b", "/a/c");
+  }
+
+  @Test
+  public void testRelativeSymlinkInRootDirectory() throws Exception {
+    createSymlink("/a", "b");
+    createNonSymlink("/b/c");
+    assertSuccess("/a/c", "/b/c");
   }
 
   @Test
@@ -123,6 +137,13 @@ public final class PathCanonicalizerTest {
     createSymlink("/a/b/c", "../../d");
     createNonSymlink("/d");
     assertSuccess("/a/b/c", "/d");
+  }
+
+  @Test
+  public void testRelativeSymlinkResolvingToRootDirectory() throws Exception {
+    createSymlink("/a/b", "..");
+    createNonSymlink("/c/d");
+    assertSuccess("/a/b/c/d", "/c/d");
   }
 
   @Test
