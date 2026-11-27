@@ -688,13 +688,25 @@ my_rule = rule(
   implementation = _impl,
   cfg = my_transition,
 )
+
+my_flag = rule(
+  implementation = _impl,
+  build_setting = config.string(flag = True),
+)
 EOF
   cat > test/BUILD <<'EOF'
-load('//test:rule.bzl', 'my_rule')
+load('//test:rule.bzl', 'my_flag', 'my_rule')
 my_rule(name = 'test')
+my_flag(name = 'flag', build_setting_default = '')
 EOF
   local exit_code=0
   bazel build //test:test >& "$TEST_log" || exit_code="$?"
+  assert_equals 1 "$exit_code" || fail "Expected exit code 1"
+  expect_log "Platform suffix '//bad:suffix'"
+  expect_log "is invalid as part of a path: must not contain /"
+
+  exit_code=0
+  bazel build //test:test --//test:flag=foo >& "$TEST_log" || exit_code="$?"
   assert_equals 1 "$exit_code" || fail "Expected exit code 1"
   expect_log "Platform suffix '//bad:suffix'"
   expect_log "is invalid as part of a path: must not contain /"

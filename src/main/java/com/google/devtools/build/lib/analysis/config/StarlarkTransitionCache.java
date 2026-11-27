@@ -155,6 +155,7 @@ public final class StarlarkTransitionCache {
    * @param fromOptions source options before the transition
    * @param transition the transition itself
    * @param details information from packages about Starlark build settings needed by transition
+   * @param sourceFlagDetails details that cover the Starlark flags of {@code fromOptions}
    * @param eventHandler handler for errors evaluating the transition.
    * @return transition output
    */
@@ -162,8 +163,11 @@ public final class StarlarkTransitionCache {
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       StarlarkBuildSettingsDetailsValue details,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
+    // sourceFlagDetails isn't part of the key since all details that cover the flags of
+    // fromOptions agree on their scopes.
     Key cacheKey = new Key(transition, fromOptions, details);
     Value cachedResult = cache.getIfPresent(cacheKey);
     if (cachedResult != null) {
@@ -199,6 +203,9 @@ public final class StarlarkTransitionCache {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
     result = StarlarkTransition.validate(transition, details, flagsAliases, result);
+    result =
+        StarlarkTransition.resetPlatformScopedSettings(
+            transition, details, sourceFlagDetails, flagsAliases, fromOptions, result);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.

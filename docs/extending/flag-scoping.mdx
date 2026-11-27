@@ -39,6 +39,7 @@ configuration.
 | **`"target"`** *(default in Skylib)* | Keeps value | Keeps value | Resets to `build_setting_default` (or to the static `on_leave_scope` value, if set) | Standard flags that affect target outputs across the build graph without forking `exec` tools. |
 | **`"project"`** | Keeps value | Resets transitioned value to baseline configuration value (or removes it if unset in baseline) | Preserves value across the `exec` transition, then enforces project boundaries on the `exec` target's package | Project-specific flags that must not fork shared libraries or external `exec` tools. |
 | **`"universal"`** | Keeps value | Keeps value | Keeps value | Flags that must affect both target builds and all `exec` tools (for example, repository-wide `--incompatible_*` or toolchain-wide toggles). |
+| **`"platform"`** | Keeps value, but resets to `build_setting_default` when a transition changes `--platforms` | Keeps value, but resets to `build_setting_default` when a transition changes `--platforms` | Resets to `build_setting_default` (the execution platform's `flags` apply instead) | Flags whose value is determined by the target platform's [`flags`](/reference/be/platforms-and-toolchains#platform.flags) and must not leak into the configurations of other platforms. |
 | **`"exec:--//pkg:host_flag"`** | Keeps value | Keeps value | Inherits the target-configuration value of `--//pkg:host_flag` | Flags paired with a separate host-side flag so you can override target and `exec` values independently on the command line. |
 
 ## Declare a scoped flag {#declare-scoped-flag}
@@ -277,6 +278,34 @@ invalidates the `exec` configuration and forces Bazel to rebuild all host/`exec`
 tools (such as compilers and protocol buffer plugins) in that subgraph.
 
 </Warning>
+
+### Platform scope {#platform-scope}
+
+A build setting whose value should be determined by the target platform can set
+`scope = "platform"`. Such a build setting resets to its default value whenever
+a transition changes `--platforms`, unless the build setting is one of the
+transition's outputs. In that case, the value returned by the transition is used
+instead, even if it is the value the build setting had before the transition.
+The new platform's
+[`flags`](/reference/be/platforms-and-toolchains#platform.flags) are applied
+afterwards, so a value set by the new platform takes effect. The `platform` scope
+prevents values set by one platform's `flags` from leaking into the
+configurations of another platform. Platforms are compared by label, so an
+`alias` of a platform counts as a different platform. Like `"target"` build
+settings, `"platform"` build settings are not applied to the `exec`
+configuration; the execution platform's `flags` apply there instead. Build
+settings with `scope = "platform"` can't set `on_leave_scope`.
+
+```python
+# my_project/flags/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+string_flag(
+    name = "fpu",
+    build_setting_default = "none",
+    scope = "platform",
+)
+```
 
 ### Cross-flag exec mapping {#cross-flag-exec-mapping}
 
