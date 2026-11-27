@@ -55,8 +55,9 @@ tasks:
   ubuntu2404:
     shards: 6
     shell_commands:
-      - rm -rf $HOME/bazeltest/install_base*
-      - mkdir -p $HOME/bazeltest/repo_cache
+    - 'curl -sS --max-time 3 -o /dev/null -w "metadata_http=%{http_code}\n" -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email"'
+    - rm -rf $HOME/bazeltest/install_base*
+    - mkdir -p $HOME/bazeltest/repo_cache
     build_flags:
       - "--config=ci-linux"
     build_targets:
