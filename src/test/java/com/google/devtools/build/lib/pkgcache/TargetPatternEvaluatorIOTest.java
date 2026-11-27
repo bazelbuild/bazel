@@ -18,24 +18,20 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,13 +40,6 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluatorTest {
   private static class Transformer {
-    @SuppressWarnings("unused")
-    @Nullable
-    public FileStatus stat(FileStatus stat, PathFragment path, boolean followSymlinks)
-        throws IOException {
-      return stat;
-    }
-
     @SuppressWarnings("unused")
     @Nullable
     public Collection<Dirent> readdir(
@@ -65,23 +54,6 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-        FileStatus defaultResult = super.stat(path, followSymlinks);
-        return transformer.stat(defaultResult, path, followSymlinks);
-      }
-
-      @Nullable
-      @Override
-      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-        FileStatus defaultResult = super.statIfFound(path, followSymlinks);
-        try {
-          return transformer.stat(defaultResult, path, followSymlinks);
-        } catch (IOException e) {
-          return null;
-        }
-      }
-
-      @Override
       public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
           throws IOException {
         Collection<Dirent> defaultResult = super.readdir(path, followSymlinks);
@@ -91,8 +63,8 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   }
 
   /**
-   * Tests that a child with an inconsistent stat (first a directory, then not) is handled properly.
-   * Even keep-going mode aborts eagerly in the face of inconsistent stats.
+   * Tests that a stat failure for a child listed by readdir aborts traversal, including in
+   * keep-going mode.
    */
   @Test
   public void testBadStat(@TestParameter boolean keepGoing) throws Exception {
@@ -102,8 +74,8 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     // And a child, "badstat",
     parent.getRelative("badstat").createDirectoryAndParents();
 
-    // Such that badstat first reports that it is a directory, and then reports that it isn't,
-    this.transformer = createInconsistentFileStateTransformer("parent/badstat");
+    // Simulate the listed directory disappearing before stat.
+    delegatingSyscallCache.setDelegate(TestUtils.makeDisappearingFileCache("parent/badstat"));
 
     TargetParsingException e =
         assertThrows(
@@ -162,77 +134,6 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
         "Failed to list directory contents, for parent/badstat, skipping: Path ended in "
             + "parent/badstat, so readdir failed",
         ImmutableSet.of(EventKind.ERROR));
-  }
-
-  private Transformer createInconsistentFileStateTransformer(final String badPathSuffix) {
-    final AtomicBoolean isDirectory = new AtomicBoolean(true);
-    return new Transformer() {
-      @Nullable
-      @Override
-      public FileStatus stat(final FileStatus stat, PathFragment path, boolean followSymlinks) {
-        if (path.getPathString().endsWith(badPathSuffix)) {
-          return new InMemoryContentInfo(BlazeClock.instance()) {
-            @Override
-            public boolean isDirectory() {
-              // Trigger inconsistent filesystem exception.
-              return isDirectory.getAndSet(false);
-            }
-
-            @Override
-            public boolean isFile() {
-              return stat.isFile();
-            }
-
-            @Override
-            public boolean isSpecialFile() {
-              return stat.isSpecialFile();
-            }
-
-            @Override
-            public boolean isSymbolicLink() {
-              return stat.isSymbolicLink();
-            }
-
-            @Override
-            public long getSize() {
-              try {
-                return stat.getSize();
-              } catch (IOException e) {
-                throw new IllegalStateException(e);
-              }
-            }
-
-            @Override
-            public synchronized long getLastModifiedTimeNanos() {
-              try {
-                return stat.getLastModifiedTimeNanos();
-              } catch (IOException e) {
-                throw new IllegalStateException(e);
-              }
-            }
-
-            @Override
-            public synchronized long getLastChangeTimeNanos() {
-              try {
-                return stat.getLastChangeTimeNanos();
-              } catch (IOException e) {
-                throw new IllegalStateException(e);
-              }
-            }
-
-            @Override
-            public long getNodeId() {
-              try {
-                return stat.getNodeId();
-              } catch (IOException e) {
-                throw new IllegalStateException(e);
-              }
-            }
-          };
-        }
-        return stat;
-      }
-    };
   }
 
   private Transformer createBadDirectoryListingTransformer(final String badPathSuffix) {
