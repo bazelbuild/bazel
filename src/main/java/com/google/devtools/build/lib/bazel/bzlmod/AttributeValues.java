@@ -15,13 +15,17 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import net.starlark.java.eval.CompactImmutableDict;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFloat;
@@ -44,12 +48,16 @@ public abstract class AttributeValues {
   // the values of dict attributes, e.g. for visibility or platform attributes.
   private static final Interner<StarlarkList<?>> lists = BlazeInterners.newWeakInterner();
 
+  // They also usually have the same attribute names and the same keys in their dict attributes.
+  private static final Cache<List<Object>, Dict<?, ?>> dictsByKeys =
+      Caffeine.newBuilder().weakValues().build();
+
   @SuppressWarnings("unchecked")
   public static AttributeValues create(Dict<String, Object> attribs) {
-    return new AutoValue_AttributeValues((Dict<String, Object>) internLists(attribs));
+    return new AutoValue_AttributeValues((Dict<String, Object>) share(attribs));
   }
 
-  private static Object internLists(Object value) {
+  private static Object share(Object value) {
     // Only lists of strings and labels are interned. Lists of other values can be equal without
     // behaving the same, e.g. [1] == [1.0].
     if (value instanceof StarlarkList<?> list
@@ -57,14 +65,25 @@ public abstract class AttributeValues {
         && list.stream().allMatch(e -> e instanceof String || e instanceof Label)) {
       return lists.intern(list);
     }
-    if (value instanceof Dict<?, ?> dict
-        && dict.isImmutable()
-        && dict.values().stream().anyMatch(v -> v instanceof StarlarkList || v instanceof Dict)) {
-      var interned = Dict.builder();
-      dict.forEach((k, v) -> interned.put(k, internLists(v)));
-      return interned.buildImmutable();
+    if (value instanceof Dict<?, ?> dict && dict.isImmutable()) {
+      Dict<?, ?> shared = dict;
+      if (dict.values().stream().anyMatch(v -> v instanceof StarlarkList || v instanceof Dict)) {
+        var builder = Dict.builder();
+        dict.forEach((k, v) -> builder.put(k, share(v)));
+        shared = builder.buildImmutable();
+      }
+      return shareKeys(shared);
     }
     return value;
+  }
+
+  private static Dict<?, ?> shareKeys(Dict<?, ?> dict) {
+    // Immutable dicts with less than three entries don't store their keys separately.
+    if (!(dict instanceof CompactImmutableDict<?, ?>) || dict.size() < 3) {
+      return dict;
+    }
+    Dict<?, ?> keysOf = dictsByKeys.get(ImmutableList.copyOf(dict.keySet()), unused -> dict);
+    return CompactImmutableDict.withKeysOf(dict, keysOf);
   }
 
   public abstract Dict<String, Object> attributes();

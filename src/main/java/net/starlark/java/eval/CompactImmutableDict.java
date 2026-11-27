@@ -107,6 +107,25 @@ public abstract sealed class CompactImmutableDict<K, V> extends Dict<K, V> {
     };
   }
 
+  /**
+   * Returns a dict with the same entries as {@code dict} that shares the storage of its keys with
+   * {@code keysOf} if both are immutable and have the same keys in the same order, or {@code dict}
+   * itself otherwise.
+   */
+  @SuppressWarnings("unchecked")
+  public static <K, V> Dict<K, V> withKeysOf(Dict<K, V> dict, Dict<?, ?> keysOf) {
+    if (dict instanceof ArrayImmutableDict<K, V> d
+        && keysOf instanceof ArrayImmutableDict<?, ?> k
+        && d.ks != k.ks
+        && Arrays.equals(d.ks, k.ks)) {
+      K[] ks = (K[]) k.ks;
+      return k instanceof HashImmutableDict<?, ?> h
+          ? new HashImmutableDict<>(ks, d.vs, h.table)
+          : new LinearImmutableDict<>(ks, d.vs);
+    }
+    return dict;
+  }
+
   @Override
   public final Mutability mutability() {
     return Mutability.IMMUTABLE;

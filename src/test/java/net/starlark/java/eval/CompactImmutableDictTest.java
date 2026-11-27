@@ -159,6 +159,37 @@ public final class CompactImmutableDictTest {
   }
 
   @Test
+  public void withKeysOf() {
+    for (int size : new int[] {3, 12}) {
+      Map<String, Integer> source = new LinkedHashMap<>();
+      Map<String, Integer> other = new LinkedHashMap<>();
+      for (int i = 0; i < size; i++) {
+        source.put("k" + i, i);
+        other.put("k" + i, -i);
+      }
+      Dict<String, Integer> dict =
+          CompactImmutableDict.withKeysOf(
+              CompactImmutableDict.copyOf(source), CompactImmutableDict.copyOf(other));
+      performUniversalChecks(dict);
+
+      assertThat(dict.get("k1")).isEqualTo(1);
+      assertThat(dict.keySet()).containsExactlyElementsIn(source.keySet()).inOrder();
+      assertThat(dict.values()).containsExactlyElementsIn(source.values()).inOrder();
+    }
+  }
+
+  @Test
+  public void withKeysOf_differentKeyOrder() {
+    CompactImmutableDict<String, Integer> dict =
+        CompactImmutableDict.copyOf(ImmutableMap.of("a", 1, "b", 2, "c", 3));
+    CompactImmutableDict<String, Integer> keysOf =
+        CompactImmutableDict.copyOf(ImmutableMap.of("c", 3, "b", 2, "a", 1));
+
+    Object shared = CompactImmutableDict.withKeysOf(dict, keysOf);
+    assertThat(shared).isSameInstanceAs(dict);
+  }
+
+  @Test
   public void iteratorNoSuchElementException() {
     CompactImmutableDict<String, Integer> dict =
         CompactImmutableDict.copyOf(ImmutableMap.of("a", 1, "b", 2, "c", 3));
