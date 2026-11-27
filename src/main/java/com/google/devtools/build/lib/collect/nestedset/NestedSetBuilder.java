@@ -249,7 +249,6 @@ public abstract sealed class NestedSetBuilder<E> {
     return buildInternal(InterruptStrategy.PROPAGATE, NestedSetOwnerScope.current());
   }
 
-  @SuppressWarnings("ReferenceEquality") // Interned array identity check
   private NestedSet<E> buildInternal(
       InterruptStrategy interruptStrategy, @Nullable NestedSetOwnerScope scope)
       throws InterruptedException {
@@ -285,7 +284,7 @@ public abstract sealed class NestedSetBuilder<E> {
       Object c0 = s0.getChildrenInternal(interruptStrategy);
       Object c1 = s1.getChildrenInternal(interruptStrategy);
       if (c0 instanceof Object[] a0 && c1 instanceof Object[] a1) {
-        if (a0 == a1) {
+        if (NestedSetInterner.haveIdenticalChildren(a0, a1)) {
           // Whether two distinct sets share an array depends on interning and deserialization,
           // so inside a NestedSetOwnerScope always create a new set: reusing s0 or s1 would make
           // whether the scope's next index is used depend on cache state.
