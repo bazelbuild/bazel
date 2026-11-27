@@ -28,6 +28,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/net/starlark/java/eval",
