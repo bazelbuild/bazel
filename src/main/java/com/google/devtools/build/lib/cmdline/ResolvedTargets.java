@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.concurrent.Immutable;
 
@@ -131,6 +134,37 @@ public final class ResolvedTargets<T> {
     public Builder<T> removeAll(Collection<T> targets) {
       this.filteredTargets.addAll(targets);
       this.targets.removeAll(targets);
+      return this;
+    }
+
+    /**
+     * Moves those of the given targets that are present to the filtered targets.
+     *
+     * <p>Has the effect of {@code filter(not(in(toRemove)))}, including the order in which the
+     * filtered targets are recorded, without building the set of targets again. Removing a handful
+     * of targets from several hundred thousand, once per negative pattern, otherwise takes seconds.
+     */
+    @CanIgnoreReturnValue
+    public Builder<T> filterOut(Collection<T> toRemove) {
+      List<T> present = new ArrayList<>();
+      for (T target : toRemove) {
+        if (targets.contains(target)) {
+          present.add(target);
+        }
+      }
+      if (present.size() > 1) {
+        // filter() records what it removes in the order of the targets, not of the argument.
+        Set<T> presentSet = new HashSet<>(present);
+        present.clear();
+        for (T target : targets) {
+          if (presentSet.contains(target)) {
+            present.add(target);
+          }
+        }
+      }
+      for (T target : present) {
+        remove(target);
+      }
       return this;
     }
 
