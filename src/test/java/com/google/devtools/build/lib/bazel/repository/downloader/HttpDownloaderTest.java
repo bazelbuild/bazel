@@ -51,6 +51,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1095,6 +1096,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1139,6 +1141,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1223,6 +1226,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1267,6 +1271,7 @@ public class HttpDownloaderTest {
     DownloadManager downloadManager =
         new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
     downloadManager.setRetries(retries);
+    downloadManager.setSleeper(unused -> {});
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -1304,6 +1309,103 @@ public class HttpDownloaderTest {
     assertThat(times.get()).isEqualTo(4);
     String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
     assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_unknownHost_retriesWithBackoff() throws Exception {
+    // The nesting HttpDownloader.download produces when HttpConnector fails to resolve the host
+    // of the only URL; the UnknownHostException is two levels below the thrown exception. The
+    // retries have to be spread out, or they all hit the JDK's cached lookup failure.
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 6;
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(retries);
+    List<Long> delays = new ArrayList<>();
+    downloadManager.setSleeper(delays::add);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 6) {
+                    IOException unknownHost =
+                        new UnrecoverableHttpException("Unknown host: example.com");
+                    unknownHost.addSuppressed(new UnknownHostException("example.com"));
+                    IOException e = new IOException();
+                    e.addSuppressed(unknownHost);
+                    throw e;
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    Path result =
+        download(
+            downloadManager,
+            ImmutableList.of(URI.create("http://example.com")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(7);
+    assertThat(delays).containsExactly(1000L, 2000L, 4000L, 8000L, 10000L, 10000L).inOrder();
+    String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_connectExceptionAfterEarlierSocketException_doesNotRetry() throws Exception {
+    // HttpConnector attaches its earlier attempts to its final failure as suppressed exceptions,
+    // and it has already retried those with backoff. A retryable exception among them must not
+    // make DownloadManager repeat that whole sequence.
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(5);
+    AtomicInteger times = new AtomicInteger(0);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  times.getAndIncrement();
+                  IOException connectFailure = new ConnectException("Connection refused");
+                  connectFailure.addSuppressed(new SocketException("Connection reset"));
+                  IOException e = new IOException();
+                  e.addSuppressed(connectFailure);
+                  throw e;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    assertThrows(
+        IOException.class,
+        () ->
+            download(
+                downloadManager,
+                ImmutableList.of(URI.create("http://localhost")),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                "testCanonicalId",
+                Optional.empty(),
+                fs.getPath(workingDir.newFile().getAbsolutePath()),
+                ImmutableMap.of(),
+                "testRepo"));
+
+    assertThat(times.get()).isEqualTo(1);
   }
 
   @Test
