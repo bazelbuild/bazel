@@ -112,6 +112,21 @@ public final class PathTransformingDelegateFileSystemTest {
     verifyNoMoreInteractions(delegateFileSystem);
   }
 
+  @Test
+  @TestParameters({"{matches: true}", "{matches: false}"})
+  public void hasExactSymlinkTarget_callsDelegateWithRewrittenPathNotTarget(boolean matches)
+      throws Exception {
+    PathFragment target = PathFragment.create("/original/target");
+    PathFragment delegatePath = PathFragment.create("/transformed/dir/file");
+    when(delegateFileSystem.hasExactSymlinkTarget(delegatePath, target)).thenReturn(matches);
+
+    assertThat(fileSystem.hasExactSymlinkTarget(PathFragment.create("/original/dir/file"), target))
+        .isEqualTo(matches);
+
+    verify(delegateFileSystem).hasExactSymlinkTarget(delegatePath, target);
+    verifyNoMoreInteractions(delegateFileSystem);
+  }
+
   private static final ImmutableClassToInstanceMap<?> DEFAULT_VALUES =
       ImmutableClassToInstanceMap.builder()
           .put(boolean.class, false)
@@ -161,6 +176,7 @@ public final class PathTransformingDelegateFileSystemTest {
         ImmutableSet.of(
             getFileSystemMethod("getPath", PathFragment.class),
             getFileSystemMethod("readSymbolicLink", PathFragment.class),
+            getFileSystemMethod("hasExactSymlinkTarget", PathFragment.class, PathFragment.class),
             getFileSystemMethod("resolveSymbolicLinks", PathFragment.class),
             getFileSystemMethod(
                 "createSymbolicLink",
