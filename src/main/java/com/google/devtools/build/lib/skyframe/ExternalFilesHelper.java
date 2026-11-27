@@ -291,6 +291,14 @@ public class ExternalFilesHelper {
         maxNumExternalFilesToLog);
   }
 
+  boolean isExternalRepoFile(RootedPath rootedPath) {
+    return detectFileType(rootedPath) == FileType.EXTERNAL_REPO;
+  }
+
+  void noteExternalRepoFilesSeen() {
+    anyFilesInExternalReposSeen = true;
+  }
+
   public FileType getAndNoteFileType(RootedPath rootedPath) {
     FileType fileType = detectFileType(rootedPath);
     if (fileType == FileType.EXTERNAL_OTHER) {
@@ -301,7 +309,7 @@ public class ExternalFilesHelper {
       }
     }
     if (FileType.EXTERNAL_REPO == fileType) {
-      anyFilesInExternalReposSeen = true;
+      noteExternalRepoFilesSeen();
     }
     if (FileType.OUTPUT == fileType) {
       anyOutputFilesSeen = true;

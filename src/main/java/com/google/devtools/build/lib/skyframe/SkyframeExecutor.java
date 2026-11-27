@@ -4172,13 +4172,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           Iterables.toString(fileTypesToCheck));
       ImmutableBatchDirtyResult batchDirtyResult;
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
+        var graph = memoizingEvaluator.getInMemoryGraph();
+        var keyFilter = DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker();
+        Map<SkyKey, SkyValue> filesystemValues;
+        if (externalDirtinessChecker != null && !checkExternalRepositoryFiles) {
+          var omittedExternalRepoFile = new AtomicBoolean();
+          filesystemValues =
+              graph.collectDoneValues(
+                  keyFilter::applies,
+                  key -> {
+                    var path = (RootedPath) key.argument();
+                    // The missing-diff checker takes precedence over the external checker.
+                    if (diffPackageRootsUnderWhichToCheck.contains(path.getRoot())
+                        || !tmpExternalFilesHelper.isExternalRepoFile(path)) {
+                      return true;
+                    }
+                    if (!omittedExternalRepoFile.get()) {
+                      omittedExternalRepoFile.compareAndSet(false, true);
+                    }
+                    return false;
+                  });
+          if (omittedExternalRepoFile.get()) {
+            tmpExternalFilesHelper.noteExternalRepoFilesSeen();
+          }
+        } else {
+          filesystemValues = graph.collectDoneValues(keyFilter::applies);
+        }
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator
-                    .getInMemoryGraph()
-                    .collectDoneValues(
-                        DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker()::applies),
-                new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
+                filesystemValues, new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {
         recordingDiffer.invalidate(

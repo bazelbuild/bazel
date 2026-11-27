@@ -89,6 +89,16 @@ public interface InMemoryGraph extends ProcessableGraph {
    * parallel, and only the values of matching keys are read.
    */
   default Map<SkyKey, SkyValue> collectDoneValues(Predicate<SkyKey> keyFilter) {
+    return collectDoneValues(keyFilter, null);
+  }
+
+  /**
+   * Applies the optional second filter only to done entries with usable values.
+   *
+   * <p>Both predicates may be called concurrently.
+   */
+  default Map<SkyKey, SkyValue> collectDoneValues(
+      Predicate<SkyKey> keyFilter, @Nullable Predicate<SkyKey> doneFilter) {
     var result = new ConcurrentHashMap<SkyKey, SkyValue>();
     parallelForEach(
         entry -> {
@@ -97,7 +107,7 @@ public interface InMemoryGraph extends ProcessableGraph {
             return;
           }
           var value = ValueWithMetadata.justValue(entry.getValueMaybeWithMetadata());
-          if (value != null && entry.isDone()) {
+          if (value != null && entry.isDone() && (doneFilter == null || doneFilter.test(key))) {
             result.put(key, value);
           }
         });
