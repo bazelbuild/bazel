@@ -22,16 +22,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyComputer;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -40,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -49,8 +44,7 @@ import javax.annotation.Nullable;
  * An {@link ActionTemplate} that expands into {@link LtoBackendAction}s at execution time. Is is
  * similar to {@link com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate}.
  */
-public final class LtoBackendActionTemplate extends ActionKeyComputer
-    implements ActionTemplate<LtoBackendAction> {
+public final class LtoBackendActionTemplate implements ActionTemplate<LtoBackendAction> {
 
   private final CcToolchainVariables buildVariables;
 
@@ -322,42 +316,6 @@ public final class LtoBackendActionTemplate extends ActionKeyComputer
     }
 
     return expandedActions.build();
-  }
-
-  @Override
-  protected void computeKey(
-      ActionKeyContext actionKeyContext,
-      @Nullable InputMetadataProvider inputMetadataProvider,
-      Fingerprint fp)
-      throws CommandLineExpansionException, InterruptedException {
-
-    LtoBackendAction dummyAction = getDummyAction();
-    dummyAction.computeKey(actionKeyContext, inputMetadataProvider, fp);
-  }
-
-  /**
-   * This is an action that is not valid, because its input bitcode file is a TreeArtifact rather
-   * than a specific file. It is useful for calculating keys and inputs of the Action Template by
-   * reusing functionality from LtoBackendAction.
-   */
-  private LtoBackendAction getDummyAction() {
-    // This is a dummy action that would not work, because the bitcode file path is a directory
-    // rather than a file.
-    return LtoBackendArtifacts.createLtoBackendActionForTemplate(
-        getOwner(),
-        additionalInputs,
-        env,
-        buildVariables,
-        featureConfiguration,
-        indexAndImportsTreeArtifact,
-        indexAndImportsTreeArtifact,
-        fullBitcodeTreeArtifact,
-        objectFileTreeArtifact,
-        bitcodeFiles,
-        dwoFileTreeArtifact,
-        usePic,
-        null,
-        /* isDummyAction= */ true);
   }
 
   @Override

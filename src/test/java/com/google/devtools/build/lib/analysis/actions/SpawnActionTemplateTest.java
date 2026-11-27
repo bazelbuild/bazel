@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -131,64 +130,6 @@ public class SpawnActionTemplateTest {
 
     assertThrows(
         NullPointerException.class, () -> builder.build(ActionsTestUtil.NULL_ACTION_OWNER));
-  }
-
-  @Test
-  public void getKey_same() throws Exception {
-    ActionKeyContext keyContext = new ActionKeyContext();
-    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
-    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
-    Artifact executable = createDerivedArtifact("bin/cp");
-
-    // Use two different builders because the same builder would share the underlying
-    // SpawnActionBuilder.
-    SpawnActionTemplate actionTemplate =
-        builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(executable)
-            .setCommandLineTemplate(
-                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
-            .setOutputPathMapper(IDENTITY_MAPPER)
-            .setMnemonics("ActionTemplate", "ExpandedAction")
-            .build(ActionsTestUtil.NULL_ACTION_OWNER);
-    SpawnActionTemplate actionTemplate2 =
-        builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(executable)
-            .setCommandLineTemplate(
-                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
-            .setOutputPathMapper(IDENTITY_MAPPER)
-            .setMnemonics("ActionTemplate", "ExpandedAction")
-            .build(ActionsTestUtil.NULL_ACTION_OWNER);
-    assertThat(actionTemplate2.getKey(keyContext, /* inputMetadataProvider= */ null))
-        .isEqualTo(actionTemplate.getKey(keyContext, /* inputMetadataProvider= */ null));
-  }
-
-  @Test
-  public void getKey_differs() throws Exception {
-    ActionKeyContext keyContext = new ActionKeyContext();
-    TreeArtifact inputTreeArtifact = createInputTreeArtifact();
-    TreeArtifact outputTreeArtifact = createOutputTreeArtifact();
-    Artifact executable = createDerivedArtifact("bin/cp");
-
-    // Use two different builders because the same builder would share the underlying
-    // SpawnActionBuilder.
-    SpawnActionTemplate actionTemplate =
-        builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(executable)
-            .setCommandLineTemplate(
-                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
-            .setOutputPathMapper(IDENTITY_MAPPER)
-            .setMnemonics("ActionTemplate", "ExpandedAction")
-            .build(ActionsTestUtil.NULL_ACTION_OWNER);
-    SpawnActionTemplate actionTemplate2 =
-        builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(executable)
-            .setCommandLineTemplate(
-                createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
-            .setOutputPathMapper(IDENTITY_MAPPER)
-            .setMnemonics("ActionTemplate", "ExpandedAction2")
-            .build(ActionsTestUtil.NULL_ACTION_OWNER);
-    assertThat(actionTemplate2.getKey(keyContext, /* inputMetadataProvider= */ null))
-        .isNotEqualTo(actionTemplate.getKey(keyContext, /* inputMetadataProvider= */ null));
   }
 
   @Test

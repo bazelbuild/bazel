@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionKeyComputer;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
@@ -30,10 +28,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.ToolProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -42,8 +38,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
@@ -51,8 +45,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time. */
-public final class SpawnActionTemplate extends ActionKeyComputer
-    implements ActionTemplate<SpawnAction> {
+public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
   private final TreeArtifact inputTreeArtifact;
   private final TreeArtifact outputTreeArtifact;
   private final NestedSet<Artifact> allInputs;
@@ -126,24 +119,6 @@ public final class SpawnActionTemplate extends ActionKeyComputer
     }
 
     return expandedActions.build();
-  }
-
-  @Override
-  protected void computeKey(
-      ActionKeyContext actionKeyContext,
-      @Nullable InputMetadataProvider inputMetadataProvider,
-      Fingerprint fp)
-      throws CommandLineExpansionException, InterruptedException {
-    TreeFileArtifact inputTreeFileArtifact =
-        TreeFileArtifact.createTreeOutput(inputTreeArtifact, "dummy_for_key");
-    TreeFileArtifact outputTreeFileArtifact =
-        TreeFileArtifact.createTemplateExpansionOutput(
-            outputTreeArtifact,
-            outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact),
-            ActionTemplateExpansionValue.key(
-                outputTreeArtifact.getArtifactOwner(), /*actionIndex=*/ 0));
-    SpawnAction dummyAction = createAction(inputTreeFileArtifact, outputTreeFileArtifact);
-    dummyAction.computeKey(actionKeyContext, inputMetadataProvider, fp);
   }
 
   /**
