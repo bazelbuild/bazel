@@ -24,7 +24,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithMessage;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -43,24 +46,39 @@ import org.junit.runners.JUnit4;
 public final class StarlarkInfoCodecTest extends BuildViewTestCase {
   private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
-  private final ObjectCodecs objectCodecs = new ObjectCodecs();
+  private final ObjectCodecs objectCodecs =
+      new ObjectCodecs(
+          AutoRegistry.get().getBuilder().addReferenceConstant(StructProvider.STRUCT).build());
   private final FingerprintValueService fingerprintValueService =
       FingerprintValueService.createForTesting();
 
   @Test
   public void roundTripTests() throws Exception {
     StarlarkProvider provider = makeProvider();
-    verifyRoundTripWithSkyframe(StarlarkInfo.create(provider, ImmutableMap.of()));
-    verifyRoundTripWithSkyframe(
-        StarlarkInfo.create(
-            provider,
-            ImmutableMap.of(
-                "a", StarlarkInt.of(1), "b", StarlarkInt.of(2), "c", StarlarkInt.of(3))));
+    for (int fieldCount : new int[] {0, 1, 2, 3, 4, 5, 6, 17}) {
+      ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
+      for (int i = 0; i < fieldCount; i++) {
+        fields.put("field" + i, StarlarkInt.of(i));
+      }
+      ImmutableMap<String, Object> map = fields.buildOrThrow();
+      for (StarlarkInfo original :
+          new StarlarkInfo[] {
+            StarlarkInfo.create(provider, map),
+            StarlarkInfoWithMessage.createWithCustomMessage(provider, map, "Dummy error: %s"),
+            StructProvider.STRUCT.create(map, "Dummy error: %s")
+          }) {
+        verifyRoundTrip(original);
+        verifyRoundTrip(original.unsafeOptimizeMemoryLayout());
+      }
+    }
   }
 
-  private void verifyRoundTripWithSkyframe(StarlarkInfo original) throws Exception {
+  private void verifyRoundTrip(StarlarkInfo original) throws Exception {
     ByteString serialized = objectCodecs.serializeMemoized(original);
-    StarlarkInfo deserialized = deserializeWithSkyframe(serialized);
+    StarlarkInfo deserialized =
+        original.getProvider() == StructProvider.STRUCT
+            ? (StarlarkInfo) objectCodecs.deserializeMemoized(serialized)
+            : deserializeWithSkyframe(serialized);
     verificationFunction(original, deserialized);
   }
 
@@ -92,11 +110,24 @@ public final class StarlarkInfoCodecTest extends BuildViewTestCase {
     return (StarlarkInfo) Futures.getDone(resultFuture);
   }
 
-  private static void verificationFunction(StarlarkInfo original, StarlarkInfo deserialized) {
+  private static void verificationFunction(StarlarkInfo original, StarlarkInfo deserialized)
+      throws Exception {
     assertThat(deserialized).isEqualTo(original);
     assertThat(deserialized.getFieldNames())
         .containsExactlyElementsIn(original.getFieldNames())
         .inOrder();
+    if (original instanceof StarlarkInfoWithSchema) {
+      var field = StarlarkInfoWithSchema.class.getDeclaredField("schema");
+      field.setAccessible(true);
+      assertThat(field.get(deserialized)).isNotNull();
+      // The codec registry preserves the identity of StructProvider.STRUCT.
+      if (original.getProvider() == StructProvider.STRUCT) {
+        assertThat(field.get(deserialized)).isSameInstanceAs(field.get(original));
+      }
+    }
+    assertThat(deserialized.getErrorMessageForUnknownField("absent"))
+        .isEqualTo(original.getErrorMessageForUnknownField("absent"));
+    assertThat(deserialized.hashCode()).isEqualTo(original.hashCode());
   }
 
   /** Returns an exported, schemaless provider. */
