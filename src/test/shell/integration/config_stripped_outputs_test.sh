@@ -324,6 +324,11 @@ EOF
   assert_contains "\(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/liblib.jar-0.params" "$TEST_log"
   # lib header jar compilation should not be stripped due to conflicting paths
   assert_contains "--output \(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/liblib-hjar.jar" "$TEST_log"
+  # The separate spawn outputs must still be copied when collisions disable path mapping.
+  cmp "${bazel_bin}/$pkg/java/liblib.jdeps" "${bazel_bin}/$pkg/java/liblib.jdeps.unstripped" \
+    || fail "Unmapped Javac dependency output was not copied"
+  cmp "${bazel_bin}/$pkg/java/liblib-hjar.jdeps" "${bazel_bin}/$pkg/java/liblib-hjar.jdeps.unstripped" \
+    || fail "Unmapped Turbine dependency output was not copied"
   # jdeps files should contain the original paths since they are read by downstream actions that may
   # not use path mapping.
   assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/Main.jdeps"

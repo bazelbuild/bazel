@@ -154,6 +154,11 @@ public final class JavaCompileActionBuilder {
             .getActionEnvironment()
             .withAdditionalFixedVariables(utf8Environment);
 
+    boolean separateSpawnOutputDepsProto =
+        JavaCompileAction.hasSeparateSpawnOutputDepsProto(
+            ruleContext.getConfiguration(),
+            MNEMONIC,
+            ruleContext.getConfiguration().modifiedExecutionInfo(executionInfo, MNEMONIC));
     return new JavaCompileAction(
         /* mnemonic= */ MNEMONIC,
         /* insertDependencies= */ false,
@@ -171,7 +176,7 @@ public final class JavaCompileActionBuilder {
         /* env= */ actionEnvironment,
         /* executionInfo= */ executionInfo,
         /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(javacOpts),
+        /* flagLine= */ buildParamFileContents(javacOpts, separateSpawnOutputDepsProto),
         /* extraCommandLineArgs= */ extraCommandLineArgs,
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
@@ -189,7 +194,8 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
-  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts)
+  private CustomCommandLine buildParamFileContents(
+      ImmutableList<String> javacOpts, boolean separateSpawnOutputDepsProto)
       throws RuleErrorException, InterruptedException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
@@ -201,7 +207,12 @@ public final class JavaCompileActionBuilder {
     if (compressJar) {
       result.add("--compress_jar");
     }
-    result.addExecPath("--output_deps_proto", outputs.depsProto());
+    result.addFormattedExecPath(
+        "--output_deps_proto",
+        separateSpawnOutputDepsProto
+            ? JavaCompileAction.SEPARATE_SPAWN_OUTPUT_DEPS_PROTO_FORMAT
+            : "%s",
+        outputs.depsProto());
     result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
     if (bootClassPath.systemPath().isPresent()) {
       result.addPath("--system", bootClassPath.systemPath().get());

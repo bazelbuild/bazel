@@ -445,6 +445,7 @@ public class JavaStarlarkCommon
       Dict<?, ?> executionRequirementsUnchecked,
       Object toolchainUnchecked,
       Object outputDepsProto,
+      Object outputDepsProtoFlag,
       Depset dependencyArtifacts,
       boolean insertDependencies,
       boolean enableDirectClasspath,
@@ -505,6 +506,33 @@ public class JavaStarlarkCommon
     @Nullable
     Artifact outputDepsProtoArtifact =
         outputDepsProto instanceof Artifact artifact ? artifact : null;
+    if ((outputDepsProtoArtifact == null) != (outputDepsProtoFlag == Starlark.NONE)) {
+      throw Starlark.errorf("output_deps_proto and output_deps_proto_flag must be set together");
+    }
+    ImmutableMap<String, String> executionRequirements =
+        TargetUtils.getFilteredExecutionInfo(
+            executionRequirementsUnchecked,
+            ruleContext.getRule(),
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+    if (outputDepsProtoArtifact != null) {
+      if (arguments.isEmpty()) {
+        throw Starlark.errorf("output_deps_proto requires at least one element in arguments");
+      }
+      Sequence.cast(arguments, Args.class, "arguments")
+          .getFirst()
+          .addArgument(
+              outputDepsProtoFlag,
+              outputDepsProtoArtifact,
+              JavaCompileAction.hasSeparateSpawnOutputDepsProto(
+                      configuration,
+                      mnemonic,
+                      configuration.modifiedExecutionInfo(executionRequirements, mnemonic))
+                  ? JavaCompileAction.SEPARATE_SPAWN_OUTPUT_DEPS_PROTO_FORMAT
+                  : Starlark.NONE,
+              thread);
+    }
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder =
         NestedSetBuilder.fromNestedSet(
@@ -576,14 +604,6 @@ public class JavaStarlarkCommon
         ImmutableMap.copyOf(Dict.noneableCast(envUnchecked, String.class, String.class, "env"));
     ActionEnvironment actionEnvironment =
         configuration.getActionEnvironment().withAdditionalFixedVariables(env);
-
-    ImmutableMap<String, String> executionRequirements =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked,
-            ruleContext.getRule(),
-            thread
-                .getSemantics()
-                .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
 
     toolchainUnchecked = ctx.maybeOverrideToolchain(toolchainUnchecked);
     String execGroup =

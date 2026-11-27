@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -78,14 +79,13 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -107,6 +107,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private static final ParamFileInfo PARAM_FILE_INFO =
       ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).setUseAlways(true).build();
+
+  private static final String SPAWN_OUTPUT_DEPS_PROTO_SUFFIX = ".unstripped";
+
+  /**
+   * Format of the .jdeps path written by the spawn if it {@linkplain
+   * #hasSeparateSpawnOutputDepsProto writes a separate file}, applied to the exec path of the
+   * declared output.
+   */
+  static final String SEPARATE_SPAWN_OUTPUT_DEPS_PROTO_FORMAT =
+      "%s" + SPAWN_OUTPUT_DEPS_PROTO_SUFFIX;
 
   private static final Interner<ImmutableMap<String, String>> executionInfoInterner =
       BlazeInterners.newWeakInterner();
@@ -443,6 +453,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    ActionInput spawnOutputDepsProto = getSpawnOutputDepsProto();
     NestedSet<Artifact> reducedClasspath;
     Spawn spawn;
     try {
@@ -478,19 +489,30 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       if (outputDepsProto != null) {
         JavaCompileActionContext javaContext =
             actionExecutionContext.getContext(JavaCompileActionContext.class);
-        if ((insertDependencies && javaContext != null) || !spawn.getPathMapper().isNoop()) {
+        boolean insert = insertDependencies && javaContext != null;
+        if (spawnOutputDepsProto != outputDepsProto) {
+          // The spawn wrote a separate .jdeps file, so the declared output has to be created now.
+          Deps.Dependencies fullOutputDeps =
+              readFullOutputDeps(
+                  primaryResults,
+                  spawnOutputDepsProto,
+                  actionExecutionContext,
+                  spawn.getPathMapper());
+          if (insert) {
+            javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
+          }
+        } else if (insert) {
           try {
-            Deps.Dependencies fullOutputDeps =
+            javaContext.insertDependencies(
+                outputDepsProto,
                 createFullOutputDeps(
                     primaryResults.getFirst(),
                     outputDepsProto,
+                    spawnOutputDepsProto,
                     getInputs(),
                     getAdditionalArtifactsForPathMapping(),
                     actionExecutionContext,
-                    spawn.getPathMapper());
-            if (insertDependencies && javaContext != null) {
-              javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
-            }
+                    spawn.getPathMapper()));
           } catch (IOException e) {
             // Left empty. If we cannot read the .jdeps file now, we will read it later or throw an
             // appropriate error then.
@@ -501,7 +523,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     Deps.Dependencies dependencies =
-        readFullOutputDeps(primaryResults, actionExecutionContext, spawn.getPathMapper());
+        readFullOutputDeps(
+            primaryResults, spawnOutputDepsProto, actionExecutionContext, spawn.getPathMapper());
 
     if (insertDependencies) {
       actionExecutionContext
@@ -554,18 +577,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throw ActionExecutionException.fromExecException(e, this);
     }
 
-    if (insertDependencies) {
-      actionExecutionContext
-          .getContext(JavaCompileActionContext.class)
-          .insertDependencies(
-              outputDepsProto,
-              readFullOutputDeps(fallbackResults, actionExecutionContext, spawn.getPathMapper()));
-    } else if (!spawn.getPathMapper().isNoop()) {
-      // As a side effect, readFullOutputDeps rewrites the on-disk .jdeps file from mapped to
-      // unmapped paths. To make path mapping fully transparent to consumers of this action's
-      // output, we ensure that the file always contains unmapped paths.
-      var unused =
-          readFullOutputDeps(fallbackResults, actionExecutionContext, spawn.getPathMapper());
+    if (insertDependencies || spawnOutputDepsProto != outputDepsProto) {
+      // If the spawn wrote a separate .jdeps file, readFullOutputDeps also writes the declared
+      // output.
+      Deps.Dependencies fallbackDependencies =
+          readFullOutputDeps(
+              fallbackResults, spawnOutputDepsProto, actionExecutionContext, spawn.getPathMapper());
+      if (insertDependencies) {
+        actionExecutionContext
+            .getContext(JavaCompileActionContext.class)
+            .insertDependencies(outputDepsProto, fallbackDependencies);
+      }
     }
     return ActionResult.create(
         ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults)));
@@ -709,13 +731,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private final class JavaSpawn extends BaseSpawn {
     private final SpawnInputs inputs;
-    private final Artifact onlyMandatoryOutput;
+    private final Collection<? extends ActionInput> outputs;
+    private final ActionInput onlyMandatoryOutput;
     private final PathMapper pathMapper;
 
     JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
-        Map<String, String> executionInfo,
+        ImmutableMap<String, String> executionInfo,
         NestedSet<Artifact> inputs,
         @Nullable Artifact onlyMandatoryOutput,
         PathMapper pathMapper) {
@@ -725,14 +748,27 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           executionInfo,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
-      this.onlyMandatoryOutput = onlyMandatoryOutput;
+      ActionInput spawnOutputDepsProto = getSpawnOutputDepsProto();
+      this.onlyMandatoryOutput = onlyMandatoryOutput == null ? null : spawnOutputDepsProto;
       this.inputs = SpawnInputs.of(inputs, expandedCommandLines.getParamFiles());
+      this.outputs = getSpawnOutputs(getOutputs(), outputDepsProto, spawnOutputDepsProto);
       this.pathMapper = pathMapper;
     }
 
     @Override
     public SpawnInputs getInputFiles() {
       return inputs;
+    }
+
+    @Override
+    public Collection<? extends ActionInput> getOutputFiles() {
+      return outputs;
+    }
+
+    @Override
+    public Collection<Artifact> getOutputEdgesForExecutionGraph() {
+      // Downstream spawns consume the declared .jdeps output, not the spawn's .jdeps.unstripped.
+      return getOutputs();
     }
 
     @Override
@@ -793,7 +829,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         super.getExecutionInfo(),
         executionInfo,
         ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-        outputDepsProto.getExecPathString());
+        getSpawnOutputDepsProto().getExecPathString());
   }
 
   @Override
@@ -827,14 +863,77 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @Override
   public boolean mayModifySpawnOutputsAfterExecution() {
-    // Causes of spawn output modification after execution:
-    // - Fallback to the full classpath with --experimental_java_classpath=bazel.
-    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
+    // Falling back to the full classpath with --experimental_java_classpath=bazel overwrites the
+    // outputs of the reduced classpath spawn.
     return true;
   }
 
+  @Override
+  protected ImmutableList<PathFragment> getAdditionalPathOutputsToDelete() {
+    var spawnOutputDepsProto = getSpawnOutputDepsProto();
+    return spawnOutputDepsProto == outputDepsProto
+        ? ImmutableList.of()
+        : ImmutableList.of(spawnOutputDepsProto.getExecPath());
+  }
+
+  @Nullable
+  private ActionInput getSpawnOutputDepsProto() {
+    return outputDepsProto == null
+        ? null
+        : getSpawnOutputDepsProto(
+            outputDepsProto,
+            hasSeparateSpawnOutputDepsProto(configuration, getMnemonic(), executionInfo));
+  }
+
   /**
-   * Locally rewrites a .jdeps file to replace missing config prefixes.
+   * Returns whether the spawn of a Java compilation action writes its .jdeps output to a separate
+   * file, from which the action writes the declared output with original paths restored.
+   *
+   * @param executionInfo the execution info after applying {@code --modify_execution_info}
+   */
+  static boolean hasSeparateSpawnOutputDepsProto(
+      BuildConfigurationValue configuration, String mnemonic, Map<String, String> executionInfo) {
+    // Header jars built with root-relative paths result in root-relative paths in the .jdeps files
+    // of all actions that consume them.
+    return configuration
+            .getFragment(JavaConfiguration.class)
+            .experimentalTurbineOutputRootRelativePath()
+        || PathMappers.getEffectiveOutputPathsMode(
+                PathMappers.getOutputPathsMode(configuration), mnemonic, executionInfo)
+            != CoreOptions.OutputPathsMode.OFF;
+  }
+
+  /**
+   * Returns the .jdeps output of the spawn of a Java compilation action, which is constructed on
+   * demand to avoid retaining it on the action.
+   */
+  static ActionInput getSpawnOutputDepsProto(
+      Artifact outputDepsProto, boolean separateSpawnOutputDepsProto) {
+    return separateSpawnOutputDepsProto
+        ? ActionInputHelper.fromPath(
+            outputDepsProto
+                .getExecPath()
+                .replaceName(outputDepsProto.getFilename() + SPAWN_OUTPUT_DEPS_PROTO_SUFFIX))
+        : outputDepsProto;
+  }
+
+  static Collection<? extends ActionInput> getSpawnOutputs(
+      Collection<Artifact> outputs,
+      @Nullable Artifact outputDepsProto,
+      @Nullable ActionInput spawnOutputDepsProto) {
+    if (spawnOutputDepsProto == outputDepsProto) {
+      return outputs;
+    }
+    var spawnOutputs = ImmutableList.<ActionInput>builder();
+    for (Artifact output : outputs) {
+      spawnOutputs.add(output.equals(outputDepsProto) ? spawnOutputDepsProto : output);
+    }
+    return spawnOutputs.build();
+  }
+
+  /**
+   * Writes the action's .jdeps output from the spawn's .jdeps.unstripped output, restoring config
+   * prefixes removed by path mapping.
    *
    * <p>For example: {@code bazel-out/bin/foo/foo.jar -> bazel-out/x86-fastbuild/bin/foo/foo.jar}.
    *
@@ -850,8 +949,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    * <p>So this method's ultimate purpose is to translate the executor-optimized version of a .jdeps
    * to the original Bazel-safe version.
    *
-   * <p>If the executor doesn't strip config prefixes (i.e. config stripping isn't turned on as a
-   * feature), this is a trivial copy.
+   * <p>Root-relative paths recorded by Turbine (see {@code --output_root_relative_path}) are also
+   * restored to full exec paths, even if path mapping isn't enabled.
+   *
+   * <p>If the spawn wrote the action output directly, it doesn't contain paths that have to be
+   * restored (see {@link #hasSeparateSpawnOutputDepsProto}) and is only read.
    *
    * <p>If config stripping is on, this method won't work with {@link
    * JavaConfiguration.JavaClasspathMode#JAVABUILDER}. That mode causes downstream Java compilations
@@ -862,29 +964,52 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    *
    * @param spawnResult the executor action that created the possibly stripped .jdeps output
    * @param outputDepsProto path to the .jdeps output
+   * @param spawnOutputDepsProto dependency output produced by the executor
    * @param actionInputs all inputs to the current action
    * @param additionalArtifactsForPathMapping any additional artifacts that may be referenced in the
    *     .jdeps file by path
    * @param actionExecutionContext the action execution context
-   * @return the full deps proto (also written to disk to satisfy the action's declared output)
+   * @return the full deps proto (also written to disk to satisfy the action's declared output if
+   *     the spawn wrote a separate file)
    */
   static Deps.Dependencies createFullOutputDeps(
       SpawnResult spawnResult,
       Artifact outputDepsProto,
+      ActionInput spawnOutputDepsProto,
       NestedSet<Artifact> actionInputs,
       NestedSet<Artifact> additionalArtifactsForPathMapping,
       ActionExecutionContext actionExecutionContext,
       PathMapper pathMapper)
       throws IOException {
 
-    Deps.Dependencies executorJdeps =
-        readExecutorJdeps(spawnResult, outputDepsProto, actionExecutionContext);
-
-    // No paths to rewrite.
-    if (executorJdeps.getDependencyCount() == 0) {
-      return executorJdeps;
+    ByteString executorJdeps =
+        readExecutorJdeps(spawnResult, spawnOutputDepsProto, actionExecutionContext);
+    var executorDeps =
+        Deps.Dependencies.parseFrom(executorJdeps, ExtensionRegistry.getEmptyRegistry());
+    if (spawnOutputDepsProto == outputDepsProto) {
+      return executorDeps;
     }
+    Deps.Dependencies fullOutputDeps =
+        executorDeps.getDependencyCount() == 0
+            ? executorDeps
+            : restoreDependencyPaths(
+                executorDeps, actionInputs, additionalArtifactsForPathMapping, pathMapper);
+    try (var outputStream =
+        actionExecutionContext.getInputPath(outputDepsProto).getOutputStream()) {
+      if (fullOutputDeps == executorDeps) {
+        executorJdeps.writeTo(outputStream);
+      } else {
+        fullOutputDeps.writeTo(outputStream);
+      }
+    }
+    return fullOutputDeps;
+  }
 
+  private static Deps.Dependencies restoreDependencyPaths(
+      Deps.Dependencies executorJdeps,
+      NestedSet<Artifact> actionInputs,
+      NestedSet<Artifact> additionalArtifactsForPathMapping,
+      PathMapper pathMapper) {
     // For each of the action's generated inputs, revert its mapped or root-relative path back to
     // its original path.
     HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
@@ -925,43 +1050,27 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     if (!modified) {
       return executorJdeps;
     }
-    Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
-
-    // Write the updated proto back to the filesystem. If the executor produced in-memory-only
-    // outputs (see getInMemoryOutput above), the filesystem version doesn't exist and we can skip
-    // this. Note that in-memory and filesystem outputs aren't necessarily mutually exclusive.
-    Path fsPath = actionExecutionContext.getInputPath(outputDepsProto);
-    if (fsPath.exists()) {
-      // Make sure to clear the output store cache if it has an entry from before the rewrite.
-      actionExecutionContext
-          .getOutputMetadataStore()
-          .resetOutputs(ImmutableList.of(outputDepsProto));
-      fsPath.setWritable(true);
-      try (var outputStream = fsPath.getOutputStream()) {
-        fullOutputDeps.writeTo(outputStream);
-      }
-    }
-
-    return fullOutputDeps;
+    return fullDepsBuilder.build();
   }
 
-  private static Deps.Dependencies readExecutorJdeps(
+  private static ByteString readExecutorJdeps(
       SpawnResult spawnResult,
-      Artifact outputDepsProto,
+      ActionInput outputDepsProto,
       ActionExecutionContext actionExecutionContext)
       throws IOException {
     ByteString inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-    try (InputStream inputStream =
-        inMemoryOutput == null
-            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput.newInput()) {
-      return Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
+    if (inMemoryOutput != null) {
+      return inMemoryOutput;
+    }
+    try (var inputStream = actionExecutionContext.getInputPath(outputDepsProto).getInputStream()) {
+      return ByteString.readFrom(inputStream);
     }
   }
 
   /** Reads the full {@code .jdeps} output from the given spawn results. */
   private Deps.Dependencies readFullOutputDeps(
       List<SpawnResult> results,
+      ActionInput spawnOutputDepsProto,
       ActionExecutionContext actionExecutionContext,
       PathMapper pathMapper)
       throws ActionExecutionException {
@@ -972,6 +1081,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return createFullOutputDeps(
           result,
           outputDepsProto,
+          spawnOutputDepsProto,
           getInputs(),
           getAdditionalArtifactsForPathMapping(),
           actionExecutionContext,
@@ -990,7 +1100,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return new ActionExecutionException(e, this, /* catastrophe= */ false, detailedExitCode);
   }
 
-  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+  static FailureDetail createFailureDetail(String message, Code detailedCode) {
     return FailureDetail.newBuilder()
         .setMessage(message)
         .setJavaCompile(JavaCompile.newBuilder().setCode(detailedCode))
