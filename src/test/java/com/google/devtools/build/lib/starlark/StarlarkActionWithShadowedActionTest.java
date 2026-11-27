@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -352,6 +353,42 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     // Starlark action's env overwrites any repeated variable from the shadowed action env
     assertThat(actualEnvironment).containsEntry("repeated_var", "starlark_val");
     assertThat(actualEnvironment).containsExactlyEntriesIn(expectedEnvironment);
+  }
+
+  @Test
+  public void testPathMappingShadowedActionEnvironment() throws Exception {
+    Artifact starlarkEnvFile = getSourceArtifact("pkg/starlark_env_file");
+    Artifact shadowedEnvFile = getSourceArtifact("pkg/shadowed_env_file");
+
+    SpawnAction shadowedAction =
+        new SpawnAction.Builder()
+            .setExecutable(executable)
+            .addInput(shadowedEnvFile)
+            .addOutput(getBinArtifactWithNoOwner("shadowed_out"))
+            .setEnvironment(ImmutableMap.of("SHADOWED_FILE", shadowedEnvFile))
+            .build(NULL_ACTION_OWNER, targetConfig);
+
+    StarlarkAction starlarkAction =
+        (StarlarkAction)
+            new StarlarkAction.Builder()
+                .setShadowedAction(Optional.of(shadowedAction))
+                .setExecutable(executable)
+                .addInput(starlarkEnvFile)
+                .addOutput(output)
+                .setEnvironment(ImmutableMap.of("STARLARK_FILE", starlarkEnvFile))
+                .build(NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(starlarkAction);
+
+    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
+        .containsExactly(
+            "SHADOWED_FILE", shadowedEnvFile.getExecPathString(),
+            "STARLARK_FILE", starlarkEnvFile.getExecPathString());
+
+    PathMapper pathMapper = execPath -> PathFragment.create(execPath.getPathString() + "_mapped");
+    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of(), pathMapper))
+        .containsExactly(
+            "SHADOWED_FILE", shadowedEnvFile.getExecPathString() + "_mapped",
+            "STARLARK_FILE", starlarkEnvFile.getExecPathString() + "_mapped");
   }
 
   private Action createShadowedAction(
