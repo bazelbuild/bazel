@@ -631,7 +631,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   }
 
   ActionEnvironment getActionEnvironment() {
-    return configuration.getActionEnvironment();
+    return configuration.getActionEnvironment(owner.getExecutionPlatform());
   }
 
   @CanIgnoreReturnValue

@@ -84,7 +84,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
         runfiles,
         outputManifest,
         repoMappingManifest,
-        config.getActionEnvironment(),
+        config.getHostActionEnvironment(),
         config.getRunfileSymlinksMode(),
         config.getOptions().get(CoreOptions.class).getPreferDependingConfigurationRunfiles());
   }

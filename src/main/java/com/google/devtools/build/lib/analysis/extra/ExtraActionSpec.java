@@ -150,7 +150,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
             actionToShadow,
             createDummyOutput,
             CommandLine.of(argv),
-            owningRule.getConfiguration().getActionEnvironment(),
+            owningRule.getConfiguration().getActionEnvironment(owningRule.getExecutionPlatform()),
             owningRule.getConfiguration().modifiedExecutionInfo(executionInfo, label.getName()),
             commandMessage,
             label.getName()));

@@ -486,7 +486,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public ActionEnvironment getEnvironment() {
-    return configuration.getActionEnvironment();
+    return configuration.getActionEnvironment(getOwner().getExecutionPlatform());
   }
 
   @Override

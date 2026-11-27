@@ -574,8 +574,6 @@ public class JavaStarlarkCommon
 
     ImmutableMap<String, String> env =
         ImmutableMap.copyOf(Dict.noneableCast(envUnchecked, String.class, String.class, "env"));
-    ActionEnvironment actionEnvironment =
-        configuration.getActionEnvironment().withAdditionalFixedVariables(env);
 
     ImmutableMap<String, String> executionRequirements =
         TargetUtils.getFilteredExecutionInfo(
@@ -588,6 +586,11 @@ public class JavaStarlarkCommon
     toolchainUnchecked = ctx.maybeOverrideToolchain(toolchainUnchecked);
     String execGroup =
         StarlarkActionFactory.determineExecGroup(ruleContext, Starlark.NONE, toolchainUnchecked);
+
+    ActionEnvironment actionEnvironment =
+        configuration
+            .getActionEnvironment(ruleContext.getExecutionPlatform(execGroup))
+            .withAdditionalFixedVariables(env);
 
     NestedSet<Artifact> dependencyArtifactsSet =
         classpathMode != JavaClasspathMode.OFF
