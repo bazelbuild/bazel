@@ -73,6 +73,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
@@ -111,6 +112,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean flattenSelects = true;
   private boolean includeLocations = true;
   private boolean includeRuleInputsAndOutputs = true;
+  private boolean includePossibleToolchainTypes;
   private boolean includeSyntheticAttributeHash = false;
   private boolean includeInstantiationStack = false;
   private boolean includeDefinitionStack = false;
@@ -139,6 +141,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.flattenSelects = options.getProtoFlattenSelects();
     this.includeLocations = options.getProtoIncludeLocations();
     this.includeRuleInputsAndOutputs = options.getProtoIncludeRuleInputsAndOutputs();
+    this.includePossibleToolchainTypes = options.getProtoPossibleToolchainTypes();
     this.includeSyntheticAttributeHash = options.getProtoIncludeSyntheticAttributeHash();
     this.includeInstantiationStack = options.getProtoIncludeInstantiationStack();
     this.includeDefinitionStack = options.getProtoIncludeDefinitionStack();
@@ -172,6 +175,42 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 
+  private static Build.Rule.PossibleToolchainTypes possibleToolchainTypes(Rule rule) {
+    var labels = new TreeSet<Label>();
+    var ruleClass = rule.getRuleClassObject();
+    rule.getToolchainTypes().forEach(type -> labels.add(type.toolchainType()));
+    for (var group : ruleClass.getDeclaredExecGroups().values()) {
+      group.toolchainTypes().forEach(type -> labels.add(type.toolchainType()));
+    }
+    if (rule.hasAspects()) {
+      var attributes = AggregatingAttributeMapper.of(rule);
+      for (Attribute attribute : rule.getAttributes()) {
+        if (!attribute.hasAspects()) {
+          continue;
+        }
+        // Analysis can populate these attributes even when their loading-time value is empty.
+        if (!attribute.isLateBound()
+            && !attribute.isMaterializing()
+            && attributes.getReachableLabels(attribute.getName(), /* includeSelectKeys= */ false)
+                .isEmpty()) {
+          continue;
+        }
+        for (Aspect aspect : attribute.getAspects(rule)) {
+          var definition = aspect.getDefinition();
+          definition.getToolchainTypes().forEach(type -> labels.add(type.toolchainType()));
+          for (var group : definition.execGroups().values()) {
+            group.toolchainTypes().forEach(type -> labels.add(type.toolchainType()));
+          }
+        }
+      }
+    }
+    var result = Build.Rule.PossibleToolchainTypes.newBuilder();
+    for (Label label : labels) {
+      result.addLabel(internalToUnicode(label.getUnambiguousCanonicalForm()));
+    }
+    return result.build();
+  }
+
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
   public Build.Target toTargetProtoBuffer(Target target, LabelPrinter labelPrinter)
       throws InterruptedException {
@@ -195,6 +234,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         rulePb.setLocation(internalToUnicode(FormatUtils.getLocation(target, relativeLocations)));
       }
       addAttributes(rulePb, rule, extraDataForAttrHash, labelPrinter);
+      if (includePossibleToolchainTypes) {
+        rulePb.setPossibleToolchainTypes(possibleToolchainTypes(rule));
+      }
       byte[] transitiveDigest = rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest();
       if (transitiveDigest != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Starlark rules and
