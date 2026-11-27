@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -32,7 +33,8 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
@@ -152,12 +154,34 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
   @Test
   public void buildCommand_uploadsFrontierBytesWithUploadMode() throws Exception {
     setupScenarioWithAspects();
+    write(
+        "unused/BUILD",
+        """
+        toolchain_type(name = "unused_type")
+        toolchain(
+            name = "unused_declaration",
+            toolchain = "@bazel_tools//tools/jdk:toolchain",
+            toolchain_type = ":unused_type",
+        )
+        """);
+    addOptions("--extra_toolchains=//unused:unused_declaration");
     assertUploadSuccess("//bar:one");
 
-    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
-    assertThat(listener.getSerializedKeysCount()).isAtLeast(9); // for Bazel
-    assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET))
-        .isAtLeast(9); // for Bazel
+    var serializedKeys =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    var configuredTargets = getLabels(filterKeys(serializedKeys, ConfiguredTargetKey.class));
+    assertThat(configuredTargets)
+        .containsAtLeast(
+            parseCanonicalUnchecked("//bar:one"),
+            parseCanonicalUnchecked("//bar:two"),
+            parseCanonicalUnchecked("//foo:generate_y"),
+            parseCanonicalUnchecked("//foo:x.txt"),
+            parseCanonicalUnchecked("@@bazel_tools//tools/jdk:toolchain_type"),
+            parseCanonicalUnchecked("@@bazel_tools//tools/jdk:dummy_java_toolchain"));
+    assertThat(configuredTargets)
+        .doesNotContain(parseCanonicalUnchecked("//unused:unused_declaration"));
+    assertThat(getLabels(filterKeys(serializedKeys, AspectKey.class)))
+        .containsAtLeast(parseCanonicalUnchecked("//bar:one"), parseCanonicalUnchecked("//bar:two"));
   }
 
   @Test
