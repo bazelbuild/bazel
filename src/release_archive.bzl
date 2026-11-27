@@ -101,9 +101,9 @@ def release_archive(name, srcs = [], src_map = {}, package_dir = "-", deps = [],
         name = name,
         srcs = deps,
         outs = [(name[:-len("_zip")] if name.endswith("_zip") else name) + ".zip"],
-        cmd = "$(location //src:merge_zip_files) %s $@ $(SRCS)" % package_dir,
+        cmd = "$(location //src:create_zip) --merge %s $@ $(SRCS)" % package_dir,
         output_to_bindir = 1,
-        tools = ["//src:merge_zip_files"],
+        tools = ["//src:create_zip"],
         **kwargs
     )
 

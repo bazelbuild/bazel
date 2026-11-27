@@ -3,7 +3,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//scripts:rust_bootstrap.bzl", "rust_bootstrap_bundle")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
@@ -510,10 +510,22 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
-sh_binary(
-    name = "merge_zip_files",
-    srcs = ["merge_zip_files.sh"],
+py_library(
+    name = "create_zip_lib",
+    srcs = ["create_zip.py"],
+)
+
+py_binary(
+    name = "create_zip",
+    srcs = ["create_zip.py"],
     visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "create_zip_test",
+    size = "small",
+    srcs = ["create_zip_test.py"],
+    deps = [":create_zip_lib"],
 )
 
 # The java_tools release process produces following zip files:

@@ -137,8 +137,8 @@ genrule(
         "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
     outs = ["ijar_srcs_with_deps.zip"],
-    cmd = "$(location //src:merge_zip_files) java_tools $@ $(SRCS)",
-    tools = ["//src:merge_zip_files"],
+    cmd = "$(location //src:create_zip) --merge java_tools $@ $(SRCS)",
+    tools = ["//src:create_zip"],
     visibility = ["//visibility:public"],
 )
 

@@ -155,8 +155,8 @@ genrule(
         "//src/main/native/windows:native_windows_zip",
     ],
     outs = ["cpp_util_with_deps.zip"],
-    cmd = "$(location //src:merge_zip_files) - $@ $(SRCS)",
-    tools = ["//src:merge_zip_files"],
+    cmd = "$(location //src:create_zip) --merge - $@ $(SRCS)",
+    tools = ["//src:create_zip"],
     visibility = [
         "//src/tools/singlejar:__pkg__",
         "//third_party/ijar:__pkg__",
