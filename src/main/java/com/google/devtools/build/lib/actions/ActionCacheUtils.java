@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -23,12 +24,12 @@ public class ActionCacheUtils {
   private ActionCacheUtils() {}
 
   @Nullable
-  public static Entry<String, ActionCache.Entry> getCacheEntryWithKey(
+  public static Entry<PathFragment, ActionCache.Entry> getCacheEntryWithKey(
       ActionCache actionCache, Action action) {
     for (Artifact output : action.getOutputs()) {
-      ActionCache.Entry entry = actionCache.get(output.getExecPathString());
+      ActionCache.Entry entry = actionCache.get(output.getExecPath());
       if (entry != null) {
-        return new SimpleEntry<>(output.getExecPathString(), entry);
+        return new SimpleEntry<>(output.getExecPath(), entry);
       }
     }
     return null;
@@ -38,7 +39,7 @@ public class ActionCacheUtils {
   @Nullable
   public static ActionCache.Entry getCacheEntry(ActionCache actionCache, Action action) {
     for (Artifact output : action.getOutputs()) {
-      ActionCache.Entry entry = actionCache.get(output.getExecPathString());
+      ActionCache.Entry entry = actionCache.get(output.getExecPath());
       if (entry != null) {
         return entry;
       }
@@ -48,7 +49,7 @@ public class ActionCacheUtils {
 
   public static void removeCacheEntry(ActionCache actionCache, Action action) {
     for (Artifact output : action.getOutputs()) {
-      actionCache.remove(output.getExecPathString());
+      actionCache.remove(output.getExecPath());
     }
   }
 }

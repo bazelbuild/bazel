@@ -62,7 +62,7 @@ import javax.annotation.Nullable;
 public interface ActionCache {
 
   /** Updates the cache entry for the specified key. */
-  void put(String key, ActionCache.Entry entry);
+  void put(PathFragment key, ActionCache.Entry entry);
 
   /**
    * Returns the cache entry for the specified key, or null if not found.
@@ -72,13 +72,24 @@ public interface ActionCache {
    * entry.
    */
   @Nullable
-  ActionCache.Entry get(String key);
+  ActionCache.Entry get(PathFragment key);
 
   /** Removes entry from cache */
-  void remove(String key);
+  void remove(PathFragment key);
 
   /** Removes entry from cache that matches the predicate. */
   void removeIf(Predicate<ActionCache.Entry> predicate);
+
+  /**
+   * Returns a path fragment equal to {@code execPath} that this cache retains anyway, or {@code
+   * execPath} itself if there is none.
+   *
+   * <p>Artifacts created after the cache has been loaded from disk use this to share their exec
+   * paths with it.
+   */
+  default PathFragment canonicalizeExecPath(PathFragment execPath) {
+    return execPath;
+  }
 
   /** An action cache entry. */
   final class Entry {
@@ -94,23 +105,23 @@ public interface ActionCache {
 
     // List of input paths discovered by the action.
     // Null if the action does not discover inputs.
-    @Nullable private final ImmutableList<String> discoveredInputPaths;
+    @Nullable private final ImmutableList<PathFragment> discoveredInputPaths;
 
     private final boolean prunedInputs;
 
     // Output metadata.
     // Only present when building without the bytes, and even then, only for remotely stored files.
-    private final ImmutableMap<String, FileArtifactValue> outputFileMetadata;
-    private final ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata;
-    private final ImmutableList<String> proxyOutputs;
+    private final ImmutableMap<PathFragment, FileArtifactValue> outputFileMetadata;
+    private final ImmutableMap<PathFragment, SerializableTreeArtifactValue> outputTreeMetadata;
+    private final ImmutableList<PathFragment> proxyOutputs;
 
     Entry(
         @Nullable byte[] digest,
-        @Nullable ImmutableList<String> discoveredInputPaths,
+        @Nullable ImmutableList<PathFragment> discoveredInputPaths,
         boolean prunedInputs,
-        ImmutableMap<String, FileArtifactValue> outputFileMetadata,
-        ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata,
-        ImmutableList<String> proxyOutputs) {
+        ImmutableMap<PathFragment, FileArtifactValue> outputFileMetadata,
+        ImmutableMap<PathFragment, SerializableTreeArtifactValue> outputTreeMetadata,
+        ImmutableList<PathFragment> proxyOutputs) {
       checkArgument(
           !prunedInputs || discoveredInputPaths != null,
           "Action had unused inputs but no discovered inputs");
@@ -157,7 +168,7 @@ public interface ActionCache {
      * Returns the list of discovered input paths, or null if the action does not discover inputs.
      */
     @Nullable
-    public ImmutableList<String> getDiscoveredInputPaths() {
+    public ImmutableList<PathFragment> getDiscoveredInputPaths() {
       checkState(!isCorrupted());
       return discoveredInputPaths;
     }
@@ -166,11 +177,11 @@ public interface ActionCache {
     @Nullable
     public FileArtifactValue getOutputFile(Artifact output) {
       checkState(!isCorrupted());
-      return outputFileMetadata.get(output.getExecPathString());
+      return outputFileMetadata.get(output.getExecPath());
     }
 
     /** Gets the metadata of all output files. */
-    public ImmutableMap<String, FileArtifactValue> getOutputFiles() {
+    public ImmutableMap<PathFragment, FileArtifactValue> getOutputFiles() {
       checkState(!isCorrupted());
       return outputFileMetadata;
     }
@@ -179,19 +190,17 @@ public interface ActionCache {
     @Nullable
     public SerializableTreeArtifactValue getOutputTree(TreeArtifact output) {
       checkState(!isCorrupted());
-      return outputTreeMetadata.get(output.getExecPathString());
+      return outputTreeMetadata.get(output.getExecPath());
     }
 
     /** Gets the metadata of all output trees. */
-    public ImmutableMap<String, SerializableTreeArtifactValue> getOutputTrees() {
+    public ImmutableMap<PathFragment, SerializableTreeArtifactValue> getOutputTrees() {
       checkState(!isCorrupted());
       return outputTreeMetadata;
     }
 
-    /**
-     * Returns a list of exec path strings for {@linkplain ProxyFileArtifactValue proxied} outputs.
-     */
-    public ImmutableList<String> getProxyOutputs() {
+    /** Returns a list of exec paths for {@linkplain ProxyFileArtifactValue proxied} outputs. */
+    public ImmutableList<PathFragment> getProxyOutputs() {
       checkState(!isCorrupted());
       return proxyOutputs;
     }
@@ -223,21 +232,21 @@ public interface ActionCache {
       out.format("  digest = %s\n", formatDigest(digest));
       if (discoveredInputPaths != null) {
         out.println("  discoveredInputPaths =");
-        for (String path : ImmutableList.sortedCopyOf(discoveredInputPaths)) {
+        for (PathFragment path : ImmutableList.sortedCopyOf(discoveredInputPaths)) {
           out.format("    %s\n", path);
         }
       }
 
       if (!outputFileMetadata.isEmpty()) {
         out.println("  outputFileMetadata =");
-        for (String path : ImmutableList.sortedCopyOf(outputFileMetadata.keySet())) {
+        for (PathFragment path : ImmutableList.sortedCopyOf(outputFileMetadata.keySet())) {
           out.format("    %s = %s\n", path, outputFileMetadata.get(path));
         }
       }
 
       if (!outputTreeMetadata.isEmpty()) {
         out.println("  outputTreeMetadata =");
-        for (String path : ImmutableList.sortedCopyOf(outputTreeMetadata.keySet())) {
+        for (PathFragment path : ImmutableList.sortedCopyOf(outputTreeMetadata.keySet())) {
           out.format("    %s = %s\n", path, outputTreeMetadata.get(path));
         }
       }
@@ -296,8 +305,8 @@ public interface ActionCache {
       // which holds because an action cannot have an output among its own inputs. Note that the
       // per-map deduplication by exec path is load-bearing: an action's input set may contain
       // distinct Artifact objects sharing an exec path (see b/148692668).
-      private final HashMap<String, FileArtifactValue> outputMetadataMap = new HashMap<>();
-      @Nullable private HashMap<String, FileArtifactValue> inputMetadataMap;
+      private final HashMap<PathFragment, FileArtifactValue> outputMetadataMap = new HashMap<>();
+      @Nullable private HashMap<PathFragment, FileArtifactValue> inputMetadataMap;
       @Nullable private byte[] inputDigest;
 
       private final ImmutableMap<String, String> clientEnv;
@@ -306,15 +315,15 @@ public interface ActionCache {
 
       // Discovered inputs.
       // Null if the action does not discover inputs.
-      @Nullable private final ImmutableList.Builder<String> discoveredInputPaths;
+      @Nullable private final ImmutableList.Builder<PathFragment> discoveredInputPaths;
       private boolean prunedInputs = false;
 
-      private final ImmutableMap.Builder<String, FileArtifactValue> outputFileMetadata =
+      private final ImmutableMap.Builder<PathFragment, FileArtifactValue> outputFileMetadata =
           ImmutableMap.builder();
-      private final ImmutableMap.Builder<String, SerializableTreeArtifactValue> outputTreeMetadata =
-          ImmutableMap.builder();
+      private final ImmutableMap.Builder<PathFragment, SerializableTreeArtifactValue>
+          outputTreeMetadata = ImmutableMap.builder();
 
-      private final ImmutableList.Builder<String> proxyOutputs = ImmutableList.builder();
+      private final ImmutableList.Builder<PathFragment> proxyOutputs = ImmutableList.builder();
 
       // Settings that affect the outcome of an action but aren't captured in the file metadata.
       private final OutputPermissions outputPermissions;
@@ -359,7 +368,7 @@ public interface ActionCache {
         if (inputMetadataMap == null) {
           inputMetadataMap = new HashMap<>();
         }
-        String execPath = artifact.getExecPathString();
+        PathFragment execPath = artifact.getExecPath();
         if (discoveredInputPaths != null && saveExecPath) {
           discoveredInputPaths.add(execPath);
         }
@@ -426,7 +435,7 @@ public interface ActionCache {
             !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
             "Must use addOutputTree to save tree artifacts and their children: %s",
             output);
-        String execPath = output.getExecPathString();
+        PathFragment execPath = output.getExecPath();
         // Only save remote and proxy file metadata.
         if (saveFileMetadata) {
           if (metadata.isRemote()) {
@@ -452,12 +461,12 @@ public interface ActionCache {
       @CanIgnoreReturnValue
       public Builder addOutputTree(
           TreeArtifact output, TreeArtifactValue metadata, boolean saveTreeMetadata) {
-        String execPath = output.getExecPathString();
+        PathFragment execPath = output.getExecPath();
         if (saveTreeMetadata) {
           if (!metadata.getChildValues().isEmpty()
               && metadata.getChildValues().values().stream()
                   .allMatch(ProxyFileArtifactValue.class::isInstance)) {
-            proxyOutputs.add(output.getExecPathString());
+            proxyOutputs.add(execPath);
           } else {
             outputTreeMetadata.put(execPath, SerializableTreeArtifactValue.create(metadata));
           }

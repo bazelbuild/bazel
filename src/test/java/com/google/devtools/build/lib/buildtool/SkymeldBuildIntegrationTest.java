@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.truth.Correspondence;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorTransienceValue;
 import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -311,6 +313,36 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
           .comparingValuesUsing(IS_EQUIVALENT_SKY_VALUE)
           .containsExactlyEntriesIn(getSkyframeExecutor().getEvaluator().getValues());
     }
+  }
+
+  @Test
+  public void restart_artifactsShareExecPathsWithLoadedActionCache(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    buildTarget("//hello:target");
+
+    // Recreating the runtime discards all artifacts and reloads the action cache from disk.
+    createRuntimeWrapper();
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    buildTarget("//hello:target");
+
+    Artifact out = Iterables.getOnlyElement(getArtifacts("//hello:target"));
+    PathFragment equalExecPath = PathFragment.create(out.getExecPathString());
+    PathFragment loadedExecPath =
+        getBlazeWorkspace().getPersistentActionCache().canonicalizeExecPath(equalExecPath);
+    assertThat(loadedExecPath).isNotSameInstanceAs(equalExecPath);
+    assertThat(out.getExecPath()).isSameInstanceAs(loadedExecPath);
   }
 
   @Test

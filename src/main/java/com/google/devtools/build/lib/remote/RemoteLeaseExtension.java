@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -250,11 +251,11 @@ public class RemoteLeaseExtension implements LeaseExtension {
   }
 
   private static class ActionCacheToken {
-    final String key;
+    final PathFragment key;
     final ActionCache.Entry entry;
     private boolean dirty;
 
-    ActionCacheToken(String key, Entry entry) {
+    ActionCacheToken(PathFragment key, Entry entry) {
       this.key = key;
       this.entry = entry;
     }

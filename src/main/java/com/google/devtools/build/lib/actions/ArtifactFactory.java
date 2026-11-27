@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /** A cache of Artifacts, keyed by Path. */
@@ -52,6 +53,8 @@ public class ArtifactFactory implements ArtifactResolver {
 
   /** Cache of source artifacts. */
   private final SourceArtifactCache sourceArtifactCache = new SourceArtifactCache();
+
+  private volatile UnaryOperator<PathFragment> execPathCanonicalizer = UnaryOperator.identity();
 
   /**
    * Map of package names to source root paths so that we can create source artifact paths given
@@ -275,6 +278,18 @@ public class ArtifactFactory implements ArtifactResolver {
     sourceArtifactCache.newBuild();
   }
 
+  /**
+   * Sets the function that new artifacts pass their exec paths through, which may return an equal
+   * path fragment that is retained elsewhere anyway, such as by the action cache.
+   */
+  public void setExecPathCanonicalizer(UnaryOperator<PathFragment> execPathCanonicalizer) {
+    this.execPathCanonicalizer = execPathCanonicalizer;
+  }
+
+  private PathFragment execPath(ArtifactRoot root, PathFragment rootRelativePath) {
+    return execPathCanonicalizer.apply(root.getExecPath().getRelative(rootRelativePath));
+  }
+
   @Override
   public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
     return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
@@ -333,7 +348,7 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return DerivedArtifact.create(
-        root, root.getExecPath().getRelative(rootRelativePath), (ActionLookupKey) owner);
+        root, execPath(root, rootRelativePath), (ActionLookupKey) owner);
   }
 
   /**
@@ -348,14 +363,14 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return FilesetArtifact.create(
-        root, root.getExecPath().getRelative(rootRelativePath), (ActionLookupKey) owner);
+        root, execPath(root, rootRelativePath), (ActionLookupKey) owner);
   }
 
   public RunfilesArtifact getRunfilesArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return RunfilesArtifact.create(
-        root, root.getExecPath().getRelative(rootRelativePath), (ActionLookupKey) owner);
+        root, execPath(root, rootRelativePath), (ActionLookupKey) owner);
   }
 
   /**
@@ -369,7 +384,7 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return TreeArtifact.create(
-        root, root.getExecPath().getRelative(rootRelativePath), (ActionLookupKey) owner);
+        root, execPath(root, rootRelativePath), (ActionLookupKey) owner);
   }
 
   /**
@@ -383,14 +398,14 @@ public class ArtifactFactory implements ArtifactResolver {
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return UnresolvedSymlinkArtifact.create(
-        root, root.getExecPath().getRelative(rootRelativePath), (ActionLookupKey) owner);
+        root, execPath(root, rootRelativePath), (ActionLookupKey) owner);
   }
 
   public ConstantMetadataArtifact getConstantMetadataArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     validatePath(rootRelativePath, root);
     return ConstantMetadataArtifact.create(
-        root, root.getExecPath().getRelative(rootRelativePath), (ActionLookupKey) owner);
+        root, execPath(root, rootRelativePath), (ActionLookupKey) owner);
   }
 
   /**
@@ -408,9 +423,11 @@ public class ArtifactFactory implements ArtifactResolver {
     if (firstArtifact != null && !firstArtifact.differentOwnerOrRoot(owner, root)) {
       return firstArtifact;
     }
+    // The cache retains its key, so it has to be canonical as well.
+    PathFragment canonicalExecPath = execPathCanonicalizer.apply(execPath);
     SourceArtifactCache.Entry newEntry =
         sourceArtifactCache.computeEntry(
-            execPath,
+            canonicalExecPath,
             (k, entry) -> {
               if (entry == null
                   || entry.artifact() == null
@@ -419,7 +436,8 @@ public class ArtifactFactory implements ArtifactResolver {
                 // Artifacts with the same exec path but a different Owner, but we also need to
                 // reuse Artifacts from previous builds.
                 return new SourceArtifactCache.Entry(
-                    new SourceArtifact(root, execPath, owner), sourceArtifactCache.buildId);
+                    new SourceArtifact(root, canonicalExecPath, owner),
+                    sourceArtifactCache.buildId);
               }
               return entry;
             });

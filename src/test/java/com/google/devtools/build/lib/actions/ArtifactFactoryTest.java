@@ -101,6 +101,31 @@ public class ArtifactFactoryTest {
   }
 
   @Test
+  public void testExecPathCanonicalizer() throws Exception {
+    PathFragment canonicalSourceExecPath = PathFragment.create(fooRelative.getPathString());
+    PathFragment canonicalDerivedExecPath =
+        PathFragment.create(outRoot.getExecPath().getRelative(barRelative).getPathString());
+    artifactFactory.setExecPathCanonicalizer(
+        execPath ->
+            execPath.equals(canonicalSourceExecPath)
+                ? canonicalSourceExecPath
+                : execPath.equals(canonicalDerivedExecPath) ? canonicalDerivedExecPath : execPath);
+
+    assertThat(artifactFactory.getSourceArtifact(fooRelative, clientRoot).getExecPath())
+        .isSameInstanceAs(canonicalSourceExecPath);
+    assertThat(
+            artifactFactory
+                .getDerivedArtifact(barRelative, outRoot, NULL_ARTIFACT_OWNER)
+                .getExecPath())
+        .isSameInstanceAs(canonicalDerivedExecPath);
+    assertThat(
+            artifactFactory
+                .getDerivedArtifact(fooRelative, outRoot, NULL_ARTIFACT_OWNER)
+                .getExecPath())
+        .isEqualTo(outRoot.getExecPath().getRelative(fooRelative));
+  }
+
+  @Test
   public void testGetSourceArtifactYieldsSameArtifact() throws Exception {
     assertThat(artifactFactory.getSourceArtifact(fooRelative, clientRoot))
         .isSameInstanceAs(artifactFactory.getSourceArtifact(fooRelative, clientRoot));

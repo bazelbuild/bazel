@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -51,7 +52,7 @@ public final class MetadataDigestUtils {
    *
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
    */
-  public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
+  public static byte[] fromMetadata(Map<PathFragment, FileArtifactValue> mdMap) {
     if (mdMap.isEmpty()) {
       return new byte[1]; // reserve the empty string
     }
@@ -59,8 +60,8 @@ public final class MetadataDigestUtils {
     Fingerprint fp = new Fingerprint();
     byte[] result = new byte[fp.getDigestLength()];
     byte[] scratch = new byte[result.length];
-    for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
-      fp.addString(entry.getKey());
+    for (Map.Entry<PathFragment, FileArtifactValue> entry : mdMap.entrySet()) {
+      fp.addPath(entry.getKey());
       FileArtifactValue md = entry.getValue();
       if (md != null) {
         md.addTo(fp);

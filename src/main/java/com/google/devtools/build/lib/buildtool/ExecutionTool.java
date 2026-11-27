@@ -305,7 +305,7 @@ public class ExecutionTool {
     ActionCache actionCache = null;
     if (buildRequestOptions.getUseActionCache()) {
       try (SilentCloseable c = Profiler.instance().profile("load/reset action cache")) {
-        actionCache = getOrLoadActionCache();
+        actionCache = getOrLoadActionCache(env);
         actionCache.resetStatistics();
       }
     }
@@ -408,7 +408,7 @@ public class ExecutionTool {
       BuildRequestOptions options = request.getBuildOptions();
       ActionCache actionCache = null;
       if (options.getUseActionCache()) {
-        actionCache = getOrLoadActionCache();
+        actionCache = getOrLoadActionCache(env);
         actionCache.resetStatistics();
       }
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -911,9 +911,9 @@ public class ExecutionTool {
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  private ActionCache getOrLoadActionCache() throws AbruptExitException {
+  static ActionCache getOrLoadActionCache(CommandEnvironment env) throws AbruptExitException {
     try {
-      return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
+      return env.getBlazeWorkspace().getOrLoadPersistentActionCache(env.getReporter());
     } catch (IOException e) {
       String message =
           String.format(
