@@ -30,9 +30,15 @@ import java.io.InterruptedIOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
@@ -543,6 +549,189 @@ public class WorkRequestHandlerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getExitCode()).isEqualTo(2);
     assertThat(response.getOutput()).isEmpty();
+  }
+
+  @Test
+  public void testCpuTimeBasedGc_thresholdGrowsWithOtherActiveRequests() {
+    Duration cpuUsageBeforeGc = Duration.ofSeconds(10);
+    assertThat(WorkRequestHandler.threshold(cpuUsageBeforeGc, 0)).isEqualTo(cpuUsageBeforeGc);
+    assertThat(WorkRequestHandler.threshold(cpuUsageBeforeGc, 1))
+        .isEqualTo(Duration.ofSeconds(50));
+    assertThat(WorkRequestHandler.threshold(cpuUsageBeforeGc, 7))
+        .isEqualTo(Duration.ofSeconds(290));
+  }
+
+  @Test
+  public void testCpuTimeBasedGc_singleplexSeesNoOtherRequests()
+      throws IOException, InterruptedException {
+    PipedOutputStream src = new PipedOutputStream();
+    PipedInputStream dest = new PipedInputStream();
+    Semaphore done = new Semaphore(0);
+    Semaphore finish = new Semaphore(0);
+    List<String> failures = new ArrayList<>();
+
+    StoppableWorkerMessageProcessor messageProcessor =
+        new StoppableWorkerMessageProcessor(
+            new ProtoWorkerMessageProcessor(
+                new PipedInputStream(src), new PipedOutputStream(dest)));
+    WorkRequestHandler handler =
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback((request, err) -> 0),
+                new PrintStream(new ByteArrayOutputStream()),
+                messageProcessor)
+            .build();
+    List<Integer> gcChecks = Collections.synchronizedList(new ArrayList<>());
+    handler.cpuTimeBasedGcCheck = gcChecks::add;
+
+    runRequestHandlerThread(done, handler, finish, failures);
+    WorkRequest.newBuilder().build().writeDelimitedTo(src);
+    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
+    // A singleplex request checks before it leaves activeRequests.
+    while (!handler.activeRequests.isEmpty()) {
+      Thread.sleep(1);
+    }
+    messageProcessor.stop();
+    done.acquire();
+
+    assertThat(response.getRequestId()).isEqualTo(0);
+    assertThat(gcChecks).containsExactly(0);
+    finish.release();
+
+    // Checks that there weren't other unexpected failures.
+    assertThat(failures).isEmpty();
+  }
+
+  @Test
+  public void testCpuTimeBasedGc_countsOtherActiveRequests()
+      throws IOException, InterruptedException {
+    PipedOutputStream src = new PipedOutputStream();
+    PipedInputStream dest = new PipedInputStream();
+    Semaphore done = new Semaphore(0);
+    Semaphore finish = new Semaphore(0);
+    Semaphore firstStarted = new Semaphore(0);
+    Semaphore releaseFirst = new Semaphore(0);
+    Map<Integer, Thread> requestThreads = new ConcurrentHashMap<>();
+    List<String> failures = new ArrayList<>();
+
+    StoppableWorkerMessageProcessor messageProcessor =
+        new StoppableWorkerMessageProcessor(
+            new ProtoWorkerMessageProcessor(
+                new PipedInputStream(src), new PipedOutputStream(dest)));
+    // Request 42 waits until request 43 is done.
+    WorkRequestHandler handler =
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback(
+                    (request, err) -> {
+                      requestThreads.put(request.getRequestId(), Thread.currentThread());
+                      if (request.getRequestId() == 42) {
+                        firstStarted.release();
+                        try {
+                          releaseFirst.acquire();
+                        } catch (InterruptedException e) {
+                          failures.add("Unexpected interrupt waiting for request 43");
+                        }
+                      }
+                      return 0;
+                    }),
+                new PrintStream(new ByteArrayOutputStream()),
+                messageProcessor)
+            .build();
+    List<Integer> gcChecks = Collections.synchronizedList(new ArrayList<>());
+    handler.cpuTimeBasedGcCheck = gcChecks::add;
+
+    runRequestHandlerThread(done, handler, finish, failures);
+    WorkRequest.newBuilder().setRequestId(42).build().writeDelimitedTo(src);
+    firstStarted.acquire();
+    WorkRequest.newBuilder().setRequestId(43).build().writeDelimitedTo(src);
+    WorkResponse response43 = WorkResponse.parseDelimitedFrom(dest);
+    // A multiplex request checks after it leaves activeRequests, so wait for its thread.
+    requestThreads.get(43).join();
+    List<Integer> checksWhile42IsActive = new ArrayList<>(gcChecks);
+    releaseFirst.release();
+    // The response is read only once the thread is done, because the pipe fails reads while its
+    // last writer thread is gone.
+    requestThreads.get(42).join();
+    WorkResponse response42 = WorkResponse.parseDelimitedFrom(dest);
+    messageProcessor.stop();
+    done.acquire();
+
+    assertThat(response43.getRequestId()).isEqualTo(43);
+    assertThat(response42.getRequestId()).isEqualTo(42);
+    assertThat(checksWhile42IsActive).containsExactly(1);
+    assertThat(gcChecks).containsExactly(1, 0).inOrder();
+    finish.release();
+
+    // Checks that there weren't other unexpected failures.
+    assertThat(failures).isEmpty();
+  }
+
+  @Test
+  public void testCpuTimeBasedGc_lastOfRequestsFinishingTogetherSeesNoOthers()
+      throws IOException, InterruptedException {
+    PipedOutputStream src = new PipedOutputStream();
+    PipedInputStream dest = new PipedInputStream();
+    Semaphore done = new Semaphore(0);
+    Semaphore finish = new Semaphore(0);
+    CyclicBarrier bothRunning = new CyclicBarrier(2);
+    CyclicBarrier bothChecking = new CyclicBarrier(2);
+    Map<Integer, Thread> requestThreads = new ConcurrentHashMap<>();
+    List<String> failures = new ArrayList<>();
+
+    StoppableWorkerMessageProcessor messageProcessor =
+        new StoppableWorkerMessageProcessor(
+            new ProtoWorkerMessageProcessor(
+                new PipedInputStream(src), new PipedOutputStream(dest)));
+    // Both requests run at the same time.
+    WorkRequestHandler handler =
+        new WorkRequestHandlerBuilder(
+                new WorkRequestCallback(
+                    (request, err) -> {
+                      requestThreads.put(request.getRequestId(), Thread.currentThread());
+                      try {
+                        bothRunning.await();
+                      } catch (InterruptedException | BrokenBarrierException e) {
+                        failures.add("Unexpected failure waiting for the other request");
+                      }
+                      return 0;
+                    }),
+                new PrintStream(new ByteArrayOutputStream()),
+                messageProcessor)
+            .build();
+    // Each check waits for the other one, so that both requests finish before either checks.
+    List<Integer> gcChecks = Collections.synchronizedList(new ArrayList<>());
+    handler.cpuTimeBasedGcCheck =
+        otherActiveRequests -> {
+          gcChecks.add(otherActiveRequests);
+          try {
+            bothChecking.await();
+          } catch (InterruptedException | BrokenBarrierException e) {
+            failures.add("Unexpected failure waiting for the other check");
+          }
+        };
+
+    runRequestHandlerThread(done, handler, finish, failures);
+    WorkRequest.newBuilder().setRequestId(44).build().writeDelimitedTo(src);
+    WorkRequest.newBuilder().setRequestId(45).build().writeDelimitedTo(src);
+    while (requestThreads.size() < 2) {
+      Thread.sleep(1);
+    }
+    // The responses are read only once both threads are done, because the pipe fails reads while
+    // its last writer thread is gone.
+    requestThreads.get(44).join();
+    requestThreads.get(45).join();
+    WorkResponse first = WorkResponse.parseDelimitedFrom(dest);
+    WorkResponse second = WorkResponse.parseDelimitedFrom(dest);
+    messageProcessor.stop();
+    done.acquire();
+
+    assertThat(List.of(first.getRequestId(), second.getRequestId())).containsExactly(44, 45);
+    // Whatever the order, the last one to leave activeRequests checks with the base threshold.
+    assertThat(gcChecks).hasSize(2);
+    assertThat(gcChecks).contains(0);
+    finish.release();
+
+    // Checks that there weren't other unexpected failures.
+    assertThat(failures).isEmpty();
   }
 
   private void runRequestHandlerThread(
