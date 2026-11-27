@@ -2719,4 +2719,45 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(action.getInputs().toList()).contains(forcedInput);
     assertThat(action.getIncludeScannerSources()).contains(forcedInput);
   }
+
+  /**
+   * ActionExecutionFunction only avoids requesting each discovered input individually if the
+   * discovered inputs contain the scheduling dependencies of the action as a nested set.
+   */
+  @Test
+  public void testDiscoveredInputsWithoutIncludeScanningContainSchedulingDependencies()
+      throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = 'foo',
+            srcs = ['foo.cc'],
+            hdrs = ['foo.h'],
+            deps = [':dep'],
+        )
+        cc_library(
+            name = 'dep',
+            hdrs = ['dep1.h', 'dep2.h'],
+        )
+        """);
+
+    CppCompileAction action = getCppCompileAction("//foo:foo");
+    NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
+    assertThat(artifactsToStrings(schedulingDependencies))
+        .containsAtLeast("src foo/foo.h", "src foo/dep1.h", "src foo/dep2.h");
+    // A flat set would be shallowly equal to a flattened copy of itself.
+    assertThat(schedulingDependencies.getNonLeaves()).isNotEmpty();
+
+    NestedSet<Artifact> discoveredInputs =
+        action.discoverInputs(ActionsTestUtil.createContext(reporter));
+
+    boolean containsSchedulingDependencies = discoveredInputs.shallowEquals(schedulingDependencies);
+    for (NestedSet<Artifact> nonLeaf : discoveredInputs.getNonLeaves()) {
+      containsSchedulingDependencies |= nonLeaf.shallowEquals(schedulingDependencies);
+    }
+    assertThat(containsSchedulingDependencies).isTrue();
+  }
 }

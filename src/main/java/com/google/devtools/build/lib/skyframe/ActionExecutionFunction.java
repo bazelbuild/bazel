@@ -925,7 +925,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * ActionInputMap} is not thread-safe, so mutating it at that point would race with those reads.
    */
   private void addDiscoveredInputs(
-      InputDiscoveryState state, Environment env, Action actionForError, boolean afterExecution)
+      InputDiscoveryState state, Environment env, Action action, boolean afterExecution)
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
@@ -948,6 +948,41 @@ public class ActionExecutionFunction implements SkyFunction {
             ? state.getOrCreateLateDiscoveredInputArtifactData(unknownDiscoveredInputs.size())
             : state.inputArtifactData;
 
+    // Actions such as C++ compilations without include scanning discover all of their scheduling
+    // dependencies. Since the action already depends on them through their ArtifactNestedSetKey,
+    // they are looked up without adding an edge per action and input. Only checking the direct
+    // successors of the discovered inputs keeps this cheap for actions that discover a small
+    // subset of their scheduling dependencies, such as with include scanning.
+    NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
+    boolean containsSchedulingDependencies =
+        !schedulingDependencies.isEmpty()
+            && state.discoveredInputs.shallowEquals(schedulingDependencies);
+    if (!containsSchedulingDependencies && !schedulingDependencies.isEmpty()) {
+      for (NestedSet<Artifact> nonLeaf : state.discoveredInputs.getNonLeaves()) {
+        if (nonLeaf.shallowEquals(schedulingDependencies)) {
+          containsSchedulingDependencies = true;
+          break;
+        }
+      }
+    }
+    if (containsSchedulingDependencies) {
+      for (Artifact input : schedulingDependencies.toList()) {
+        if (state.getKnownDiscoveredInputMetadata(input) == null) {
+          // The value is only missing if the input was rewound and completed with an error after
+          // the nested set was done (see lookupInput). Requesting it below surfaces the error.
+          SkyValue value = lookupIndirectInput(Artifact.key(input));
+          if (value != null) {
+            addDiscoveredInputToMap(inputData, input, value);
+          }
+        }
+      }
+      unknownDiscoveredInputs.removeIf(
+          input -> state.getKnownDiscoveredInputMetadata(input) != null);
+      if (unknownDiscoveredInputs.isEmpty()) {
+        return;
+      }
+    }
+
     SkyframeLookupResult nonMandatoryDiscovered =
         env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
     for (Artifact input : unknownDiscoveredInputs) {
@@ -960,32 +995,36 @@ public class ActionExecutionFunction implements SkyFunction {
           throw new IllegalStateException(
               String.format(
                   "Non-source artifact had SourceArtifactException %s %s",
-                  input.toDebugString(), actionForError.prettyPrint()),
+                  input.toDebugString(), action.prettyPrint()),
               e);
         }
 
-        skyframeActionExecutor.printError(e.getMessage(), actionForError);
+        skyframeActionExecutor.printError(e.getMessage(), action);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
         String message = "discovered input file does not exist";
         DetailedExitCode code = createDetailedExitCodeForMissingDiscoveredInput(message);
-        throw new ActionExecutionException(message, actionForError, false, code);
+        throw new ActionExecutionException(message, action, false, code);
       }
       if (retrievedMetadata == null) {
         checkState(
             env.valuesMissing(),
             "%s had no metadata but all values were present for %s",
             input,
-            actionForError);
+            action);
         continue;
       }
-      if (retrievedMetadata instanceof MissingArtifactValue) {
-        retrievedMetadata = FileArtifactValue.MISSING_FILE_MARKER;
-      }
-      ActionInputMapHelper.addToMap(
-          inputData, input, retrievedMetadata, MetadataConsumerForMetrics.NO_OP);
+      addDiscoveredInputToMap(inputData, input, retrievedMetadata);
     }
+  }
+
+  private static void addDiscoveredInputToMap(
+      ActionInputMap inputData, Artifact input, SkyValue value) {
+    if (value instanceof MissingArtifactValue) {
+      value = FileArtifactValue.MISSING_FILE_MARKER;
+    }
+    ActionInputMapHelper.addToMap(inputData, input, value, MetadataConsumerForMetrics.NO_OP);
   }
 
   private static class CheckInputResults {
@@ -1233,6 +1272,15 @@ public class ActionExecutionFunction implements SkyFunction {
     if (inputDepKeys.contains(key)) {
       return env.getLookupHandleForPreviouslyRequestedDeps().get(key);
     }
+    return lookupIndirectInput(key);
+  }
+
+  /**
+   * Looks up the value of an input that is beneath an already-requested {@link
+   * ArtifactNestedSetKey} that is done, without adding a Skyframe dependency.
+   */
+  @Nullable
+  private SkyValue lookupIndirectInput(SkyKey key) throws InterruptedException {
     NodeEntry entry = evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(key);
     if (entry == null) {
       return null;
