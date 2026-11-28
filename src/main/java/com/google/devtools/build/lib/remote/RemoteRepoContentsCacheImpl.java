@@ -232,6 +232,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       }
       remoteFs.injectUploadedRepo(
           repoName,
+          fetchedRepoDir.asFragment(),
           manifest.getDirectoryTree(result.getOutputDirectories(0).getTreeDigest()),
           markerFileContent);
     } catch (ExecException | IOException e) {
