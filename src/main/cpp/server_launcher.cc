@@ -26,6 +26,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
+#include "src/main/cpp/server_jvm_host.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/errors.h"
@@ -588,7 +589,8 @@ void PrepareDirectories(StartupOptions* startup_options) {
 // Prepares the environment to be suitable to start a JVM.
 // Changes made to the environment in this function *will not* be part
 // of '--client_env'.
-map<string, EnvVarValue> PrepareEnvironmentForJvm() {
+map<string, EnvVarValue> PrepareEnvironmentForJvm(
+    const StartupOptions& startup_options) {
   map<string, EnvVarValue> result;
 
   // Make sure all existing environment variables appear as part of the
@@ -630,8 +632,9 @@ map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // Ensure that the JVM runs with a locale that supports Unicode characters in
   // filenames, environment variables, etc. The approach differs by OS:
   // - On macOS, the JVM always uses UTF-8, so we don't need to do anything.
-  // - On Windows, the JVM uses the system code page to determine the encoding.
-  //   For the embedded JDK, we force this to UTF-8 in minimize_jdk.sh.
+  // - On Windows, the JVM uses the active code page to determine the encoding.
+  //   The JVM runs in a host process whose app manifest sets it to UTF-8 (see
+  //   server_jvm_host.h).
   // - On Linux, the JVM goes through the regular locale mechanism. In
   //   particular, we can only force UTF-8 if we can find a locale that supports
   //   it. Furthermore, for backwards compatibility with setups using other
@@ -651,6 +654,20 @@ map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   if (want_locale != nullptr) {
     result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
   }
+#endif
+
+#if defined(_WIN32)
+  // Pass the javabase to the server JVM host (see GetExe) as a short path, the
+  // same form in which the client passes the path of the host itself.
+  std::wstring short_javabase;
+  string error;
+  if (!blaze_util::AsShortWindowsPath(
+          startup_options.GetServerJavabase().AsNativePath(), &short_javabase,
+          &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
+  }
+  result[kServerJvmHostJavabaseEnvVar] = EnvVarValue(
+      EnvVarAction::SET, blaze_util::WstringToCstring(short_javabase));
 #endif
 
   return result;
@@ -707,7 +724,7 @@ void RunServerMode(const string& install_md5,
                 startup_options.io_nice_level);
 
   {
-    WithEnvVars env_obj(PrepareEnvironmentForJvm());
+    WithEnvVars env_obj(PrepareEnvironmentForJvm(startup_options));
 #ifdef __linux__
     bool run_in_user_cgroup = startup_options.run_in_user_cgroup;
 #else

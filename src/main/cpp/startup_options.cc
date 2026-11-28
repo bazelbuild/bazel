@@ -28,6 +28,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/jvm_module_options.h"
+#include "src/main/cpp/server_jvm_host.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -629,7 +630,11 @@ blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
 
 blaze_util::Path StartupOptions::GetExe(const blaze_util::Path& jvm,
                                         const string& jar_path) const {
+#if defined(_WIN32)
+  return install_base.GetRelative(kServerJvmHostPath);
+#else
   return jvm;
+#endif
 }
 
 void StartupOptions::AddJVMArgumentPrefix(const blaze_util::Path& javabase,

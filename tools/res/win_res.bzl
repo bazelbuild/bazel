@@ -40,6 +40,8 @@ def _compile_rc(ctx, rc_exe, rc_file, extra_inputs):
 def _windows_resources_impl(ctx):
     rc_toolchain = ctx.toolchains[WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE].win_rc_info
     if not rc_toolchain.rc_exe:
+        if ctx.attr.required:
+            fail("No Windows resource compiler toolchain is available to compile the resources of %s." % ctx.label)
         return [CcInfo()]
 
     compiled_resources = [
@@ -71,6 +73,9 @@ windows_resources = rule(
         "resources": attr.label_list(
             allow_files = True,
             doc = "Additional input files that RC files reference, if any.",
+        ),
+        "required": attr.bool(
+            doc = "Whether to fail if no resource compiler is available. Otherwise, the resources are omitted.",
         ),
     },
     fragments = ["cpp"],

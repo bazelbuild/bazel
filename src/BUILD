@@ -45,7 +45,9 @@ sh_binary(
         "//tools/osx:xcode-locator",
         "//:platforms-srcs",
     ] + select({
-        "//src/conditions:windows": [],
+        "//src/conditions:windows": [
+            "//src/main/cpp:server_jvm_host_tar",
+        ],
         "//conditions:default": [
             "//src/main/tools:daemonize",
         ],
@@ -178,20 +180,6 @@ copy_file(
     allow_symlink = True,
 )
 
-# Reads the app manifest of a Windows executable.
-cc_binary(
-    name = "read_manifest",
-    srcs = ["read_manifest.cc"],
-    linkopts = select({
-        # MinGW requires -municode when using wmain.
-        "//src/conditions:windows_gcc_like": ["-municode"],
-        "//conditions:default": [],
-    }),
-    tags = ["manual"],
-    target_compatible_with = ["@platforms//os:windows"],
-    visibility = ["//src/java_tools:__subpackages__"],
-)
-
 # Updates the app manifest of a Windows executable, no-op on other hosts.
 cc_binary(
     name = "write_manifest",
@@ -208,16 +196,6 @@ cc_binary(
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
-    data = select({
-        "@platforms//os:windows": [
-            ":read_manifest",
-            ":write_manifest",
-        ],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@bazel_tools//tools/bash/runfiles",
-    ],
 )
 
 # The jlink tool must have the same build as the target JDK. When cross-jlinking
@@ -314,7 +292,9 @@ genrule(
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
     ] + select({
-        "//src/conditions:windows": [],
+        "//src/conditions:windows": [
+            "//src/main/cpp:server_jvm_host_tar",
+        ],
         "//conditions:default": [
             "//src/main/tools:daemonize",
         ],
