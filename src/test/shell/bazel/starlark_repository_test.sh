@@ -2497,6 +2497,81 @@ EOF
   expect_log "I see: @@bar+//:data"
 }
 
+function test_repo_mapping_change_in_rule_impl_from_other_module() {
+  # same as above, but the repo rule is defined in a module whose repo mapping
+  # changes while the main repo mapping stays the same
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("@foo//:r.bzl", "r")
+r(name = "r")
+bazel_dep(name="foo")
+local_path_override(module_name="foo", path="foo")
+local_path_override(module_name="bar", path="bar")
+local_path_override(module_name="baz", path="baz")
+EOF
+  touch BUILD
+  mkdir foo
+  touch foo/BUILD
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+bazel_dep(name="bar", repo_name="data")
+bazel_dep(name="baz")
+EOF
+  cat > foo/r.bzl <<EOF
+def _r(rctx):
+  print("I see: " + str(Label("@data")))
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+  mkdir bar
+  cat > bar/MODULE.bazel <<EOF
+module(name="bar")
+EOF
+  mkdir baz
+  cat > baz/MODULE.bazel <<EOF
+module(name="baz")
+EOF
+
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@bar+//:data"
+
+  cat > foo/MODULE.bazel <<EOF
+module(name="foo")
+bazel_dep(name="bar")
+bazel_dep(name="baz", repo_name="data")
+EOF
+  # for the repo `r`, nothing except the repo mapping of @foo has changed.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: @@baz+//:data"
+}
+
+function test_local_repo_not_refetched_on_unrelated_change() {
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r", value = "unchanged")
+r(name = "s", value = "old")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  print("Fetching " + rctx.attr.value)
+  rctx.file("BUILD", "filegroup(name='f')")
+r=repository_rule(_r, attrs={"value": attr.string()}, local=True)
+EOF
+
+  bazel build @r//:f @s//:f >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "Fetching unchanged"
+  expect_log "Fetching old"
+
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r", value = "unchanged")
+r(name = "s", value = "new")
+EOF
+  bazel build @r//:f @s//:f >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "Fetching unchanged"
+  expect_log "Fetching new"
+}
+
 function test_file_watching_inside_working_dir() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it.
