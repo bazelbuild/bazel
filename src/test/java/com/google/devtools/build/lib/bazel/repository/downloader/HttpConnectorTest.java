@@ -42,6 +42,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.InetAddress;
+import java.net.Proxy;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -182,6 +183,38 @@ public class HttpConnectorTest {
     assertThat(headers).containsEntry("x-method", ImmutableList.of("GET"));
     assertThat(headers).containsEntry("x-request-uri", ImmutableList.of("/boo"));
     assertThat(headers).containsEntry("content-encoding", ImmutableList.of("gzip"));
+  }
+
+  @Test
+  public void httpsThroughProxy_sendsCredentialsWithConnect() throws Exception {
+    final Map<String, List<String>> headers = new ConcurrentHashMap<>();
+    try (ServerSocket proxy = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      when(proxyHelper.createProxyIfNeeded(any(URI.class)))
+          .thenReturn(
+              new ProxyInfo(
+                  new Proxy(Proxy.Type.HTTP, proxy.getLocalSocketAddress()), "user", "secret"));
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = proxy.accept()) {
+                  readHttpRequest(socket.getInputStream(), headers);
+                  sendLines(socket, "HTTP/1.1 404 Not Found", "Content-Length: 0", "", "");
+                }
+                return null;
+              });
+      assertThrows(
+          IOException.class,
+          () ->
+              connector.connect(
+                  URI.create("https://bazel.invalid/boo"),
+                  url -> ImmutableMap.of("Authorization", ImmutableList.of("Bearer token"))));
+    }
+    assertThat(headers).containsEntry("x-method", ImmutableList.of("CONNECT"));
+    assertThat(headers).containsEntry("x-request-uri", ImmutableList.of("bazel.invalid:443"));
+    assertThat(headers)
+        .containsEntry("proxy-authorization", ImmutableList.of("Basic dXNlcjpzZWNyZXQ="));
+    assertThat(headers).doesNotContainKey("authorization");
   }
 
   @Test
@@ -383,12 +416,12 @@ public class HttpConnectorTest {
               ISO_8859_1)) {
         fail("Should have thrown");
       } catch (IOException expected) {
-        if (expected.getCause() != null) {
+        if (expected.getCause() instanceof SocketTimeoutException) {
           // SocketTimeoutException gets wrapped in an IOException and rethrown.
           assertThat(expected).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
           assertThat(expected).hasCauseThat().hasMessageThat().ignoringCase().contains("timed out");
         } else {
-          // For windows, it is possible that the thrown exception is a ConnectException (no cause)
+          // It is possible that the thrown exception is a ConnectException
           // from {@code HttpURLConnection.connect()} rather than a SocketTimeoutException from
           // {@code HttpURLConnection.getResponseCode()}. In the former case, we expect the
           // SocketTimeoutException to have already occurred but gets suppressed within the final
@@ -538,7 +571,7 @@ public class HttpConnectorTest {
                 }
               });
       thrown.expect(IOException.class);
-      thrown.expectMessage("500 Oh My");
+      thrown.expectMessage("500 Internal Server Error");
       try {
         var unused =
             connector.connect(
