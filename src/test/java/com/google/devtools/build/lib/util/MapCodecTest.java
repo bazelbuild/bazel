@@ -21,10 +21,13 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -143,6 +146,33 @@ public final class MapCodecTest {
   }
 
   @Test
+  public void createReader_fileLargerThanByteArray() throws IOException {
+    LargeFileSystem largeFs = new LargeFileSystem();
+    Path path = largeFs.getPath("/large");
+    writeByteContents(
+        path, "00000000 20071105 00000000 00000042 fe 12345678 01 87654321 fe 00abcdef 00");
+
+    try (var in = TEST_CODEC.createReader(path, 0x42)) {
+      assertThat(in.readEntry()).isEqualTo(new MapCodec.Entry<>(0x12345678, 0x87654321));
+      assertThat(in.readEntry()).isEqualTo(new MapCodec.Entry<>(0xabcdef, null));
+      assertThat(in.readEntry()).isNull();
+      assertThat(largeFs.streamClosed).isFalse();
+    }
+    assertThat(largeFs.streamClosed).isTrue();
+  }
+
+  @Test
+  public void createReader_largeFileBadHeaderClosesStream() throws IOException {
+    LargeFileSystem largeFs = new LargeFileSystem();
+    Path path = largeFs.getPath("/large");
+    writeByteContents(path, "00000000 12345678 00000000 00000042");
+
+    IOException e = assertThrows(IOException.class, () -> TEST_CODEC.createReader(path, 0x42));
+    assertThat(e).hasMessageThat().contains("Bad magic number");
+    assertThat(largeFs.streamClosed).isTrue();
+  }
+
+  @Test
   public void createReader_missingFile() throws IOException {
     IOException e = assertThrows(IOException.class, () -> TEST_CODEC.createReader(testPath, 0x42));
     assertThat(e).hasMessageThat().contains("No such file or directory");
@@ -174,6 +204,41 @@ public final class MapCodecTest {
       assertThat(in.readEntry()).isEqualTo(new MapCodec.Entry<>(0x12345678, 0x87654321));
       IOException e = assertThrows(IOException.class, in::readEntry);
       assertThat(e).hasMessageThat().contains("Corrupted entry");
+    }
+  }
+
+  private static final class LargeFileSystem extends InMemoryFileSystem {
+    private boolean streamClosed;
+
+    LargeFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public long getFileSize(PathFragment path, boolean followSymlinks) {
+      return 1L << 31;
+    }
+
+    @Override
+    public InputStream getInputStream(PathFragment path) throws IOException {
+      return new FilterInputStream(super.getInputStream(path)) {
+        @Override
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+          // End the first buffered read at the header, with more records still unread.
+          return super.read(bytes, offset, Math.min(length, 16));
+        }
+
+        @Override
+        public int available() {
+          return 0;
+        }
+
+        @Override
+        public void close() throws IOException {
+          streamClosed = true;
+          super.close();
+        }
+      };
     }
   }
 
