@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,18 +33,21 @@ import java.util.List;
  *
  * @param fixups Buildozer fixups for incorrect use_repo declarations by the root module.
  * @param buildozer The path of the buildozer binary provided by the "buildozer" module.
+ * @param buildozerRepo The repository containing the buildozer binary.
  * @param moduleFilePaths The set of paths to the root MODULE.bazel file and all its includes.
  * @param errors Errors encountered while evaluating prerequisites for {@code bazel mod tidy}.
  */
 public record BazelModTidyValue(
     ImmutableList<RootModuleFileFixup> fixups,
     Path buildozer,
+    RepositoryName buildozerRepo,
     ImmutableSet<PathFragment> moduleFilePaths,
     ImmutableList<ExternalDepsException> errors)
     implements SkyValue {
   public BazelModTidyValue {
     requireNonNull(fixups, "fixups");
     requireNonNull(buildozer, "buildozer");
+    requireNonNull(buildozerRepo, "buildozerRepo");
     requireNonNull(moduleFilePaths, "moduleFilePaths");
     requireNonNull(errors, "errors");
   }
@@ -53,8 +57,10 @@ public record BazelModTidyValue(
   static BazelModTidyValue create(
       List<RootModuleFileFixup> fixups,
       Path buildozer,
+      RepositoryName buildozerRepo,
       ImmutableSet<PathFragment> moduleFilePaths,
       ImmutableList<ExternalDepsException> errors) {
-    return new BazelModTidyValue(ImmutableList.copyOf(fixups), buildozer, moduleFilePaths, errors);
+    return new BazelModTidyValue(
+        ImmutableList.copyOf(fixups), buildozer, buildozerRepo, moduleFilePaths, errors);
   }
 }
