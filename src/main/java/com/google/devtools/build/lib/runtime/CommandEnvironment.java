@@ -104,7 +104,9 @@ import javax.annotation.concurrent.GuardedBy;
  */
 public class CommandEnvironment {
   private static final ImmutableSet<String> ALWAYS_INHERITED_REPO_ENV =
-      OS.getCurrent() == OS.WINDOWS ? ImmutableSet.of("PATH", "PATHEXT") : ImmutableSet.of("PATH");
+      OS.getCurrent() == OS.WINDOWS
+          ? ImmutableSet.of("PATH", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT")
+          : ImmutableSet.of("PATH");
 
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
@@ -1005,7 +1007,7 @@ public class CommandEnvironment {
    * <ul>
    *   <li>the client environment as the base;
    *   <li>if {@code --experimental_strict_repo_env} is set, only the variables {@code PATH} and, on
-   *       Windows only, {@code PATHEXT} are kept;
+   *       Windows only, {@code PATHEXT}, {@code SYSTEMDRIVE} and {@code SYSTEMROOT} are kept;
    *   <li>if {@code --noincompatible_repo_env_ignores_action_env} is set, {@code --action_env} is
    *       applied on top of that;
    *   <li>finally, {@code --repo_env} is applied on top of that.

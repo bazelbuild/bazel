@@ -79,6 +79,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * A file system that overlays the native file system with a {@link RemoteExternalFileSystem} for
@@ -391,7 +392,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
-  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  public void ensureMaterialized(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system.
@@ -410,15 +412,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
                   }
                   return materializationExecutor.submit(
                       () -> {
-                        doMaterialize(repo, reporter);
+                        doMaterialize(repo, location, reporter);
                         return null;
                       });
                 }));
   }
 
-  private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
+  private void doMaterialize(
+      RepositoryName repo, @Nullable Location location, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
+    reporter.handle(Event.debug(location, "Materializing remote repo %s".formatted(repo)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
     materializedRepos.add(repo.getName());
 
@@ -554,9 +557,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // .bzl files are typically small and the loads between them can form complex DAGs that can only
     // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
     // cache requests.
-    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
-    // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // The REPO.bazel and .bazelignore files, if present, are dependencies of any package and will
+    // thus have to be fetched anyway. Prefetching them also ensures that their loss from the remote
+    // cache results in a cache miss rather than a build failure.
+    return path.getFileExtension().equals("bzl")
+        || path.getBaseName().equals("REPO.bazel")
+        || path.getBaseName().equals(".bazelignore");
   }
 
   @Override
