@@ -3390,6 +3390,31 @@ class RemoteRepoContentsCacheTest(
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self._assertVendored(canonical_repo_name)
 
+  def testModTidy_cachedBuildozer(self):
+    module_file = ['module(  name = "foo", version = "1.2.3")']
+    self.ScratchFile('MODULE.bazel', module_file)
+
+    # First run: buildozer is fetched and added to the cache
+    self.RunBazel(['mod', 'tidy'])
+
+    # After expunging: buildozer is cached, but it is run from disk
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('MODULE.bazel', module_file)
+    self.RunBazel(['mod', 'tidy'])
+
+    with open(self.Path('MODULE.bazel'), 'r') as f:
+      self.assertEqual(
+          [
+              'module(',
+              '    name = "foo",',
+              '    version = "1.2.3",',
+              ')',
+              # This newline is from ScratchFile.
+              '',
+          ],
+          f.read().split('\n'),
+      )
+
   def testReadOrTemplateOfLabelDoesNotMaterializeRepo(self):
     self.ScratchFile(
         'MODULE.bazel',

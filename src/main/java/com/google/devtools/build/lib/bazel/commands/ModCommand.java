@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -730,6 +732,30 @@ public final class ModCommand implements BlazeCommand {
         buildozerInput.append(command).append('|');
       }
       buildozerInput.append("format\n");
+    }
+
+    if (modTidyValue.buildozer().getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+      // A repo retrieved from the remote repo contents cache may not be on disk yet, but buildozer
+      // is executed directly rather than read through Bazel's file system.
+      try {
+        lazyMaterializer.ensureMaterialized(modTidyValue.buildozerRepo(), "bazel mod tidy");
+      } catch (InterruptedException e) {
+        String errorMessage = "mod command interrupted: " + e.getMessage();
+        env.getReporter().handle(Event.error(errorMessage));
+        return BlazeCommandResult.detailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(errorMessage));
+      } catch (IOException e) {
+        String message =
+            "Failed to materialize remote repo %s: %s"
+                .formatted(modTidyValue.buildozerRepo(), e.getMessage());
+        if (e instanceof DetailedException detailed) {
+          // Keep the failure's own exit code, e.g. so that the command is retried when a file of
+          // the repo has been evicted from the remote cache.
+          env.getReporter().handle(Event.error(message));
+          return BlazeCommandResult.detailedExitCode(detailed.getDetailedExitCode());
+        }
+        return reportAndCreateFailureResult(env, message, Code.BUILDOZER_FAILED);
+      }
     }
 
     try (var stdin = CharSource.wrap(buildozerInput).asByteSource(ISO_8859_1).openStream()) {
