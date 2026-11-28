@@ -81,6 +81,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
@@ -124,8 +125,8 @@ public class BuildEventStreamer {
   @GuardedBy("this")
   private final Set<BuildEventId> postedEvents = CompactHashSet.create();
 
-  @GuardedBy("this")
-  private final Set<BuildEventId> configurationsPosted = new HashSet<>();
+  /** Added to only under the lock, with the configuration posted before the lock is released. */
+  private final Set<BuildEventId> configurationsPosted = ConcurrentHashMap.newKeySet();
 
   @GuardedBy("this")
   @Nullable
@@ -331,12 +332,36 @@ public class BuildEventStreamer {
    * <p>Moreover, link unannounced events to the progress stream; we only expect failure events to
    * come before their parents.
    */
+  private void post(BuildEvent event) {
+    // Not under the lock: an event builds its id and those of its children each time it is asked,
+    // from strings it interns, and every thread that reports an event waits for this lock.
+    BuildEventId id = event.getEventId();
+    Collection<BuildEventId> children = event.getChildrenEvents();
+    synchronized (this) {
+      post(event, id, children);
+    }
+  }
+
+  /**
+   * Posts an event and returns the events that were waiting for it, which the caller is to
+   * reconsider: in one go, because a build with a million top-level targets reports several
+   * million events, from hundreds of threads, and each wait for the lock is a turn in that queue.
+   */
+  private Set<BuildEvent> postAndTakeBlocked(BuildEvent event) {
+    BuildEventId id = event.getEventId();
+    Collection<BuildEventId> children = event.getChildrenEvents();
+    synchronized (this) {
+      post(event, id, children);
+      return pendingEvents.removeAll(id);
+    }
+  }
+
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
   // will be running under the synchronized block.
   @SuppressWarnings("GuardedBy")
-  private synchronized void post(BuildEvent event) {
+  private synchronized void post(
+      BuildEvent event, BuildEventId id, Collection<BuildEventId> children) {
     List<BuildEvent> linkEvents = null;
-    BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
     boolean lastEvent = false;
 
@@ -347,8 +372,8 @@ public class BuildEventStreamer {
       // that the set of posted events is always a subset of the set of announced events.
       maybeRegisterAnnouncedEvent(id);
       if (!id.equals(ProgressEvent.INITIAL_PROGRESS_UPDATE)
-          && !event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
-        BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
+          && !children.contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
+        BuildEvent progress = ProgressEvent.progressChainIn(progressCount, id);
         linkEvents = ImmutableList.of(progress);
         progressCount++;
         maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
@@ -395,7 +420,7 @@ public class BuildEventStreamer {
 
     recordPosted(id);
     frontierEvents.remove(id);
-    maybeRegisterAnnouncedEvents(event.getChildrenEvents());
+    maybeRegisterAnnouncedEvents(children);
     if (frontierEvents.isEmpty()) {
       lastEvent = true;
     }
@@ -607,6 +632,12 @@ public class BuildEventStreamer {
   private void maybeReportConfiguration(@Nullable BuildEvent configuration) {
     BuildEvent event = configuration == null ? NullConfiguration.INSTANCE : configuration;
     BuildEventId id = event.getEventId();
+    // Nearly every event names a configuration and nearly every one has been reported. One that
+    // is found here is in the stream or is being put there by a thread that holds the lock, which
+    // the caller's own event has to take before it can follow.
+    if (configurationsPosted.contains(id)) {
+      return;
+    }
     synchronized (this) {
       if (configurationsPosted.add(id)) {
         post(event);
@@ -736,16 +767,15 @@ public class BuildEventStreamer {
       clearMissingStartEvent(event.getEventId());
     }
 
-    if (event instanceof BuildConfigurationEvent) {
-      maybeReportConfiguration(event);
-    } else {
-      post(event);
-    }
-
     // Reconsider all events blocked by the event just posted.
     Set<BuildEvent> blockedEventsFifo;
-    synchronized (this) {
-      blockedEventsFifo = pendingEvents.removeAll(event.getEventId());
+    if (event instanceof BuildConfigurationEvent) {
+      maybeReportConfiguration(event);
+      synchronized (this) {
+        blockedEventsFifo = pendingEvents.removeAll(event.getEventId());
+      }
+    } else {
+      blockedEventsFifo = postAndTakeBlocked(event);
     }
     for (BuildEvent freedEvent : blockedEventsFifo) {
       // Replaceable events have been replaced, so can be silently dropped.
@@ -1062,7 +1092,9 @@ public class BuildEventStreamer {
   }
 
   @Nullable
-  private synchronized RetentionDecision decideBufferedForReplacementEvent(BuildEvent event) {
+  private RetentionDecision decideBufferedForReplacementEvent(BuildEvent event) {
+    // Asked of every event, and all but a few are not replaceable: no reason to wait for the lock
+    // to find that out.
     if (!(event instanceof ReplaceableBuildEvent replaceableBuiltEvent)) {
       return null;
     }
@@ -1070,11 +1102,12 @@ public class BuildEventStreamer {
       // The event's class is replaceable but this instance isn't. Treat it normally.
       return RetentionDecision.POST;
     }
-    if (isPosted(event.getEventId())) {
-      // This event type has already been posted, so the replaceable event is outdated.
-      return RetentionDecision.DISCARD;
-    }
+    BuildEventId id = event.getEventId();
     synchronized (this) {
+      if (isPosted(id)) {
+        // This event type has already been posted, so the replaceable event is outdated.
+        return RetentionDecision.DISCARD;
+      }
       Verify.verify(
           pendingEvents.get(event.getEventId()).stream()
               .filter(e -> e instanceof ReplaceableBuildEvent)
@@ -1087,15 +1120,21 @@ public class BuildEventStreamer {
     return RetentionDecision.BUFFERED_FOR_REPLACEMENT;
   }
 
-  private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
+  private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
     if (!(event instanceof BuildEventWithOrderConstraint buildEventWithOrderConstraint)) {
       return false;
     }
+    Collection<BuildEventId> prerequisiteIds = buildEventWithOrderConstraint.postedAfter();
+    if (prerequisiteIds.isEmpty()) {
+      return false;
+    }
     // Check if all prerequisite events are posted already.
-    for (BuildEventId prerequisiteId : buildEventWithOrderConstraint.postedAfter()) {
-      if (!isPosted(prerequisiteId)) {
-        pendingEvents.put(prerequisiteId, event);
-        return true;
+    synchronized (this) {
+      for (BuildEventId prerequisiteId : prerequisiteIds) {
+        if (!isPosted(prerequisiteId)) {
+          pendingEvents.put(prerequisiteId, event);
+          return true;
+        }
       }
     }
     return false;
