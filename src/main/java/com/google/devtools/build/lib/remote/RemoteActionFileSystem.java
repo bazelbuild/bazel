@@ -331,6 +331,14 @@ public class RemoteActionFileSystem extends FileSystem {
     remoteOutputTree.injectFile(path, metadata);
   }
 
+  void injectRemoteSymlink(PathFragment path, PathFragment target) throws IOException {
+    if (!isOutput(path)) {
+      return;
+    }
+    remoteOutputTree.createDirectoryAndParents(path.getParentDirectory());
+    remoteOutputTree.getPath(path).createSymbolicLink(target);
+  }
+
   @Override
   public String getFileSystemType(PathFragment path) {
     return "remoteActionFS";

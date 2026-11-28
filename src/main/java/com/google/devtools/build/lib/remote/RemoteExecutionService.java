@@ -1001,20 +1001,51 @@ public class RemoteExecutionService {
     }
   }
 
+  private void checkSymlinkInExecRoot(SymlinkMetadata symlink) throws IOException {
+    // Ensure the symlink is materialized inside the exec root. The local path is derived from an
+    // ActionResult output symlink path via execRoot.getRelative(...), which returns an absolute
+    // path verbatim, so without this check an absolute (or otherwise escaping) symlink path would
+    // be created outside the output tree. Output files already enforce containment via
+    // file.path.relativeTo(execRoot) in downloadOutputs(); apply the same guarantee to output
+    // symlinks (including tree-nested symlinks, which also flow through here).
+    if (!symlink.path().startsWith(execRoot)) {
+      throw new IOException(
+          String.format(
+              "Failed to create symlink %s: the output path escapes the output tree %s",
+              symlink.path(), execRoot));
+    }
+  }
+
+  /**
+   * Creates the symlinks whose targets exist on disk, possibly through other symlinks among them,
+   * and returns the others.
+   */
+  private List<SymlinkMetadata> createSymlinksWithExistingTargets(List<SymlinkMetadata> symlinks)
+      throws IOException {
+    List<SymlinkMetadata> remaining = symlinks;
+    while (!remaining.isEmpty()) {
+      List<SymlinkMetadata> resolvable = new ArrayList<>();
+      List<SymlinkMetadata> unresolvable = new ArrayList<>();
+      for (SymlinkMetadata symlink : remaining) {
+        if (symlink.path().getParentDirectory().getRelative(symlink.target()).exists()) {
+          resolvable.add(symlink);
+        } else {
+          unresolvable.add(symlink);
+        }
+      }
+      if (resolvable.isEmpty()) {
+        break;
+      }
+      // Creating these may make the targets of the others exist.
+      createSymlinks(resolvable);
+      remaining = unresolvable;
+    }
+    return remaining;
+  }
+
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
-      // Ensure the symlink is materialized inside the exec root. The local path is derived from an
-      // ActionResult output symlink path via execRoot.getRelative(...), which returns an absolute
-      // path verbatim, so without this check an absolute (or otherwise escaping) symlink path would
-      // be created outside the output tree. Output files already enforce containment via
-      // file.path.relativeTo(execRoot) in downloadOutputs(); apply the same guarantee to output
-      // symlinks (including tree-nested symlinks, which also flow through here).
-      if (!symlink.path().startsWith(execRoot)) {
-        throw new IOException(
-            String.format(
-                "Failed to create symlink %s: the output path escapes the output tree %s",
-                symlink.path(), execRoot));
-      }
+      checkSymlinkInExecRoot(symlink);
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
@@ -1512,12 +1543,29 @@ public class RemoteExecutionService {
       }
     }
 
-    Iterable<SymlinkMetadata> symlinks =
-        Iterables.concat(metadata.symlinks(), symlinksInDirectories);
-
     // Create the symbolic links after all downloads are finished, because dangling symlinks
     // might not be supported on all platforms.
-    createSymlinks(symlinks);
+    if (remoteActionFileSystem == null) {
+      createSymlinks(Iterables.concat(metadata.symlinks(), symlinksInDirectories));
+    } else {
+      createSymlinks(metadata.symlinks());
+      // A symlink in an output directory whose target wasn't downloaded would dangle on disk and
+      // make the directory look modified on the next build, so it's only kept in the action
+      // filesystem, just like its target.
+      List<SymlinkMetadata> notCreated = createSymlinksWithExistingTargets(symlinksInDirectories);
+      for (SymlinkMetadata symlink : notCreated) {
+        checkSymlinkInExecRoot(symlink);
+        remoteActionFileSystem.injectRemoteSymlink(symlink.path().asFragment(), symlink.target());
+      }
+      // Symlinks that dangle in the action filesystem as well are still created on disk.
+      List<SymlinkMetadata> dangling = new ArrayList<>();
+      for (SymlinkMetadata symlink : notCreated) {
+        if (!remoteActionFileSystem.getPath(symlink.path().asFragment()).exists()) {
+          dangling.add(symlink);
+        }
+      }
+      createSymlinks(dangling);
+    }
 
     if (result.success()) {
       // Check that all mandatory outputs are created.
