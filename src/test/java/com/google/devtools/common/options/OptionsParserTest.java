@@ -1565,6 +1565,19 @@ public final class OptionsParserTest {
   }
 
   @Test
+  public void noWarningForTwoConflictingExpansionOptionsFromDifferentPriorities()
+      throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExpansionWarningOptions.class).build();
+    parser.parse(OptionPriority.PriorityCategory.RC_FILE, null, ImmutableList.of("--first"));
+    parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--second"));
+
+    assertThat(parser.getOptions(ExpansionWarningOptions.class).getUnderlying())
+        .isEqualTo("expandedFromSecond");
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
   public void noWarningForTwoConflictingExpansionOptionsFromRcFile() throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(ExpansionWarningOptions.class).build();
