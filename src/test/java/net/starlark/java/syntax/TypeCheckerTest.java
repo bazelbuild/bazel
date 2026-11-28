@@ -2630,6 +2630,26 @@ public final class TypeCheckerTest {
   }
 
   @Test
+  public void load_statement_referencedInFunctions() throws Exception {
+    loader = importName -> TestUtils.LoadableModule.of("x", Types.union(Types.INT, Types.STR));
+    assertInvalid(
+        ":3:12: f() declares return type 'int' but may return 'int | str'",
+        """
+        load("//x:x.bzl", "x")
+        def f() -> int:
+            return x
+        """);
+    assertInvalid(
+        ":4:16: g() declares return type 'int' but may return 'int | str'",
+        """
+        load("//x:x.bzl", "x")
+        def f():
+            def g() -> int:
+                return x
+        """);
+  }
+
+  @Test
   public void typeAlias_bidirectionallyAssignableToFullyWrittenType() throws Exception {
     assertValid(
         """
