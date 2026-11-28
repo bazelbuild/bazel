@@ -264,6 +264,16 @@ public class RemoteActionFileSystem extends FileSystem {
               public PathFragment readSymbolicLink(PathFragment path) throws IOException {
                 return readSymbolicLinkInternal(path);
               }
+
+              @Override
+              public boolean existsDespiteMissingAncestor(PathFragment path) throws IOException {
+                // The metadata of a remote input can come from an action cache hit, which doesn't
+                // recreate its parent directories. Since they don't exist in any of the sources,
+                // the remote output tree can't contain the path, only the inputs can.
+                FileStatus stat =
+                    statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+                return stat != null && !stat.isSymbolicLink();
+              }
             });
   }
 
@@ -362,7 +372,13 @@ public class RemoteActionFileSystem extends FileSystem {
   private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
     PathFragment parentPath = path.getParentDirectory();
     if (parentPath != null) {
-      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+      try {
+        return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+      } catch (FileNotFoundException e) {
+        // The parent of an action input doesn't have to exist, which only the full path can show.
+        // This fails in the same way if it's missing for any other reason.
+        return resolveSymbolicLinks(path).asFragment();
+      }
     }
     return path;
   }
@@ -673,10 +689,7 @@ public class RemoteActionFileSystem extends FileSystem {
       if (followMode == FollowMode.FOLLOW_ALL) {
         path = resolveSymbolicLinks(path).asFragment();
       } else if (followMode == FollowMode.FOLLOW_PARENT) {
-        PathFragment parent = path.getParentDirectory();
-        if (parent != null) {
-          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
-        }
+        path = resolveSymbolicLinksForParent(path);
       }
     } catch (FileNotFoundException e) {
       return null;
