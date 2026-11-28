@@ -1419,6 +1419,17 @@ sh_test(
 )
 
 sh_test(
+    name = "test_setup_test",
+    srcs = ["test_setup_test.sh"],
+    data = [
+        "//src/test/shell:bashunit",
+        "//tools/test:test_setup",
+    ],
+    tags = ["no_windows"],  # test-setup.sh is not used on Windows
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "windows_arg_esc_test",
     srcs = ["windows_arg_esc_test.sh"],
     data = [":test-deps"],
